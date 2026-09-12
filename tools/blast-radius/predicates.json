@@ -150,6 +150,6 @@
       "description": "a one-element array literal whose only element is an `Array`/`Uint8Array` allocation, optionally `.fill`ed -- the shape that lowers to the same LIR node as the allocation itself" },
     { "id": "R-67", "kind": "countable",
       "matcher": "fillValueReevaluated",
-      "description": "a `.fill(v)` member call with exactly one argument, whose value codegen re-emits once per element" }
+      "description": "a `.fill(v)` member call with exactly one argument, regardless of receiver -- upper bound, since acorn cannot see whether the receiver is a proven array, which `array_fill_call_parts` requires before routing to the loop that actually re-emits the value; a `.fill(v)` on a user class or plain object with its own `fill` method is counted without ever reaching that loop" }
   ]
 }

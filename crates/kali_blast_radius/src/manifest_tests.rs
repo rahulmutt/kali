@@ -408,18 +408,46 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// (raw 0 / reachable 0 over the frozen corpus, `unsampled` — no anchor or
 /// extension program contains this shape, matching the spec's own zero-hit
 /// `grep`) and `fillValueReevaluated` (raw 12 / reachable 7, anchor 7/7,
-/// extension 5/0). Neither has an `UPPER_BOUNDS` note: both matchers count
-/// exactly the construct their entry names. No other matcher body changed;
-/// `isArrayAllocation` (R-64's helper) is called unchanged by
-/// `oneElementLiteralOfAllocation`, exactly as R-64's own re-freeze paragraph
-/// anticipated when it named this matcher as one of the two sibling
-/// consumers.
+/// extension 5/0). `oneElementLiteralOfAllocation` needs no `UPPER_BOUNDS`
+/// note: it counts exactly the construct R-66 names. **This paragraph
+/// originally claimed `fillValueReevaluated` needed none either; that claim
+/// was wrong and is corrected in the next movement below.** No other matcher
+/// body changed in this movement; `isArrayAllocation` (R-64's helper) is
+/// called unchanged by `oneElementLiteralOfAllocation`, exactly as R-64's own
+/// re-freeze paragraph anticipated when it named this matcher as one of the
+/// two sibling consumers.
 ///
 /// `counts.json` **was** regenerated (`accepts.json` did not move — no
 /// compiler code changed in this task either), and the only changes are
 /// R-66's and R-67's own new records. No other entry's figures moved.
+///
+/// **Re-frozen 2026-09-12**, the eleventh movement of these constants, a
+/// correction to the tenth: code review found that `fillValueReevaluated`
+/// over-counts and that fact was undisclosed. The matcher counts every
+/// `.fill(v)` member call with exactly one argument regardless of receiver,
+/// but the codegen bug R-67 names only fires when the receiver is a proven
+/// array -- `array_fill_call_parts` (`crates/kali_codegen/src/emit/call.rs`)
+/// returns `None` unless the receiver is a proven array allocation or a
+/// tracked array binding, and only a receiver that passes routes to
+/// `emit_array_fill`'s loop, which is what actually re-emits the value. A
+/// `.fill(v)` on a user class or plain object with its own `fill` method is
+/// syntactically identical to acorn and is counted, but does not exhibit the
+/// defect. **The ruling: disclose the over-count in `count.mjs`'s
+/// `UPPER_BOUNDS`, matching R-08/R-16/R-26/R-57/R-58/R-64/R-65's own
+/// convention for a fact an acorn AST cannot see; do NOT narrow the matcher**
+/// -- narrowing to a proven-array receiver would trade a disclosed over-count
+/// for an undisclosed under-count of array bindings acorn cannot prove, which
+/// is worse for a number that feeds the ranking. `predicates.json`'s R-67
+/// description now states the upper bound explicitly instead of asserting
+/// unconditionally that the matcher's construct is what codegen re-emits, and
+/// **`matchers.mjs` did NOT move** -- only `predicates.json`'s prose changed,
+/// so `FROZEN_MATCHERS_SHA256` is unchanged from the tenth movement and only
+/// `FROZEN_PREDICATES_SHA256` moves here. The raw 12 / reachable 7 figures
+/// are unchanged: they were already upper bounds by construction, and
+/// disclosing that fact changes no number in `counts.json`, only the prose
+/// that explains it.
 const FROZEN_PREDICATES_SHA256: &str =
-    "5410dcd6233ca92343aa3c38e5d75ac297f24b55d43003bb0bfb1205e92ee7f8";
+    "e956118cdf0dd70d1dfa43a0383c3db5b4adff306b4751c2d815e29f98be4655";
 const FROZEN_MATCHERS_SHA256: &str =
     "eb2e74dc9f39517fe418cb0b05a4acaa0003ad1c684084d9ea8930d20bacce17";
 

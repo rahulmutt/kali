@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `9edf49b703` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `2434309093` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -380,7 +380,7 @@ Every input to §2, so a reader who disagrees with the clustering can re-band fr
 | R-64 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | yes (disclosed in record) | R-64 (unclustered) |
 | R-65 | 2 | 58 | 5 | 5 / 5 | 53 / 0 | SILENT | — | yes (disclosed in record) | R-65 (unclustered) |
 | R-66 | 2 | 0 | 0 | 0 / 0 | 0 / 0 | SILENT | unsampled | — | R-66 (unclustered) |
-| R-67 | 2 | 12 | 7 | 7 / 7 | 5 / 0 | SILENT | — | — | R-67 (unclustered) |
+| R-67 | 2 | 12 | 7 | 7 / 7 | 5 / 0 | SILENT | — | yes (disclosed in record) | R-67 (unclustered) |
 
 ### 3.1 What the SILENT filter removed, and what it cost the ranking
 
@@ -432,7 +432,7 @@ Read down the reachable rows: of R-13's 43 reachable sites, **0 have the object-
 
 ### 3.3 Which counts are upper bounds
 
-A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 11 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56 (not in the ranking), R-57, R-58, R-59 (not in the ranking), R-63 (not in the ranking), R-64, R-65. 4 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13 (not in the ranking), R-14, R-60. Every note is in `counts.json` under `upperBound`.
+A count is an upper bound when the predicate admits sites the defect does not reach — because the AST cannot see a runtime type, a representation, or a compiler-internal proof. 12 records disclose their own upper bound: R-08, R-16, R-26, R-30, R-56 (not in the ranking), R-57, R-58, R-59 (not in the ranking), R-63 (not in the ranking), R-64, R-65, R-67. 4 more are upper bounds their records do **not** disclose, found by this measurement: R-07 (not in the ranking), R-13 (not in the ranking), R-14, R-60. Every note is in `counts.json` under `upperBound`.
 
 ### 3.4 A lane result is not an entry result
 

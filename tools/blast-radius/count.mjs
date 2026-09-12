@@ -245,6 +245,20 @@ const UPPER_BOUNDS = {
       "argument passed to a builtin, or to a callee this static pass never resolves, is " +
       "counted here without ever reaching the guard.",
   },
+  "R-67": {
+    disclosedInRecord: true,
+    note:
+      "Upper bound, per the record: the matcher counts every `.fill(v)` member call with " +
+      "exactly one argument, regardless of receiver, and an acorn AST cannot see whether the " +
+      "receiver is a proven array. `array_fill_call_parts` (`crates/kali_codegen/src/emit/" +
+      "call.rs`) returns `None` unless the receiver is a proven array allocation " +
+      "(`resolve_array_alloc_call(receiver).is_some()`) or a tracked array binding " +
+      "(`self.array_bindings.contains(&name)`), and only a receiver that passes routes to " +
+      "`emit_array_fill`, whose loop is what re-emits the value per element. A `.fill(v)` " +
+      "call on a user class or plain object with its own `fill` method is syntactically " +
+      "identical to acorn but does not reach `emit_array_fill` at all, and is counted here " +
+      "without ever exhibiting the defect.",
+  },
 };
 
 /**

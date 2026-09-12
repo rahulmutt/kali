@@ -4745,12 +4745,13 @@ tier, ordering is by blast radius.
   once — not a callee that fails to run or folds to a placeholder.
 - **Repro**: `let n = 0; function g() { n = n + 1; return 1; } const a = new
   Array(3).fill(g()); console.log(n);` → node `1`; kali `3` (exit 0, empty
-  stderr). Measured baseline for this exact program is Task 2's
+  stderr). Measured baseline for the corresponding program is Task 2's
   `fill_value_once.js`
   (`crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`,
   case `a_fill_value_is_evaluated_once`, `stdout = "1,1\n"` on node against
   kali's measured `3,1`, the `n` component of each matching this entry's repro
-  exactly).
+  exactly — the programs are not byte-identical (Task 2's also prints `a[2]`),
+  only the `n` component is compared).
 - **Every lane, measured at `733cd26125` against node v26.8.2, both engines at
   exit 0, kali with empty stderr (spec §2.6, verbatim):**
 
@@ -4770,7 +4771,17 @@ tier, ordering is by blast radius.
   than once before the loop.
 - **Severity**: **Tier 2** — silently produces a wrong value.
 - **Blast radius**: countable, matcher `fillValueReevaluated`: raw 12 /
-  reachable 7 over the frozen corpus (anchor 7/7, extension 5/0).
+  reachable 7 over the frozen corpus (anchor 7/7, extension 5/0), an upper
+  bound for the reason `count.mjs`'s `UPPER_BOUNDS` records — the matcher
+  counts every `.fill(v)` member call with exactly one argument regardless of
+  receiver, and an acorn AST cannot see whether the receiver is a proven
+  array. `array_fill_call_parts` (`crates/kali_codegen/src/emit/call.rs`)
+  returns `None` unless the receiver is a proven array allocation or a
+  tracked array binding, and only a receiver that passes routes to
+  `emit_array_fill`'s loop, which is what actually re-emits the value; a
+  `.fill(v)` on a user class or plain object with its own `fill` method is
+  syntactically identical to acorn but does not exhibit this defect at all,
+  and is counted here without ever reaching that loop.
 - **Pinned by**: two oracle cases (`r67a`, both scopes, `tier2.toml`) asserting
   the SILENT class.
 - **Confidence**: high on behaviour (all three lanes independently re-measured
