@@ -5497,12 +5497,28 @@ impl<'a> FunctionEmitter<'a> {
         Some(node.children.get(1).copied())
     }
 
-    /// Five-namespace shadow guard for a bare `Array`/`Uint8Array` allocation
+    /// Five-namespace shadow guard for a BARE `Array`/`Uint8Array` allocation
     /// callee (mirrors `url_ctor_unshadowed`/`is_event_target_new`'s guard for
     /// the same hazard): a user binding of the ctor name in ANY codegen
     /// namespace means `is_array_like_constructor`'s text match is not
     /// actually the builtin, so `id`'s two Task 8 call sites must decline
     /// rather than route a user function/value through the allocator.
+    ///
+    /// **Bare only.** A `globalThis`-qualified callee (`new
+    /// globalThis.Uint8Array(n)`, the other half of
+    /// `is_array_like_constructor`'s `"Uint8Array"` arm) names the actual
+    /// global property no matter what local/module binding of the bare name
+    /// exists -- that is exactly what qualifying through `globalThis` means,
+    /// and a same-named binding cannot shadow it. This function returns
+    /// `true` (unshadowed, safe to route) immediately for a qualified callee,
+    /// WITHOUT consulting the namespaces at all. A first-round version of
+    /// this guard consulted the namespaces unconditionally regardless of
+    /// qualification and over-blocked the qualified builtin spelling under an
+    /// unrelated bare-name shadow: `function Uint8Array(n){return n+1;}`
+    /// followed by `f(new globalThis.Uint8Array(5))` measured kali `0` where
+    /// node prints `5`, exit 0, no diagnostic, a review-found regression this
+    /// bare/qualified split closes. (`"Array"` has no qualified form at all
+    /// in `is_array_like_constructor`, so the split is a no-op for it.)
     ///
     /// Scoped to Task 8's two NEW routing arms only (`emit_value`'s Arm A and
     /// `emit_call`'s bare-call arm) -- deliberately NOT consulted by
@@ -5521,10 +5537,13 @@ impl<'a> FunctionEmitter<'a> {
     /// bare-`Uint8Array` half of `is_array_like_constructor` would otherwise
     /// treat the user's own function as the allocator (measured: kali `4104`
     /// against node's `4` for `function Uint8Array(n){return n+1;}
-    /// console.log(Uint8Array(3));`, a review-found regression this guard
-    /// closes). The pre-existing declarator-lane instance of the same shadow
-    /// hazard (`const y = Uint8Array(3)`) is UNCHANGED by this guard and is
-    /// filed, not fixed, per the controller's ruling (Task 8 report).
+    /// console.log(Uint8Array(3));`, a round-1 review-found regression this
+    /// guard closes). The pre-existing declarator-lane instance of the same
+    /// bare-name shadow hazard (`const y = Uint8Array(3)`) is UNCHANGED by
+    /// this guard and is filed, not fixed, per the controller's ruling (Task
+    /// 8 report), as is the import-namespace half of the same hazard and
+    /// Arm B's own shadowed-fill-chain gap (also filed, not fixed -- see the
+    /// report).
     pub(crate) fn allocation_ctor_unshadowed(&self, id: LirNodeId) -> bool {
         let target = self.unwrap_transparent_value_node(id);
         let node = self.node(target);
@@ -5534,10 +5553,16 @@ impl<'a> FunctionEmitter<'a> {
         let Some(callee) = node.children.first().copied() else {
             return true;
         };
-        let Some(ctor) = self.node(callee).text.as_deref() else {
+        let callee_node = self.node(callee);
+        let Some(ctor) = callee_node.text.as_deref() else {
             return true;
         };
         if !matches!(ctor, "Array" | "Uint8Array") {
+            return true;
+        }
+        // Qualified (`globalThis.Uint8Array`) always names the real builtin;
+        // only a bare callee can be defeated by a same-named binding.
+        if !callee_node.children.is_empty() {
             return true;
         }
         !(self.locals.contains_key(ctor)

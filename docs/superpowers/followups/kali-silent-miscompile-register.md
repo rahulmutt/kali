@@ -4633,6 +4633,21 @@ tier, ordering is by blast radius.
     two new arms only, not to `resolve_array_alloc_call`'s three pre-existing
     callers. Not filed as its own register entry by this commit; recorded for
     a later task's discovered-defects sweep (Task 8 report).
+  - **Second review-found-and-fixed regression, same day, next commit**: the
+    round-1 guard above consulted the five namespaces unconditionally,
+    regardless of whether the callee was BARE or `globalThis`-QUALIFIED, and
+    so over-blocked the qualified builtin spelling under an unrelated
+    bare-name shadow: `function Uint8Array(n){return n+1;}` followed by
+    `f(new globalThis.Uint8Array(5))` measured kali `0` where node prints
+    `5`, exit 0, no diagnostic — because `globalThis.Uint8Array` names the
+    real global property no matter what bare-name binding exists, and a
+    same-named binding cannot shadow it. Closed by making
+    `allocation_ctor_unshadowed` return `true` (unshadowed) immediately for a
+    qualified callee, without consulting the namespaces at all — mirroring
+    `is_array_like_constructor`'s own bare-vs-qualified split. Pinned by two
+    new `kali_codegen` unit tests (`emit/call_tests/allocation_ctor_shadow.rs`):
+    the qualified spelling routes under a shadowing module-level binding, and
+    the bare spelling still does not.
   - **What this does NOT close**: R-65 (a fold-lane array, or a constructed
     value that lowers like one, reads as zeros in the callee) is an unrelated
     matcher and stays filed SILENT — its fix is Task 9's widened argument guard,

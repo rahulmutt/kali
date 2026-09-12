@@ -2197,11 +2197,16 @@ impl<'a> FunctionEmitter<'a> {
             // not a kali builtin at all, so there is no redeclaration for
             // `kali_types` to refuse), and without the guard this arm would
             // route the user's own function through the allocator instead of
-            // calling it (review-found regression). `new <user fn>(n)` was
-            // already the pre-existing placeholder `0` before this task, so
-            // the guard costs nothing here, but is applied for the same
-            // reason it is applied at Site 2: consistency between the two new
-            // arms, not reliance on a hazard that happens not to fire today.
+            // calling it (review-found regression). The guard is NOT free:
+            // it declines this arm for a bare `Uint8Array(n)` under a same-
+            // named binding (correctly -- `new <user fn>(n)` was already the
+            // pre-existing placeholder `0` here before this task, so nothing
+            // regresses), but it must NOT decline a `globalThis`-qualified
+            // callee under the same binding, because qualifying through
+            // `globalThis` names the real builtin regardless of any bare-name
+            // shadow -- `allocation_ctor_unshadowed` special-cases exactly
+            // that (a second review round caught the qualified spelling
+            // over-blocked by a first draft that did not).
             if self.allocation_ctor_unshadowed(id) {
                 if let Some(size_arg) = self.resolve_array_alloc_call(id) {
                     return self.emit_array_allocation(function, size_arg);
@@ -2209,8 +2214,9 @@ impl<'a> FunctionEmitter<'a> {
             }
             // `new Array(n).fill(v)` arrives as the hoisted-`new` wrapper around
             // the `.fill` call (the parser's `new` precedence). Pass through to
-            // the fill arm (`emit/call.rs:1057`), which allocates the receiver and
-            // runs the init loop, rather than dropping the whole chain.
+            // the fill arm's call to `array_fill_call_parts` (`emit/call.rs:1059`),
+            // which allocates the receiver and runs the init loop, rather than
+            // dropping the whole chain.
             if node.children.len() == 1 && self.resolve_array_fill_call(node.children[0]).is_some()
             {
                 return self.emit_node(function, node.children[0], want_value);

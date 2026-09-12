@@ -20,3 +20,6 @@ mod write_stdout_bytes;
 
 #[path = "call_tests/alloc_helper.rs"]
 mod alloc_helper;
+
+#[path = "call_tests/allocation_ctor_shadow.rs"]
+mod allocation_ctor_shadow;
