@@ -66,51 +66,24 @@
 # passes the bare filename relative to the trial dir, matching every previously shipped
 # `browser/` case file.
 #
-# THE `browser_bundle_harness` STEP is the migrated form of the source's own harness run.
-# The source writes `kali_runtime_contract::browser_bundle_harness_script("app", false,
-# <body>)` next to the emitted bundle directory and executes it under
-# `browser_harness_command_parts_for`; the case runner does exactly that from the step's
-# `entry` and `body` (crates/kali_case_runner/src/steps.rs). The prelude resolves the
-# bundle relative to the harness script's own URL rather than to the process working
-# directory, so the runner's cwd (the trial root) and the source's cwd (the bundle dir)
-# produce the same resolution -- which is why every previously shipped `browser/` bundle
-# case file spells it this way.
+# TASK 9 RE-PIN (spec 3.4, retires register entry R-65) -- THE BUILD NOW FAILS,
+# so neither the `file_json` metadata step nor the `browser_bundle_harness` step
+# this file used to run after a successful build is emitted any more.
+#   * At the time this file was migrated, the source's own assertions held: the
+#     build succeeded `output.status.success(),` (:97) and only the harness failed closed afterward
+#     `assert!(!output.status.success()` (:151), resolving the harness's own OR-shaped stream claim `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154) against
+#     the real binary.
+#   * That is superseded by Task 9's widened argument guard: an array-literal
+#     argument -- here, the fold-lane `[...Object.keys(...)]`/
+#     `[...Object.entries(...)]` spread results passed straight to
+#     `assertObjectKeysIteration`/`assertObjectEntriesIteration` -- now refuses at
+#     BUILD TIME (E5506), before the metadata write or the harness ever runs.
+#   * ASSERTION SHAPE, verified directly against the real binary rather than
+#     reproducing the OLD harness-stream OR (which no longer applies -- the harness
+#     is never reached): `exit = "failure"` on the build, with `E5506` on stderr in
+#     text mode and inside the JSON envelope's `errors[0].code` on stdout in
+#     `--output json` mode (the other stream is empty in both modes).
 #
-# ASSERTION SHAPE, mirrored from the source and nothing more.
-#   * `exit = "success"` on the build `output.status.success(),` (:97).
-#   * In json mode, the envelope's schemaVersion/command/success/exitCode
-#     `assert_eq!(envelope["exitCode"], 0)` (:108) and an empty `errors` array `assert!(envelope["errors"]` (:109). THERE IS NO
-#     payload artifactKind/bundleFormat CLAIM HERE: this source reads the emitted
-#     metadata file for those instead, and rule 2 forbids adding an envelope claim it
-#     never made.
-#   * `app/app.meta.json`'s apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:120), asserted in BOTH modes,
-#     because the source reads that file outside the `if json_output` block.
-#   * The browser-bundle harness FAILS CLOSED `assert!(!output.status.success()` (:151) -- `exit = "failure"`, not
-#     `"success"`. This is the one file in this batch where the build succeeds and the
-#     harness does not.
-#
-# RULE 11 -- THE SOURCE MAKES AN OR-SHAPED CLAIM, AND IT WAS RESOLVED AGAINST THE REAL
-# BINARY RATHER THAN REPRODUCED OR DROPPED. The case format has no disjunction.
-#   `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable"), "stderr: {stderr}")`
-#   -- whose cited construct is `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154).
-# Every cell was run against the real built `kali`, and the carrying STREAM is
-# unambiguous in each output mode:
-#   * the browser-bundle harness, both output modes -> stderr
-# The generator refuses to emit if a cell shows the needle on both streams or neither,
-# or if the cells disagree -- a disjunction that does not resolve to exactly one stream
-# is not narrowable.
-# THE NEEDLE TIE IS BROKEN BY SOURCE ORDER, and what was observed is disclosed rather
-# than implied away: on the carrying stream the real binary emits "Uncaught Error" and
-# "unreachable", so more than one disjunct is true. Pinning all of them would turn the
-# source's OR into an AND, which is a strengthening the source never asked for; picking
-# one at random is not a derivation. The generator therefore pins the FIRST disjunct the
-# source spells that holds on EVERY cell -- "Uncaught Error" -- and raises if no
-# disjunct is universal.
-# This is a PRESENCE claim, so narrowing it is a verified strengthening (every run
-# satisfying the new assertion satisfies the old); rule 2's asymmetry forbids the same
-# narrowing for an ABSENCE claim, and none is made here. The source's full disjunction
-# sentence is carried into every affected rationale, so the narrowing is recorded rather
-# than silent.
 
 [matrix]
 ext = ["js", "ts", "jsx", "tsx"]
@@ -181,45 +154,14 @@ function browserObjectKeysEntriesSpread() {
 
 [[case]]
 name = "build_emits_object_keys_entries_spread_semantics"
-rationale = """Migrated from browser_object_keys_entries_spread_bundle.rs, the three `build_emits_object_keys_entries_spread_semantics_in_*_input` fns -- one for js, one for ts, and one that loops `["app.jsx", "app.tsx"]` and so supplies the jsx and tsx cells of this matrix. `assert_browser_bundle_object_keys_entries_spread` writes the keys/entries spread fixture, builds it with `kali build --bundle --api browser`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program spreads Object.keys and Object.entries over a frozen Object.fromEntries result through ten and nine root spellings respectively -- dotted, mixed, bracketed, single-quoted, and frozen parenthesized-receiver -- and checks every collected array. The build succeeds `output.status.success(),` (:97) and the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:120), but the emitted bundle does not run: the harness FAILS CLOSED `assert!(!output.status.success()` (:151). The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable"), "stderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
-
-[[case.step]]
+rationale = """Migrated from browser_object_keys_entries_spread_bundle.rs, the three `build_emits_object_keys_entries_spread_semantics_in_*_input` fns -- one for js, one for ts, and one that loops `["app.jsx", "app.tsx"]` and so supplies the jsx and tsx cells of this matrix. `assert_browser_bundle_object_keys_entries_spread` writes the keys/entries spread fixture and builds it with `kali build --bundle --api browser`. At the time of migration the build succeeded `output.status.success(),` (:97) and the metadata was asserted, then the bundle glue was run under the browser-bundle-harness contract backed by node, where it FAILED CLOSED `assert!(!output.status.success()` (:151), resolving the harness's own OR-shaped stream claim `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154) against the real binary. The program spreads Object.keys and Object.entries over a frozen Object.fromEntries result through ten and nine root spellings respectively -- dotted, mixed, bracketed, single-quoted, and frozen parenthesized-receiver -- and checks every collected array by passing it straight to an assert helper as a bare argument. At `733cd26125` this program built and then threw in the harness because the callee read zeros (`0,0,0` where node v26.8.2 prints `2,3,2`); it now refuses at build time. Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse every such argument, not only the all-`Literal` ones this program's spread results never were, so the build now fails closed with E5506 before the metadata write or the harness ever runs -- verified directly against the real binary, across all four extensions and both output modes: `E5506` lands on stderr only in text mode, and only inside the JSON envelope's `errors[0].code` on stdout in `--output json` mode. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
 args = ["build", "--bundle", "--api", "browser", "app.${ext}"]
-exit = "success"
-
-[[case.step]]
-kind = "file_json"
-path = "app/app.meta.json"
-fields = { apiSurface = "browser", artifactKind = "bundle" }
-
-[[case.step]]
-kind = "browser_bundle_harness"
-entry = "app"
-body = """const mod = await import(bundleJs.href);
-await mod.browserObjectKeysEntriesSpread();
-"""
 exit = "failure"
-stderr_contains = ["Uncaught Error"]
+stderr_contains = ["E5506"]
 
 [[case]]
 name = "json_build_emits_object_keys_entries_spread_semantics"
-rationale = """Migrated from browser_object_keys_entries_spread_bundle.rs, the three `json_build_emits_object_keys_entries_spread_semantics_in_*_input` fns -- one for js, one for ts, and one that loops `["app.jsx", "app.tsx"]` and so supplies the jsx and tsx cells of this matrix. `assert_browser_bundle_object_keys_entries_spread` writes the keys/entries spread fixture, builds it with `kali build --bundle --api browser` with `--output json`, asserts the emitted app/app.meta.json metadata, then runs the bundle glue under the browser-bundle-harness contract backed by node. The program spreads Object.keys and Object.entries over a frozen Object.fromEntries result through ten and nine root spellings respectively -- dotted, mixed, bracketed, single-quoted, and frozen parenthesized-receiver -- and checks every collected array. The build succeeds `output.status.success(),` (:97) and the metadata pins apiSurface/artifactKind `assert_eq!(metadata["apiSurface"], "browser")` (:120), but the emitted bundle does not run: the harness FAILS CLOSED `assert!(!output.status.success()` (:151). The source's full disjunction sentence, carried verbatim per rule 11: `assert!(stderr.contains("Uncaught Error") || stderr.contains("unreachable"), "stderr: {stderr}")`; its cited construct is `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154). The case format has no disjunction, so that OR was resolved against the real binary rather than reproduced: in this output mode the diagnostic text lands on stderr, so the claim is carried as `stderr_contains`. Narrowing a PRESENCE claim to the stream that actually carries it is a verified strengthening -- every run satisfying it satisfies the original OR. More than one disjunct is in fact true on that stream ("unreachable" as well), so the tie is broken by SOURCE ORDER -- the first disjunct the source spells that holds on every cell, "Uncaught Error" -- rather than by pinning all of them, which would turn the OR into an AND. This sibling additionally asserts the build JSON envelope -- schemaVersion/command/success/exitCode `assert_eq!(envelope["exitCode"], 0)` (:108) and an empty `errors` array `assert!(envelope["errors"]` (:109) -- rather than plain text; output shape is not a matrix axis because it changes the assertion shape, so it is a separate case. Note the source makes no payload artifactKind/bundleFormat claim on the envelope, so none is asserted here (rule 2). RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
-
-[[case.step]]
+rationale = """Migrated from browser_object_keys_entries_spread_bundle.rs, the three `json_build_emits_object_keys_entries_spread_semantics_in_*_input` fns -- one for js, one for ts, and one that loops `["app.jsx", "app.tsx"]` and so supplies the jsx and tsx cells of this matrix. `assert_browser_bundle_object_keys_entries_spread` writes the keys/entries spread fixture and builds it with `kali build --bundle --api browser` with `--output json`. At the time of migration the build succeeded `output.status.success(),` (:97) and the metadata was asserted, then the bundle glue was run under the browser-bundle-harness contract backed by node, where it FAILED CLOSED `assert!(!output.status.success()` (:151), resolving the harness's own OR-shaped stream claim `stderr.contains("Uncaught Error") || stderr.contains("unreachable")` (:154) against the real binary. The program spreads Object.keys and Object.entries over a frozen Object.fromEntries result through ten and nine root spellings respectively -- dotted, mixed, bracketed, single-quoted, and frozen parenthesized-receiver -- and checks every collected array by passing it straight to an assert helper as a bare argument. At `733cd26125` this program built and then threw in the harness because the callee read zeros (`0,0,0` where node v26.8.2 prints `2,3,2`); it now refuses at build time. Task 9 (spec 3.4) widens the fold-lane-array-argument guard to refuse every such argument, not only the all-`Literal` ones this program's spread results never were, so the build now fails closed with E5506 before the metadata write or the harness ever runs -- verified directly against the real binary, across all four extensions and both output modes: `E5506` lands on stderr only in text mode, and only inside the JSON envelope's `errors[0].code` on stdout in `--output json` mode. RULE 12 -- the Rust comment prose of browser_object_keys_entries_spread_bundle.rs, carried verbatim: "Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md.""""
 args = ["build", "--bundle", "--api", "browser", "--output", "json", "app.${ext}"]
-exit = "success"
-json = { schemaVersion = 1, command = "build", success = true, exitCode = 0, errors = [] }
-
-[[case.step]]
-kind = "file_json"
-path = "app/app.meta.json"
-fields = { apiSurface = "browser", artifactKind = "bundle" }
-
-[[case.step]]
-kind = "browser_bundle_harness"
-entry = "app"
-body = """const mod = await import(bundleJs.href);
-await mod.browserObjectKeysEntriesSpread();
-"""
 exit = "failure"
-stderr_contains = ["Uncaught Error"]
+json = { errors = { 0 = { code = "E5506" } } }

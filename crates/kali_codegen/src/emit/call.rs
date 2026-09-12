@@ -3593,39 +3593,34 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         for (arg_index, arg) in node.children.iter().skip(1).enumerate() {
-            // An UNMATERIALIZED array literal (a direct `f([1, 2])` argument,
-            // or a fold-lane `const arr = [1, 2]` alias) has no runtime
-            // representation: `emit_aggregate_literal` pushes a zero
-            // placeholder, so every element read in the callee silently
-            // yielded 0 (`g([1, 2]) { return items[0] }` → 0, node says 1).
-            // Materialized arrays (`new Array(n)`, `.fill()`, object-element
-            // literals) live in locals — NOT the fold-lane `bindings` map that
-            // `resolve_literal_aggregate` follows — and pass a real handle,
-            // so they are untouched here. REJECT-DON'T-MISCOMPILE.
+            // An array kali cannot pass as a runtime handle: the callee would
+            // read zero placeholders where the elements should be, silently
+            // (`g([1, 2]) { return items[0] }` → 0, node says 1). That is every
+            // fold-lane array literal, whatever its elements -- the earlier
+            // all-`Literal` condition let `f([k])`, `f([1 + 1])` and
+            // `[...Object.values(o)]` through to the placeholder (register entry
+            // R-65) -- and every constructed value, because `new C()` and
+            // `[C()]` are the SAME text-less LIR node and no shape check can
+            // separate them.
+            //
+            // An ALLOCATION argument is exempt: `emit_value` and `emit_call` now
+            // allocate one in value position, so it arrives as a real handle.
+            // REJECT-DON'T-MISCOMPILE.
             if resolved.is_some() {
-                // Shape-strict: `new X(1)` and `[X, 1]` are the SAME LIR shape
-                // (textless Value), so `is_array_literal` alone would also
-                // catch NewExpr nodes (observed: the release pipeline leaves
-                // `new Array(3)` unrecognized and this reject misfired on it).
-                // Requiring every element to be a Literal keeps the reject on
-                // the proven array-literal class (`f([1, 2])`) and leaves
-                // call-shaped nodes on their pre-existing lanes.
-                let fold_lane_array = self
-                    .resolve_literal_aggregate(*arg)
-                    .map(|id| self.node(id).clone())
-                    .is_some_and(|aggregate| {
-                        self.is_array_literal(&aggregate)
-                            && !aggregate.children.is_empty()
-                            && aggregate.children.iter().all(|&child| {
-                                self.node(self.unwrap_transparent(child)).kind
-                                    == LirNodeKind::Literal
-                            })
-                    });
+                let arg_is_allocation = self.resolve_array_alloc_call(*arg).is_some()
+                    || self.resolve_array_fill_call(*arg).is_some();
+                let fold_lane_array = !arg_is_allocation
+                    && self
+                        .resolve_literal_aggregate(*arg)
+                        .map(|id| self.node(id).clone())
+                        .is_some_and(|aggregate| {
+                            self.is_array_literal(&aggregate) && !aggregate.children.is_empty()
+                        });
                 if fold_lane_array {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
-                            "passing an array literal to function '{callee_name}' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead"
+                            "passing an array literal to function '{callee_name}' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal"
                         ),
                     ));
                     function.instruction(&Instruction::I64Const(0));
@@ -5564,9 +5559,15 @@ impl<'a> FunctionEmitter<'a> {
     /// prints `6`, while the renamed-property, renamed-object and
     /// two-argument controls all refused with `E5506`. The one casualty is
     /// `globalThis.globalThis.Uint8Array(n)`, which names the real builtin
-    /// and now refuses instead of allocating -- accepted deliberately: this
-    /// spec is "a real array, OR a refusal", and a refusal on a pathological
-    /// spelling is the direction it prefers.
+    /// and is DECLINED by this guard rather than routed through it --
+    /// measured, not merely predicted: the declined arm falls into the
+    /// aggregate placeholder and answers `0` silently at exit 0 (node prints
+    /// the array's length, e.g. `5` for `Uint8Array(5)`), which equals the
+    /// pre-Task-8 baseline for that spelling and is covered by the R-64
+    /// placeholder filing rather than newly introduced here -- accepted
+    /// deliberately: this spec is "a real array, OR a refusal", and this
+    /// pathological spelling was already the placeholder half of that pair
+    /// before this guard existed.
     ///
     /// (`"Array"` has no qualified form at all in
     /// `is_array_like_constructor`, so the split is a no-op for it.)

@@ -245,7 +245,14 @@
     "that filter carries no assignment. Same shape as R-66's and R-67's departures above: R-64 held",
     "its OWN singleton cluster definition (\"R-64 (unclustered)\"), so both it and its assignment leave",
     "together -- the R-56 precedent, not the R-63 one, because R-56 was also a singleton. R-65 is",
-    "untouched and stays, its own retirement left for Task 9."
+    "untouched and stays, its own retirement left for Task 9.",
+    "",
+    "REMOVED 2026-09-11, a later commit: R-65 leaves too, the last of the four this project filed.",
+    "Its one lane moved to FAIL_CLOSED when Task 9's widened argument guard landed, so it left the",
+    "SILENT filter, and an entry outside that filter carries no assignment. Same shape as R-64's,",
+    "R-66's and R-67's departures above: R-65 held its OWN singleton cluster definition",
+    "(\"R-65 (unclustered)\"), so both it and its assignment leave together -- the R-56 precedent, not",
+    "the R-63 one, because R-56 was also a singleton. Nothing this project filed remains SILENT."
   ],
   "clusters": [
     {
@@ -332,11 +339,6 @@
       "name": "R-58 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered ... It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion'. Declined because G3's stated remedy -- an allowlist at the choke point -- would refuse a program node runs."
-    },
-    {
-      "name": "R-65 (unclustered)",
-      "origin": "singleton",
-      "why": "§2: 'unclustered ... this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way ... Not G4 ... Not G6 ... Not G2'. Declined G3 on the fix-unit rule, the same criterion R-47 and R-58 already applied to their own G3-shaped guards; declined G4 because the array or constructed value produces a real, distinct handle wherever a materializing lane reaches it; declined G6 because an array literal and a user class constructor are fully implemented language features, not unresolved builtins; declined G2 because the callee is resolved and compiled in every repro."
     }
   ],
   "assignments": [
@@ -535,13 +537,6 @@
       "registerSource": "G6 -- unresolved or unimplemented builtins fold to a default instead of failing closed ... it joins on measurement rather than resemblance ... G6's raising-confidence experiment is what filing this entry ran ... G6's fix unit reaches it ... It is not G2 ... It is not G4.",
       "alternate": "G2 by the shared zero-placeholder fallback, named and declined by the register because G2's members are all user function values and a missing builtin is what G6 holds; G4 is also named and declined, because the property is PRESENT and there is a right answer for the read to have returned.",
       "alternateCluster": "G2 — call lowering: unresolvable callee folds to constant `0`"
-    },
-    {
-      "id": "R-65",
-      "cluster": "R-65 (unclustered)",
-      "registerSource": "unclustered -- this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way for their own G3-shaped guards: a cluster there is the unit a fix actually ships in, and this entry's fix ships in no code any G3 member's fix touches. Not G4 ... Not G6 ... Not G2.",
-      "alternate": "G3 by shape (a guard keyed on one syntactic form, with a sibling form slipping past into the miscompile the guard's own diagnostic describes), named and declined by the register on the fix-unit rule R-47 and R-58 already established for their own G3-shaped guards.",
-      "alternateCluster": null
     }
   ]
 }

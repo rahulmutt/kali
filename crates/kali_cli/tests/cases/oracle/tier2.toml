@@ -2753,7 +2753,7 @@ name = "r65a_fold_lane_argument_module_scope"
 kind = "oracle"
 register_entry = "R-65"
 program = "r65a_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-65, the fold-lane array argument lane, module scope. Section 2's `Repro` verbatim: an array literal holding an identifier element, bound by nothing, passed straight into a call whose parameter reads element zero.
 
@@ -2762,6 +2762,8 @@ Expected verdict set from the register's recorded status: section 0.2's R-65 row
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `3` at exit 0. The argument guard's all-`Literal` condition (`crates/kali_codegen/src/emit/call.rs:3573-3615`) only refuses an array literal whose elements are ALL literals; `k` is an identifier, so this array slips past the guard, reaches `emit_value`'s text-less branch as an ordinary fold-lane array, and `emit_aggregate_literal` drops it and pushes `0`; `f` then reads element zero off a placeholder handle.
 
 WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the inline-allocation-value-position project and is expected to flip to FAIL_CLOSED in Task 9's commit, which widens the argument guard to refuse every non-allocation fold-lane array (spec `docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`, section 3.4) rather than fix it -- the callee still cannot read the elements, so kali refuses to compile the call instead of silently miscompiling it. After that flip, a return to SILENT means the widened guard has a hole again.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and `error[E5506]` on stderr reading "passing an array literal to function 'f' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal"; node prints `3` at exit 0. Closed by the inline-allocation-value-position project (Task 9): the argument guard (`crates/kali_codegen/src/emit/call.rs`) drops the all-`Literal` condition and refuses every non-empty fold-lane array-literal argument that is not an allocation, checked via `resolve_array_alloc_call`/`resolve_array_fill_call`. FAIL_CLOSED, not FIXED, on purpose: the callee still cannot read a fold-lane array's elements, so kali refuses to compile the call instead of routing a value through the placeholder. The verdict was flipped only after this reading.
 '''
 
 [[case]]
@@ -2769,7 +2771,7 @@ name = "r65a_fold_lane_argument_in_function"
 kind = "oracle"
 register_entry = "R-65"
 program = "r65a_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-65, the fold-lane array argument lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
@@ -2778,6 +2780,8 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `0` at exit 0 with empty stderr; node prints `3` at exit 0. Byte-identical to the module scope.
 
 WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FAIL_CLOSED in Task 9's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means the widened guard has a hole again, in this scope too.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT), byte-identical to the module-scope case. The verdict was flipped only after this reading.
 '''
 
 [[case]]

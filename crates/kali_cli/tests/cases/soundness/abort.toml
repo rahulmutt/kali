@@ -896,13 +896,14 @@ Task 6: fail-closed enumeration wave (store sites + generic sinks)
 
 The P2 standing lesson executed up front: pin every store site and generic value sink for the abort-handle value class NOW, proving the Task-3 position gate (`emit_abort_receiver_handle` / `admit_abort_handle_read`) covers the whole deny surface, not just the shapes earlier tasks happened to exercise.
 
-Leak-shape triage (brief Step 2, second shape): a `new AbortController()` that never becomes a `const` declarator init never reaches the declarator-scoped real-cell lowering (`emit/control_flow.rs`'s `is_const` intercept, which is the ONLY site that calls `__alloc_global` for a real abort cell) — it falls through the generic text-less aggregate path (`emit_aggregate_literal`), whose unresolved `AbortController()` call target resolves through the warning-only zero-placeholder fallback and is dropped. No real cell is ever allocated, so there is no handle to leak: `f` receives a plain placeholder `0`, not a raw abort-cell pointer. Confirmed sound as-is — no fix needed, this pins the placeholder path against regression.
+Leak-shape triage (brief Step 2, second shape): a `new AbortController()` that never becomes a `const` declarator init never reaches the declarator-scoped real-cell lowering (`emit/control_flow.rs`'s `is_const` intercept, which is the ONLY site that calls `__alloc_global` for a real abort cell) — it falls through the generic text-less aggregate path (`emit_aggregate_literal`), whose unresolved `AbortController()` call target resolves through the warning-only zero-placeholder fallback and is dropped. No real cell is ever allocated, so there is no handle to leak: `f` receives a plain placeholder `0`, not a raw abort-cell pointer. Confirmed sound as-is at the time — no fix needed then, this pinned the placeholder path against regression.
 
-Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+TASK 9 RE-PIN (spec 3.4, retires register entry R-65): node prints `ok` for this program, and kali used to print `ok` too (silently reading the placeholder `0` in `f`, as the paragraph above describes) — kali now REFUSES it instead. `new AbortController()` is the same LIR node (a text-less aggregate) as a one-element array literal `[AbortController()]`, so Task 9's widened fold-lane-array-argument guard, which cannot tell the two apart, denies both. The human partner ruled the wide guard over leaving `f([g()])` and `f(new C())` silent (spec section 2.5): a guard narrow enough to admit this specific constructed-value argument would have to re-admit every other array-literal argument the guard exists to catch, since they lower to the identical node.
+
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
 args = ["run", "abort_handle_inline_new_in_arg_position.js"]
-exit = "success"
-stdout = """ok
-"""
+exit = "failure"
+stderr_contains = ["E5506", "lowers to the same node as a one-element array literal"]
 
 [[case]]
 name = "abort_handle_shadowed_by_for_of_binding_fails_closed"
