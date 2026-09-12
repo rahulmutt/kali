@@ -2201,12 +2201,15 @@ impl<'a> FunctionEmitter<'a> {
             // it declines this arm for a bare `Uint8Array(n)` under a same-
             // named binding (correctly -- `new <user fn>(n)` was already the
             // pre-existing placeholder `0` here before this task, so nothing
-            // regresses), but it must NOT decline a `globalThis`-qualified
-            // callee under the same binding, because qualifying through
-            // `globalThis` names the real builtin regardless of any bare-name
-            // shadow -- `allocation_ctor_unshadowed` special-cases exactly
-            // that (a second review round caught the qualified spelling
-            // over-blocked by a first draft that did not).
+            // regresses), and it checks the OBJECT name instead for a
+            // `globalThis`-qualified callee: a bare-name shadow must not
+            // block the real builtin (review round 2), but a user binding
+            // named `globalThis` must block it, because
+            // `is_array_like_constructor` matches the qualifying object by
+            // text alone and a user object bound to that name is otherwise
+            // routed through the allocator (review round 3's defect: kali
+            // `4104` at exit 0 where node prints `6`, and where every
+            // near-miss spelling refuses with `E5506`).
             if self.allocation_ctor_unshadowed(id) {
                 if let Some(size_arg) = self.resolve_array_alloc_call(id) {
                     return self.emit_array_allocation(function, size_arg);

@@ -5504,34 +5504,57 @@ impl<'a> FunctionEmitter<'a> {
     /// actually the builtin, so `id`'s two Task 8 call sites must decline
     /// rather than route a user function/value through the allocator.
     ///
-    /// **Bare only.** A `globalThis`-qualified callee (`new
-    /// globalThis.Uint8Array(n)`, the other half of
-    /// `is_array_like_constructor`'s `"Uint8Array"` arm) names the actual
-    /// global property no matter what local/module binding of the bare name
-    /// exists -- that is exactly what qualifying through `globalThis` means,
-    /// and a same-named binding cannot shadow it. This function returns
-    /// `true` (unshadowed, safe to route) immediately for ANY callee with a
-    /// child (arity alone -- `!callee_node.children.is_empty()`), WITHOUT
-    /// consulting the namespaces at all and WITHOUT checking that the child
-    /// is actually `globalThis`. That is deliberately more permissive than
-    /// `is_array_like_constructor`'s own qualified arm, which additionally
-    /// requires the object's text be `globalThis`
-    /// (`self.node(obj).text.as_deref() == Some("globalThis")`) -- this
-    /// function does NOT mirror that check, and is sound ONLY because both
-    /// call sites conjoin it with `resolve_array_alloc_call`, which IS the
-    /// authority on whether the callee is really a `globalThis`-qualified
-    /// allocation. A caller that consulted this predicate on its own,
-    /// without also requiring `resolve_array_alloc_call` to agree, would be
-    /// relying on a guarantee this function does not provide.
+    /// **Which name is checked depends on the spelling.** The five-namespace
+    /// lookup runs either way; what changes is the name it runs on:
     ///
-    /// A first-round version of this guard consulted the namespaces
-    /// unconditionally regardless of qualification and over-blocked the
-    /// qualified builtin spelling under an unrelated bare-name shadow:
-    /// `function Uint8Array(n){return n+1;}`
-    /// followed by `f(new globalThis.Uint8Array(5))` measured kali `0` where
-    /// node prints `5`, exit 0, no diagnostic, a review-found regression this
-    /// bare/qualified split closes. (`"Array"` has no qualified form at all
-    /// in `is_array_like_constructor`, so the split is a no-op for it.)
+    /// - **bare** callee (`Uint8Array(n)`, `new Uint8Array(n)`) -- the CTOR
+    ///   name must be unbound. A user `function Uint8Array` /
+    ///   `const Uint8Array` is what `is_array_like_constructor`'s bare arm
+    ///   would otherwise mistake for the builtin.
+    /// - **qualified** callee (`new globalThis.Uint8Array(n)`, the other half
+    ///   of `is_array_like_constructor`'s `"Uint8Array"` arm) -- the OBJECT
+    ///   name (`globalThis`) must be unbound. Qualifying through the real
+    ///   global names the real global property no matter what BARE
+    ///   `Uint8Array` binding exists, so a bare-name shadow is irrelevant
+    ///   here; what is NOT irrelevant is a user binding of `globalThis`
+    ///   itself, because `is_array_like_constructor` matches the qualifying
+    ///   object by TEXT alone (`self.node(obj).text.as_deref() ==
+    ///   Some("globalThis")`) and cannot tell the real global from a user
+    ///   object that happens to be bound to that name.
+    ///
+    /// Both round-1 and round-2 regressions came from getting this split
+    /// wrong in one direction or the other:
+    ///
+    /// - round 1 consulted the namespaces on the ctor name regardless of
+    ///   qualification, which over-blocked the genuine builtin:
+    ///   `function Uint8Array(n){return n+1;}` followed by
+    ///   `f(new globalThis.Uint8Array(5))` measured kali `0` where node
+    ///   prints `5`, exit 0, no diagnostic;
+    /// - round 2 over-corrected by exempting EVERY qualified callee (arity
+    ///   alone -- `!callee_node.children.is_empty()`, without consulting any
+    ///   namespace and without checking the object's identity), which let a
+    ///   user object bound to the name `globalThis` route through the
+    ///   allocator: `const globalThis = {Uint8Array:(n)=>n+1};`
+    ///   `function f(x){return x;} console.log(f(globalThis.Uint8Array(5)));`
+    ///   measured kali `4104` at exit 0 with no diagnostic where node prints
+    ///   `6`, and where every structurally identical program that escapes the
+    ///   text match (two arguments, a renamed property, a renamed object)
+    ///   refuses with `E5506` -- i.e. the exemption converted a refusal into
+    ///   a silent wrong number, inverting this spec's "a real array, or a
+    ///   refusal".
+    ///
+    /// Checking the object name closes that: with `globalThis` itself bound,
+    /// this returns `false`, Task 8's arms decline, and the program reaches
+    /// the same `E5506` first-class-function-value refusal as its controls
+    /// (kali cannot call a method on a user object at all). Note the guard
+    /// still checks a NAME, not an identity: an object expression whose own
+    /// text is `globalThis` but which is not a bare binding (`a.globalThis
+    /// .Uint8Array(5)`) is still matched by `is_array_like_constructor`'s
+    /// text-only object match and is not something this guard can see -- that
+    /// recognizer-level gap is filed, not fixed (Task 8 report §13.2), and
+    /// affects the pre-existing declarator lane identically.
+    /// (`"Array"` has no qualified form at all in
+    /// `is_array_like_constructor`, so the split is a no-op for it.)
     ///
     /// Scoped to Task 8's two NEW routing arms only (`emit_value`'s Arm A and
     /// `emit_call`'s bare-call arm) -- deliberately NOT consulted by
@@ -5573,16 +5596,26 @@ impl<'a> FunctionEmitter<'a> {
         if !matches!(ctor, "Array" | "Uint8Array") {
             return true;
         }
-        // Qualified (`globalThis.Uint8Array`) always names the real builtin;
-        // only a bare callee can be defeated by a same-named binding.
-        if !callee_node.children.is_empty() {
-            return true;
-        }
-        !(self.locals.contains_key(ctor)
-            || self.bindings.contains_key(ctor)
-            || self.module_binding_names.contains(ctor)
-            || self.fn_valued_locals.contains_key(ctor)
-            || self.functions.contains_key(ctor))
+        // The name whose binding decides whether this text match is really
+        // the builtin. Bare callee: the ctor name itself. Qualified callee
+        // (`globalThis.Uint8Array`): the OBJECT name, since a bare-name
+        // binding cannot shadow a real global property, but a binding of
+        // `globalThis` makes the whole spelling a user object's method --
+        // and `is_array_like_constructor` matches that object by text alone.
+        let guarded = match callee_node.children.first() {
+            None => ctor,
+            Some(&object) => match self.node(object).text.as_deref() {
+                Some(object_name) => object_name,
+                // A qualifying object with no name of its own is not a
+                // binding this guard can resolve: decline rather than route.
+                None => return false,
+            },
+        };
+        !(self.locals.contains_key(guarded)
+            || self.bindings.contains_key(guarded)
+            || self.module_binding_names.contains(guarded)
+            || self.fn_valued_locals.contains_key(guarded)
+            || self.functions.contains_key(guarded))
     }
 
     /// Push the i32 linear-memory pointer of a tagged string handle held in

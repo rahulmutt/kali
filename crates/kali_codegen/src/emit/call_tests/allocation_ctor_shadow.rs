@@ -153,3 +153,43 @@ fn bare_uint8array_call_does_not_route_under_a_shadowing_binding() {
          call the user's own function instead:\n{start_body}"
     );
 }
+
+#[test]
+fn globalthis_qualified_uint8array_allocation_does_not_route_under_a_shadowed_object() {
+    // Round 3's regression: `is_array_like_constructor` matches the
+    // qualifying object by TEXT only, so a user object bound to the name
+    // `globalThis` is indistinguishable from the real global at that
+    // recognizer. Round 2's guard exempted every qualified callee wholesale
+    // (arity alone), so nothing checked the object either, and this program
+    // routed a user object's method through the allocator -- measured kali
+    // `4104` at exit 0, no diagnostic, where node prints `6` and where every
+    // near-miss spelling (two arguments, a renamed property, a renamed
+    // object) refuses with `E5506`. The guard now checks the OBJECT name for
+    // a qualified callee, so this must NOT reach `__alloc`; the program then
+    // falls through to the same first-class-function-value refusal as its
+    // controls.
+    let src = "const globalThis = { Uint8Array: (n) => n + 1 }; \
+               function f(x) { return x; } \
+               f(globalThis.Uint8Array(5));";
+    let program = parse_and_lower_lir(src);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.arena_table.set_arena_eligible("_start");
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    let text = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    let alloc_index = exported_function_index(&text, "__alloc");
+    let start_index = exported_function_index(&text, "_start");
+    let start_body = function_body(&text, start_index);
+    let call_needle = format!("call {alloc_index}");
+    assert!(
+        !start_body.lines().any(|line| line.trim() == call_needle),
+        "expected `globalThis.Uint8Array(5)` under a user binding named \
+         `globalThis` to NOT route through the __alloc helper (index \
+         {alloc_index}): the qualifying object is the user's own object, not \
+         the real global, so the allocation arm must decline:\n{start_body}"
+    );
+}
