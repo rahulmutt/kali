@@ -2781,7 +2781,7 @@ name = "r66a_one_element_literal_module_scope"
 kind = "oracle"
 register_entry = "R-66"
 program = "r66a_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-66, the one-element-literal-collides-with-an-allocation lane, module scope. Section 2's `Repro` verbatim: a one-element array literal whose only element is `new Array(3)`.
 
@@ -2790,6 +2790,8 @@ Expected verdict set from the register's recorded status: section 0.2's R-66 row
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `3` at exit 0 with empty stderr; node prints `1` at exit 0. `[new Array(3)]` lowers to the same LIR node as `new Array(3)` itself (`crates/kali_mir/src/lower.rs:108`, `:116` erase the HIR distinction), so `xs` binds the allocation directly and `xs.length` answers the allocation's own length instead of the one-element literal's length. Corroborated directly by Task 2's `literal_of_allocation.js` (case `a_one_element_literal_of_an_allocation_refuses`, `inline_allocation_value_position.toml`), which measured the identical program at this same baseline.
 
 WHAT A REGRESSION HERE WOULD MEAN. This pair is filed SILENT by the inline-allocation-value-position project and is expected to flip to FAIL_CLOSED in Task 6's commit, which widens `kali_types`'s `ArrayExpression` resolution to refuse a one-element literal whose only element is an array allocation (spec `docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`, section 3.1) rather than fix it -- the literal and the allocation remain indistinguishable at the LIR level, so kali refuses to compile the collision instead of silently reading the literal as the allocation. After that flip, a return to SILENT means the refusal has a hole again.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and `error[E5506]` on stderr containing "a one-element array literal holding an array allocation is unavailable in the current direct-runtime path: it lowers to the same node as the allocation itself, so codegen cannot tell them apart (fail-closed)"; node prints `1` at exit 0. Closed by the inline-allocation-value-position project (Task 6): `kali_types`'s `ArrayExpression` resolution now refuses a one-element literal whose only element is an array allocation, via the new `expression_is_array_allocation` recognizer (`crates/kali_types/src/resolve/expression.rs`). FAIL_CLOSED, not FIXED, on purpose: the literal and the allocation remain indistinguishable at the LIR level, so kali refuses to compile the collision instead of silently reading the literal as the allocation. The verdict was flipped only after this reading.
 '''
 
 [[case]]
@@ -2797,7 +2799,7 @@ name = "r66a_one_element_literal_in_function"
 kind = "oracle"
 register_entry = "R-66"
 program = "r66a_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = '''
 R-66, the one-element-literal-collides-with-an-allocation lane, in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
@@ -2806,6 +2808,8 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-11 at `733cd26125` against node v26.8.2: SILENT. kali prints `3` at exit 0 with empty stderr; node prints `1` at exit 0. Byte-identical to the module scope. Corroborated directly by Task 2's `literal_of_allocation_fn.js` (case `a_one_element_literal_of_an_allocation_refuses_in_a_function`), which measured the identical program at this same baseline.
 
 WHAT A REGRESSION HERE WOULD MEAN. Filed SILENT by the inline-allocation-value-position project; expected to flip to FAIL_CLOSED in Task 6's commit, byte-identical to the module-scope case's note. After that flip, a return to SILENT means the refusal has a hole again, in this scope too.
+
+RE-MEASURED 2026-09-11 against node v26.8.2, with the fix: FAIL_CLOSED (was SILENT), byte-identical to the module-scope case. The verdict was flipped only after this reading.
 '''
 
 [[case]]

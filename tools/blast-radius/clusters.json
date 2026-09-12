@@ -225,7 +225,13 @@
     "while R-67 additionally declines G2 (the callee is resolved and runs to completion). Both are",
     "filed SILENT in the same commit and are expected to leave this file on separate schedules: R-66",
     "when a later task in the same project (Task 6) retires it FAIL_CLOSED, and R-67 when a later",
-    "task (Task 7) retires it FIXED."
+    "task (Task 7) retires it FIXED.",
+    "",
+    "REMOVED 2026-09-11, next commit: R-66 leaves. Its one lane moved to FAIL_CLOSED when Task 6's",
+    "kali_types refusal landed, so it left the SILENT filter, and an entry outside that filter",
+    "carries no assignment. Unlike R-63's departure from G6, R-66 held its OWN singleton cluster",
+    "definition (\"R-66 (unclustered)\"), so both it and its assignment leave together -- the R-56",
+    "precedent, not the R-63 one, because R-56 was also a singleton. R-67 is untouched and stays."
   ],
   "clusters": [
     {
@@ -322,11 +328,6 @@
       "name": "R-65 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered ... this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way ... Not G4 ... Not G6 ... Not G2'. Declined G3 on the fix-unit rule, the same criterion R-47 and R-58 already applied to their own G3-shaped guards; declined G4 because the array or constructed value produces a real, distinct handle wherever a materializing lane reaches it; declined G6 because an array literal and a user class constructor are fully implemented language features, not unresolved builtins; declined G2 because the callee is resolved and compiled in every repro."
-    },
-    {
-      "name": "R-66 (unclustered)",
-      "origin": "singleton",
-      "why": "§2: 'unclustered -- traced to one specific lowering site ... Not G7 ... Not G4 ... Not G3'. Declined G7 because G7's traced mechanism re-emits a const binding's own initializer at each read, a binding-table decision keyed on declarator kind, where this entry's HIR/MIR erasure is earlier and unconditional -- no const/let/var decision is involved; declined G4 because the collision produces the allocation's own real length, not 0 -- two different source shapes reading as one value, not a value collapsing into 0's representation; declined G3 because no guard exists at this site to leak past."
     },
     {
       "name": "R-67 (unclustered)",
@@ -544,13 +545,6 @@
       "registerSource": "unclustered -- this has G3's shape exactly ... It is nonetheless not added to G3's member list, on the criterion clusters.json itself states and that R-47 and R-58 already decided the same way for their own G3-shaped guards: a cluster there is the unit a fix actually ships in, and this entry's fix ships in no code any G3 member's fix touches. Not G4 ... Not G6 ... Not G2.",
       "alternate": "G3 by shape (a guard keyed on one syntactic form, with a sibling form slipping past into the miscompile the guard's own diagnostic describes), named and declined by the register on the fix-unit rule R-47 and R-58 already established for their own G3-shaped guards.",
       "alternateCluster": null
-    },
-    {
-      "id": "R-66",
-      "cluster": "R-66 (unclustered)",
-      "registerSource": "unclustered -- traced to one specific lowering site, declined by name against §3's existing clusters rather than assumed. Not G7 (binding storage) ... a binding-table decision keyed on declarator kind, where this entry's site is earlier and unconditional -- HIR keeps NewExpr and ArrayExpr apart, but MIR erases both to the same node, so no const/let/var decision is involved. Not G4 ... the collision produces the allocation's own real length, not 0 -- two different SOURCE shapes reading as one VALUE, not a value collapsing into 0's representation. Not G3 ... no guard exists at this site to leak past.",
-      "alternate": "G7 by the shared word \"re-emit\"/\"same node\", named and declined by the register because G7's traced mechanism is a const binding with no slot re-emitting its own initializer at each read, a different site and trigger from this entry's HIR/MIR erasure.",
-      "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
     },
     {
       "id": "R-67",

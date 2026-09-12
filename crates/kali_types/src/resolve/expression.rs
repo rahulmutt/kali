@@ -1860,6 +1860,30 @@ impl TypeContext {
             Expression::CallExpression(expr) => self.resolve_call_expression(expr),
             Expression::MemberExpression(expr) => self.resolve_member_expression(expr),
             Expression::ArrayExpression(ArrayExpression { elements }) => {
+                // `[Array(n)]`, `[new Array(n)]` and `[Array(n).fill(v)]` lower to
+                // the SAME LIR node as `new Array(n)` itself: a text-less `Value`
+                // with one `Call` child. `kali_mir` erases the HIR `NewExpr` /
+                // `ArrayExpr` distinction (`crates/kali_mir/src/lower.rs:108`,
+                // `:116`), so no codegen shape check can tell them apart, and
+                // `resolve_array_alloc_call` (`emit/call.rs:5464`) reads the
+                // literal AS the allocation -- `[new Array(3)].length` answered
+                // `3` where node says `1`. Refusing the collision here is what
+                // lets codegen route an allocation in value position (spec
+                // docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md
+                // sections 3.1-3.2). Only the one-element form collides; a
+                // two-child literal is a shape the recognizer never accepts.
+                if let [Some(ExpressionOrSpread::Expression(only))] = elements.as_slice() {
+                    if expression_is_array_allocation(only) {
+                        self.diagnostics.push(Diagnostic::error(
+                            e5::FEATURE_UNAVAILABLE as u32,
+                            "a one-element array literal holding an array allocation is \
+                             unavailable in the current direct-runtime path: it lowers to the \
+                             same node as the allocation itself, so codegen cannot tell them \
+                             apart (fail-closed)"
+                                .to_string(),
+                        ));
+                    }
+                }
                 for element in elements.iter().flatten() {
                     match element {
                         ExpressionOrSpread::Expression(expr) => self.resolve_expression(expr),
@@ -3006,6 +3030,46 @@ fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static s
         AssignmentOperator::NullishAssign => None,
         AssignmentOperator::AndAssign => None,
         AssignmentOperator::OrAssign => None,
+    }
+}
+
+/// `Array(n)` / `new Array(n)` / `Uint8Array(n)` / `new Uint8Array(n)`, optionally
+/// `.fill(v)`ed, parenthesized or awaited — the shapes
+/// `FunctionEmitter::resolve_array_alloc_call` and `array_fill_call_parts`
+/// (`crates/kali_codegen/src/emit/call.rs:5464`, `:5649`) accept after unwrapping
+/// transparent value wrappers.
+///
+/// This MUST stay in lockstep with `FunctionEmitter::is_array_like_constructor`
+/// (`emit/call.rs:5510`), the same way `declarator_init_is_array_alloc`
+/// (`crates/kali_codegen/src/lower.rs:6535`) records its own lockstep with it: a
+/// spelling codegen treats as an allocation but this function does not is a
+/// spelling whose one-element literal reaches codegen and is miscompiled.
+fn expression_is_array_allocation(expr: &Expression) -> bool {
+    match expr {
+        Expression::ParenthesizedExpression(paren) => {
+            expression_is_array_allocation(&paren.expression)
+        }
+        Expression::AwaitExpression(await_expr) => {
+            expression_is_array_allocation(&await_expr.argument)
+        }
+        Expression::NewExpression(new_expr) => match &new_expr.callee {
+            Expression::Identifier(name) => {
+                (name == "Array" || name == "Uint8Array") && new_expr.args.len() <= 1
+            }
+            callee => new_expr.args.is_empty() && expression_is_array_allocation(callee),
+        },
+        Expression::CallExpression(call) => match &call.callee {
+            Expression::Identifier(name) => {
+                (name == "Array" || name == "Uint8Array") && call.args.len() <= 1
+            }
+            Expression::MemberExpression(member) => {
+                member.property.as_deref() == Some("fill")
+                    && call.args.len() == 1
+                    && expression_is_array_allocation(&member.object)
+            }
+            _ => false,
+        },
+        _ => false,
     }
 }
 

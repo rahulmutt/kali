@@ -308,7 +308,7 @@ a defect.
 | R-63 `.length` renders a node's child count, or `0`, for a receiver with no length lane | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the length-fails-closed project — its one lane moved.** Re-derived from the two `r63a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and the `.length` floor's `E5506`; node prints `3`. FAIL_CLOSED, not FIXED: no lane computes this length yet, and kali now says so. Originally **added 2026-09-11 by the same project**, off `152fdd5364`; **measured at `152fdd5364` against `node v26.8.2`, both scopes**: `const o = {a: "xyz"}; console.log(o.a.length)` prints `1` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r63a`. §2's entry carries ten more lanes measured by hand. |
 | R-64 an allocation outside the materializing lanes → 0 | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x.length; } console.log(f(new Array(6)));` prints `0` in kali at exit 0 with empty stderr where node prints `6` at exit 0. Lane `r64a`. §2's entry carries ten more lanes from the spec's own table plus one measured correction. |
 | R-65 a fold-lane array argument → zeros in the callee | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `function f(x) { return x[0]; } const k = 3; console.log(f([k]));` prints `0` in kali at exit 0 with empty stderr where node prints `3` at exit 0. Lane `r65a`. §2's entry carries eight more lanes from the spec's own table. |
-| R-66 a one-element literal of an allocation IS that allocation | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`, in the same commit as R-67; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `const xs = [new Array(3)]; console.log(xs.length);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r66a`. §2's entry carries three more lanes from the spec's own table. |
+| R-66 a one-element literal of an allocation IS that allocation | **FAIL_CLOSED** (both scopes) | **RETIRED 2026-09-11 by the inline-allocation-value-position project (Task 6) — its one lane moved.** Re-derived from the two `r66a` cases, which now assert `fail_closed`: kali exits 1 with empty stdout and `error[E5506]` naming the collision ("lowers to the same node as the allocation itself"); node prints `1`. FAIL_CLOSED, not FIXED: the literal and the allocation remain indistinguishable at the LIR level, so kali refuses the collision rather than routing a value through it. Originally **added 2026-09-11 by the same project**, off `733cd26125`, in the same commit as R-67; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `const xs = [new Array(3)]; console.log(xs.length);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r66a`. §2's entry carries three more lanes from the spec's own table. |
 | R-67 `.fill(v)` evaluates `v` once per element | **SILENT** (both scopes) | **added 2026-09-11 by the inline-allocation-value-position project**, off `733cd26125`, in the same commit as R-66; **measured at `733cd26125` against `node v26.8.2`, both scopes**: `let n = 0; function g() { n = n + 1; return 1; } const a = new Array(3).fill(g()); console.log(n);` prints `3` in kali at exit 0 with empty stderr where node prints `1` at exit 0. Lane `r67a`. §2's entry carries two more lanes from the spec's own table. |
 
 **Two entries a reader may look for and not find.** Neither is a §2 entry, so
@@ -911,6 +911,19 @@ loop), the same shape as R-64's above. Filed together because neither matcher
 nor either retirement depends on the other — R-66 is a lowering-identity
 collision and R-67 is an emission-order bug in an unrelated codegen helper —
 but both are a handful of lines, so the controller chose one commit for both.
+
+**Updated 2026-09-11 a fifth time (inline-allocation-value-position, Task 6).**
+**R-66** retires FAIL_CLOSED, in the commit that fixes it, exactly as the
+paragraph immediately above predicted. This movement does **not** move either
+right-hand-column count: the Tier-2 cell stays **37** and the register still
+holds **67** numbered entries in total (R-01..R-67) — a retirement to
+FAIL_CLOSED keeps the entry (marked `### R-66 ... — CLOSED 2026-09-11
+(FAIL_CLOSED)`) rather than removing it, the same no-op-on-the-count shape
+R-63's own retirement took above (`### R-63`'s heading gained the same marker
+with no change to the 48/49 tier-ranked figures those paragraphs record). What
+changed is the two `r66a` cases (`fail_closed`, not `silent`) and §0.2's row.
+R-64, R-65 and R-67 are untouched by this commit and remain filed SILENT,
+their own retirements left for Task 8, Task 9 and Task 7 respectively.
 
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
@@ -4642,7 +4655,7 @@ tier, ordering is by blast radius.
 
 ---
 
-### R-66: A one-element array literal of an allocation IS that allocation
+### R-66: A one-element array literal of an allocation IS that allocation — **CLOSED 2026-09-11 (FAIL_CLOSED)**
 
 - **Added**: 2026-09-11, by the **inline-allocation-value-position** project
   (`docs/superpowers/specs/2026-09-11-inline-allocation-value-position-design.md`),
@@ -4708,11 +4721,41 @@ tier, ordering is by blast radius.
   reachable 0 over the frozen corpus (`unsampled`) — no anchor or extension
   program contains this shape, matching the spec's own `grep` over
   `crates/kali_cli/tests` (§2.3: 0 hits).
-- **Pinned by**: two oracle cases (`r66a`, both scopes, `tier2.toml`) asserting
-  the SILENT class.
+- **Pinned by**: two oracle cases (`r66a`, both scopes, `tier2.toml`) ~~asserting
+  the SILENT class~~ — **updated 2026-09-11 by the inline-allocation-value-position
+  fix (Task 6): the two cases now assert `fail_closed`.**
 - **Confidence**: high on behaviour (all four lanes independently re-measured
   at this baseline via Task 2's own case files); high on mechanism (the exact
   MIR erasure sites named above, spec §2.3).
+- **RETIRED 2026-09-11, by the inline-allocation-value-position project (Task
+  6), in the commit that fixes it.**
+  - `kali_types`'s `ArrayExpression` resolution (`crates/kali_types/src/resolve/expression.rs`)
+    now refuses, before walking a literal's elements, a one-element literal
+    whose only element is an array allocation — `Array(n)` / `new Array(n)` /
+    `Uint8Array(n)` / `new Uint8Array(n)`, optionally `.fill(v)`ed,
+    parenthesized or awaited (the new `expression_is_array_allocation`
+    recognizer, kept in lockstep with `FunctionEmitter::is_array_like_constructor`,
+    `emit/call.rs:5510`). The refusal fires wherever the literal is resolved as
+    a value — declarator init, call argument, or any other expression
+    position — because it sits in `resolve_expression`'s shared
+    `ArrayExpression` arm.
+  - Both `r66a` cases now read FAIL_CLOSED: `kali exits 1` with empty stdout
+    and `error[E5506]` naming the collision ("lowers to the same node as the
+    allocation itself"); node still prints `1`. FAIL_CLOSED, not FIXED, on
+    purpose: the literal and the allocation remain indistinguishable at the
+    LIR level (row 1 of the table above), so the fix refuses the collision
+    rather than routing a value through it — the same shape R-65's own
+    retirement is expected to take.
+  - All four lanes measured in the table above now refuse identically
+    (pinned in `crates/kali_cli/tests/cases/runtime/inline_allocation_value_position.toml`,
+    the five `_one_element_literal_*_refuses` cases), and the two-element
+    control (`control_two_element_literal.js`, case
+    `a_two_element_literal_of_allocations_is_correct`) is untouched — a
+    two-child text-less `Value` is not a shape `resolve_array_alloc_call`
+    accepts, so it never collided and the refusal does not widen to it.
+  - **What this does NOT close**: R-64, R-65 and R-67 are unrelated matchers
+    and unrelated fixes, filed in the same project and left for later tasks
+    (R-64/R-67 → Task 8/Task 7 respectively; R-65 → Task 9).
 
 ---
 
