@@ -11,6 +11,15 @@ enum ArrayLen {
 }
 
 impl<'a> FunctionEmitter<'a> {
+    /// A value that is a whole runtime `[len][elem…]` array: a bare
+    /// identifier in `array_bindings`, or a call to an array-returning
+    /// function. Its i64 is a handle, never a printable number.
+    pub(crate) fn is_runtime_array_value(&self, id: LirNodeId) -> bool {
+        self.bare_identifier_name(id)
+            .is_some_and(|name| self.array_bindings.contains(&name))
+            || self.array_return_call_elem(id).is_some()
+    }
+
     /// Emit `id` as a console-import argument: always leaves exactly one i64
     /// (tagged scalar or string handle) on the stack.
     ///
@@ -20,6 +29,13 @@ impl<'a> FunctionEmitter<'a> {
     /// second ladder, and so this lane gains the ladder's repr knowledge
     /// (a boolean renders `true`/`false`, not `1`/`0` — R-30).
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.is_runtime_array_value(id) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
+                    .to_string(),
+            ));
+        }
         if self.object_shape_of_node(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -60,6 +76,13 @@ impl<'a> FunctionEmitter<'a> {
     /// position 0, or printing an object in a later position would silently
     /// render a pointer.
     fn emit_console_argument_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.is_runtime_array_value(id) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
+                    .to_string(),
+            ));
+        }
         if self.object_shape_of_node(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

@@ -40,6 +40,15 @@ function mk() { const a = new Array(2).fill("x"); return a; } function main() { 
 "let_literal_return.js" = '''
 function f() { let a = [1, 2, 3]; return a; } function main() { const b = f(); console.log(b[1]); } main();
 '''
+"s09_print_call_bound.js" = '''
+function f() { return [1, 2, 3]; } function main() { const a = f(); console.log(a); } main();
+'''
+"s10_print_local.js" = '''
+function main() { const a = new Array(3).fill(4); console.log(a); } main();
+'''
+"print_second_argument.js" = '''
+function main() { const a = new Array(3).fill(4); console.log("a", a); } main();
+'''
 
 [[case]]
 name = "mixed_array_and_scalar_returns_refuses_at_check"
@@ -167,3 +176,24 @@ args = ["run", "let_literal_return.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `let`/`var` binding of an array literal, which can be reassigned"]
 
+
+[[case]]
+name = "printing_a_call_bound_array_refuses"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `[ 1, 2, 3 ]`. Once the binding is a real array it would print the raw handle instead, so printing a whole runtime array refuses (spec §2.4, §3.3 backstop 3)."""
+args = ["run", "s09_print_call_bound.js"]
+exit = "failure"
+stderr_contains = ["E5506", "printing a whole runtime array"]
+
+[[case]]
+name = "printing_a_local_runtime_array_refuses"
+rationale = """At `368b5b5ea` kali printed `4104` (the array's handle) at exit 0 where node v26.10.0 prints `[ 4, 4, 4 ]` (spec §2.2 S10)."""
+args = ["run", "s10_print_local.js"]
+exit = "failure"
+stderr_contains = ["E5506", "printing a whole runtime array"]
+
+[[case]]
+name = "printing_a_runtime_array_as_a_later_argument_refuses"
+rationale = """The multi-argument lane. Measured at the task's start commit `9c2882c66`: kali printed `a 4112` (the handle) at exit 0 where node v26.10.0 prints `a [ 4, 4, 4 ]`."""
+args = ["run", "print_second_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "printing a whole runtime array"]
