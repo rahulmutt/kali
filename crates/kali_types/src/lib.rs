@@ -6,6 +6,8 @@
 
 mod builtins;
 mod context;
+#[allow(dead_code)] // wired by repr_infer in the next task
+mod array_return;
 mod growable;
 mod late_host;
 pub mod monomorphize;

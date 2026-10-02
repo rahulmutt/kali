@@ -2,7 +2,7 @@
 use crate::*;
 
 mod call;
-mod expression;
+pub(crate) mod expression;
 mod function;
 mod jsx;
 mod member;
