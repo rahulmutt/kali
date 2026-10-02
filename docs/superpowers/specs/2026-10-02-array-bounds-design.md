@@ -54,7 +54,8 @@ reads. Concretely:
 * **No float index.** The plain lane's float-index shape gap is unchanged.
 * **One disclosed `check` / `run` gap.** An out-of-range non-negative index
   is known only at run time, so `kali check` exits 0 on it while `kali run`
-  refuses. Every compile-time refusal of §1 items 2 and 3 is mirrored.
+  refuses. Every compile-time refusal of §1 items 2 and 3 is mirrored, except
+  on the anonymous lane (amendment A-3).
 
 ---
 
@@ -291,4 +292,36 @@ There is no new `tests/*.rs` integration target.
 
 ## 7. Amendments
 
-None yet.
+Added while writing the implementation plan, before any code.
+
+* **A-1. The helper is in every module.** §3.1 said `__array_elem_addr` is
+  declared only when the program needs it, giving byte-identical wasm
+  otherwise. Every fixed synthetic (`__streq`, `__join`, the `__usp_*`
+  family) is instead present in every module, listed in
+  `SYNTHETIC_FUNCTIONS` (`kali_codegen/src/lower.rs:52`). A precise "needs
+  it" probe would have to predict codegen's `array_bindings` before codegen
+  runs. The helper follows that precedent. It shifts every source-defined
+  function's wasm index by one, and the §5.1 spike surfaces any test pinning
+  an index or a module-wide instruction count. Its signature is
+  `(base: i64, idx: i64, msg: i64) -> i64`. The call site passes the interned
+  message handle as `msg`, because a hand-emitted synthetic body has no
+  string interner. The caller wraps the result to i32.
+* **A-2. The helper's body is tested through CLI cases.** §5.3 asked for a
+  codegen unit test of the body. The crate has no harness that executes a
+  synthetic body. Its three boundary rows (`idx == len - 1` reads, while
+  `idx == len` and a run-time `idx == -1` trap) are `array_bounds.toml`
+  cases instead.
+* **A-3. A second `check` / `run` gap, on the anonymous lane.** The §3.3
+  mirror proves a receiver through the resolver's runtime-array registry,
+  which learns `const a = f()` from `call_returns_runtime_array`. That
+  function keys by the bare callee name, and an anonymous function's fact is
+  keyed by its `__kali_fn_N` id (`anon-array-return-discovered-defects.md`
+  §9). So for rows a1 and a3-a5, `kali check` exits 0 while `kali run`
+  refuses with `E5506`. Rows d1 and d3-d5, n1, n3, n4 and w2 refuse under
+  both. The human partner chose to disclose this rather than fold §9's fix
+  in. It is recorded in the new followups file, pointing at §9.
+* **A-4. The agreement test is the paired cases.** §5.3 asked for a test
+  that every codegen §3.2 refusal has a matching §3.3 refusal. Every refusal
+  row in `array_bounds.toml` is pinned twice, once under `kali check` and
+  once under `kali run`. A mismatch fails a case, so the pairs are that
+  test. The anonymous rows of A-3 are pinned at their disclosed split.
