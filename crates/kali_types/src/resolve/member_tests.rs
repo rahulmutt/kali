@@ -431,18 +431,27 @@ fn a_chained_array_allocation_is_the_same_runtime_array_as_the_statement_form() 
 #[test]
 fn computed_index_on_call_bound_array_is_admitted() {
     let source = "function f() { return [1, 2, 3]; } function main() { const a = f(); let i = 2; console.log(a[i]); } main();";
-    assert!(e5506_messages(source).is_empty(), "{:?}", e5506_messages(source));
+    assert!(
+        e5506_messages(source).is_empty(),
+        "{:?}",
+        e5506_messages(source)
+    );
 }
 
 #[test]
 fn computed_index_on_direct_array_returning_call_is_admitted() {
     let source = "function f() { return [1, 2, 3]; } function main() { let i = 1; console.log(f()[i]); } main();";
-    assert!(e5506_messages(source).is_empty(), "{:?}", e5506_messages(source));
+    assert!(
+        e5506_messages(source).is_empty(),
+        "{:?}",
+        e5506_messages(source)
+    );
 }
 
 #[test]
 fn computed_index_on_scalar_call_still_refuses() {
-    let source = "function f() { return 3; } function main() { let i = 1; console.log(f()[i]); } main();";
+    let source =
+        "function f() { return 3; } function main() { let i = 1; console.log(f()[i]); } main();";
     assert!(e5506_messages(source).iter().any(|m| m.contains(COMPUTED)));
 }
 

@@ -2826,9 +2826,18 @@ impl ReprInfer {
                     .declaration_counts
                     .entry(decl.name.clone())
                     .or_insert(0) += 1;
-                self.array_return_facts
-                    .candidate_forms
-                    .insert(decl.name.clone());
+                // Ruling R12: an `async` or generator declaration returns a
+                // Promise or an iterator, not the array; it is neither a
+                // candidate nor taintable, so it keeps its pre-project lane.
+                if decl.is_async || decl.generator {
+                    self.array_return_facts
+                        .non_taintable
+                        .insert(decl.name.clone());
+                } else {
+                    self.array_return_facts
+                        .candidate_forms
+                        .insert(decl.name.clone());
+                }
                 if crate::array_return::body_falls_off_end(&decl.body.body) {
                     self.array_return_facts
                         .falls_off_end
@@ -6166,11 +6175,8 @@ impl ReprInfer {
         }
         // Publish the callee-shadow decision so the resolver and codegen read
         // the same fact inference used (`callee_is_shadowed`).
-        let scopes: BTreeSet<&String> = self
-            .local_names
-            .keys()
-            .chain(self.parents.keys())
-            .collect();
+        let scopes: BTreeSet<&String> =
+            self.local_names.keys().chain(self.parents.keys()).collect();
         for f in table_array_returning_names(&table, &solution.array_returning) {
             for scope in scopes.iter().map(|s| s.as_str()).chain([TOP_LEVEL]) {
                 if self.callee_is_shadowed(scope, &f) {
@@ -7403,10 +7409,7 @@ fn constructor_name(callee: &Expression) -> Option<String> {
 }
 
 /// Names of the functions admitted as array-returning in `table`.
-fn table_array_returning_names(
-    table: &ReprTable,
-    candidates: &BTreeSet<String>,
-) -> Vec<String> {
+fn table_array_returning_names(table: &ReprTable, candidates: &BTreeSet<String>) -> Vec<String> {
     candidates
         .iter()
         .filter(|f| table.array_return(f).is_some())

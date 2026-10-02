@@ -440,3 +440,29 @@ fn uncalled_admissible_function_stays_array_returning() {
     let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
     assert!(s.array_returning.contains("f"));
 }
+
+#[test]
+fn non_taintable_declaration_is_neither_admitted_nor_tainted() {
+    // Ruling R12: an `async`/generator declaration is not a candidate and is
+    // never tainted, even with a bad-array return.
+    let mut facts = facts_one("f", vec![ReturnArg::Literal(None)]);
+    facts.candidate_forms.clear();
+    facts.non_taintable.insert("f".into());
+    let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
+    assert!(!s.array_returning.contains("f"));
+    assert_eq!(s.tainted.get("f"), None);
+
+    let mut facts = facts_one(
+        "f",
+        vec![ReturnArg::BadArray(kali_common::ARRAY_RETURN_ELEMENT)],
+    );
+    facts.candidate_forms.clear();
+    facts.non_taintable.insert("f".into());
+    let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
+    assert_eq!(s.tainted.get("f"), None);
+
+    // A repeated name is not one function: it keeps the FORM taint.
+    facts.declaration_counts.insert("f".into(), 2);
+    let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
+    assert!(s.tainted.contains_key("f"));
+}

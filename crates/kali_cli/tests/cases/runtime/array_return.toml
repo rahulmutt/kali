@@ -94,6 +94,9 @@ main();
 "allocation_returned_directly.js" = '''
 function g() { return new Array(4); } function main() { const a = g(); a[1] = 6; console.log(a[1] + "," + a.length); } main();
 '''
+"async_direct_index.js" = '''
+async function f() { return [1, 2, 3]; } console.log(f()[0]);
+'''
 
 [[case]]
 name = "a_returned_literal_passed_on_computes"
@@ -282,3 +285,16 @@ rationale = """`return new Array(n)` lowers to a text-less one-child `Value` (th
 args = ["run", "allocation_returned_directly.js"]
 exit = "success"
 stdout = "6,4\n"
+
+[[case]]
+name = "async_function_stays_off_the_array_return_lane"
+rationale = """Ruling R12: an `async` declaration is not an array-return candidate (its call yields a Promise) and is never tainted, so `f()[0]` stays on its PRE-EXISTING lane. That lane is SILENT-WRONG: kali prints `0` at exit 0 where node v26.10.0 prints `undefined`. This pins the pre-existing lane, not a correct result; it is filed for followup. At `4ec806e59` kali printed the same `0`; at `22350647b`, before this ruling, the array-return lane read the literal and printed `1`. `kali check` admits the program too (see the `_checks` twin), so check and run agree."""
+args = ["run", "async_direct_index.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "async_function_stays_off_the_array_return_lane_checks"
+rationale = """Check/run agreement for ruling R12: `kali check` admits the program `kali run` compiles (to its pre-existing silent `0`; node v26.10.0 prints `undefined`)."""
+args = ["check", "async_direct_index.js"]
+exit = "success"

@@ -1971,3 +1971,36 @@ fn array_return_class_body_write_declines_let_call_bound() {
     );
     assert_eq!(t.array_return("f"), None);
 }
+
+#[test]
+fn array_return_async_function_is_neither_admitted_nor_tainted() {
+    // Ruling R12: an async declaration's call yields a Promise, not the
+    // array, so it is not a candidate form; like `__kali_fn_N` it keeps its
+    // pre-project lane and is never tainted. Called and call-bound, so the
+    // R8 exemption alone would not hide a taint.
+    let t =
+        reprs("async function f() { return [1, 2, 3]; }\nconst a = f();\nconsole.log(f()[0]);\n");
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(t.array_return_taint("f"), None);
+    assert!(!t.is_call_bound_array_binding("_start", "a"));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn array_return_generator_function_is_neither_admitted_nor_tainted() {
+    // Ruling R12: a generator's call yields an iterator, not the array.
+    let t = reprs("function* g() { return [1]; }\nconst b = g();\n");
+    assert_eq!(t.array_return("g"), None);
+    assert_eq!(t.array_return_taint("g"), None);
+    assert!(!t.is_call_bound_array_binding("_start", "b"));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn array_return_async_function_mixed_returns_are_not_tainted() {
+    // Mixed array/scalar returns would taint a candidate (MIXED); a
+    // non-taintable async declaration stays on its lane instead.
+    let t = reprs("async function f(c) { if (c) { return [1]; } return 0; }\nf(true);\n");
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(t.array_return_taint("f"), None);
+}

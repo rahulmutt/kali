@@ -397,8 +397,8 @@
 #   R-13   read            function   silent          silent           same
 #   R-13   write           module     silent          silent           same
 #   R-13   write           function   silent          silent           same
-#   R-14   --              module     silent          silent           same
-#   R-14   --              function   silent          silent           same
+#   R-14   --              module     silent          ~~silent~~ fixed ~~same~~ MOVED (2026-10-02)
+#   R-14   --              function   silent          ~~silent~~ fixed ~~same~~ MOVED (2026-10-02)
 #   R-15   --              module     silent          silent           same
 #   R-15   --              function   silent          silent           same
 #   R-16   --              module     silent          silent           same
@@ -423,6 +423,12 @@
 # The three entries §0.1's amendment named as the likely frontier -- R-10, R-13,
 # R-14 -- ALL still measure SILENT, in both scopes, with no diagnostic on either
 # subcommand. The amendment's frontier stands.
+#
+# SUPERSEDED FOR R-14, 2026-10-02 (node v26.10.0): the array-return project
+# (docs/superpowers/specs/2026-10-02-array-return-design.md) closed R-14, and
+# both R-14 cases now measure FIXED (`r=1` at exit 0, matching node). The two
+# rows above keep the 2026-08-15 measurement struck through. R-10 and R-13 are
+# unaffected by this note.
 #
 # ---------------------------------------------------------------------------
 # WHAT THE SECOND PASS FOUND, 2026-08-15, commit `36f9c814a2`, node v26.7.0.
@@ -1537,10 +1543,10 @@ name = "r14_returned_array_reads_zeros_module_scope"
 kind = "oracle"
 register_entry = "R-14"
 program = "r14_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-14, module scope. §2's `Repro` verbatim: `function f() { return [1, 2, 3]; } console.log("r=" + f()[0]);` -- a plain array literal crossing a return, with no push and no store.
 
-Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `r=1` against kali `r=0` at exit 0, and §0.2's row reads "R-14 returned array reads zeros | **SILENT**". SILENT.
+Expected verdict: FIXED, closed by the array-return project (docs/superpowers/specs/2026-10-02-array-return-design.md). A function that returns an I64-element array literal on every path now hands its caller a real runtime array (§3.2), and the direct read `f()[0]` loads it (§3.3). Measured 2026-10-02 at `22350647b` against node v26.10.0: kali prints `r=1` at exit 0 with empty stderr; node prints `r=1` at exit 0. Superseded: as of `61c2d48ea9`, §2 recorded node `r=1` against kali `r=0` at exit 0, and §0.2's row read "R-14 returned array reads zeros | **SILENT**" -- ~~SILENT~~.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=0` at exit 0 with empty stderr; node prints `r=1` at exit 0.
 
@@ -1551,10 +1557,10 @@ name = "r14_returned_array_reads_zeros_in_function"
 kind = "oracle"
 register_entry = "R-14"
 program = "r14_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-14, in-function scope. The module-scope repro verbatim -- `f`'s declaration moving inside with it -- inside `function main() { … }` with a trailing `main();`.
 
-Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-14 records `Scopes affected: both -- including fully in-function`.
+Expected verdict: FIXED, as for the module scope, closed by the array-return project (docs/superpowers/specs/2026-10-02-array-return-design.md). The nested `function f` declaration is admitted by its amendment A4, which names this very program. Measured 2026-10-02 at `22350647b` against node v26.10.0: kali prints `r=1` at exit 0 with empty stderr; node prints `r=1` at exit 0. Superseded: ~~SILENT, as for the module scope~~ -- as of `61c2d48ea9`, §2's R-14 records `Scopes affected: both -- including fully in-function`.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=0` at exit 0; node prints `r=1` at exit 0. Identical to the module scope.
 

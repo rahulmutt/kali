@@ -248,6 +248,11 @@ pub(crate) struct ArrayReturnFacts {
     /// dead code, hands its result to no kali code, so it keeps its
     /// pre-project lane. Admission is unaffected.
     pub(crate) called: BTreeSet<String>,
+    /// `async` and generator `function` declarations (ruling R12). Their call
+    /// yields a Promise or an iterator, never the array, so they are not
+    /// candidate forms; like an anonymous `__kali_fn_N` they are also never
+    /// tainted and keep their pre-project lane.
+    pub(crate) non_taintable: BTreeSet<String>,
 }
 
 /// One call-edge argument position, as the array-fed param fact (A3) sees it.
@@ -414,6 +419,12 @@ pub(crate) fn solve(
                 // stays on its existing lane (a direct call through its
                 // binding already refuses as a first-class function call).
                 if !facts.is_candidate(f) && f.starts_with("__kali_fn_") {
+                    continue;
+                }
+                // Ruling R12: an `async` or generator declaration is not a
+                // candidate form and is never tainted either. A repeated name
+                // is not one function, so it keeps the FORM taint below.
+                if facts.non_taintable.contains(f) && facts.declaration_counts.get(f) == Some(&1) {
                     continue;
                 }
                 let array_shaped = |arg: &ReturnArg| match arg {
