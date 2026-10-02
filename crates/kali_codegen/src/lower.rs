@@ -69,6 +69,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__usp_append",
     "__percent_encode",
     "__usp_tostring",
+    "__array_elem_addr",
 ];
 
 /// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
@@ -866,6 +867,23 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Synthetic runtime-array bounds guard
+    // `__array_elem_addr(base: i64, idx: i64, msg: i64) -> i64`
+    // (array-bounds spec §3.1, amendment A-1): every plain `[len][elem…]`
+    // element read and write routes its address through it, so an index at or
+    // past the length header — a negative one too, by the unsigned compare —
+    // prints `msg` and traps instead of addressing outside the element slots.
+    // Present in every module, like `__streq`. Same inert-placeholder pattern
+    // as the synthetics above; body hand-emitted by `emit_array_elem_addr_body`.
+    all_functions.push(FunctionPlan {
+        name: "__array_elem_addr".to_string(),
+        params: vec!["base".to_string(), "idx".to_string(), "msg".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
     // appended AFTER the fixed synthetics and BEFORE any source-defined function
     // so, like the fixed synthetics, they shift every later function's index by
@@ -1242,6 +1260,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             "__join" | "__join_arena" | "__join_growable_i64" | "__join_growable_str"
         ) {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
+        } else if function.name == "__array_elem_addr" {
+            (
+                vec![ValType::I64, ValType::I64, ValType::I64],
+                vec![ValType::I64],
+            )
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
         } else {
@@ -1669,6 +1692,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     emit_join_growable_body(&mut body, alloc_global_index, false)
                 }
                 "__streq" => emit_streq_body(&mut body),
+                "__array_elem_addr" => emit_array_elem_addr_body(&mut body),
                 // URLSearchParams scan/mutation helpers (Stage P4 Task 4). The
                 // `__streq` index is threaded for key comparison; getall/set also
                 // take `__alloc_global` (fresh result / grown block must outlive
@@ -7839,6 +7863,35 @@ fn emit_streq_body(func: &mut Function) {
     func.instruction(&Instruction::End);
     // all len bytes equal
     func.instruction(&Instruction::I64Const(1));
+    // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
+/// `__array_elem_addr(base, idx, msg) -> i64`: the bounds guard for a plain
+/// `[len][elem…]` runtime array (array-bounds spec §3.1). Locals: 0 = base,
+/// 1 = idx, 2 = msg (params, no further locals). `idx >=u len` — a negative
+/// `idx` included — hands `msg` to `console.error` and traps; otherwise
+/// returns `base + idx * 8`, the `+8` header skip staying on the caller's
+/// load/store `offset`. No `i64.eqz` (see `emit_streq_body`).
+fn emit_array_elem_addr_body(func: &mut Function) {
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64GeU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
     // NO trailing End — the dispatch loop appends it (same as every synthetic).
 }
 

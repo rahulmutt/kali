@@ -3,6 +3,8 @@ use crate::*;
 
 impl TypeContext {
     pub(crate) fn resolve_call_expression(&mut self, expr: &CallExpression) {
+        self.reject_runtime_array_mutator_call(expr);
+
         if let Expression::SequenceExpression(sequence) = &expr.callee {
             if sequence.expressions.len() > 1 {
                 for callee_expression in sequence

@@ -487,3 +487,106 @@ fn a_later_shadow_in_the_caller_refuses() {
         assert!(messages.iter().any(|m| m.contains(COMPUTED)), "{source}: {messages:?}");
     }
 }
+
+const NEG: &str = "a negative index on a runtime array is unavailable";
+const MUT: &str = "on a runtime array is unavailable in the current phase";
+const LEN: &str = "assigning to `.length` of a runtime array is unavailable";
+
+fn any_contains(messages: &[String], needle: &str) -> bool {
+    messages.iter().any(|message| message.contains(needle))
+}
+
+#[test]
+fn a_negative_literal_index_on_a_filled_array_refuses() {
+    let messages = e5506_messages(
+        "function main(){ const a = new Array(3).fill(4); console.log(a[-1]); } main();",
+    );
+    assert!(any_contains(&messages, NEG), "{messages:?}");
+}
+
+#[test]
+fn a_negative_literal_index_store_on_a_filled_array_refuses() {
+    let messages =
+        e5506_messages("function main(){ const a = new Array(3).fill(4); a[-1] = 9; } main();");
+    assert!(any_contains(&messages, NEG), "{messages:?}");
+}
+
+#[test]
+fn each_length_changing_method_on_a_filled_array_refuses() {
+    for call in [
+        "a.push(4)",
+        "a.pop()",
+        "a.shift()",
+        "a.unshift(1)",
+        "a.splice(0, 1)",
+    ] {
+        let source =
+            format!("function main(){{ const a = new Array(3).fill(4); {call}; }} main();");
+        let messages = e5506_messages(&source);
+        assert!(any_contains(&messages, MUT), "{call}: {messages:?}");
+    }
+}
+
+#[test]
+fn a_length_write_on_a_filled_array_refuses_for_every_operator() {
+    for write in ["a.length = 1", "a.length -= 1"] {
+        let source =
+            format!("function main(){{ const a = new Array(3).fill(4); {write}; }} main();");
+        let messages = e5506_messages(&source);
+        assert!(any_contains(&messages, LEN), "{write}: {messages:?}");
+    }
+}
+
+#[test]
+fn in_bounds_access_and_a_growable_push_do_not_refuse() {
+    for source in [
+        "function main(){ const a = new Array(3).fill(4); a[2] = 1; console.log(a[2], a.length); } main();",
+        "function main(){ const a = [1,2,3]; a.push(4); console.log(a.length); } main();",
+        "function main(){ const a = new Array(3).fill(4); console.log(a[-0]); } main();",
+        "function main(){ const a = new Array(3).fill(4); const i = 1; console.log(a[-i]); } main();",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            !any_contains(&messages, NEG)
+                && !any_contains(&messages, MUT)
+                && !any_contains(&messages, LEN),
+            "{source}: {messages:?}"
+        );
+    }
+}
+
+#[test]
+fn wrapped_receivers_and_a_string_method_key_refuse_like_the_bare_spelling() {
+    for (shape, needle) in [
+        ("(a).push(4)", MUT),
+        ("a?.push(1)", MUT),
+        ("a[\"push\"](1)", MUT),
+        ("(a as number[]).push(1)", MUT),
+        ("(a).pop()", MUT),
+        ("(a).length = 1", LEN),
+        ("(a)[-1]", NEG),
+        ("(a as number[])[-1] = 2", NEG),
+    ] {
+        let source = format!(
+            "function main(){{ const a = new Array(3).fill(4); {shape}; console.log(a.length); }} main();"
+        );
+        let messages = e5506_messages(&source);
+        assert!(any_contains(&messages, needle), "{shape}: {messages:?}");
+    }
+}
+
+#[test]
+fn a_wrapped_growable_receiver_does_not_refuse() {
+    for shape in [
+        "(a).push(4)",
+        "a?.push(4)",
+        "a[\"push\"](4)",
+        "(a as number[]).push(4)",
+    ] {
+        let source = format!(
+            "function main(){{ const a = [1,2,3]; {shape}; console.log(a.length); }} main();"
+        );
+        let messages = e5506_messages(&source);
+        assert!(!any_contains(&messages, MUT), "{shape}: {messages:?}");
+    }
+}

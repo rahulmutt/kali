@@ -1,0 +1,515 @@
+# Cases for the array-bounds project (spec
+# docs/superpowers/specs/2026-10-02-array-bounds-design.md).
+#
+# A plain fixed-length runtime array is read and written in bounds, or kali
+# refuses: an out-of-range index traps at run time (E4000, after the kali
+# message on stderr), and a negative literal index, a length-changing method
+# or a `.length` write refuses with E5506 under `check` and `run` alike
+# (amendment A-4: each refusal is pinned under both). The anonymous lane's
+# static refusals are run-only (amendment A-3). Each rationale gives kali's
+# `run` output at the baseline `016557d60`
+# (tools/array-return-probes/baseline-bounds.tsv) and node v26.10.0's.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide.
+
+[constants]
+OOB = "kali: array index out of bounds"
+NEG = "a negative index on a runtime array is unavailable"
+MUT = "on a runtime array is unavailable in the current phase"
+LEN = "assigning to `.length` of a runtime array is unavailable"
+
+[source]
+"w_paren_push.js" = '''
+function main(){ const a = new Array(3).fill(4); (a).push(4); console.log(a.length); } main();
+'''
+"w_optional_push.js" = '''
+function main(){ const a = new Array(3).fill(4); a?.push(1); console.log(a.length); } main();
+'''
+"w_string_key_push.js" = '''
+function main(){ const a = new Array(3).fill(4); a["push"](1); console.log(a.length); } main();
+'''
+"w_as_push.js" = '''
+function main(){ const a = new Array(3).fill(4); (a as number[]).push(1); console.log(a.length); } main();
+'''
+"w_paren_neg.js" = '''
+function main(){ const a = new Array(3).fill(4); (a)[-1]; console.log(a.length); } main();
+'''
+"w_paren_len.js" = '''
+function main(){ const a = new Array(3).fill(4); (a).length = 1; console.log(a.length); } main();
+'''
+"w_paren_growable.js" = '''
+function main(){ const a = [1,2,3]; (a).push(4); console.log(a.length); } main();
+'''
+"a2.js" = '''
+const f = () => [1,2,3]; console.log(f()[5]);
+'''
+"d2.js" = '''
+function f(){ return [1,2,3]; } console.log(f()[5]);
+'''
+"n2.js" = '''
+function main(){ const a = new Array(3).fill(4); console.log(a[5]); } main();
+'''
+"n5.js" = '''
+function main(){ const a = new Array(3).fill(4); let i = 3; console.log(a[i]); } main();
+'''
+"n6.js" = '''
+function main(){ const a = new Array(3).fill(4); let i = -1; console.log(a[i]); } main();
+'''
+"w1.js" = '''
+function main(){ const a = new Array(3).fill(4); a[3] = 9; console.log(a.length, a[3]); } main();
+'''
+"p1.js" = '''
+function g(a){ return a[7]; } function f(){ return [1,2,3]; } console.log(g(f()));
+'''
+"ok_last.js" = '''
+function main(){ const a = new Array(3).fill(4); a[2] = 9; console.log(a[2], a.length); } main();
+'''
+"ok_loop.js" = '''
+function main(){ const a = new Array(3).fill(4); let s = 0; for (let i = 0; i < a.length; i++) { s += a[i]; } console.log(s); } main();
+'''
+"ok_nested.js" = '''
+function main(){ const a = new Array(3).fill(2); const b = new Array(3).fill(1); let i = 0; console.log(a[b[i]]); } main();
+'''
+"ok_call_nested.js" = '''
+function f(){ return [7,8,9]; } function main(){ const a = new Array(3).fill(1); let j = 2; console.log(f()[a[0]], f()[j]); } main();
+'''
+"a1.js" = '''
+const f = () => [1,2,3]; console.log(f()[-1]);
+'''
+"a3.js" = '''
+const f = () => [1,2,3]; const a = f(); a.push(4); console.log(a.length);
+'''
+"a4.js" = '''
+const f = () => [1,2,3]; const a = f(); a.push(4); console.log(a[3]);
+'''
+"a5.js" = '''
+const f = () => [1,2,3]; const a = f(); a.length = 1; console.log(a.length);
+'''
+"d1.js" = '''
+function f(){ return [1,2,3]; } console.log(f()[-1]);
+'''
+"d3.js" = '''
+function f(){ return [1,2,3]; } const a = f(); a.push(4); console.log(a.length);
+'''
+"d4.js" = '''
+function f(){ return [1,2,3]; } const a = f(); a.push(4); console.log(a[3]);
+'''
+"d5.js" = '''
+function f(){ return [1,2,3]; } const a = f(); a.length = 1; console.log(a.length);
+'''
+"n1.js" = '''
+function main(){ const a = new Array(3).fill(4); console.log(a[-1]); } main();
+'''
+"n3.js" = '''
+function main(){ const a = new Array(3).fill(4); a.length = 1; console.log(a[0], a.length); } main();
+'''
+"n4.js" = '''
+function main(){ const a = new Array(3).fill(4); a.pop(); console.log(a.length); } main();
+'''
+"n7.js" = '''
+function main(){ const a = new Array(3).fill(4); a.shift(); console.log(a.length); } main();
+'''
+"n8.js" = '''
+function main(){ const a = new Array(3).fill(4); a.unshift(1); console.log(a.length); } main();
+'''
+"n9.js" = '''
+function main(){ const a = new Array(3).fill(4); a.splice(0, 1); console.log(a.length); } main();
+'''
+"w2.js" = '''
+function main(){ const a = new Array(3).fill(4); a[-1] = 9; console.log(a[0], a.length); } main();
+'''
+"ok_growable_push.js" = '''
+function main(){ const a = [1,2,3]; a.push(4); console.log(a.length); console.log(a[3]); } main();
+'''
+
+[[case]]
+name = "an_out_of_range_direct_call_read_traps_anonymous"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`. The bounds guard traps (spec §3.1)."""
+args = ["run", "a2.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_out_of_range_direct_call_read_passes_check_anonymous"
+rationale = """The disclosed run-time-only gap (spec §1.1): an out-of-range non-negative index is unknown until run time."""
+args = ["check", "a2.js"]
+exit = "success"
+
+[[case]]
+name = "an_out_of_range_direct_call_read_traps_declaration"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "d2.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_out_of_range_literal_read_of_a_filled_array_traps"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "n2.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_index_equal_to_the_length_traps"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`. `idx == len` is the first rejected index."""
+args = ["run", "n5.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_negative_index_held_in_a_variable_traps"
+rationale = """Not in the followup: `let i = -1; a[i]`. node v26.10.0 prints `undefined`. The unsigned compare catches a negative run-time index, which would otherwise read the length header."""
+args = ["run", "n6.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_write_at_the_length_traps_before_the_store"
+rationale = """At `016557d60` kali printed `3 51` at exit 0 (written past the block) where node v26.10.0 prints `4 9`."""
+args = ["run", "w1.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_out_of_range_read_through_an_array_param_traps"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "p1.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "the_last_index_reads_and_writes_in_bounds"
+rationale = """In-bounds control at `idx == len - 1`: kali and node v26.10.0 both print `9 3`."""
+args = ["run", "ok_last.js"]
+exit = "success"
+stdout = "9 3\n"
+
+[[case]]
+name = "a_length_bounded_loop_is_unchanged"
+rationale = """In-bounds control: kali and node v26.10.0 both print `12`."""
+args = ["run", "ok_loop.js"]
+exit = "success"
+stdout = "12\n"
+
+[[case]]
+name = "a_nested_index_read_is_unchanged"
+rationale = """In-bounds control for helper reentrancy (spec §3.1): `a[b[i]]`. node v26.10.0 prints `2`."""
+args = ["run", "ok_nested.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_nested_index_into_a_direct_call_is_unchanged"
+rationale = """In-bounds control for helper reentrancy: `f()[a[0]]` and `f()[j]`. node v26.10.0 prints `8 9`."""
+args = ["run", "ok_call_nested.js"]
+exit = "success"
+stdout = "8 9\n"
+
+[[case]]
+name = "a_negative_literal_index_into_a_direct_call_refuses_at_run_anonymous"
+rationale = """At `016557d60` kali printed `3` (the length header) at exit 0 where node v26.10.0 prints `undefined`. Spec §3.2."""
+args = ["run", "a1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_into_a_direct_call_refuses_at_run_declaration"
+rationale = """At `016557d60` kali printed `3` (the length header) at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "d1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_into_a_filled_array_refuses_at_run"
+rationale = """At `016557d60` kali printed `3` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "n1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_store_refuses_at_run"
+rationale = """At `016557d60` kali printed `4 9` at exit 0, having overwritten the length header, where node v26.10.0 prints `4 3`."""
+args = ["run", "w2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "push_on_a_call_bound_array_refuses_at_run_anonymous"
+rationale = """At `016557d60` kali printed `3` at exit 0 (the push was a silent no-op) where node v26.10.0 prints `4`."""
+args = ["run", "a3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "push_then_index_refuses_at_run_anonymous"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `4`."""
+args = ["run", "a4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "push_on_a_call_bound_array_refuses_at_run_declaration"
+rationale = """At `016557d60` kali printed `3` at exit 0 where node v26.10.0 prints `4`."""
+args = ["run", "d3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "push_then_index_refuses_at_run_declaration"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `4`."""
+args = ["run", "d4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "pop_on_a_filled_array_refuses_at_run"
+rationale = """At `016557d60` kali printed `3` at exit 0 where node v26.10.0 prints `2`."""
+args = ["run", "n4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${MUT}"]
+
+[[case]]
+name = "shift_on_a_filled_array_refuses_at_run"
+rationale = """node v26.10.0 prints `2`. See baseline-bounds.tsv `bounds_n7` for kali at `016557d60`."""
+args = ["run", "n7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.shift()`", "${MUT}"]
+
+[[case]]
+name = "unshift_on_a_filled_array_refuses_at_run"
+rationale = """node v26.10.0 prints `4`. See baseline-bounds.tsv `bounds_n8` for kali at `016557d60`."""
+args = ["run", "n8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.unshift()`", "${MUT}"]
+
+[[case]]
+name = "splice_on_a_filled_array_refuses_at_run"
+rationale = """node v26.10.0 prints `2`. See baseline-bounds.tsv `bounds_n9` for kali at `016557d60`."""
+args = ["run", "n9.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.splice()`", "${MUT}"]
+
+[[case]]
+name = "a_length_write_refuses_at_run_anonymous"
+rationale = """At `016557d60` kali printed `3` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "a5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_length_write_refuses_at_run_declaration"
+rationale = """At `016557d60` kali printed `3` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "d5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_length_write_on_a_filled_array_refuses_at_run"
+rationale = """At `016557d60` kali printed `1 3` at exit 0 (the value was stored into element 0) where node v26.10.0 prints `4 1`."""
+args = ["run", "n3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_growable_push_still_appends_at_run"
+rationale = """Control (spec §3.3): a growable-shape literal keeps its working `push`. kali and node v26.10.0 both print `4` then `4`."""
+args = ["run", "ok_growable_push.js"]
+exit = "success"
+stdout = "4\n4\n"
+
+[[case]]
+name = "a_negative_literal_index_into_a_direct_call_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_into_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_store_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "w2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "push_on_a_call_bound_array_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "push_then_index_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "a_length_write_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_length_write_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "pop_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${MUT}"]
+
+[[case]]
+name = "shift_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.shift()`", "${MUT}"]
+
+[[case]]
+name = "unshift_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.unshift()`", "${MUT}"]
+
+[[case]]
+name = "splice_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n9.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.splice()`", "${MUT}"]
+
+[[case]]
+name = "a_growable_push_still_passes_check"
+rationale = """Control (spec §3.3): the mirror must not catch a growable-shape receiver."""
+args = ["check", "ok_growable_push.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_negative_index"
+rationale = """Amendment A-3: the resolver keys the array-return fact by the bare callee name, so it never proves an anonymous call's array (anon-array-return-discovered-defects.md §9). `run` refuses this program; `check` exits 0. Pinned so that closing §9 moves this case on purpose."""
+args = ["check", "a1.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_push"
+rationale = """Amendment A-3, as above."""
+args = ["check", "a3.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_push_then_index"
+rationale = """Amendment A-3, as above."""
+args = ["check", "a4.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_length_write"
+rationale = """Amendment A-3, as above."""
+args = ["check", "a5.js"]
+exit = "success"
+
+[[case]]
+name = "paren_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: a parenthesised receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_paren_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "paren_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_paren_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "optional_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: an optional-chain receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_optional_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "optional_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_optional_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "string_key_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: a string-literal method key is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_string_key_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "string_key_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_string_key_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "as_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: an `as`-cast receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_as_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "as_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_as_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "paren_neg_refuses_at_check_and_run"
+rationale = """Amendment A-4: a parenthesised receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_paren_neg.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "paren_neg_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_paren_neg.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "paren_len_refuses_at_check_and_run"
+rationale = """Amendment A-4: a parenthesised receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_paren_len.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "paren_len_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_paren_len.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_parenthesised_growable_push_still_passes_check"
+rationale = """Control: the unwrap never reaches a growable receiver."""
+args = ["check", "w_paren_growable.js"]
+exit = "success"

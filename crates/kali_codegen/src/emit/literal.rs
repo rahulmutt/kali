@@ -660,6 +660,18 @@ impl<'a> FunctionEmitter<'a> {
                 if let Some((base_id, index)) = target {
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         if self.array_bindings.contains(&base_name) {
+                            // Array-bounds spec §3.2: `a.length = v` reaches
+                            // this arm as the text index `length`, which used
+                            // to lower to element 0 and store there.
+                            if matches!(&index, ArrayWriteIndex::Text(text) if text == "length") {
+                                self.diagnostics.push(Diagnostic::error(
+                                    e5::FEATURE_UNAVAILABLE as u32,
+                                    kali_common::runtime_array_length_write_unavailable_message()
+                                        .to_string(),
+                                ));
+                                function.instruction(&Instruction::I64Const(0));
+                                return true;
+                            }
                             let scratch = self.locals.len() as u32;
                             match index {
                                 ArrayWriteIndex::Text(index_text) => {

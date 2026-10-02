@@ -1944,6 +1944,7 @@ impl TypeContext {
                 self.reject_runtime_string_store(expr);
                 self.reject_array_binding_scalar_reassignment(expr);
                 self.reject_literal_array_unfoldable_mutation(expr);
+                self.reject_runtime_array_length_write(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;
@@ -3071,7 +3072,7 @@ fn bitwise_compound_assign_op_text(op: &AssignmentOperator) -> Option<&'static s
 /// (`:178-179`'s comment says so directly), so this recognizer stays in
 /// lockstep with what codegen treats as see-through, not only with what HIR
 /// erases outright.
-fn unwrap_transparent(expr: &Expression) -> &Expression {
+pub(crate) fn unwrap_transparent(expr: &Expression) -> &Expression {
     match expr {
         Expression::ParenthesizedExpression(inner) => unwrap_transparent(&inner.expression),
         Expression::AwaitExpression(inner) => unwrap_transparent(&inner.argument),
