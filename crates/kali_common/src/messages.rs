@@ -119,3 +119,17 @@ pub const fn string_index_access_unavailable_message() -> &'static str {
 #[cfg(test)]
 #[path = "messages_tests.rs"]
 mod messages_tests;
+
+/// Refusal reasons for an array-shaped return that is not admitted
+/// (docs/superpowers/specs/2026-10-02-array-return-design.md §3.1).
+pub const ARRAY_RETURN_MIXED: &str = "it mixes array and non-array returns";
+pub const ARRAY_RETURN_ELEMENT: &str = "an element is not an integer";
+pub const ARRAY_RETURN_GROWABLE: &str = "it returns a growable array";
+pub const ARRAY_RETURN_FORM: &str =
+    "only a `function` declaration with a unique name can return an array";
+pub const ARRAY_RETURN_LET_LITERAL: &str =
+    "it returns a `let`/`var` binding of an array literal, which can be reassigned";
+
+pub fn array_return_refused_message(func: &str, reason: &str) -> String {
+    format!("returning an array from `{func}` is unavailable in the current phase: {reason}")
+}

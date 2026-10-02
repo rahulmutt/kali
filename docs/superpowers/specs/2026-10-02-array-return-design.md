@@ -189,8 +189,9 @@ decision, and the default is *non-array*.
   *binding*, *allocation* or *call*, and there is at least one.
 * **array-tainted** with a reason: at least one return is array-shaped (any
   class but *non-array*), and the function is not array-returning. Reasons are
-  `"mixed array and non-array returns"`, `"an element kind other than an
-  integer"`, and `"a growable array"`.
+  `"it mixes array and non-array returns"`, `"an element is not an integer"`,
+  `"it returns a growable array"`, and `"it returns a `let`/`var` binding of an
+  array literal, which can be reassigned"`.
 * otherwise, untouched. Every program with no array return is byte-identical.
 
 Recursion and mutual recursion (`call` returns) are solved by a fixed point that
@@ -200,7 +201,7 @@ value ever comes back.
 
 Methods, arrow functions, function expressions and closures are not candidates.
 When one returns an array-shaped argument it is marked array-tainted with
-reason `"a function form other than a top-level function declaration"`.
+reason `"only a `function` declaration with a unique name can return an array"`.
 
 **The call site.** For `const b = f()` and `let b = f()`, where `f` is
 array-returning, `set_array_binding(caller, b)` and `set_array_element(caller,
