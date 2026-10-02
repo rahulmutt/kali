@@ -11,6 +11,49 @@ enum ArrayLen {
 }
 
 impl<'a> FunctionEmitter<'a> {
+    /// The index node is an integer literal below zero. `a[-1]` reaches here
+    /// as a unary `-` over a childless integer literal (the sign is not folded
+    /// into the literal text on this path), on both the one-child (text) and
+    /// two-child (node) member forms; a literal already carrying its sign is
+    /// accepted too. `-0` is element 0, not a negative index. Array-bounds
+    /// spec §3.2.
+    pub(crate) fn is_negative_literal_index(&self, index_id: LirNodeId) -> bool {
+        let node = self.node(index_id);
+        let integer = |node: &LirNode| -> Option<i64> {
+            if !node.children.is_empty() {
+                return None;
+            }
+            node.text.as_deref()?.parse::<i64>().ok()
+        };
+        match node.children.as_slice() {
+            [] => integer(node).is_some_and(|value| value < 0),
+            [operand] if node.kind == LirNodeKind::Value && node.text.as_deref() == Some("-") => {
+                integer(self.node(*operand)).is_some_and(|value| value > 0)
+            }
+            _ => false,
+        }
+    }
+
+    /// `Some(method)` iff `node` is `<receiver>.<method>(…)` with `method` in
+    /// `kali_common::RUNTIME_ARRAY_MUTATORS` and the receiver a plain runtime
+    /// array (`is_runtime_array_value`). A plain array has a fixed length, so
+    /// each of these refuses (array-bounds spec §3.2). A growable receiver's
+    /// `push` is taken earlier, by `growable_push_call_parts`.
+    pub(crate) fn plain_runtime_array_mutator(&self, node: &LirNode) -> Option<String> {
+        if node.kind != LirNodeKind::Call || node.children.is_empty() {
+            return None;
+        }
+        let callee = self.resolve_transparent_callable_node(node.children[0])?;
+        let callee_node = self.node(callee);
+        let method = callee_node.text.as_deref()?;
+        if !kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method) {
+            return None;
+        }
+        let receiver = self.unwrap_transparent(*callee_node.children.first()?);
+        self.is_runtime_array_value(receiver)
+            .then(|| method.to_string())
+    }
+
     /// A value that is a whole runtime `[len][elem…]` array: a bare
     /// identifier in `array_bindings`, or a call to an array-returning
     /// function. Its i64 is a handle, never a printable number.
@@ -1618,6 +1661,14 @@ impl<'a> FunctionEmitter<'a> {
         // falling through to the generic drop-args no-op.
         if let Some((receiver, args)) = self.growable_push_call_parts(node) {
             return self.emit_growable_push_call(function, receiver, &args);
+        }
+
+        // A fixed-length runtime array cannot grow or shrink (array-bounds
+        // spec §3.2). These calls used to reach the terminal warn + `0`
+        // fallback, which never emits the receiver: a silent no-op.
+        if let Some(method) = self.plain_runtime_array_mutator(node) {
+            let message = kali_common::runtime_array_mutator_unavailable_message(&method);
+            return self.deny_e5506(function, &message);
         }
 
         if let Some(result) = self.resolve_static_array_join_call(node) {
@@ -6434,6 +6485,15 @@ impl<'a> FunctionEmitter<'a> {
         base_id: LirNodeId,
         index_id: LirNodeId,
     ) {
+        // Array-bounds spec §3.2: node never has an element at a negative
+        // index, so a literal one refuses at compile time rather than trap.
+        if self.is_negative_literal_index(index_id) {
+            let _ = self.deny_e5506(
+                function,
+                kali_common::runtime_array_negative_index_unavailable_message(),
+            );
+            return;
+        }
         // The base stays i64: the guard reads the length header through it.
         let _ = self.emit_node(function, base_id, true);
         // Stage P5 T-new-E: the index operand is a numeric-consumption sink.
