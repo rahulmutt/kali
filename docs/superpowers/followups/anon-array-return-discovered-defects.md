@@ -77,6 +77,8 @@ capability-loss spike and the final probe diff.
 
 ## §1. Runtime-array defects now reachable through an anonymous return
 
+**FIXED (fail-closed)** by the array-bounds project, commit `ba65b78bd`. Every row below now refuses (`E5506`) or traps (`E4000`) instead of printing node's value. `undefined` stays open (R-21): an out-of-range read still does not print it. Rows a1 and a3-a5 refuse at `run` only; `kali check` still exits 0 on them (array-bounds spec amendment A-3, and §9 below). See `array-bounds-discovered-defects.md`.
+
 This is the anonymous-return counterpart of
 `array-return-discovered-defects.md` §3 ("Old runtime-array defects now
 reachable through an array return", read at `a9496b001`). The `[len][elem…]`

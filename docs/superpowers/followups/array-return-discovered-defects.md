@@ -130,6 +130,8 @@ resolver together, per amendment A1), which would also make `b[i]` work.
 
 ## §3. Old runtime-array defects now reachable through an array return
 
+**FIXED (fail-closed)** by the array-bounds project, commit `ba65b78bd`, for the `[-1]`, `[5]` and `push` rows: each now refuses (`E5506`) or traps (`E4000`) rather than printing node's value, and `undefined` stays open (R-21, §6). The closure-capture row is not this project's work and stays open. See `array-bounds-discovered-defects.md`.
+
 | program | node | kali |
 |---|---|---|
 | `function f(){ return [1,2,3]; } console.log(f()[-1]);` | `undefined` | `3`, exit 0 (the length header) |
@@ -208,7 +210,9 @@ cluster N1, which it now holds alone.
 The control did not move, as spec §1.2 requires. A returned array's
 out-of-range read inherits the same `0` (§3). Backstop 2 at full width would
 have refused the control (spec §4.1, the one class-(a) probe). Backstop 2 was
-dropped (§8), so the control is unchanged.
+dropped (§8), so the control was unchanged at `d2202ed4b`.
+
+Since the array-bounds project (`ba65b78bd`), a runtime-array out-of-range read traps (`E4000`), so the `r21_oob_control` probe now traps rather than printing `0`; printing node's `undefined` stays open.
 
 ## §7. A host-exported function that returns an array hands the host a handle, or its old `0`
 

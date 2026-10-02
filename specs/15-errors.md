@@ -85,6 +85,7 @@ Range clarification:
     has no emitter in `crates/` today — by name and numeric band it would be
     the same kind of policy denial as `E4001` if it becomes reachable, but
     that is inference from the constant, not traced behaviour.
+  - `E4000` also reports kali's own run-time refusal of an out-of-range runtime-array index: the trap follows a stderr line beginning `kali: array index out of bounds`. That is an honest refusal of a value kali cannot produce, not an internal failure (array-bounds spec §3.1).
   - Tooling that separates honest denials from internal failures must not
     treat `E4xxx` as a single class.
 - Kali intentionally uses both `E54xx` and `E9xxx` in the broader sandbox/effect story.
@@ -219,6 +220,7 @@ Use `E5506` for cases such as:
 - `--wasm-threads` before the threaded runtime profile exists, or on targets that cannot support it
 - positive values for the shared **feature-gated zero-capable execution budgets** from [SPEC.md](../SPEC.md) before the selected command/runtime-profile/API-surface combination actually supports subprocesses or threads
 - an attached sandbox policy trying to enable a real capability that exists in the spec set but is unavailable in the current **availability context** (for example `effects.eval: true` before the eval path exists, `effects.eval: true` without effective `--compat eval`, or a browser-targeted `check` / `build --bundle` policy that violates the shared **canonical browser-targeted budget compatibility rule** from [SPEC.md](../SPEC.md))
+- on a plain fixed-length runtime array, a negative integer-literal index, a call to `push` / `pop` / `shift` / `unshift` / `splice`, or an assignment to `.length` — the array cannot represent the result, so kali refuses under both `check` and `run` (array-bounds spec §3.2-§3.3)
 - any parse-supported construct that is intentionally not semantically enabled in the current availability context
 
 Boundary clarification:
