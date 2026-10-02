@@ -6426,23 +6426,29 @@ impl<'a> FunctionEmitter<'a> {
 
     /// Like [`emit_array_element_address`], but the index comes from an existing
     /// node (a computed subscript expression such as `i + 1`) rather than a
-    /// stringified literal/identifier.
+    /// stringified literal/identifier. The address is bounds-checked by
+    /// `__array_elem_addr`.
     pub(crate) fn emit_array_element_address_node(
         &mut self,
         function: &mut Function,
         base_id: LirNodeId,
         index_id: LirNodeId,
     ) {
-        self.emit_array_base_address(function, base_id);
-        // Stage P5 T-new-E: the index operand is `i32.wrap_i64`'d and multiplied
-        // — a numeric-consumption sink. A `String()`-result index (`a[s]`, and
-        // its store twin `a[s] = v`, both routed here) fails closed rather than
-        // indexing on the raw handle bits (`a[String(1n)]` → placeholder `0`).
+        // The base stays i64: the guard reads the length header through it.
+        let _ = self.emit_node(function, base_id, true);
+        // Stage P5 T-new-E: the index operand is a numeric-consumption sink.
+        // A `String()`-result index (`a[s]`, and its store twin `a[s] = v`,
+        // both routed here) fails closed rather than indexing on the raw
+        // handle bits (`a[String(1n)]` → placeholder `0`).
         let _ = self.emit_numeric_operand(function, index_id);
+        // Array-bounds spec §3.1: `idx >=u len` traps with the kali message,
+        // so no index addresses outside the element slots.
+        let (offset, len) = self
+            .strings
+            .intern(kali_common::runtime_array_index_out_of_bounds_message());
+        function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+        function.instruction(&Instruction::Call(self.array_elem_addr_fn_index()));
         function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::I32Const(8));
-        function.instruction(&Instruction::I32Mul);
-        function.instruction(&Instruction::I32Add);
     }
 
     /// Emit a computed array read `base[index_expr]` sourcing the index from a

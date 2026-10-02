@@ -1,0 +1,135 @@
+
+# Cases for the array-bounds project (spec
+# docs/superpowers/specs/2026-10-02-array-bounds-design.md).
+#
+# A plain fixed-length runtime array is read and written in bounds, or kali
+# refuses: an out-of-range index traps at run time (E4000, after the kali
+# message on stderr), and a negative literal index, a length-changing method
+# or a `.length` write refuses with E5506 under `check` and `run` alike
+# (amendment A-4: each refusal is pinned under both). The anonymous lane's
+# static refusals are run-only (amendment A-3). Each rationale gives kali's
+# `run` output at the baseline `016557d60`
+# (tools/array-return-probes/baseline-bounds.tsv) and node v26.10.0's.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide.
+
+[constants]
+OOB = "kali: array index out of bounds"
+
+[source]
+"a2.js" = '''
+const f = () => [1,2,3]; console.log(f()[5]);
+'''
+"d2.js" = '''
+function f(){ return [1,2,3]; } console.log(f()[5]);
+'''
+"n2.js" = '''
+function main(){ const a = new Array(3).fill(4); console.log(a[5]); } main();
+'''
+"n5.js" = '''
+function main(){ const a = new Array(3).fill(4); let i = 3; console.log(a[i]); } main();
+'''
+"n6.js" = '''
+function main(){ const a = new Array(3).fill(4); let i = -1; console.log(a[i]); } main();
+'''
+"w1.js" = '''
+function main(){ const a = new Array(3).fill(4); a[3] = 9; console.log(a.length, a[3]); } main();
+'''
+"p1.js" = '''
+function g(a){ return a[7]; } function f(){ return [1,2,3]; } console.log(g(f()));
+'''
+"ok_last.js" = '''
+function main(){ const a = new Array(3).fill(4); a[2] = 9; console.log(a[2], a.length); } main();
+'''
+"ok_loop.js" = '''
+function main(){ const a = new Array(3).fill(4); let s = 0; for (let i = 0; i < a.length; i++) { s += a[i]; } console.log(s); } main();
+'''
+"ok_nested.js" = '''
+function main(){ const a = new Array(3).fill(2); const b = new Array(3).fill(1); let i = 0; console.log(a[b[i]]); } main();
+'''
+"ok_call_nested.js" = '''
+function f(){ return [7,8,9]; } function main(){ const a = new Array(3).fill(1); let j = 2; console.log(f()[a[0]], f()[j]); } main();
+'''
+
+[[case]]
+name = "an_out_of_range_direct_call_read_traps_anonymous"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`. The bounds guard traps (spec §3.1)."""
+args = ["run", "a2.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_out_of_range_direct_call_read_passes_check_anonymous"
+rationale = """The disclosed run-time-only gap (spec §1.1): an out-of-range non-negative index is unknown until run time."""
+args = ["check", "a2.js"]
+exit = "success"
+
+[[case]]
+name = "an_out_of_range_direct_call_read_traps_declaration"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "d2.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_out_of_range_literal_read_of_a_filled_array_traps"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "n2.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_index_equal_to_the_length_traps"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`. `idx == len` is the first rejected index."""
+args = ["run", "n5.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_negative_index_held_in_a_variable_traps"
+rationale = """Not in the followup: `let i = -1; a[i]`. node v26.10.0 prints `undefined`. The unsigned compare catches a negative run-time index, which would otherwise read the length header."""
+args = ["run", "n6.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_write_at_the_length_traps_before_the_store"
+rationale = """At `016557d60` kali printed `3 51` at exit 0 (written past the block) where node v26.10.0 prints `4 9`."""
+args = ["run", "w1.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "an_out_of_range_read_through_an_array_param_traps"
+rationale = """At `016557d60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["run", "p1.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "the_last_index_reads_and_writes_in_bounds"
+rationale = """In-bounds control at `idx == len - 1`: kali and node v26.10.0 both print `9 3`."""
+args = ["run", "ok_last.js"]
+exit = "success"
+stdout = "9 3\n"
+
+[[case]]
+name = "a_length_bounded_loop_is_unchanged"
+rationale = """In-bounds control: kali and node v26.10.0 both print `12`."""
+args = ["run", "ok_loop.js"]
+exit = "success"
+stdout = "12\n"
+
+[[case]]
+name = "a_nested_index_read_is_unchanged"
+rationale = """In-bounds control for helper reentrancy (spec §3.1): `a[b[i]]`. node v26.10.0 prints `2`."""
+args = ["run", "ok_nested.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_nested_index_into_a_direct_call_is_unchanged"
+rationale = """In-bounds control for helper reentrancy: `f()[a[0]]` and `f()[j]`. node v26.10.0 prints `8 9`."""
+args = ["run", "ok_call_nested.js"]
+exit = "success"
+stdout = "8 9\n"

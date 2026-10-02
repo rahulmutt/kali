@@ -1290,6 +1290,14 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__streq"]
     }
 
+    /// Wasm function index of the synthetic runtime-array bounds guard
+    /// (`__array_elem_addr(base, idx, msg) -> i64`, array-bounds spec §3.1).
+    /// Called by `emit_array_element_address_node` for every plain-array
+    /// element read and write.
+    pub(crate) fn array_elem_addr_fn_index(&self) -> u32 {
+        self.functions["__array_elem_addr"]
+    }
+
     /// Selects the string-concat host import for the concat node `id` (fasta
     /// Spec 7 Task 4d) — the codegen half of the string-site "both-sides
     /// oracle", exactly mirroring `emit_runtime_join`'s join selection. Returns
