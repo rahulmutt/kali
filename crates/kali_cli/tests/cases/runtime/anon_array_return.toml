@@ -66,6 +66,9 @@ function g(x){return x[1];} console.log(g(((n) => [n, n])(true)));
 "param_float_direct.js" = '''
 const f = (n) => [n, n]; console.log(f(1.5)[0]);
 '''
+"member_call_same_named_declaration.js" = '''
+function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);
+'''
 "called_and_passed_as_callback.js" = '''
 const f = () => [1, 2]; console.log(f()[1]); const xs = new Array(2).fill(0); xs.forEach(f); console.log("done");
 '''
@@ -184,6 +187,13 @@ rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-disco
 args = ["run", "param_float_direct.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "member_call_with_same_named_declaration_refuses_at_run"
+rationale = """Followups §2 (docs/superpowers/followups/anon-array-return-discovered-defects.md): codegen lowers the member callee `o.f` to the top-level declaration `f`. At `068b29950` kali refused with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` it printed `1` at exit 0 where node v26.10.0 prints `4`, because the caller side resolved the callee as the call is lowered and read `f`'s array. A member callee is not an array-return call (amendment A-10), so the read refuses through backstop 1 again. `kali check` exits 0 on this program (the backstop is codegen's), so there is no `check` twin. The member lowering itself is unfixed: `o.f()` with a scalar return still prints `7` (followups §2)."""
+args = ["run", "member_call_same_named_declaration.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexed read", "no lane proves this receiver is an array"]
 
 [[case]]
 name = "anon_mixed_return_refuses_at_check"

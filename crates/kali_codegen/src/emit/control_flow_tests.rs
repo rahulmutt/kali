@@ -146,15 +146,20 @@ fn call_bound_registration_requires_a_call_init() {
 /// array-returning, and returns the E5506 messages codegen raised
 /// (anon-array-return spec §3.2).
 fn anon_array_return_e5506_messages(source: &str, admit: bool) -> Vec<String> {
+    array_return_e5506_messages(source, if admit { &["__kali_fn_0"] } else { &[] })
+}
+
+/// Compiles `source` with each of `admitted` set array-returning (`I64`), and
+/// returns the E5506 messages codegen raised.
+fn array_return_e5506_messages(source: &str, admitted: &[&str]) -> Vec<String> {
     let program = parse_and_lower_lir(source);
     let mut ctx = CodegenCtx::new(TargetConfig {
         max_specializations: 16,
         compat_eval: false,
         coverage: false,
     });
-    if admit {
-        ctx.repr_table
-            .set_array_return("__kali_fn_0", kali_common::Repr::I64);
+    for key in admitted {
+        ctx.repr_table.set_array_return(key, kali_common::Repr::I64);
     }
     let result = lower_lir_to_wasm(&mut ctx, &program);
     result
@@ -182,6 +187,20 @@ fn anon_iife_length_reads_the_admitted_return() {
     let src = "console.log((() => [1, 2, 3])().length);";
     assert!(!anon_array_return_e5506_messages(src, false).is_empty());
     assert!(anon_array_return_e5506_messages(src, true).is_empty());
+}
+
+#[test]
+fn member_call_is_not_resolved_to_a_same_named_declaration() {
+    // Followups §2: `o.f` is lowered to the declaration `f`, so resolving the
+    // member callee as the call is lowered read `f`'s `[1, 2, 3]` and printed
+    // `1` (node: `4`). A member callee is not an array-return call; backstop 1
+    // refuses the read.
+    let src = "function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);";
+    let refused = array_return_e5506_messages(src, &["f"]);
+    assert!(
+        refused.iter().any(|m| m.contains("indexed read")),
+        "{refused:?}"
+    );
 }
 
 #[test]
