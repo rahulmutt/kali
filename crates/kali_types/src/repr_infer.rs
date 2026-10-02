@@ -1807,7 +1807,6 @@ impl ReprInfer {
             .insert(key, alias.unwrap_or(FnAlias::Blocked));
     }
 
-    /// Phase A2: a param, catch param or loop binding is never an alias.
     /// An anonymous function's form facts. A concise arrow body is one
     /// `return`, so it never falls off the end (`body` is `None`).
     fn note_anon_fn_form(
@@ -1843,6 +1842,7 @@ impl ReprInfer {
         }
     }
 
+    /// Phase A2: a param, catch param or loop binding is never an alias.
     fn block_fn_alias(&mut self, func: &str, name: &str) {
         self.fn_aliases
             .insert((func.to_string(), name.to_string()), FnAlias::Blocked);

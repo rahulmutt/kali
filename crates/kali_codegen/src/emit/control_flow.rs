@@ -248,6 +248,10 @@ impl<'a> FunctionEmitter<'a> {
                 // Unreachable for an admitted program: every taint is also a
                 // shape conflict, which stops compilation before codegen.
                 // Kept so a future path that skips that check still refuses.
+                // Inference reports the refusal (naming the `const` binding of an
+                // anonymous function, see `repr_infer::array_return_refusal`);
+                // if this belt is ever reached for an anonymous body it names
+                // the synthetic `__kali_fn_N` id.
                 let message =
                     kali_common::array_return_refused_message(&self.function_name, reason);
                 return self.deny_e5506(function, &message);
