@@ -1087,6 +1087,9 @@ struct ReprInfer {
     fn_alias_names: BTreeMap<String, String>,
     /// `__kali_fn_N` ids called immediately (`(() => [1])()`).
     iife_callees: BTreeSet<String>,
+    /// Non-async, non-generator `__kali_fn_N` bodies: candidate forms once
+    /// directly called (anon-array-return spec §3.1).
+    anon_fn_forms: BTreeSet<String>,
     /// `(func, binding)` declared `const` with an array-literal initializer
     /// whose elements are all integer-shaped (A2), and `let`/`var` ones, for
     /// the return classifier. A `const` literal with any other element is in
@@ -1805,6 +1808,41 @@ impl ReprInfer {
     }
 
     /// Phase A2: a param, catch param or loop binding is never an alias.
+    /// An anonymous function's form facts. A concise arrow body is one
+    /// `return`, so it never falls off the end (`body` is `None`).
+    fn note_anon_fn_form(
+        &mut self,
+        id: &str,
+        is_async: bool,
+        generator: bool,
+        body: Option<&[Statement]>,
+    ) {
+        if is_async || generator {
+            // Ruling R12: never a candidate, never tainted.
+            self.array_return_facts.non_taintable.insert(id.to_string());
+            self.array_return_facts
+                .declaration_counts
+                .insert(id.to_string(), 1);
+            return;
+        }
+        self.anon_fn_forms.insert(id.to_string());
+        if body.is_some_and(crate::array_return::body_falls_off_end) {
+            self.array_return_facts.falls_off_end.insert(id.to_string());
+        }
+    }
+
+    /// The refusal for `f`'s array return, naming an anonymous function by the
+    /// `const` it is bound to (anon-array-return spec §3.3).
+    fn array_return_refusal(&self, f: &str, reason: &str) -> String {
+        match self.fn_alias_names.get(f) {
+            Some(name) => kali_common::array_return_refused_message(name, reason),
+            None if f.starts_with("__kali_fn_") => {
+                kali_common::array_return_refused_message_anonymous(reason)
+            }
+            None => kali_common::array_return_refused_message(f, reason),
+        }
+    }
+
     fn block_fn_alias(&mut self, func: &str, name: &str) {
         self.fn_aliases
             .insert((func.to_string(), name.to_string()), FnAlias::Blocked);
@@ -4608,6 +4646,9 @@ impl ReprInfer {
                     // F-AB-2 lockstep: record what walk 4 seeds (see
                     // `nested_fns_seeded`).
                     self.nested_fns_seeded.insert(id.to_string());
+                    if id.starts_with("__kali_fn_") {
+                        self.note_anon_fn_form(id, f.is_async, f.generator, Some(&body.body));
+                    }
                     self.visit_block(id, body);
                 }
                 self.new_node()
@@ -4631,10 +4672,11 @@ impl ReprInfer {
                     // Expression-bodied arrow (`x => x + 1`): visit its body
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
+                    self.note_anon_fn_form(id, a.is_async, false, None);
                     self.visit_expr(id, &a.body);
                     // Array-return lane: the body expression IS the arrow's
-                    // implicit return. An arrow is never a candidate form, so
-                    // an array-shaped body taints it (`ARRAY_RETURN_FORM`).
+                    // implicit return. A directly-called arrow is a candidate
+                    // form (anon-array-return §3.1); an uncalled one is exempt.
                     let class = self.classify_array_return(id, Some(&a.body));
                     self.array_return_facts
                         .returns
@@ -5674,6 +5716,16 @@ impl ReprInfer {
         for feed in &feeds {
             if let ArgShape::Call(g) = &feed.shape {
                 called.insert(g.clone());
+            }
+        }
+        // Anon-array-return §3.1: a directly-called anonymous body is a
+        // candidate form, exactly like a `function` declaration.
+        for id in &self.anon_fn_forms {
+            if called.contains(id) {
+                self.array_return_facts.candidate_forms.insert(id.clone());
+                self.array_return_facts
+                    .declaration_counts
+                    .insert(id.clone(), 1);
             }
         }
         self.array_return_facts.called = called;
@@ -6873,7 +6925,7 @@ impl ReprInfer {
         }
         for (f, reason) in &array_return_taints {
             table.set_array_return_taint(f, reason);
-            table.add_shape_conflict(kali_common::array_return_refused_message(f, reason));
+            table.add_shape_conflict(self.array_return_refusal(f, reason));
         }
 
         // I2: returning a String-element array binding has NO codegen lowering.

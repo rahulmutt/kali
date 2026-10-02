@@ -1721,18 +1721,77 @@ fn array_return_arrow_is_not_tainted_under_the_narrowing() {
 // ---- Anonymous array returns (spec 2026-10-02-anon-array-return-design.md §3.1) ----
 
 #[test]
-fn anon_alias_call_reaches_the_arrow_and_taints_it_before_candidates_exist() {
-    // Task 3 state: the call through `const f` now reaches `__kali_fn_0`, which
-    // is directly called but not yet a candidate form, so it taints FORM.
-    // Task 4 turns this into admission and rewrites this test.
+fn anon_alias_call_admits_the_arrow() {
     let t = reprs_with_fn_id(
         "const f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
         "__kali_fn_0",
     );
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn anon_alias_call_bound_binding_is_an_array() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nconst a = f();\nconsole.log(a[2]);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+    assert!(t.is_call_bound_array_binding("_start", "a"));
+}
+
+#[test]
+fn anon_block_bodied_function_expression_is_admitted() {
+    let t = reprs_with_fn_id(
+        "const f = function () { return [1, 2, 3]; };\nconst a = f();\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+}
+
+#[test]
+fn anon_mixed_return_refuses_under_its_binding_name() {
+    let t = reprs_with_fn_id(
+        "const f = function (c) { if (c) { return [1]; } return 0; };\nconst a = f(true);\nconsole.log(a[0]);\n",
+        "__kali_fn_0",
+    );
     assert_eq!(
         t.array_return_taint("__kali_fn_0"),
-        Some(kali_common::ARRAY_RETURN_FORM)
+        Some(kali_common::ARRAY_RETURN_MIXED)
     );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("returning an array from `f`")
+                && m.contains(kali_common::ARRAY_RETURN_MIXED)),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn anon_async_arrow_is_not_a_candidate_and_never_tainted() {
+    // Ruling R12, as for declarations: the call yields a Promise.
+    let mut parsed = crate::test_support::parse_statements(
+        "const f = async () => [1, 2];\nconst p = f();\n",
+    );
+    if let kali_ast::Statement::VariableDeclaration(decl) = &mut parsed[0] {
+        if let Some(kali_ast::Expression::ArrowFunctionExpression(a)) =
+            decl.declarations[0].init.as_mut()
+        {
+            a.id = Some("__kali_fn_0".into());
+        }
+    }
+    let t = infer_reprs(&parsed);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+}
+
+#[test]
+fn anonymous_refusal_message_names_an_immediately_invoked_function() {
+    let m = kali_common::array_return_refused_message_anonymous(kali_common::ARRAY_RETURN_MIXED);
+    assert!(m.starts_with("returning an array from an immediately-invoked function is unavailable in the current phase"));
 }
 
 #[test]

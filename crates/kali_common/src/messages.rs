@@ -134,3 +134,11 @@ pub const ARRAY_RETURN_CONST_COMPUTED: &str = "it returns a `const` binding of a
 pub fn array_return_refused_message(func: &str, reason: &str) -> String {
     format!("returning an array from `{func}` is unavailable in the current phase: {reason}")
 }
+
+/// [`array_return_refused_message`] for an anonymous function that has no
+/// source name: one called immediately (anon-array-return spec §3.3).
+pub fn array_return_refused_message_anonymous(reason: &str) -> String {
+    format!(
+        "returning an array from an immediately-invoked function is unavailable in the current phase: {reason}"
+    )
+}
