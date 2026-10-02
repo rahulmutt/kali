@@ -291,7 +291,9 @@ If any ranked entry moves, the ranking is regenerated with
 
 ---
 
-## 7. Amendments made during planning
+## 7. Amendments
+
+A-1..A-6 were made during planning; A-7 onward during implementation.
 
 * **A-1 (§3.1 "call edges").** `CallEdge.callee` is not rewritten. Only the
   array-return facts resolve it (`called`, feeds, `call_bound`, returns, and the
@@ -319,6 +321,9 @@ If any ranked entry moves, the ranking is regenerated with
   `runtime/anon_array_return.toml` in the same `cases` target, rather than being
   appended to `array_return.toml` / `array_return_refusals.toml`, so this
   project's baseline (`068b29950`) is not mixed with that one's (`368b5b5ea`).
+  For the same reason the `anon_*` probes' baseline column went to a new
+  `tools/array-return-probes/baseline-anon.tsv`, not to `baseline.tsv` as
+  §5.2 says.
 * **A-7 (§3.1 "alias table", Task 3 fix round `b86bffa9e`).** A `function`
   declaration of the same name in the same function scope blocks a `const`
   alias, like any other second declaration. The block-level shape
@@ -346,21 +351,27 @@ If any ranked entry moves, the ranking is regenerated with
   skipped), every IIFE records its own edge with its argument proofs, and an
   anonymous `__kali_fn_N` with no edge is not call-site-enumerable
   (`call_sites_enumerable`, fail-closed). A concise arrow body records a
-  `return` statement's facts through the same helpers. Re-measured at
+  `return` statement's facts through the same helpers, and fix round 1
+  (`615af7548`) made a returned allocation visit its length arguments, so a
+  call there (`new Array(g(k)).fill(7)`) is an edge too. Re-measured at
   `4898f3994`, every `f(3)` form prints `3`, and every `f(true)`, `f("a")` and
   `f(1.5)` form refuses `E5506` "an element is not an integer" at check and
-  run (followups §1 of
+  run; the IIFE `f(1.5)` forms (passed-on and direct) were measured at
+  `f45f3c4ac` and refuse the same way (followups §1 of
   `docs/superpowers/followups/anon-array-return-discovered-defects.md`).
 * **A-10 (§3.2 "caller side", member callees).** `array_return_call_elem`
   resolves only a bare-identifier callee, through `bindings`, or a callee
   that is itself an anonymous function expression (an IIFE). Any other callee
   (a member expression, a computed member, a call result) is not an
-  array-return call and yields `None`. As planned, §3.2 step 2 resolved the
-  callee "exactly as the call is lowered", through
-  `resolve_bound_member_callable_node`, and that resolver lowers `o.f` to a
-  same-named top-level declaration `f`. `function f(){return [1,2,3];} const o
-  = {f: () => [4,5,6]}; console.log(o.f()[0]);` then printed `1` at
-  `cb63f9909` (node `4`), where it refused at `068b29950`. At `4898f3994` it
+  array-return call and yields `None`. This is §3.2 step 2's resolution
+  (`resolve_bound_node`). The plan
+  (`docs/superpowers/plans/2026-10-02-anon-array-return.md`) and Task 5
+  (`c2c2eb1b9`) deviated from it: they resolved the callee "exactly as the
+  call is lowered", through `resolve_bound_member_callable_node`, and that
+  resolver lowers `o.f` to a same-named top-level declaration `f`. `function
+  f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);`
+  then printed `1` at `cb63f9909` (node `4`), where it refused at
+  `068b29950`. Task 8 (`4898f3994`) restored §3.2's resolution, and the row
   refuses again through backstop 1. The member lowering itself is not
   changed, and its scalar and passed-on rows stay silent as at the baseline
   (followups §2).

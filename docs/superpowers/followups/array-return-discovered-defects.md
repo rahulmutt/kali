@@ -69,7 +69,9 @@ Re-measured at `97c008bc5` against node v26.10.0: the first four rows print
 (`anon-array-return-discovered-defects.md` §7). The passed-on rows first
 computed in Task 4's probe run (`42e3a45ec`), and the direct-index rows in
 Task 5's (`c2c2eb1b9`). That
-project's own new silent rows are filed in its followups §1 and §2.
+project's own new silent rows were filed in its followups §1 and §2; its Task 8
+closed §1 and §2's direct-index row (`fef5de60a`, `4898f3994`), and §2's
+remaining rows are pre-existing member-lowering rows.
 
 | program | node | kali |
 |---|---|---|

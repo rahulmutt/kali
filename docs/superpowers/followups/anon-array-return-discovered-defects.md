@@ -94,6 +94,30 @@ node's `a` at `cb63f9909` with nothing proving it. They now refuse, which is
 no loss against the baseline, where they printed `0` or refused. The
 `function` declaration controls are unchanged.
 
+**Fix round 1 (`615af7548`), measured at `f45f3c4ac`.** These rows were
+measured with `kali` built from each named commit (`068b29950` and
+`cb63f9909` in throwaway worktrees). Each cell is `run`, then `check`'s exit
+in parentheses. `G` is `function g(x){return x*2;} console.log(g(1));`.
+
+| program | node | `f45f3c4ac` | `b9faa27f2` | `cb63f9909` | baseline `068b29950` |
+|---|---|---|---|---|---|
+| `G const f = (k) => new Array(g(k)).fill(7); console.log(f(1.5).length);` | `2`, `3` | `E5506` "returning an array from `f` … an element is not an integer" (1) | `E4201` "failed to load WASM module" (0) | `E4201` (0) | `E5506` "`.length` is unavailable … no lane proves its length" (0) |
+| the same, block-bodied: `const f = (k) => { return new Array(g(k)).fill(7); };` | `2`, `3` | same `E5506` (1) | `E4201` (0) | `E4201` (0) | same `E5506` `.length` (0) |
+| the same, a declaration: `function f(k){ return new Array(g(k)).fill(7); }` | `2`, `3` | same `E5506` (1) | `E4201` (0) | `E4201` (0) | `E4201` (0) |
+| `function g(x){return x[1];} console.log(g(((n) => [n, n])(1.5)));` | `1.5` | `E5506` "returning an array from an immediately-invoked function … an element is not an integer" (1) | same (1) | `E4201` (0) | `E4201` (0) |
+| `console.log(((n) => [n, n])(1.5)[0]);` | `1.5` | same `E5506` (1) | same (1) | `E4201` (0) | `E5506` "an indexed read … no lane proves this receiver is an array" (0) |
+
+The allocation arm of `visit_array_return_value` visited only the fill value.
+A call in the length (`g(k)`) recorded no call edge, so `g`'s param proof
+held vacuously and the length was "proven" an integer. Both the `return`
+statement and, after Task 8, the concise arrow body reached that arm. The
+length arguments are now visited (`array_return::allocation_length_args`,
+shared with `allocation_proof`), and every allocation row refuses `E5506` at
+check and run. The declaration row's `E4201` predates this project: it
+failed at load at the baseline too. The two anonymous allocation rows
+refused at the baseline (an honest `E5506`), failed at load at `cb63f9909`,
+and refuse again now.
+
 **Mechanism, as it was at `cb63f9909`.** Two gaps made ruling R15's element
 proof hold vacuously for a called anonymous body.
 
