@@ -122,6 +122,7 @@ Each program was run with `kali run` against node. All exit 0 in kali.
 | S8 | `function f(){return new Array(3).fill(2);} …console.log(f()[0]);` (in `main`) | `2` | `0` |
 | S9 | `function f(){return [1,2,3];} …const a=f(); console.log(a);` (in `main`) | `[ 1, 2, 3 ]` | `0` |
 | S10 | `function main(){const a=new Array(3).fill(4); console.log(a);} main();` | `[ 4, 4, 4 ]` | `4104` |
+| S11 | `function mk(){const a=new Array(2).fill("x"); return a;} function main(){const c=mk(); console.log(c[0]);} main();` (added by amendment A3) | `x` | `0` |
 
 S10 involves no return at all. It is the pre-existing whole-array print defect of
 a `new Array` binding, and it is listed here because this project makes the same
@@ -170,11 +171,11 @@ and stays `I64`, which is exactly what an array handle is at the Wasm level.
 
 | class | shapes | element repr |
 |---|---|---|
-| *literal* | an array literal; empty, or with only `I64`-solving elements | `I64` |
-| *binding* | an identifier that is an array binding of the function: a `new Array` local, an array param (`is_array_binding`), or a call-bound array local (§3.1, call site) | that binding's `array_element` |
+| *literal* | an array literal, empty or with only `I64`-solving elements; **or an identifier bound by `const` to such a literal** (amendment A2) | `I64` |
+| *binding* | an identifier that is a **runtime** array of the function: a `new Array`/`.fill` local, an array param (`is_array_binding`), an array-fed param (amendment A3), or a call-bound array local (§3.1, call site) | that binding's solved `array_element` |
 | *allocation* | `new Array(n)`, `new Array(n).fill(v)` | the allocation's solved element repr |
 | *call* | a call to another array-returning function | that function's element repr |
-| *bad-array* | an array literal with any non-`I64` element (float, string, boolean, nested array, object, spread, hole); a growable binding; any of the above whose element repr is not `I64` | — |
+| *bad-array* | an array literal with any non-`I64` element (float, string, boolean, nested array, object, spread, hole); an identifier bound by `let`/`var` to an array literal; a growable binding; any of the above whose element repr is not `I64` | — |
 | *non-array* | anything else, including a bare `return;` | — |
 
 The classifier is an **exhaustive match with no wildcard arm** over the
@@ -271,7 +272,73 @@ is a capability loss. Such a backstop is narrowed to the call and return shapes
 this project owns, and the remainder is filed in the discovered-defects
 document. Each backstop's final width is recorded in that document, as measured.
 
-### 3.4 Data flow, end to end
+### 3.4 Amendments found while planning (2026-10-02)
+
+Reading the code for the implementation plan surfaced three things the design
+above did not account for. Each was measured or read at `5e3d85bd2`.
+
+**A1 — `kali check` has its own copy of codegen's runtime-array set.** The
+resolver (`crates/kali_types/src/resolve/`) tracks
+`scope.runtime_array_bindings` and answers `is_structural_runtime_array`
+(`resolve/expression.rs:338`). It seeds array **params** from
+`repr_table.is_array_binding` (`resolve/mod.rs:774`, `resolve/function.rs:43`)
+and registers declarators through `declarator_registers_runtime_array`
+(`resolve/expression.rs:746`). `kali check` refuses `a[i]` on anything that set
+does not contain. Measured: `function f(){return [1,2,3];} function main(){const
+a=f(); let i=2; console.log(a[i]);} main();` fails at `kali check` with that
+`E5506`, not at codegen. If only codegen learned call-bound arrays, `check` would
+refuse what `run` admits, the exact drift `resolve/expression.rs:761-765`
+records killing a benchmark once. So:
+
+* `declarator_registers_runtime_array`'s caller also registers a `const`/`let`
+  declarator when `repr_table.is_array_binding(func, id)` holds and the
+  initializer is a bare-identifier call to a function in
+  `repr_table.array_return(callee)`. The function key comes from the existing
+  `binding_repr_function_key`.
+* The resolver's computed-member and `.length` admission for a **direct**
+  `f()[i]` / `f().length` receiver accepts a bare-identifier call to an
+  array-returning function. Each such site cites the codegen arm it mirrors.
+* The **taint refusal is raised at check time**, through
+  `ReprTable::add_shape_conflict`, the same channel the existing I2 check uses.
+  `kali check` and `kali run` therefore refuse the same programs. The codegen
+  return arm (§3.2) keeps a defensive `E5506` for a tainted function, which an
+  admitted program never reaches.
+
+**A2 — a `const` local bound to an array literal is fold-lane, not a runtime
+array.** `repr_infer` gives `const a=[1,2,3]` an element node, so
+`is_array_binding` is true. But codegen never allocates it: it folds reads at
+compile time. `return a` would return `0`, exactly R-14's bug. Such an
+identifier is therefore the *literal* class: codegen materializes it at the
+return through `resolve_literal_aggregate`, which already follows a binding to
+its literal, as the object arm does. This is sound only because a literal array
+cannot be mutated: that already refuses with "mutating a literal array is
+unavailable". A `let`/`var` literal binding is *bad-array*, since it can be
+reassigned.
+
+**A3 — S5's parameter is not an array binding today.** In `function f(x){return
+x;}`, `x` is never subscripted, so it has no element node and
+`is_array_binding(f, x)` is false. S5 needs a third inferred fact: an
+**array-fed param**. That is a param of a top-level function with at least one
+call edge, where **every** call edge passes an array-shaped argument at that
+position:
+* a runtime-array identifier, or an identifier that is itself array-fed;
+* an allocation (`expression_is_array_allocation`'s shapes);
+* a call to an array-returning function.
+
+An array-fed param gets an element node unioned with each argument's, and so
+becomes an ordinary array binding for everything downstream. Array-fed params,
+array-returning functions and call-bound bindings are solved in **one**
+optimistic fixed point, because each depends on the others. A param with any
+non-array call edge, or none, is not array-fed and keeps its current lane.
+
+**Measured alongside, and adding one row to §2.2:** returning a String-element
+allocation is silent today even though the I2 check exists for it. `function
+mk(){const a=new Array(2).fill("x"); return a;} function main(){const c=mk();
+console.log(c[0]);} main();` passes `kali check` and prints `0` (node prints
+`x`). Under this design it is *bad-array* (a String element) and refuses.
+§4.2's refusals file pins it.
+
+### 3.5 Data flow, end to end
 
 ```
 return [1,2,3]   ──array_return.rs──▶  ReprTable.array_returns[f] = I64
@@ -328,7 +395,10 @@ The patch is then reverted with `git checkout` and is not committed.
 
 ### 4.3 Done means
 
-* S1-S8 print node's output in both scopes. S9 and S10 refuse with `E5506`.
+* S1-S8 print node's output in both scopes. S9, S10 and S11 refuse with `E5506`.
+* `kali check` admits every program `kali run` runs correctly in
+  `array_return.toml`, and refuses every taint-reason program `kali run`
+  refuses (amendment A1).
 * Every §2.3 row either keeps its baseline output or moves as that table says.
 * `bash scripts/test-gate.sh` reports zero failures against the baseline
   measured at `368b5b5ea` under Rust 1.99.0: **12105 passed, 0 failed, 27
@@ -368,6 +438,7 @@ The patch is then reverted with `git checkout` and is not committed.
 |---|---|---|
 | A backstop turns a correct program into a refusal | capability loss, and the case files move | the spike counts it first; narrow and file |
 | Inference and codegen disagree about which locals are arrays | a read on the wrong lane, possibly silent | codegen seeds from `repr_table` alone and has no recognizer of its own |
+| The resolver and codegen disagree (`check` refuses what `run` admits, or the reverse) | a refused program that would have worked, or an admitted read on a `0` lane | the resolver registers from the same `repr_table` facts (amendment A1); the check-and-run pairs in §4.2 |
 | A returned allocation lands in a loop arena | use after reclaim | the allocation-in-a-loop pin (§4.2) |
 | The scratch slot for the direct form collides with an existing holder | a clobbered value | one owner per slot, as the previous project established; its unaudited §14 holders are not touched |
 | The toolchain bump moves the baseline | a failure blamed on this project | the baseline is measured at `368b5b5ea` after the bump, before any change |
