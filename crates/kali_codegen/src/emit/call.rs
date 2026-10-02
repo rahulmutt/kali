@@ -6322,13 +6322,27 @@ impl<'a> FunctionEmitter<'a> {
         index_text: &str,
         base_name: &str,
     ) -> EmittedValue {
+        let elem = self.array_elem_repr(base_name);
+        self.emit_dynamic_array_read_elem(function, base_id, index_text, elem)
+    }
+
+    /// [`emit_dynamic_array_read`] with the element repr given directly, for a
+    /// base that is not a named binding (the array-return lane's `f()[k]`,
+    /// spec 2026-10-02 §3.3, whose repr is the callee's `array_return`).
+    pub(crate) fn emit_dynamic_array_read_elem(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_text: &str,
+        elem: kali_common::Repr,
+    ) -> EmittedValue {
         self.emit_array_element_address(function, base_id, index_text);
         let mem_arg = MemArg {
             offset: 8,
             align: 3,
             memory_index: 0,
         };
-        match self.array_elem_repr(base_name) {
+        match elem {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
             // Spec 3 activates the `String` case: a proven string element loads
             // its tagged handle through the same i64 slot the int/object lanes use.
@@ -6418,13 +6432,26 @@ impl<'a> FunctionEmitter<'a> {
         index_id: LirNodeId,
         base_name: &str,
     ) -> EmittedValue {
+        let elem = self.array_elem_repr(base_name);
+        self.emit_dynamic_array_read_node_elem(function, base_id, index_id, elem)
+    }
+
+    /// [`emit_dynamic_array_read_node`] with the element repr given directly
+    /// (the array-return lane's `f()[i]`, spec 2026-10-02 §3.3).
+    pub(crate) fn emit_dynamic_array_read_node_elem(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_id: LirNodeId,
+        elem: kali_common::Repr,
+    ) -> EmittedValue {
         self.emit_array_element_address_node(function, base_id, index_id);
         let mem_arg = MemArg {
             offset: 8,
             align: 3,
             memory_index: 0,
         };
-        match self.array_elem_repr(base_name) {
+        match elem {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
             // Spec 3 activates the `String` case: a proven string element loads
             // its tagged handle through the same i64 slot the int/object lanes use.

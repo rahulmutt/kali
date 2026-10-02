@@ -223,7 +223,15 @@ impl<'a> FunctionEmitter<'a> {
             if self.repr_table.array_return(&self.function_name).is_some() {
                 if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
                     let aggregate = self.node(aggregate_id).clone();
-                    if self.is_array_literal(&aggregate) {
+                    // `new Array(n)` and `new Array(n).fill(v)` lower to a
+                    // text-less one-child `Value` (the `new` wrapper), which
+                    // `is_array_literal` cannot tell from `[x]`. Those are
+                    // allocations: they already produce a handle through
+                    // `emit_node` below, and materializing them would wrap
+                    // that handle in a fresh one-element array.
+                    let is_allocation = self.resolve_array_alloc_call(aggregate_id).is_some()
+                        || self.resolve_array_fill_call(aggregate_id).is_some();
+                    if self.is_array_literal(&aggregate) && !is_allocation {
                         let slot = self.locals[&crate::lower::array_return_scratch_local_name()];
                         self.emit_static_array_materialize(function, &aggregate, slot, None);
                         function.instruction(&Instruction::LocalGet(slot));
@@ -1730,6 +1738,30 @@ impl<'a> FunctionEmitter<'a> {
                             }
                         }
 
+                        // Array-return lane (spec 2026-10-02 §3.3): `const b = f()`
+                        // where `f` returns a runtime array. Registered only while
+                        // the init is still that call, so an optimizer-rewritten
+                        // init (a literal) keeps its own lane. This replaces the
+                        // spec's entry seeding (ruling R4); the resolver uses the
+                        // same gate, so `kali check` and `kali run` agree.
+                        if let Some(name) = declarator.text.clone() {
+                            if self
+                                .repr_table
+                                .is_call_bound_array_binding(&self.function_name, &name)
+                                && self.array_return_call_elem(init).is_some()
+                            {
+                                if let Some(index) = self.locals.get(&name).copied() {
+                                    let produced = self.emit_node(function, init, true);
+                                    if !produced.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    self.array_bindings.insert(name);
+                                    continue;
+                                }
+                            }
+                        }
+
                         // `new Array(n)` allocations need a stable handle held in a
                         // local slot regardless of `const`/`let`, so the binding can be
                         // read and written through linear memory.
@@ -2753,6 +2785,21 @@ impl<'a> FunctionEmitter<'a> {
                     if self.is_usp_getall_call(base_id) {
                         return self.emit_growable_length(function, base_id);
                     }
+                    // Array-return lane (spec 2026-10-02 §3.3): `f().length`
+                    // reads the returned array's length header; the call is
+                    // emitted once as the base.
+                    if self.array_return_call_elem(base_id).is_some() {
+                        self.emit_array_base_address(function, base_id);
+                        function.instruction(&Instruction::I64Load(MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         // Growable runtime array `.length` (throw-fallout
                         // Stage 4): decode the tagged handle, read `hdr.len`.
@@ -2898,6 +2945,24 @@ impl<'a> FunctionEmitter<'a> {
                         index_text,
                         &base_name,
                     );
+                }
+
+                // Array-return lane (spec 2026-10-02 §3.3): `f()[k]`. The call
+                // is the base, emitted exactly once by the address helper.
+                if let Some(index_text) = node
+                    .text
+                    .as_deref()
+                    .filter(|t| !t.is_empty() && *t != "length" && t.parse::<usize>().is_ok())
+                {
+                    if let Some(elem) = self.array_return_call_elem(node.children[0]) {
+                        let index_text = index_text.to_string();
+                        return self.emit_dynamic_array_read_elem(
+                            function,
+                            node.children[0],
+                            &index_text,
+                            elem,
+                        );
+                    }
                 }
 
                 // Stage P3 Task 4: member reads on a proven abort handle.
@@ -3126,6 +3191,16 @@ impl<'a> FunctionEmitter<'a> {
                         node.children[0],
                         node.children[1],
                         &base_name,
+                    );
+                }
+                // Array-return lane (spec 2026-10-02 §3.3): `f()[i]`, the call
+                // emitted once as the base. Mirrors `emit_computed_member`.
+                if let Some(elem) = self.array_return_call_elem(node.children[0]) {
+                    return self.emit_dynamic_array_read_node_elem(
+                        function,
+                        node.children[0],
+                        node.children[1],
+                        elem,
                     );
                 }
 
