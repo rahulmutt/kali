@@ -4,10 +4,9 @@
 //! downstream compiler stages use to catch unresolved names and duplicate
 //! bindings before lowering.
 
+mod array_return;
 mod builtins;
 mod context;
-#[allow(dead_code)] // wired by repr_infer in the next task
-mod array_return;
 mod growable;
 mod late_host;
 pub mod monomorphize;

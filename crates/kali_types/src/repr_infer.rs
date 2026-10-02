@@ -351,6 +351,10 @@ fn expr_is_write_free(name: &str, expr: &Expression) -> bool {
 struct CallEdge {
     /// Bare-identifier callee name.
     callee: String,
+    /// The function the call appears in.
+    caller: String,
+    /// Each positional argument's shape for the array-fed param fact (A3).
+    arg_array_shapes: Vec<crate::array_return::ArgShape>,
     /// Result node of each positional argument (scalar flow).
     arg_nodes: Vec<usize>,
     /// For each positional argument, `Some((caller_func, name))` when the
@@ -733,6 +737,36 @@ struct ReprInfer {
     /// filtered at emit time, keeping the check monotone: int/float array
     /// returns (element node not String) add no conflict.
     array_binding_returns: Vec<(String, String)>,
+    /// Array-return lane facts (spec 2026-10-02-array-return-design.md §3.1),
+    /// recorded in Phase B and solved in Phase C0.
+    array_return_facts: crate::array_return::ArrayReturnFacts,
+    /// `(func, binding)` declared `const` with an array-literal initializer
+    /// whose elements are all integer-shaped (A2), and `let`/`var` ones, for
+    /// the return classifier. A `const` literal with any other element is in
+    /// `const_bad_literal_array_bindings` instead (a bad-array return).
+    const_literal_array_bindings: BTreeSet<(String, String)>,
+    const_bad_literal_array_bindings: BTreeSet<(String, String)>,
+    let_literal_array_bindings: BTreeSet<(String, String)>,
+    /// `(func, binding)` declared `const`/`let` with an allocation initializer:
+    /// the runtime arrays codegen's declarator lanes already allocate.
+    allocation_bindings: BTreeSet<(String, String)>,
+    /// `(func, binding)` allocation bindings spelled `new Array(n).fill(v)`, to
+    /// a node `v` flows into. The declarator lane never visits `v`, so the
+    /// binding's own element node does not see it; Phase C0 joins this node to
+    /// an admitted function's return element node only, so the emit-time
+    /// element check sees a float/string fill without moving the binding's
+    /// existing element repr.
+    allocation_fill_nodes: BTreeMap<(String, String), usize>,
+    /// `(func, binding)` call-bound candidates declared `let` (reassignable):
+    /// admitted only when `array_return_written_names` never names them.
+    let_call_bound_bindings: BTreeSet<(String, String)>,
+    /// Scope-blind: every name some assignment, update, destructuring target
+    /// or bare-identifier `for..in`/`for..of` head writes, anywhere. A `let`
+    /// call-bound binding with a written name is not admitted (fail-closed:
+    /// an unrelated same-named write only declines admission).
+    array_return_written_names: BTreeSet<String>,
+    /// The Phase C0 solution, consumed by `emit_table`.
+    array_return_solution: crate::array_return::Solution,
     /// `(func, param)` params proven to receive a non-scalar (array) argument
     /// at some call site — copied verbatim into
     /// [`ReprTable::non_scalar_params`](kali_common::ReprTable) at emit time.
@@ -1061,6 +1095,10 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // `docs/superpowers/followups/stageAB-followups.md` §F-AB-2.
     infer.assert_nested_fn_lockstep();
 
+    // Phase C0: the array-return lane's fixed point (before `resolve_calls`,
+    // whose array-param fixpoint seeds from the element nodes it unions).
+    infer.resolve_array_returns();
+
     // Phase C: resolve deferred call edges (transitive array-param fixpoint +
     // directed scalar/return edges + bidirectional array-element unions).
     infer.resolve_calls();
@@ -1312,6 +1350,78 @@ impl ReprInfer {
                     && self.return_expr_is_numeric_over_params(func, &binary.right)
             }
             _ => false,
+        }
+    }
+
+    /// True when `name`, called from `func`, may not denote the `function`
+    /// declaration of that name: `func` or a lexically enclosing scope declares
+    /// a param or local `name` that shadows it. Call edges are keyed by name
+    /// alone (`CallEdge::callee`), so the array-return lane must not read such
+    /// a call as one to the declaration. `parents` records only
+    /// `FunctionDeclaration` nesting, so a chain that reaches a scope with no
+    /// recorded parent other than module scope (a fn-expr/arrow body, or one
+    /// nested in it) cannot be followed: there, any scope in the program that
+    /// declares `name` counts as shadowing (fail-closed: it only declines).
+    fn callee_is_shadowed(&self, func: &str, name: &str) -> bool {
+        let mut scope = func.to_string();
+        loop {
+            if self.is_locally_declared(&scope, name) {
+                return true;
+            }
+            if scope == TOP_LEVEL {
+                return false;
+            }
+            match self.parents.get(&scope) {
+                Some(parent) => scope = parent.clone(),
+                None => {
+                    return self.local_names.values().any(|names| names.contains(name));
+                }
+            }
+        }
+    }
+
+    /// Classify one `return` argument of `func` for the array-return lane
+    /// (spec 2026-10-02 §3.1), over `crate::array_return::classify_return_arg`
+    /// plus the facts only this pass has:
+    /// - a growable binding (a `.push` candidate or reject) is bad-array with
+    ///   `ARRAY_RETURN_GROWABLE`, never the literal class (ruling R3: `const
+    ///   a = []; a.push(1); return a;` is not an immutable literal);
+    /// - a `const` literal with a non-integer-shaped element is bad-array with
+    ///   `ARRAY_RETURN_ELEMENT`;
+    /// - a name declared twice in `func` is never a literal binding (the flat
+    ///   `(func, name)` keys cannot tell which declaration a return reads);
+    /// - a call whose callee `func` shadows is not a call to the declaration.
+    fn classify_array_return(
+        &self,
+        func: &str,
+        arg: Option<&Expression>,
+    ) -> crate::array_return::ReturnArg {
+        use crate::array_return::ReturnArg;
+        if let Some(Expression::Identifier(name)) = arg.map(crate::array_return::unparen) {
+            let key = (func.to_string(), name.clone());
+            if self.growable_candidates.contains(&key) || self.growable_rejects.contains_key(&key) {
+                return ReturnArg::BadArray(kali_common::ARRAY_RETURN_GROWABLE);
+            }
+            if self.const_bad_literal_array_bindings.contains(&key)
+                && !self.shadowed_index_names.contains(&key)
+            {
+                return ReturnArg::BadArray(kali_common::ARRAY_RETURN_ELEMENT);
+            }
+        }
+        let unshadowed = |set: &BTreeSet<(String, String)>, n: &str| {
+            let key = (func.to_string(), n.to_string());
+            set.contains(&key) && !self.shadowed_index_names.contains(&key)
+        };
+        let class = crate::array_return::classify_return_arg(
+            arg,
+            &|n| unshadowed(&self.const_literal_array_bindings, n),
+            &|n| unshadowed(&self.let_literal_array_bindings, n),
+        );
+        match class {
+            ReturnArg::Call(callee) if self.callee_is_shadowed(func, &callee) => {
+                ReturnArg::NonArray
+            }
+            other => other,
         }
     }
 
@@ -2669,6 +2779,22 @@ impl ReprInfer {
                     // from `current_function_scope()`.
                     self.note_abort_shadow_name(&decl.name, param);
                 }
+                // Array-return lane (spec 2026-10-02 §3.1, A4): a `function`
+                // declaration at any depth is a candidate form; a repeated
+                // name is not one function (counted, and excluded by `solve`).
+                *self
+                    .array_return_facts
+                    .declaration_counts
+                    .entry(decl.name.clone())
+                    .or_insert(0) += 1;
+                self.array_return_facts
+                    .candidate_forms
+                    .insert(decl.name.clone());
+                if crate::array_return::body_falls_off_end(&decl.body.body) {
+                    self.array_return_facts
+                        .falls_off_end
+                        .insert(decl.name.clone());
+                }
                 // Walk the body under the function's own name.
                 self.visit_block(&decl.name, &decl.body);
             }
@@ -2728,6 +2854,14 @@ impl ReprInfer {
                     // `return <call to tainted fn>` taints `func`'s return.
                     self.record_string_result_return(func, arg);
                 }
+                // Array-return lane (spec 2026-10-02 §3.1): classify every
+                // return, of every function; `solve` decides admission.
+                let class = self.classify_array_return(func, stmt.argument.as_ref());
+                self.array_return_facts
+                    .returns
+                    .entry(func.to_string())
+                    .or_default()
+                    .push(class.clone());
                 if let Some(arg) = &stmt.argument {
                     if let Expression::ObjectExpression(obj) = arg {
                         self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
@@ -2746,7 +2880,41 @@ impl ReprInfer {
                         // Spec 4a Task 5: `return c` where `c` is an active
                         // for-in key lifts the key (hence the return) to String.
                         self.seed_for_in_key_string_use(func, arg);
-                        let rn = self.visit_expr(func, arg);
+                        let rn = match (&class, arg) {
+                            // An integer-shaped array literal: its elements flow
+                            // into the function's return element node, so their
+                            // repr is solved like any array's. `visit_expr` has
+                            // no `ArrayExpression` arm (its `_` default visits no
+                            // element), so no element is visited twice.
+                            (
+                                crate::array_return::ReturnArg::Literal(None),
+                                Expression::ArrayExpression(_),
+                            ) => {
+                                self.note_array_init(
+                                    func,
+                                    crate::array_return::RETURN_ARRAY_KEY,
+                                    arg,
+                                );
+                                self.new_node()
+                            }
+                            // An allocation records its element repr through
+                            // the fill value.
+                            (crate::array_return::ReturnArg::Allocation, _) => {
+                                if let Some(value) = crate::array_return::fill_value(arg) {
+                                    let elem = self.array_elem_node_for(
+                                        func,
+                                        crate::array_return::RETURN_ARRAY_KEY,
+                                    );
+                                    let vn = self.visit_expr(func, value);
+                                    self.add_edge(vn, elem);
+                                    self.element_store_sources.push((elem, vn));
+                                    self.new_node()
+                                } else {
+                                    self.visit_expr(func, arg)
+                                }
+                            }
+                            _ => self.visit_expr(func, arg),
+                        };
                         let ret = self.return_node_for(func);
                         self.add_edge(rn, ret);
                     }
@@ -2848,6 +3016,7 @@ impl ReprInfer {
                 // Round 3: cover the bare-identifier `for (c in obj)` spelling
                 // too (the declaration spelling is tainted above).
                 if let ForInLefthand::Expression(Expression::Identifier(name)) = &stmt.left {
+                    self.array_return_written_names.insert(name.clone());
                     self.record_numeric_binding_write(func, name, None, false);
                 }
                 if let (Some(key), Some(base)) = (key_name, &base_slot) {
@@ -2891,6 +3060,7 @@ impl ReprInfer {
                 if let kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) =
                     &stmt.left
                 {
+                    self.array_return_written_names.insert(name.clone());
                     self.record_numeric_binding_write(func, name, None, false);
                 }
                 let string_items = for_of_string_items(&stmt.right);
@@ -2977,6 +3147,53 @@ impl ReprInfer {
     /// node for `id`; everything else flows the init into `id`'s scalar node
     /// (`init -> id`).
     fn visit_declarator_init(&mut self, func: &str, kind: &str, id: &str, init: &Expression) {
+        // Array-return lane (spec 2026-10-02 §3.1, A2): the declarator facts the
+        // return classifier and the call-site fact need.
+        match crate::array_return::classify_init(init) {
+            crate::array_return::InitKind::ArrayLiteral => {
+                let key = (func.to_string(), id.to_string());
+                if kind == "const" {
+                    let integer_shaped = matches!(
+                        crate::array_return::unparen(init),
+                        Expression::ArrayExpression(arr)
+                            if crate::array_return::literal_elements_are_integer_shaped(arr)
+                    );
+                    if integer_shaped {
+                        self.const_literal_array_bindings.insert(key);
+                    } else {
+                        self.const_bad_literal_array_bindings.insert(key);
+                    }
+                } else {
+                    self.let_literal_array_bindings.insert(key);
+                }
+            }
+            crate::array_return::InitKind::Allocation => {
+                if kind != "var" {
+                    let key = (func.to_string(), id.to_string());
+                    if let Some(value) = crate::array_return::fill_value(init) {
+                        let vn = self.visit_expr(func, value);
+                        let sink = self.new_node();
+                        self.add_edge(vn, sink);
+                        self.allocation_fill_nodes.insert(key.clone(), sink);
+                    }
+                    self.allocation_bindings.insert(key);
+                }
+            }
+            crate::array_return::InitKind::Call(callee) => {
+                if kind != "var" && !self.callee_is_shadowed(func, &callee) {
+                    if kind == "let" {
+                        self.let_call_bound_bindings
+                            .insert((func.to_string(), id.to_string()));
+                    }
+                    self.array_return_facts.call_bound.push((
+                        func.to_string(),
+                        id.to_string(),
+                        callee,
+                    ));
+                }
+            }
+            crate::array_return::InitKind::Other => {}
+        }
         if kind == "const" {
             if let Some(name) =
                 crate::static_analysis::computed_member::fold_const_initializer(init)
@@ -3627,6 +3844,10 @@ impl ReprInfer {
             }
 
             Expression::UpdateExpression(update) => {
+                if let Expression::Identifier(name) = crate::array_return::unparen(&update.argument)
+                {
+                    self.array_return_written_names.insert(name.clone());
+                }
                 // `x++` / `--x`: numeric identity on the operand.
                 self.visit_expr(func, &update.argument)
             }
@@ -3803,6 +4024,15 @@ impl ReprInfer {
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
                     self.visit_expr(id, &a.body);
+                    // Array-return lane: the body expression IS the arrow's
+                    // implicit return. An arrow is never a candidate form, so
+                    // an array-shaped body taints it (`ARRAY_RETURN_FORM`).
+                    let class = self.classify_array_return(id, Some(&a.body));
+                    self.array_return_facts
+                        .returns
+                        .entry(id.to_string())
+                        .or_default()
+                        .push(class);
                     // Stage P5 T-new-E: the body expression IS the arrow's
                     // implicit return, so a `(y) => String(y)` taints the arrow's
                     // return exactly like a block-bodied `return String(y)`
@@ -3862,6 +4092,9 @@ impl ReprInfer {
         // function, ahead of every early `return` below, so no assignment shape
         // can escape the accounting (the object-literal-RHS arm returns early).
         if let Expression::Identifier(name) = &assign.left {
+            // Array-return lane: any write to a name declines a `let`
+            // call-bound binding of that name (scope-blind, fail-closed).
+            self.array_return_written_names.insert(name.clone());
             // Stage P5 T-new-E: a plain `s = String(x)` / `s = <tainted>`
             // reassignment taints the binding (additive/monotone — a later
             // numeric write does not clear it, matching the conservative
@@ -3943,6 +4176,7 @@ impl ReprInfer {
             Expression::ArrayExpression(_) | Expression::ObjectExpression(_)
         ) {
             for name in destructuring_target_names(&assign.left) {
+                self.array_return_written_names.insert(name.clone());
                 self.numeric_binding_name_taints.insert(name);
             }
         }
@@ -4586,7 +4820,9 @@ impl ReprInfer {
                 let mut arg_array_literal = Vec::with_capacity(call.args.len());
                 let mut arg_scalar_syntactic = Vec::with_capacity(call.args.len());
                 let mut arg_numeric_literal = Vec::with_capacity(call.args.len());
+                let mut arg_array_shapes = Vec::with_capacity(call.args.len());
                 for arg in &call.args {
+                    arg_array_shapes.push(crate::array_return::arg_shape(arg));
                     if matches!(arg, Expression::ObjectExpression(_)) {
                         self.obj_conflicts.push(
                             "an object literal passed directly as a call argument is unavailable in the current phase; bind it to a const first"
@@ -4603,9 +4839,23 @@ impl ReprInfer {
                         _ => None,
                     });
                 }
+                // Obligation (Feed contract): a spread argument hides how many
+                // positions it fills, so it and every later position are no
+                // array evidence for any param.
+                if let Some(first_spread) = call
+                    .args
+                    .iter()
+                    .position(|arg| matches!(arg, Expression::SpreadElement(_)))
+                {
+                    for shape in &mut arg_array_shapes[first_spread..] {
+                        *shape = crate::array_return::ArgShape::Other;
+                    }
+                }
                 let result_node = self.new_node();
                 self.calls.push(CallEdge {
                     callee: callee.clone(),
+                    caller: func.to_string(),
+                    arg_array_shapes,
                     arg_nodes,
                     arg_array_names,
                     arg_obj_slots,
@@ -4670,6 +4920,171 @@ impl ReprInfer {
             }
             _ => false,
         }
+    }
+
+    // ---- Phase C0: array-return lane -----------------------------------
+
+    // Phase C0 (array-return lane, spec 2026-10-02 §3.1 + A1-A4): solve which
+    // functions return a runtime array, which locals are bound to such a call,
+    // and which params only ever receive arrays; then union their element
+    // nodes so the existing element-repr solve covers them. Runs BEFORE
+    // `resolve_calls`, whose array-param fixpoint seeds from
+    // `array_elem_node`'s keys, so the new array bindings propagate too.
+    fn resolve_array_returns(&mut self) {
+        use crate::array_return::{ArgShape, Feed, ReturnArg, RETURN_ARRAY_KEY};
+        // One feed per declared param per edge (see `Feed`'s contract). An edge
+        // whose callee the caller shadows is not a call to the declaration; an
+        // argument call whose callee the caller shadows is no array evidence.
+        // A param written anywhere in its body (`readonly_params` is the
+        // existing positive never-written proof) is never array-fed: its feeds
+        // are dropped, so `solve` cannot see it as an array.
+        let mut feeds: Vec<Feed> = Vec::new();
+        for edge in &self.calls {
+            if self.callee_is_shadowed(&edge.caller, &edge.callee) {
+                continue;
+            }
+            let Some(params) = self.functions.get(&edge.callee) else {
+                continue;
+            };
+            for (index, param) in params.iter().enumerate() {
+                if !self
+                    .readonly_params
+                    .contains(&(edge.callee.clone(), param.clone()))
+                {
+                    continue;
+                }
+                let shape = match edge.arg_array_shapes.get(index) {
+                    None => ArgShape::Other,
+                    Some(ArgShape::Call(g)) if self.callee_is_shadowed(&edge.caller, g) => {
+                        ArgShape::Other
+                    }
+                    Some(shape) => shape.clone(),
+                };
+                feeds.push(Feed {
+                    caller: edge.caller.clone(),
+                    callee: edge.callee.clone(),
+                    index,
+                    shape,
+                });
+            }
+        }
+        // A reassigned `let` call-bound binding, and a name declared twice in
+        // its function, are never call-bound arrays.
+        let written = &self.array_return_written_names;
+        let let_bound = &self.let_call_bound_bindings;
+        let shadowed = &self.shadowed_index_names;
+        self.array_return_facts
+            .call_bound
+            .retain(|(caller, binding, _)| {
+                let key = (caller.clone(), binding.clone());
+                !shadowed.contains(&key) && !(let_bound.contains(&key) && written.contains(binding))
+            });
+        let params: BTreeMap<String, Vec<String>> = self
+            .functions
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let allocation_bindings = &self.allocation_bindings;
+        let elem_keys: BTreeSet<(String, String)> = self.array_elem_node.keys().cloned().collect();
+        let is_base = |func: &str, name: &str| {
+            let key = (func.to_string(), name.to_string());
+            (allocation_bindings.contains(&key)
+                && !shadowed.contains(&key)
+                && !written.contains(name))
+                || (params
+                    .get(func)
+                    .is_some_and(|ps| ps.iter().any(|p| p == name))
+                    && elem_keys.contains(&key))
+        };
+        // Ruling R8: every direct in-program callee, deterministic (a set).
+        let mut called: BTreeSet<String> =
+            self.calls.iter().map(|edge| edge.callee.clone()).collect();
+        called.extend(
+            self.array_return_facts
+                .call_bound
+                .iter()
+                .map(|(_, _, callee)| callee.clone()),
+        );
+        for args in self.array_return_facts.returns.values() {
+            for arg in args {
+                if let ReturnArg::Call(g) = arg {
+                    called.insert(g.clone());
+                }
+            }
+        }
+        for feed in &feeds {
+            if let ArgShape::Call(g) = &feed.shape {
+                called.insert(g.clone());
+            }
+        }
+        self.array_return_facts.called = called;
+        let solution = crate::array_return::solve(
+            &self.array_return_facts,
+            &feeds,
+            &params,
+            &self.escaping_function_names,
+            &is_base,
+        );
+
+        for f in &solution.array_returning {
+            let f_elem = self.array_elem_node_for(f, RETURN_ARRAY_KEY);
+            for arg in self.array_return_facts.returns[f].clone() {
+                match arg {
+                    // A runtime-array binding, or a `const` literal binding
+                    // (A2) whose elements already flow into its own element
+                    // node (`note_array_init`): join it to the return node.
+                    ReturnArg::Binding(n) | ReturnArg::Literal(Some(n)) => {
+                        let n_elem = self.array_elem_node_for(f, &n);
+                        self.uf.union(f_elem, n_elem);
+                        if let Some(&fill) = self.allocation_fill_nodes.get(&(f.clone(), n)) {
+                            self.add_edge(fill, f_elem);
+                        }
+                    }
+                    ReturnArg::Call(g) => {
+                        let g_elem = self.array_elem_node_for(&g, RETURN_ARRAY_KEY);
+                        self.uf.union(f_elem, g_elem);
+                    }
+                    ReturnArg::Literal(None)
+                    | ReturnArg::Allocation
+                    | ReturnArg::BadArray(_)
+                    | ReturnArg::NonArray => {}
+                }
+            }
+        }
+        for (caller, binding, callee) in self.array_return_facts.call_bound.clone() {
+            if solution
+                .call_bound
+                .contains(&(caller.clone(), binding.clone()))
+            {
+                let b_elem = self.array_elem_node_for(&caller, &binding);
+                let f_elem = self.array_elem_node_for(&callee, RETURN_ARRAY_KEY);
+                self.uf.union(b_elem, f_elem);
+            }
+        }
+        for feed in &feeds {
+            let Some(param) = params.get(&feed.callee).and_then(|ps| ps.get(feed.index)) else {
+                continue;
+            };
+            if !solution
+                .array_fed_params
+                .contains(&(feed.callee.clone(), param.clone()))
+            {
+                continue;
+            }
+            let p_elem = self.array_elem_node_for(&feed.callee, param);
+            match &feed.shape {
+                ArgShape::Identifier(n) => {
+                    let a_elem = self.array_elem_node_for(&feed.caller, n);
+                    self.uf.union(p_elem, a_elem);
+                }
+                ArgShape::Call(g) => {
+                    let g_elem = self.array_elem_node_for(g, RETURN_ARRAY_KEY);
+                    self.uf.union(p_elem, g_elem);
+                }
+                ArgShape::Allocation | ArgShape::Other => {}
+            }
+        }
+        self.array_return_solution = solution;
     }
 
     // ---- Phase C: interprocedural resolution ---------------------------
@@ -5640,6 +6055,48 @@ impl ReprInfer {
             } else if float[rep] {
                 table.set_array_element(&func, &name, Repr::F64);
             }
+        }
+
+        // Array-return lane (spec 2026-10-02 §3.1): an admitted function's
+        // returned elements must solve `I64`. A float or string element taints
+        // it here, after solving, so the check sees computed elements too.
+        let solution = std::mem::take(&mut self.array_return_solution);
+        let mut array_return_taints = solution.tainted.clone();
+        for f in &solution.array_returning {
+            let node = self
+                .array_elem_node
+                .get(&(f.clone(), crate::array_return::RETURN_ARRAY_KEY.to_string()))
+                .copied();
+            let non_int = node.is_some_and(|n| {
+                let rep = self.uf.find(n);
+                string.get(rep).copied().unwrap_or(false)
+                    || float.get(rep).copied().unwrap_or(false)
+            });
+            if non_int {
+                array_return_taints.insert(f.clone(), kali_common::ARRAY_RETURN_ELEMENT);
+            }
+        }
+        // Ruling R8: an uncalled, non-escaping function whose element check
+        // fails is neither admitted nor tainted: it keeps its pre-project lane.
+        let exempt_non_int: BTreeSet<String> = array_return_taints
+            .keys()
+            .filter(|f| solution.taint_exempt.contains(*f))
+            .cloned()
+            .collect();
+        for f in &exempt_non_int {
+            array_return_taints.remove(f);
+        }
+        for f in &solution.array_returning {
+            if !array_return_taints.contains_key(f) && !exempt_non_int.contains(f) {
+                table.set_array_return(f, Repr::I64);
+            }
+        }
+        for (caller, binding) in &solution.call_bound {
+            table.set_call_bound_array_binding(caller, binding);
+        }
+        for (f, reason) in &array_return_taints {
+            table.set_array_return_taint(f, reason);
+            table.add_shape_conflict(kali_common::array_return_refused_message(f, reason));
         }
 
         // I2: returning a String-element array binding has NO codegen lowering.

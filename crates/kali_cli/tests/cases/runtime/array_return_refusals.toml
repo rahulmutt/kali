@@ -1,0 +1,169 @@
+# Cases for the array-return project (spec
+# docs/superpowers/specs/2026-10-02-array-return-design.md, sections 3.1, 3.4, 4.2).
+#
+# A returned array kali cannot make real refuses with E5506, under `kali check`
+# and `kali run` alike (amendment A1). Each rationale records kali's `run`
+# output at the baseline `368b5b5ea` (tools/array-return-probes/baseline.tsv)
+# and node v26.10.0's.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide
+# (see this directory's README).
+
+[constants]
+REFUSED = "is unavailable in the current phase"
+
+[source]
+"mixed_returns.js" = '''
+function f(c) { if (c) { return [1]; } return 0; } function main() { const a = f(true); console.log(a[0]); } main();
+'''
+"falls_off_end.js" = '''
+function f(c) { if (c) { return [1]; } } function main() { const a = f(true); console.log(a[0]); } main();
+'''
+"float_elements.js" = '''
+function f() { return [1.5, 2.5]; } function main() { const a = f(); console.log(a[0]); } main();
+'''
+"string_literal_elements.js" = '''
+function f() { return ["a", "b"]; } function main() { const a = f(); console.log(a[0]); } main();
+'''
+"boolean_elements.js" = '''
+function f() { return [true, false]; } function main() { const a = f(); console.log(a[0]); } main();
+'''
+"nested_array_elements.js" = '''
+function f() { return [[1], [2]]; } function main() { const a = f(); console.log(a[0][0]); } main();
+'''
+"float_fill_return.js" = '''
+function f() { const a = new Array(2).fill(1.5); return a; } function main() { const b = f(); console.log(b[0]); } main();
+'''
+"string_fill_return.js" = '''
+function mk() { const a = new Array(2).fill("x"); return a; } function main() { const c = mk(); console.log(c[0]); } main();
+'''
+"let_literal_return.js" = '''
+function f() { let a = [1, 2, 3]; return a; } function main() { const b = f(); console.log(b[1]); } main();
+'''
+
+[[case]]
+name = "mixed_array_and_scalar_returns_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `1`. A function returning an array on one path and a scalar on another has no single return repr, so it refuses (spec §3.1)."""
+args = ["check", "mixed_returns.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it mixes array and non-array returns"]
+
+[[case]]
+name = "mixed_array_and_scalar_returns_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "mixed_returns.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it mixes array and non-array returns"]
+
+[[case]]
+name = "array_return_that_can_fall_off_the_end_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `1`. Falling off the end is an implicit non-array return, so the function mixes array and non-array returns (spec §3.1)."""
+args = ["check", "falls_off_end.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it mixes array and non-array returns"]
+
+[[case]]
+name = "array_return_that_can_fall_off_the_end_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "falls_off_end.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it mixes array and non-array returns"]
+
+[[case]]
+name = "float_literal_elements_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `1.5`. A literal with a float element is bad-array (spec §3.1)."""
+args = ["check", "float_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "float_literal_elements_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "float_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "string_literal_elements_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `a`. A literal with a string element is bad-array (spec §3.1)."""
+args = ["check", "string_literal_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "string_literal_elements_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "string_literal_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "boolean_literal_elements_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `true`. A boolean element is stored as `1`/`0`, so a caller would print `1`, not `true`: bad-array (spec §3.1)."""
+args = ["check", "boolean_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "boolean_literal_elements_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "boolean_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "nested_array_elements_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `1`. A nested-array element is bad-array (spec §3.1)."""
+args = ["check", "nested_array_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "nested_array_elements_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "nested_array_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "float_fill_binding_return_refuses_at_check"
+rationale = """At `368b5b5ea` kali failed at load with `E4201` (`failed to load WASM module: failed to compile`, an invalid module, not a refusal) where node v26.10.0 prints `1.5`. The returned binding's fill value is a float, which the element check sees after solving (spec §3.1), so it now refuses with E5506 instead."""
+args = ["check", "float_fill_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "float_fill_binding_return_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "float_fill_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "string_fill_binding_return_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `x` (probe S11, amendment A3). A String-element allocation returned through a binding is bad-array (spec §3.1)."""
+args = ["check", "string_fill_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `mk`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "string_fill_binding_return_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "string_fill_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `mk`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "let_literal_binding_return_refuses_at_check"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `2`. A `let`/`var` literal binding is bad-array, since it can be reassigned (amendment A2)."""
+args = ["check", "let_literal_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `let`/`var` binding of an array literal, which can be reassigned"]
+
+[[case]]
+name = "let_literal_binding_return_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "let_literal_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `let`/`var` binding of an array literal, which can be reassigned"]
+

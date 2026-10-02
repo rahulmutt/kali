@@ -1618,3 +1618,278 @@ fn a_shadowed_const_name_does_not_fold_and_records_no_field_write() {
         nested.scalar("_start", "o")
     );
 }
+
+// ---- Array-return lane (spec 2026-10-02-array-return-design.md §3.1, A1-A4) ----
+
+/// `reprs`, with the first top-level declarator's fn-expr/arrow initializer
+/// given the synthetic id `name_anon_functions` assigns in the real pipeline
+/// (this crate's parse helper does not run that pass, so an anonymous body
+/// would otherwise not be walked at all).
+fn reprs_with_fn_id(src: &str, id: &str) -> kali_common::ReprTable {
+    let mut parsed = crate::test_support::parse_statements(src);
+    for stmt in &mut parsed {
+        if let kali_ast::Statement::VariableDeclaration(decl) = stmt {
+            match decl.declarations[0].init.as_mut() {
+                Some(kali_ast::Expression::ArrowFunctionExpression(a)) => {
+                    a.id = Some(id.to_string())
+                }
+                Some(kali_ast::Expression::FunctionExpression(f)) => f.id = Some(id.to_string()),
+                other => panic!("no fn-expr initializer: {other:?}"),
+            }
+            break;
+        }
+    }
+    infer_reprs(&parsed)
+}
+
+#[test]
+fn array_return_literal_function_and_call_bound_binding() {
+    let t = reprs("function f() { return [1, 2, 3]; }\nfunction main() { const a = f(); console.log(a[0]); }\nmain();\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert!(t.is_call_bound_array_binding("main", "a"));
+    assert!(t.is_array_binding("main", "a"));
+    assert!(t.shape_conflicts().is_empty());
+}
+
+#[test]
+fn array_return_const_literal_binding_is_admitted() {
+    let t = reprs("function f() { const a = [1, 2, 3]; return a; }\nconst b = f();\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert!(t.is_call_bound_array_binding("_start", "b"));
+}
+
+#[test]
+fn array_return_param_pass_through_is_array_fed() {
+    let t = reprs("function f(x) { return x; }\nconst a = f(new Array(3).fill(1));\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert!(t.is_array_binding("f", "x"));
+    assert!(t.is_call_bound_array_binding("_start", "a"));
+}
+
+#[test]
+fn array_return_float_elements_taint_after_solving() {
+    let t = reprs("function f() { const a = new Array(2).fill(1.5); return a; }\nconst b = f();\n");
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+    assert!(t
+        .shape_conflicts()
+        .iter()
+        .any(|m| m.contains("returning an array from `f`")));
+}
+
+#[test]
+fn array_return_string_fill_taints() {
+    let t = reprs("function mk() { const a = new Array(2).fill(\"x\"); return a; }\nfunction main() { const c = mk(); }\n");
+    assert_eq!(
+        t.array_return_taint("mk"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn array_return_mixed_taints() {
+    // Called (ruling R8: an uncalled function is never tainted).
+    let t = reprs("function f(c) { if (c) { return [1]; } return 0; }\nf(true);\n");
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_MIXED)
+    );
+}
+
+#[test]
+fn array_return_arrow_is_not_tainted_under_the_narrowing() {
+    // Pre-decided narrowing (plan Task 4 step 10): a `__kali_fn_N` arrow or
+    // function expression returning an array is never tainted — the brief's
+    // `array_return_arrow_taints_form` is inverted, since tainting refused
+    // working `xs.flatMap(x => [x])` callbacks. A block-bodied arrow parses as
+    // an anonymous `FunctionExpression`, which this crate's parse helper leaves
+    // unnamed, so both are given their pipeline id.
+    for src in [
+        "const f = () => { return [1, 2]; };\n",
+        "const f = () => [1, 2, 3];\n",
+    ] {
+        let t = reprs_with_fn_id(src, "__kali_fn_0");
+        assert_eq!(t.array_return_taint("__kali_fn_0"), None, "{src}");
+        assert_eq!(t.array_return("__kali_fn_0"), None, "{src}");
+        assert!(t.shape_conflicts().is_empty(), "{src}");
+    }
+}
+
+#[test]
+fn array_return_named_function_expression_taints_form() {
+    // A NAMED function expression keeps its own name (not `__kali_fn_N`), is
+    // not a candidate form, and so still taints with the form reason.
+    // `g` calls itself, so it is called (ruling R8).
+    let t = reprs("const f = function g(n) { if (n) { return g(0); } return [1, 2]; };\n");
+    assert_eq!(
+        t.array_return_taint("g"),
+        Some(kali_common::ARRAY_RETURN_FORM)
+    );
+    assert!(t
+        .shape_conflicts()
+        .iter()
+        .any(|m| m.contains(kali_common::ARRAY_RETURN_FORM)));
+}
+
+#[test]
+fn array_return_nested_declaration_is_admitted() {
+    let t =
+        reprs("function main() { function f() { return [1, 2, 3]; } const a = f(); }\nmain();\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert!(t.is_call_bound_array_binding("main", "a"));
+}
+
+#[test]
+fn array_return_absent_for_programs_without_array_returns() {
+    let t = reprs(
+        "function f(x) { return x + 1; }\nconst a = f(2);\nfunction g() { return {a: 1}; }\n",
+    );
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(t.array_return("g"), None);
+    assert!(!t.is_call_bound_array_binding("_start", "a"));
+    assert!(t.shape_conflicts().is_empty());
+}
+
+// Ruling R3: a growable binding is never admitted as an array return.
+#[test]
+fn array_return_growable_const_literal_taints_growable() {
+    let t = reprs(
+        "function f() { const a = []; a.push(1); a.push(2); return a; }\n\
+         function main() { const b = f(); console.log(b[1]); }\nmain();\n",
+    );
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_GROWABLE)
+    );
+    assert!(!t.is_call_bound_array_binding("main", "b"));
+}
+
+// Obligation 2: a `const` literal is the literal class only when its elements
+// are integer-shaped.
+#[test]
+fn array_return_const_literal_with_bad_elements_taints_element() {
+    for src in [
+        "function f() { const a = [1.5, 2]; return a; }\nconst b = f();\n",
+        "function f() { const a = [\"x\"]; return a; }\nconst b = f();\n",
+        "function f() { const a = [[1]]; return a; }\nconst b = f();\n",
+    ] {
+        let t = reprs(src);
+        assert_eq!(t.array_return("f"), None, "{src}");
+        assert_eq!(
+            t.array_return_taint("f"),
+            Some(kali_common::ARRAY_RETURN_ELEMENT),
+            "{src}"
+        );
+        assert!(!t.is_call_bound_array_binding("_start", "b"), "{src}");
+    }
+}
+
+// Obligation 3: a missing argument, or any position at/after a spread, is not
+// array evidence for the param.
+#[test]
+fn array_return_missing_or_spread_argument_does_not_feed_param() {
+    let t = reprs("function f(x, y) { return y; }\nconst a = f(new Array(3).fill(1));\n");
+    assert!(!t.is_array_binding("f", "y"));
+    assert_eq!(t.array_return("f"), None);
+    assert!(!t.is_call_bound_array_binding("_start", "a"));
+
+    let t = reprs(
+        "function f(x, y) { return y; }\nconst q = [1];\n\
+         const a = f(...q, new Array(3).fill(1));\n",
+    );
+    assert!(!t.is_array_binding("f", "y"));
+    assert_eq!(t.array_return("f"), None);
+
+    // Control: the same callee fed at both positions is array-fed.
+    let t = reprs(
+        "function f(x, y) { return y; }\n\
+         const a = f(new Array(3).fill(1), new Array(3).fill(1));\n",
+    );
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+}
+
+// Obligation 4: a callee name that is a param/local of the calling function is
+// not the declared function of that name.
+#[test]
+fn array_return_shadowed_callee_is_not_a_call_to_the_declaration() {
+    // Call-bound binding.
+    let t = reprs(
+        "function g() { return [1, 2]; }\n\
+         function main(h) { const g = h; const a = g(); }\n",
+    );
+    assert_eq!(t.array_return("g"), Some(Repr::I64));
+    assert!(!t.is_call_bound_array_binding("main", "a"));
+    // Return argument: a param named `g`.
+    let t =
+        reprs("function g() { return [1, 2]; }\nfunction f(g) { return g(); }\nconst a = f(1);\n");
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(t.array_return_taint("f"), None);
+    // Call argument feeding a param.
+    let t = reprs(
+        "function g() { return [1, 2]; }\nfunction k(x) { return x; }\n\
+         function main(g) { const a = k(g()); }\n",
+    );
+    assert!(!t.is_array_binding("k", "x"));
+    assert_eq!(t.array_return("k"), None);
+    // The callee itself shadowed at the call site of an edge.
+    let t = reprs(
+        "function k(x) { return x; }\n\
+         function main(k) { const a = k(new Array(2).fill(1)); }\n",
+    );
+    assert!(!t.is_array_binding("k", "x"));
+}
+
+// Obligation 5: a reassigned `let` call-bound binding and a written array-fed
+// param are not admitted.
+#[test]
+fn array_return_reassigned_bindings_are_not_admitted() {
+    let t = reprs(
+        "function f() { return [1, 2]; }\n\
+         function main() { let a = f(); a = 5; console.log(a); }\n",
+    );
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert!(!t.is_call_bound_array_binding("main", "a"));
+    // An unwritten `let` is admitted.
+    let t = reprs(
+        "function f() { return [1, 2]; }\nfunction main() { let a = f(); console.log(a[0]); }\n",
+    );
+    assert!(t.is_call_bound_array_binding("main", "a"));
+    // A param written in its body is not array-fed.
+    let t = reprs("function f(x) { x = 0; return x; }\nconst a = f(new Array(3).fill(1));\n");
+    assert_eq!(t.array_return("f"), None);
+    assert!(!t.is_call_bound_array_binding("_start", "a"));
+}
+
+// Ruling R8: a function no kali code calls (a host/tree-shake entry point, or
+// dead code) and that does not escape keeps its pre-project lane: never
+// tainted, and an element-check failure does not admit it either. Calling it
+// restores the taint; an admissible uncalled function stays admitted.
+#[test]
+fn array_return_uncalled_function_is_not_tainted() {
+    let t = reprs("function f(x) { return [Math.sqrt(x), 1.5 * x]; }\n");
+    assert_eq!(t.array_return_taint("f"), None);
+    assert_eq!(t.array_return("f"), None);
+    assert!(t.shape_conflicts().is_empty());
+    let t = reprs("function f(c) { if (c) { return [1]; } return 0; }\n");
+    assert_eq!(t.array_return_taint("f"), None);
+    assert!(t.shape_conflicts().is_empty());
+
+    let t = reprs("function f(x) { return [Math.sqrt(x), 1.5 * x]; }\nconst a = f(4);\n");
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+    // Escaping (read as a value) counts as reachable: tainted.
+    let t = reprs("function f(c) { if (c) { return [1]; } return 0; }\nconst h = f;\n");
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_MIXED)
+    );
+
+    let t = reprs("function f() { return [1, 2]; }\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+}

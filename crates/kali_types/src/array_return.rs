@@ -41,7 +41,7 @@ pub(crate) enum ArgShape {
     Other,
 }
 
-fn unparen(expr: &Expression) -> &Expression {
+pub(crate) fn unparen(expr: &Expression) -> &Expression {
     match expr {
         Expression::ParenthesizedExpression(inner) => unparen(&inner.expression),
         // Type-only wrappers are erased at runtime.
@@ -175,6 +175,45 @@ pub(crate) fn arg_shape(arg: &Expression) -> ArgShape {
     }
 }
 
+/// A declarator initializer, as the array-return lane records it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum InitKind {
+    ArrayLiteral,
+    Allocation,
+    Call(String),
+    Other,
+}
+
+pub(crate) fn classify_init(init: &Expression) -> InitKind {
+    if is_allocation(init) {
+        return InitKind::Allocation;
+    }
+    match unparen(init) {
+        Expression::ArrayExpression(_) => InitKind::ArrayLiteral,
+        Expression::CallExpression(call) => match unparen(&call.callee) {
+            Expression::Identifier(callee) => InitKind::Call(callee.clone()),
+            _ => InitKind::Other,
+        },
+        _ => InitKind::Other,
+    }
+}
+
+/// The `v` of an allocation spelled `new Array(n).fill(v)` / `Array(n).fill(v)`.
+pub(crate) fn fill_value(expr: &Expression) -> Option<&Expression> {
+    let call = match unparen(expr) {
+        Expression::NewExpression(n) => match unparen(&n.callee) {
+            Expression::CallExpression(call) => call,
+            _ => return None,
+        },
+        Expression::CallExpression(call) => call,
+        _ => return None,
+    };
+    match unparen(&call.callee) {
+        Expression::MemberExpression(m) if m.dot_name() == Some("fill") => call.args.first(),
+        _ => None,
+    }
+}
+
 /// Conservative: true unless the body provably ends in `return`/`throw` on
 /// every path (a trailing `return`/`throw`, or a trailing `if`/`else` whose two
 /// arms both provably end so). A false "falls off" taints an otherwise-good
@@ -202,8 +241,25 @@ pub(crate) struct ArrayReturnFacts {
     pub(crate) falls_off_end: BTreeSet<String>,
     /// `(caller, binding, callee)` for `const`/`let binding = callee()`.
     pub(crate) call_bound: Vec<(String, String, String)>,
+    /// Every name that is the callee of a direct in-program call: a call edge
+    /// (bare-identifier call), a call-bound declarator, a `return g()`, or a
+    /// `g()` argument. A function absent from it and not escaping is never
+    /// tainted (ruling R8): a host-exported or tree-shake entry function, or
+    /// dead code, hands its result to no kali code, so it keeps its
+    /// pre-project lane. Admission is unaffected.
+    pub(crate) called: BTreeSet<String>,
 }
 
+/// One call-edge argument position, as the array-fed param fact (A3) sees it.
+///
+/// Contract (built by `repr_infer`'s Phase C0): an edge to a callee with `n`
+/// declared params yields exactly one `Feed` per index `0..n`. A position with
+/// no argument (a short call, `f(a)` for `function f(x, y)`) and every position
+/// at or after the first spread argument (`f(...xs, a)`, whose element count is
+/// unknown) carries [`ArgShape::Other`], so such a param is never array-fed. A
+/// callee or argument-call name that the caller shadows with a param or local
+/// is not a call to the declared function: such an edge is dropped, and such
+/// an argument is `Other`.
 #[derive(Clone, Debug)]
 pub(crate) struct Feed {
     pub(crate) caller: String,
@@ -218,6 +274,10 @@ pub(crate) struct Solution {
     pub(crate) tainted: BTreeMap<String, &'static str>,
     pub(crate) call_bound: BTreeSet<(String, String)>,
     pub(crate) array_fed_params: BTreeSet<(String, String)>,
+    /// Functions with returns that are neither directly called
+    /// (`ArrayReturnFacts::called`) nor escaping: exempt from every taint,
+    /// including `repr_infer`'s emit-time element check (ruling R8).
+    pub(crate) taint_exempt: BTreeSet<String>,
 }
 
 impl ArrayReturnFacts {
@@ -244,7 +304,10 @@ pub(crate) fn solve(
     let syntactically_possible = |arg: &ReturnArg| {
         matches!(
             arg,
-            ReturnArg::Literal(_) | ReturnArg::Allocation | ReturnArg::Binding(_) | ReturnArg::Call(_)
+            ReturnArg::Literal(_)
+                | ReturnArg::Allocation
+                | ReturnArg::Binding(_)
+                | ReturnArg::Call(_)
         )
     };
     let mut returning: BTreeSet<String> = facts
@@ -325,9 +388,30 @@ pub(crate) fn solve(
             .cloned()
             .collect();
         if next == returning {
+            let taint_exempt: BTreeSet<String> = facts
+                .returns
+                .keys()
+                .filter(|f| !facts.called.contains(*f) && !escaping.contains(*f))
+                .cloned()
+                .collect();
             let mut tainted = BTreeMap::new();
             for (f, args) in &facts.returns {
+                // Ruling R8: an uncalled, non-escaping function's result
+                // reaches no kali code; it keeps its pre-project lane.
+                if taint_exempt.contains(f) {
+                    continue;
+                }
                 if returning.contains(f) {
+                    continue;
+                }
+                // Pre-decided narrowing (plan Task 4 step 10): an arrow or
+                // anonymous function expression (`__kali_fn_N`) is never
+                // tainted. Callbacks such as `xs.flatMap(x => [x])` return an
+                // array the array-method lanes already consume correctly;
+                // tainting them refused working programs. Such a function
+                // stays on its existing lane (a direct call through its
+                // binding already refuses as a first-class function call).
+                if !facts.is_candidate(f) && f.starts_with("__kali_fn_") {
                     continue;
                 }
                 let array_shaped = |arg: &ReturnArg| match arg {
@@ -357,6 +441,7 @@ pub(crate) fn solve(
                 tainted,
                 call_bound,
                 array_fed_params: fed,
+                taint_exempt,
             };
         }
         returning = next;
