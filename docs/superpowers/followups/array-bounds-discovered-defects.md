@@ -85,7 +85,7 @@ would close this gap.
 `kali check` exits 0 on `a[5]` over a length-3 runtime array, and `kali run`
 traps with `E4000`. The index is not known statically, so no `check` mirror is
 possible short of refusing every unproven index (spec §4, "compile-time
-only"). This is the one disclosed `check` / `run` gap besides §3.
+only"). It is a disclosed `check` / `run` gap, as are §3 and §6 (float index: `check` exits 0, `run` fails with `E4201`).
 
 ## §5. Capability loss and the probe diff, recomputed at the end of the branch
 
@@ -191,13 +191,21 @@ bounds_ok_* | CORRECT | CORRECT | unchanged
 `r21_oob_control` is cited in `array-return-discovered-defects.md` §6, which
 now says it traps.
 
-### Measured capability loss (decision PENDING)
+### Measured capability loss (accepted, fail-closed)
 
 A `push` on a plain runtime array whose growth is never observed, or is never
 reached, ran correctly at the baseline and is now an `E5506` refusal. Spec §5.1
-reserves this trade-off for the human partner: an in-bounds program that now
-refuses is brought back, not resolved by the implementer. **The decision is
-PENDING.** No refusal was narrowed or removed. Each program below was run as
+reserves this trade-off for the human partner. **Decision (human partner,
+2026-10-02): accept the refusals as fail-closed.** No refusal was narrowed or
+removed. Rationale: the project's chosen scope was fail-closed (spec §0,
+option A). A fixed-length array cannot perform a length change, so refusing
+every such call is the simple sound rule. The refused programs never observe
+the array after the call, or never reach it, whereas real code that pushes
+almost always reads the array afterwards, and those are exactly the programs
+that printed wrong values at baseline. Narrowing to "refuse only when the array
+is later observed" would need whole-program read analysis (aliases, closures,
+calls), and a miss in that analysis would bring back a silent miscompile, which
+is worse than the refusal. The real fix is a feature, see §12. Each program below was run as
 `node P.js` and as `kali run P.js` / `kali check P.js` on a `kali` built from
 `016557d60` and on the HEAD build (`kali check` and `kali run` agree at HEAD in
 every row).
@@ -235,7 +243,8 @@ method key. Fixed: the predicate unwraps through the resolver's existing
 `unwrap_transparent` (parentheses, `as`, `satisfies`, optional chain), and the
 mutator gate no longer excludes a literal method key. `check` and `run` now
 both refuse every shape above. A growable receiver in the same wrappers is not
-caught. `a!.push(1)` is `E3100` under both commands, a separate pre-existing
+caught by this gate, but the growable lane's own `E5506` already refuses
+`a?.push` and `a["push"]`. `a!.push(1)` is `E3100` under both commands, a separate pre-existing
 diagnostic. No wrapped shape is known to disagree.
 
 ## §8. A string-literal negative key is refused as a negative index
@@ -285,3 +294,23 @@ outer `a`; the array facts are keyed by name.
   (the outer name is a plain runtime array), so a wrong answer became a refusal.
 
 Not fixed.
+
+## §12. Follow-up feature: growable arrays from array-returning functions
+
+Not started. This is the real fix for the §5 capability loss, and for `push` on
+a call-bound array (`const a = f()`) generally: let array-returning functions
+produce growable arrays, the way an in-function array literal already does. It
+would turn the following rows into node-correct output instead of a refusal:
+d3 and d4, and a3 and a4 once the anonymous-lane gap (§3,
+`anon-array-return-discovered-defects.md` §9) is also closed. Until it is
+built, the §5 refusals stand as accepted (fail-closed).
+
+## §13. `a.push?.(1)` (optional call) on a plain runtime array is silent
+
+`function main(){ const a = new Array(3).fill(4); a.push?.(1); console.log(a.length); } main();`
+
+Measured on the HEAD build: `node` prints `4`; `kali check` exits 0; `kali run`
+prints `3` at exit 0. A re-reviewer measured the same at baseline `016557d60`,
+so this is not a regression. Neither gate sees an optional call, so the
+`push` is neither refused by `check` nor by `run`, and the length change is
+silently skipped. Not fixed.

@@ -325,3 +325,12 @@ Added while writing the implementation plan, before any code.
   row in `array_bounds.toml` is pinned twice, once under `kali check` and
   once under `kali run`. A mismatch fails a case, so the pairs are that
   test. The anonymous rows of A-3 are pinned at their disclosed split.
+* **A-5. The §5.1 capability loss is accepted.** Added after implementation.
+  The §5.1 capability-loss rows (a `push` whose result is never read, in an
+  `if` that never runs, or in a never-called function) were measured; see
+  `array-bounds-discovered-defects.md` §5. The human partner accepted them as
+  fail-closed on 2026-10-02: a fixed-length array cannot perform a length
+  change, and narrowing to "refuse only when later observed" needs
+  whole-program read analysis whose misses would reintroduce a silent
+  miscompile. The real fix is a feature, filed as followups §12 (growable
+  arrays from array-returning functions).
