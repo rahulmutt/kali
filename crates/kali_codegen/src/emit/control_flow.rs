@@ -174,8 +174,76 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Allocate a `[len][elem…]` runtime array for the array literal
+    /// `aggregate`, leave its handle in local `slot`, and store each element at
+    /// `8 + i*8`. With `elem_shape`, an object-literal child is materialized
+    /// through `emit_object_allocation`; every other child (a factory call, an
+    /// identifier, a scalar) is emitted as an i64. Shared by the declarator's
+    /// object-element lane and `emit_return`'s array arm (spec 2026-10-02
+    /// §3.2), so the two cannot drift.
+    pub(crate) fn emit_static_array_materialize(
+        &mut self,
+        function: &mut Function,
+        aggregate: &LirNode,
+        slot: u32,
+        elem_shape: Option<kali_common::ShapeId>,
+    ) {
+        let allocated = self.emit_array_allocation_static(function, aggregate.children.len());
+        if !allocated.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalSet(slot));
+        for (i, child) in aggregate.children.iter().copied().enumerate() {
+            function.instruction(&Instruction::LocalGet(slot));
+            function.instruction(&Instruction::I32WrapI64);
+            let child_node = self.node(child).clone();
+            let produced = match elem_shape {
+                Some(shape) if self.is_object_literal(&child_node) => {
+                    self.emit_object_allocation(function, &child_node, shape)
+                }
+                _ => self.emit_node(function, child, true),
+            };
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::I64Store(MemArg {
+                offset: (8 + i * 8) as u64,
+                align: 3,
+                memory_index: 0,
+            }));
+        }
+    }
+
     pub(crate) fn emit_return(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         if let Some(arg) = node.children.first().copied() {
+            // Array-return lane (spec 2026-10-02 §3.2): an admitted function
+            // materializes a returned literal (or `const` literal binding,
+            // A2) into a runtime array. Any other admitted argument already
+            // produces its handle through `emit_node` below.
+            if self.repr_table.array_return(&self.function_name).is_some() {
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    if self.is_array_literal(&aggregate) {
+                        let slot = self.locals[&crate::lower::array_return_scratch_local_name()];
+                        self.emit_static_array_materialize(function, &aggregate, slot, None);
+                        function.instruction(&Instruction::LocalGet(slot));
+                        self.emit_arena_unwind_for_return(function);
+                        self.emit_env_restore(function);
+                        function.instruction(&Instruction::Return);
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                }
+            } else if let Some(reason) = self.repr_table.array_return_taint(&self.function_name) {
+                // Unreachable for an admitted program: every taint is also a
+                // shape conflict, which stops compilation before codegen.
+                // Kept so a future path that skips that check still refuses.
+                let message =
+                    kali_common::array_return_refused_message(&self.function_name, reason);
+                return self.deny_e5506(function, &message);
+            }
             // A function whose return repr is Object(shape) returning an
             // object literal materializes it (factory functions). Only the
             // direct return argument routes here — other literals in the
@@ -1645,40 +1713,18 @@ impl<'a> FunctionEmitter<'a> {
                                 if let (Some(aggregate), Some(index)) =
                                     (aggregate, self.locals.get(&name).copied())
                                 {
-                                    let allocated = self.emit_array_allocation_static(
-                                        function,
-                                        aggregate.children.len(),
-                                    );
-                                    if !allocated.produced {
-                                        function.instruction(&Instruction::I64Const(0));
-                                    }
-                                    function.instruction(&Instruction::LocalSet(index));
+                                    // Registered BEFORE the materializer runs, as
+                                    // the pre-extraction code did, so every
+                                    // element emission sees the same
+                                    // `array_bindings` state (the allocation
+                                    // prefix does not read it).
                                     self.array_bindings.insert(name.clone());
-                                    for (i, child) in aggregate.children.iter().copied().enumerate()
-                                    {
-                                        function.instruction(&Instruction::LocalGet(index));
-                                        function.instruction(&Instruction::I32WrapI64);
-                                        let child_node = self.node(child).clone();
-                                        let produced = if self.is_object_literal(&child_node) {
-                                            self.emit_object_allocation(
-                                                function,
-                                                &child_node,
-                                                elem_shape,
-                                            )
-                                        } else {
-                                            // Factory call / identifier: already
-                                            // an i64 pointer.
-                                            self.emit_node(function, child, true)
-                                        };
-                                        if !produced.produced {
-                                            function.instruction(&Instruction::I64Const(0));
-                                        }
-                                        function.instruction(&Instruction::I64Store(MemArg {
-                                            offset: (8 + i * 8) as u64,
-                                            align: 3,
-                                            memory_index: 0,
-                                        }));
-                                    }
+                                    self.emit_static_array_materialize(
+                                        function,
+                                        &aggregate,
+                                        index,
+                                        Some(elem_shape),
+                                    );
                                     continue;
                                 }
                             }

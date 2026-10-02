@@ -1,0 +1,74 @@
+# Cases for the array-return project (spec
+# docs/superpowers/specs/2026-10-02-array-return-design.md, sections 3.2-3.3, 4.2).
+#
+# A function that returns an I64-element array on every path hands its caller a
+# real runtime array. Every `_computes` case prints node v26.10.0's exact output;
+# each rationale records kali's output at the baseline `368b5b5ea`
+# (tools/array-return-probes/baseline.tsv) or, where the probe set has no row,
+# at `1ade1cbfa` (post-inference, pre-codegen).
+#
+# `[source]` keys are one file per program (see this directory's README).
+
+[source]
+"passed_on.js" = '''
+function f() { return [1, 2, 3]; } function g(x) { return x[1]; } console.log(g(f()));
+'''
+"call_arg_direct.js" = '''
+function f() { return [3, 4]; } function g(x) { return x.length; } console.log(g(f()));
+'''
+"const_literal_binding_return.js" = '''
+function f() { const a = [1, 2, 3]; return a; } function g(x) { return x[1]; } console.log(g(f()));
+'''
+"allocation_returned_from_inside_a_loop.js" = '''
+function f() { for (let i = 0; i < 3; i++) { const a = new Array(2).fill(i); if (i === 2) { return a; } } return new Array(1).fill(0); }
+function g(x) { return x[0]; }
+console.log(g(f()));
+'''
+"parenthesized_literal_return.js" = '''
+function f() { return ([1, 2, 3]); } function g(x) { return x[1]; } console.log(g(f()));
+'''
+"as_wrapped_literal_return.ts" = '''
+function f(): number[] { return [1, 2, 3] as number[]; } function g(x: number[]): number { return x[1]; } console.log(g(f()));
+'''
+
+[[case]]
+name = "a_returned_literal_passed_on_computes"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `2`: the literal was never allocated (emit_aggregate_literal pushed 0). Spec §3.2."""
+args = ["run", "passed_on.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_returned_literal_length_through_a_param_computes"
+rationale = """At `368b5b5ea` kali printed `0` at exit 0 (tools/array-return-probes/baseline.tsv row `call_arg_direct`) where node v26.10.0 prints `2`. Spec §3.2."""
+args = ["run", "call_arg_direct.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "const_literal_binding_return"
+rationale = """Amendment A2: a `const` literal binding is fold-lane, so the return materializes it. Measured at `1ade1cbfa` (post-inference, pre-codegen): kali printed `0` at exit 0. node v26.10.0 prints `2`."""
+args = ["run", "const_literal_binding_return.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "allocation_returned_from_inside_a_loop"
+rationale = """Pins spec §2.1's arena claim: a returned allocation made inside a loop is not reclaimed by that loop's arena (arena_gate marks returned may-heap sites). Measured at `1ade1cbfa` (post-inference, pre-codegen): kali already printed `2` at exit 0, so this is a pin. node v26.10.0 prints `2`."""
+args = ["run", "allocation_returned_from_inside_a_loop.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "a_parenthesized_returned_literal_computes"
+rationale = """Inference treats a parenthesized array literal as a literal (Task 4 fix), so the return arm must materialize it too. Measured at `1ade1cbfa`: kali printed `0` at exit 0. node v26.10.0 prints `2`. Spec §3.2."""
+args = ["run", "parenthesized_literal_return.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "an_as_wrapped_returned_literal_computes"
+rationale = """Inference treats an `as`-wrapped array literal as a literal (Task 4 fix), so the return arm must materialize it too. Measured at `1ade1cbfa`: kali printed `0` at exit 0. node v26.10.0 prints `2`. Spec §3.2."""
+args = ["run", "as_wrapped_literal_return.ts"]
+exit = "success"
+stdout = "2\n"
