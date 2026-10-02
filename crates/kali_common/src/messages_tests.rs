@@ -130,3 +130,28 @@ fn test_generator_function_lowering_unavailable_message_for_flavors_is_stable() 
         generator_function_lowering_unavailable_message(false)
     );
 }
+
+#[test]
+fn runtime_array_refusal_messages_are_stable() {
+    assert_eq!(
+        runtime_array_negative_index_unavailable_message(),
+        "a negative index on a runtime array is unavailable in the current phase: node reads `undefined` there and kali has no `undefined` value, so kali refuses rather than read the array's length header"
+    );
+    assert_eq!(
+        runtime_array_mutator_unavailable_message("push"),
+        "calling `.push()` on a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than silently skip the call"
+    );
+    assert_eq!(
+        runtime_array_length_write_unavailable_message(),
+        "assigning to `.length` of a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than store into an element"
+    );
+    assert_eq!(
+        runtime_array_index_out_of_bounds_message(),
+        "kali: array index out of bounds: node reads undefined here (or grows the array on a write); kali refuses rather than read or write past the allocation"
+    );
+}
+
+#[test]
+fn runtime_array_mutators_are_the_five_fixed_length_breakers() {
+    assert_eq!(RUNTIME_ARRAY_MUTATORS, &["push", "pop", "shift", "unshift", "splice"]);
+}

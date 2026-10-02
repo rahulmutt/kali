@@ -142,3 +142,30 @@ pub fn array_return_refused_message_anonymous(reason: &str) -> String {
         "returning an array from an immediately-invoked function is unavailable in the current phase: {reason}"
     )
 }
+
+/// Methods that change a runtime array's length. A plain `[len][elem…]`
+/// array has a fixed length, so each refuses on one (array-bounds spec §3.2).
+pub const RUNTIME_ARRAY_MUTATORS: &[&str] = &["push", "pop", "shift", "unshift", "splice"];
+
+/// Canonical wording for a negative integer-literal index on a plain runtime array.
+pub const fn runtime_array_negative_index_unavailable_message() -> &'static str {
+    "a negative index on a runtime array is unavailable in the current phase: node reads `undefined` there and kali has no `undefined` value, so kali refuses rather than read the array's length header"
+}
+
+/// Canonical wording for a [`RUNTIME_ARRAY_MUTATORS`] call on a plain runtime array.
+pub fn runtime_array_mutator_unavailable_message(method: &str) -> String {
+    format!(
+        "calling `.{method}()` on a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than silently skip the call"
+    )
+}
+
+/// Canonical wording for an assignment to a plain runtime array's `.length`.
+pub const fn runtime_array_length_write_unavailable_message() -> &'static str {
+    "assigning to `.length` of a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than store into an element"
+}
+
+/// What `__array_elem_addr` prints on stderr before it traps (array-bounds spec §3.1).
+/// It names kali, not a JavaScript error, because node raises nothing here.
+pub const fn runtime_array_index_out_of_bounds_message() -> &'static str {
+    "kali: array index out of bounds: node reads undefined here (or grows the array on a write); kali refuses rather than read or write past the allocation"
+}
