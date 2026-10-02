@@ -247,12 +247,24 @@ pub(crate) fn allocation_proof(func: &str, expr: &Expression) -> NumProof {
     if let Some(value) = fill_value(expr) {
         parts.push(num_proof(func, value));
     }
-    // Find the innermost `Array(n)` / `Uint8Array(n)` call.
+    parts.extend(
+        allocation_length_args(expr)
+            .into_iter()
+            .map(|arg| num_proof(func, arg)),
+    );
+    NumProof::all(parts)
+}
+
+/// The arguments of an allocation's innermost `Array(…)` / `new Array(…)` /
+/// `Uint8Array(…)` call (its length, `n` in `new Array(n).fill(v)`): every
+/// sub-expression of the allocation except its `.fill` value.
+pub(crate) fn allocation_length_args(expr: &Expression) -> Vec<&Expression> {
+    let mut args = Vec::new();
     let mut cursor = unparen(expr);
     loop {
         cursor = match cursor {
             Expression::NewExpression(n) => {
-                parts.extend(n.args.iter().map(|arg| num_proof(func, arg)));
+                args.extend(n.args.iter());
                 unparen(&n.callee)
             }
             Expression::CallExpression(call) => match unparen(&call.callee) {
@@ -260,14 +272,14 @@ pub(crate) fn allocation_proof(func: &str, expr: &Expression) -> NumProof {
                     unparen(&m.object)
                 }
                 _ => {
-                    parts.extend(call.args.iter().map(|arg| num_proof(func, arg)));
+                    args.extend(call.args.iter());
                     break;
                 }
             },
             _ => break,
         };
     }
-    NumProof::all(parts)
+    args
 }
 
 /// An argument at a call site, as an array whose elements the R15 proof can

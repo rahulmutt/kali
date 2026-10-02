@@ -1889,6 +1889,33 @@ fn anon_concise_arrow_allocation_fill_with_boolean_argument_taint_element() {
 }
 
 #[test]
+fn anon_concise_arrow_allocation_length_call_is_a_call_edge() {
+    // Review fix round 1: the length `g(k)` is visited, so its call edge
+    // carries `k`, and the allocation's length proof (`Return(g)` over
+    // `Param(g, x)`) is refuted by `f(1.5)`.
+    let t = reprs_with_fn_id(
+        "function g(x) { return x * 2; }\nconst f = (k) => new Array(g(k)).fill(7);\nconst a = f(1.5);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn returned_allocation_length_call_is_a_call_edge() {
+    // The `return` statement twin, on a declaration.
+    let t = reprs(
+        "function g(x) { return x * 2; }\nfunction f(k) { return new Array(g(k)).fill(7); }\nconst a = f(1.5);\n",
+    );
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
 fn array_return_named_function_expression_taints_form() {
     // A NAMED function expression keeps its own name (not `__kali_fn_N`), is
     // not a candidate form, and so still taints with the form reason.

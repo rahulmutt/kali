@@ -69,6 +69,9 @@ const f = (n) => [n, n]; console.log(f(1.5)[0]);
 "member_call_same_named_declaration.js" = '''
 function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);
 '''
+"allocation_length_call.js" = '''
+function g(x){return x*2;} console.log(g(1)); const f = (k) => new Array(g(k)).fill(7); console.log(f(1.5).length);
+'''
 "called_and_passed_as_callback.js" = '''
 const f = () => [1, 2]; console.log(f()[1]); const xs = new Array(2).fill(0); xs.forEach(f); console.log("done");
 '''
@@ -194,6 +197,20 @@ rationale = """Followups §2 (docs/superpowers/followups/anon-array-return-disco
 args = ["run", "member_call_same_named_declaration.js"]
 exit = "failure"
 stderr_contains = ["E5506", "indexed read", "no lane proves this receiver is an array"]
+
+[[case]]
+name = "anon_allocation_length_call_refuses_at_check"
+rationale = """Fix round 1 of Tasks 7+8 (followups §1 of docs/superpowers/followups/anon-array-return-discovered-defects.md). node v26.10.0 prints `2` then `3`. At `068b29950` kali refused at run with `E5506` "`.length` is unavailable … no lane proves its length"; at `cb63f9909` and `b9faa27f2` it failed at load with `E4201` "failed to load WASM module" while `kali check` exited 0. The length `g(k)` was never visited, so it recorded no call edge and `g`'s param proof held vacuously. Visited, the edge carries `k = 1.5`, and the length is not a proven integer (spec §3.3)."""
+args = ["check", "allocation_length_call.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "anon_allocation_length_call_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "allocation_length_call.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
 
 [[case]]
 name = "anon_mixed_return_refuses_at_check"

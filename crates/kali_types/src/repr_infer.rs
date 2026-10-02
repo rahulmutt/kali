@@ -1936,8 +1936,13 @@ impl ReprInfer {
                 self.new_node()
             }
             // An allocation records its element repr through the fill value.
+            // Its length arguments are visited too (a call there is a call
+            // edge); the fill value is visited once, here.
             (crate::array_return::ReturnArg::Allocation, _) => {
                 if let Some(value) = crate::array_return::fill_value(arg) {
+                    for len in crate::array_return::allocation_length_args(arg) {
+                        self.visit_expr(func, len);
+                    }
                     let elem =
                         self.array_elem_node_for(func, crate::array_return::RETURN_ARRAY_KEY);
                     let vn = self.visit_expr(func, value);
