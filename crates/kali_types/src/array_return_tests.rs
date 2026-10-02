@@ -466,3 +466,135 @@ fn non_taintable_declaration_is_neither_admitted_nor_tainted() {
     let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
     assert!(s.tainted.contains_key("f"));
 }
+
+#[test]
+fn subscripted_param_return_does_not_taint_mixed() {
+    // Ruling R17: `v` is a runtime array only because it is subscripted (a
+    // base param, not array-fed, not call-bound), so `return v` beside a
+    // scalar return is not array-shaped and taints nothing.
+    let facts = facts_one(
+        "head",
+        vec![ReturnArg::Binding("v".into()), ReturnArg::NonArray],
+    );
+    let mut params = BTreeMap::new();
+    params.insert("head".to_string(), vec!["v".to_string()]);
+    let s = solve(&facts, &[], &params, &BTreeSet::new(), &|f, n| {
+        f == "head" && n == "v"
+    });
+    assert!(s.array_returning.is_empty());
+    assert!(s.tainted.is_empty());
+    // Admission is unchanged: alone, `return v` is still admitted.
+    let facts = facts_one("head", vec![ReturnArg::Binding("v".into())]);
+    let s = solve(&facts, &[], &params, &BTreeSet::new(), &|f, n| {
+        f == "head" && n == "v"
+    });
+    assert!(s.array_returning.contains("head"));
+}
+
+#[test]
+fn array_fed_param_return_still_taints_mixed() {
+    // Ruling R17's exclusion: an array-fed param stays array-shaped.
+    let facts = facts_one(
+        "head",
+        vec![ReturnArg::Binding("v".into()), ReturnArg::NonArray],
+    );
+    let mut params = BTreeMap::new();
+    params.insert("head".to_string(), vec!["v".to_string()]);
+    let feeds = vec![Feed {
+        caller: "_start".into(),
+        callee: "head".into(),
+        index: 0,
+        shape: ArgShape::Allocation,
+    }];
+    let s = solve(&facts, &feeds, &params, &BTreeSet::new(), &no_base);
+    assert_eq!(
+        s.tainted.get("head"),
+        Some(&kali_common::ARRAY_RETURN_MIXED)
+    );
+}
+
+fn first_return_arg_of(src: &str) -> Expression {
+    first_return_arg(src).expect("a return argument")
+}
+
+#[test]
+fn num_proof_allowlist() {
+    let p = |src: &str| num_proof("f", &first_return_arg_of(src));
+    assert_eq!(p("function f() { return 3; }"), NumProof::Yes);
+    assert_eq!(p("function f() { return -3; }"), NumProof::Yes);
+    for src in [
+        "function f() { return 1.5; }",
+        "function f() { return 1n; }",
+        "function f() { return null; }",
+        "function f() { return true; }",
+        "function f() { return \"s\"; }",
+        "function f() { return 1 / 2; }",
+        "function f() { return 1 < 2; }",
+        "function f() { return { a: 1 }; }",
+        "function f() { return [1]; }",
+        "function f() { return o.x; }",
+        "function f() { return Math.floor(1); }",
+        "function f() { return new Array(2); }",
+    ] {
+        assert_eq!(p(src), NumProof::No, "{src}");
+    }
+    assert_eq!(
+        p("function f() { return x + 1; }"),
+        NumProof::Binding {
+            func: "f".into(),
+            name: "x".into()
+        }
+    );
+    assert_eq!(
+        p("function f() { return g(); }"),
+        NumProof::Call {
+            caller: "f".into(),
+            callee: "g".into()
+        }
+    );
+    assert_eq!(
+        p("function f() { return a[i]; }"),
+        NumProof::Elements {
+            func: "f".into(),
+            name: "a".into()
+        }
+    );
+    assert_eq!(
+        p("function f() { return a.length; }"),
+        NumProof::Length {
+            func: "f".into(),
+            name: "a".into()
+        }
+    );
+}
+
+#[test]
+fn allocation_proof_covers_length_and_fill() {
+    let p = |src: &str| allocation_proof("f", &first_return_arg_of(src));
+    assert_eq!(p("function f() { return new Array(3); }"), NumProof::Yes);
+    assert_eq!(
+        p("function f() { return new Array(3).fill(4); }"),
+        NumProof::Yes
+    );
+    assert_eq!(
+        p("function f() { return new Array(3).fill(o); }").clone(),
+        NumProof::Binding {
+            func: "f".into(),
+            name: "o".into()
+        }
+    );
+    // A single non-number argument is the element, not a length.
+    assert_eq!(p("function f() { return new Array(\"x\"); }"), NumProof::No);
+}
+
+#[test]
+fn number_literal_elements_are_the_const_literal_class() {
+    let lit = |src: &str| match first_return_arg_of(src) {
+        Expression::ArrayExpression(arr) => literal_elements_are_number_literals(&arr),
+        other => panic!("not an array literal: {other:?}"),
+    };
+    assert!(lit("function f() { return [1, -2, +3]; }"));
+    assert!(!lit("function f() { return [x]; }"));
+    assert!(!lit("function f() { return [t()]; }"));
+    assert!(!lit("function f() { return [1 + 1]; }"));
+}

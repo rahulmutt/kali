@@ -53,6 +53,42 @@ function main() { const a = new Array(3).fill(4); console.log("a", a); } main();
 function f() { return 3; } console.log("v=" + f()[0]);
 '''
 
+"element_array_returning_call.js" = '''
+function g() { return [4, 5]; } function f() { return [g(), 6]; } const b = f(); console.log(b[0]);
+'''
+"element_allocation_binding.js" = '''
+function f() { const a = new Array(2).fill(3); return [a, 1]; } const b = f(); console.log(b[0]);
+'''
+"element_object_binding.js" = '''
+function f() { const o = { a: 1 }; return [o, 2]; } const b = f(); console.log(b[0]);
+'''
+"element_object_field_read.js" = '''
+function f() { const o = { a: 1 }; return [o, 2]; } console.log(f()[0].a);
+'''
+"element_nan.js" = '''
+function f() { return [NaN]; } const b = f(); console.log(b[0]);
+'''
+"element_infinity.js" = '''
+function f() { return [Infinity]; } const b = f(); console.log(b[0]);
+'''
+"element_undefined.js" = '''
+function f() { return [undefined]; } const b = f(); console.log(b[0]);
+'''
+"element_uninitialized_let.js" = '''
+function f() { let u; return [u, 1]; } const b = f(); console.log(b[0]);
+'''
+"element_bigint_binding.js" = '''
+function f() { const x = 1n; return [x]; } const b = f(); console.log(b[0]);
+'''
+"element_null_binding.js" = '''
+function f() { const n = null; return [n]; } const b = f(); console.log(b[0]);
+'''
+"const_computed_reassigned_operand.js" = '''
+function f() { let x = 1; const a = [x]; x = 2; return a; } const b = f(); console.log(b[0]);
+'''
+"const_computed_call_element.js" = '''
+function t() { console.log("tick"); return 1; } function f() { const a = [t()]; console.log("between"); return a; } const b = f(); console.log(b[0]);
+'''
 [[case]]
 name = "mixed_array_and_scalar_returns_refuses_at_check"
 rationale = """At `368b5b5ea` kali printed `0` at exit 0 where node v26.10.0 prints `1`. A function returning an array on one path and a scalar on another has no single return repr, so it refuses (spec §3.1)."""
@@ -207,3 +243,171 @@ rationale = """The numeric-index fallback used to drop the receiver and print `0
 args = ["run", "index_on_scalar_call.js"]
 exit = "failure"
 stderr_contains = ["E5506", "no lane proves this receiver is an array"]
+
+[[case]]
+name = "element_array_returning_call_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is an array-returning call is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `4128` (a heap handle) at exit 0 where node v26.10.0 prints `[ 4, 5 ]`."""
+args = ["check", "element_array_returning_call.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_array_returning_call_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_array_returning_call.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_allocation_binding_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is a runtime-array binding is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `4104` (a heap handle) at exit 0 where node v26.10.0 prints `[ 3, 3 ]`."""
+args = ["check", "element_allocation_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_allocation_binding_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_allocation_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_object_binding_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is an object binding is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `4104` (a heap handle) at exit 0 where node v26.10.0 prints `{ a: 1 }`."""
+args = ["check", "element_object_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_object_binding_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_object_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_object_field_read_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is an object binding read through `f()[0].a` is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["check", "element_object_field_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_object_field_read_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_object_field_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_nan_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is `NaN` is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `0` at exit 0 where node v26.10.0 prints `NaN`."""
+args = ["check", "element_nan.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_nan_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_nan.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_infinity_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is `Infinity` is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `0` at exit 0 where node v26.10.0 prints `Infinity`."""
+args = ["check", "element_infinity.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_infinity_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_infinity.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_undefined_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is `undefined` is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["check", "element_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_undefined_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_uninitialized_let_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is an uninitialized `let` is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `0` at exit 0 where node v26.10.0 prints `undefined`."""
+args = ["check", "element_uninitialized_let.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_uninitialized_let_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_uninitialized_let.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_bigint_binding_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is a BigInt binding is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `1` at exit 0 where node v26.10.0 prints `1n`."""
+args = ["check", "element_bigint_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_bigint_binding_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_bigint_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_null_binding_refuses_at_check"
+rationale = """Ruling R15 (final-review fix wave): an element that is a `null` binding is not proven an integer number, so the return refuses. At `2724509b8` `kali check` exited 0 and `kali run` printed `0` at exit 0 where node v26.10.0 prints `null`."""
+args = ["check", "element_null_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "element_null_binding_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "element_null_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "const_computed_reassigned_operand_refuses_at_check"
+rationale = """Ruling R16 (final-review fix wave): a `const` array-literal binding with an operand reassigned after the literal (kali read `x` at the return) is not the literal class (amendment A2), because kali re-evaluates its elements at the `return`. At `2724509b8` `kali check` exited 0 and `kali run` printed `2` (one line each) at exit 0 where node v26.10.0 prints `1`."""
+args = ["check", "const_computed_reassigned_operand.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `const` binding of an array literal with computed elements"]
+
+[[case]]
+name = "const_computed_reassigned_operand_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "const_computed_reassigned_operand.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `const` binding of an array literal with computed elements"]
+
+[[case]]
+name = "const_computed_call_element_refuses_at_check"
+rationale = """Ruling R16 (final-review fix wave): a `const` array-literal binding with a call element (kali called `t` a second time at the return) is not the literal class (amendment A2), because kali re-evaluates its elements at the `return`. At `2724509b8` `kali check` exited 0 and `kali run` printed `tick`, `between`, `tick`, `1` (one line each) at exit 0 where node v26.10.0 prints `tick`, `between`, `1`."""
+args = ["check", "const_computed_call_element.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `const` binding of an array literal with computed elements"]
+
+[[case]]
+name = "const_computed_call_element_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "const_computed_call_element.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it returns a `const` binding of an array literal with computed elements"]

@@ -1901,6 +1901,18 @@ fn array_return_wrapped_literals_feed_the_element_check() {
     for src in [
         "function f(x) { return ([x]); }\nconst a = f(1.5);\n",
         "function f(x: number) { return [x] as number[]; }\nconst a = f(1.5);\n",
+    ] {
+        let t = reprs(src);
+        assert_eq!(t.array_return("f"), None, "{src}");
+        assert_eq!(
+            t.array_return_taint("f"),
+            Some(kali_common::ARRAY_RETURN_ELEMENT),
+            "{src}"
+        );
+    }
+    // A wrapped `const` literal with a computed element is refused earlier,
+    // as not the literal class at all (ruling R16).
+    for src in [
         "function f(x) { const a = ([x]); return a; }\nconst b = f(1.5);\n",
         "function f(x: number) { const a = [x] as number[]; return a; }\nconst b = f(1.5);\n",
     ] {
@@ -1908,7 +1920,7 @@ fn array_return_wrapped_literals_feed_the_element_check() {
         assert_eq!(t.array_return("f"), None, "{src}");
         assert_eq!(
             t.array_return_taint("f"),
-            Some(kali_common::ARRAY_RETURN_ELEMENT),
+            Some(kali_common::ARRAY_RETURN_CONST_COMPUTED),
             "{src}"
         );
     }
@@ -2003,4 +2015,95 @@ fn array_return_async_function_mixed_returns_are_not_tainted() {
     let t = reprs("async function f(c) { if (c) { return [1]; } return 0; }\nf(true);\n");
     assert_eq!(t.array_return("f"), None);
     assert_eq!(t.array_return_taint("f"), None);
+}
+
+#[test]
+fn array_return_element_needs_a_positive_number_proof() {
+    // Ruling R15: an identifier, call or member element is admitted only when
+    // proven an integer number; each of these may be something else.
+    for src in [
+        "function g() { return [4, 5]; }\nfunction f() { return [g(), 6]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { const a = new Array(2).fill(3); return [a, 1]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { const o = { a: 1 }; return [o, 2]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { return [NaN]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { return [Infinity]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { return [undefined]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { let u; return [u, 1]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { const x = 1n; return [x]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f() { const n = null; return [n]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f(x) { return [x, 1]; }\nconst b = f(true);\nconsole.log(b[0]);\n",
+        "function g() { return 1n; }\nfunction f() { return [g()]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f(p) { p[0] = { a: 1 }; return p; }\nconst a = new Array(2).fill(0);\nconst b = f(a);\nconsole.log(b[0]);\n",
+        "function f() { let s = 1; s = s / 2; return [s]; }\nconst b = f();\nconsole.log(b[0]);\n",
+    ] {
+        let t = reprs(src);
+        assert_eq!(t.array_return("f"), None, "{src}");
+        assert_eq!(
+            t.array_return_taint("f"),
+            Some(kali_common::ARRAY_RETURN_ELEMENT),
+            "{src}"
+        );
+    }
+}
+
+#[test]
+fn array_return_proven_number_elements_stay_admitted() {
+    // Ruling R15's positive proof: params every call site passes a number,
+    // locals every write of which is one, loop counters, calls whose every
+    // return is one, and element reads / `.length` of proven arrays.
+    for src in [
+        "function f(x) { return [x, x * 2, x + 1]; }\nfunction main() { const a = f(5); console.log(a[0]); }\nmain();\n",
+        "function pair(a, b) { return [a, b]; }\nfunction main() { let x = 3; let y = x * 2; const p = pair(x, y); console.log(p[0]); }\nmain();\n",
+        "function sq(x) { return x * x; }\nfunction f(n) { return [sq(n), sq(n + 1)]; }\nconst b = f(3);\nconsole.log(b[0]);\n",
+        "function f(n) { let s = 0; for (let i = 0; i < n; i++) { s += i; } return [s, n]; }\nconst b = f(4);\nconsole.log(b[0]);\n",
+        "function f() { const a = new Array(2).fill(0); return [a[0], a.length]; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function f(n) { if (n === 0) { return [0]; } const r = f(n - 1); return [n + r[0]]; }\nconsole.log(f(4)[0]);\n",
+    ] {
+        let t = reprs(src);
+        let func = if src.starts_with("function pair") { "pair" } else { "f" };
+        assert_eq!(t.array_return(func), Some(Repr::I64), "{src}");
+        assert_eq!(t.array_return_taint(func), None, "{src}");
+    }
+}
+
+#[test]
+fn array_return_const_literal_with_computed_elements_taints_const_computed() {
+    // Ruling R16: only an all-number-literal `const` literal is the literal
+    // class; kali re-evaluates a computed one at the `return`.
+    for src in [
+        "function f() { let x = 1; const a = [x]; x = 2; return a; }\nconst b = f();\nconsole.log(b[0]);\n",
+        "function t() { console.log(\"tick\"); return 1; }\nfunction f() { const a = [t()]; console.log(\"between\"); return a; }\nconst b = f();\nconsole.log(b[0]);\n",
+    ] {
+        let t = reprs(src);
+        assert_eq!(t.array_return("f"), None, "{src}");
+        assert_eq!(
+            t.array_return_taint("f"),
+            Some(kali_common::ARRAY_RETURN_CONST_COMPUTED),
+            "{src}"
+        );
+    }
+    // Number literals, signed, stay the literal class.
+    let t = reprs(
+        "function f() { const a = [1, -2, +3]; return a; }\nconst b = f();\nconsole.log(b[0]);\n",
+    );
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+}
+
+#[test]
+fn array_return_subscripted_param_return_is_not_mixed() {
+    // Ruling R17: a param that is an array only because it is subscripted
+    // does not make `return v` array-shaped for the MIXED taint.
+    let t = reprs(
+        "function head(v) { if (typeof v === \"number\") { return v; } return v[0]; }\nconsole.log(head(5));\n",
+    );
+    assert_eq!(t.array_return("head"), None);
+    assert_eq!(t.array_return_taint("head"), None);
+    // An array-fed param still is (the ruling's exclusion).
+    let t = reprs(
+        "function head(v, n) { if (n === 0) { return v; } return v[0] + n; }\nconsole.log(head(new Array(3).fill(5), 1));\n",
+    );
+    assert_eq!(
+        t.array_return_taint("head"),
+        Some(kali_common::ARRAY_RETURN_MIXED)
+    );
 }

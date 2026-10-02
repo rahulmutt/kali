@@ -84,6 +84,221 @@ fn element_is_integer_shaped(expr: &Expression) -> bool {
     }
 }
 
+/// True when every element is a number literal, optionally under unary `-`/`+`
+/// (ruling R16). Only such a `const` literal binding is the literal class
+/// (amendment A2): kali re-evaluates a returned `const` literal's elements at
+/// the `return`, which is the same value only when no element is computed.
+pub(crate) fn literal_elements_are_number_literals(arr: &ArrayExpression) -> bool {
+    fn is_number_literal(expr: &Expression) -> bool {
+        match unparen(expr) {
+            Expression::Literal(LiteralValue::Number(_)) => true,
+            Expression::UnaryExpression(u) => {
+                matches!(u.operator.as_str(), "-" | "+") && is_number_literal(&u.argument)
+            }
+            _ => false,
+        }
+    }
+    arr.elements.iter().all(|element| {
+        matches!(element, Some(ExpressionOrSpread::Expression(expr)) if is_number_literal(expr))
+    })
+}
+
+/// A positive proof obligation that a value stored into an array is a plain,
+/// non-BigInt integer number (ruling R15). Built syntactically during
+/// `repr_infer`'s body walk; `repr_infer::emit_table` discharges the
+/// non-trivial arms against the facts that pass already has (the numeric
+/// binding proof, read-only params, escaping functions, the solved element
+/// classes). Anything not listed is [`NumProof::No`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum NumProof {
+    /// An integer number literal.
+    Yes,
+    /// May be something other than an integer number: an object, an array, a
+    /// boolean, a string, a float, `null`/`undefined`, a BigInt, `NaN`, ….
+    No,
+    /// The bare identifier `name`, read in `func`.
+    Binding { func: String, name: String },
+    /// A call to the bare-identifier function `callee`, made in `caller`.
+    Call { caller: String, callee: String },
+    /// An element read `name[i]`, in `func`.
+    Elements { func: String, name: String },
+    /// `name.length`, in `func`.
+    Length { func: String, name: String },
+    /// Every value stored into the element class of an inference node.
+    Node(usize),
+    /// Every listed obligation.
+    All(Vec<NumProof>),
+}
+
+impl NumProof {
+    /// True when the proof reads the bare identifier `name` anywhere.
+    pub(crate) fn mentions_binding(&self, name: &str) -> bool {
+        match self {
+            NumProof::Binding { name: n, .. } => n == name,
+            NumProof::All(parts) => parts.iter().any(|p| p.mentions_binding(name)),
+            _ => false,
+        }
+    }
+
+    /// The conjunction of `proofs`, simplified (`Yes` dropped, `No` absorbs).
+    pub(crate) fn all(proofs: Vec<NumProof>) -> NumProof {
+        let mut parts = Vec::new();
+        for proof in proofs {
+            match proof {
+                NumProof::Yes => {}
+                NumProof::No => return NumProof::No,
+                NumProof::All(inner) => parts.extend(inner),
+                other => parts.push(other),
+            }
+        }
+        match parts.len() {
+            0 => NumProof::Yes,
+            1 => parts.pop().expect("one part"),
+            _ => NumProof::All(parts),
+        }
+    }
+}
+
+/// The positive number proof of `expr` as evaluated in `func` (ruling R15).
+/// An allowlist: an integer literal, a bare identifier, a bare-identifier
+/// call, an element read or `.length` of a bare identifier, and `-`/`+`/`~`,
+/// `++`/`--` and the integer arithmetic/bitwise operators over those. `/` and
+/// `**` are excluded (a float); comparisons, `!`, `typeof` and every other
+/// shape are [`NumProof::No`].
+pub(crate) fn num_proof(func: &str, expr: &Expression) -> NumProof {
+    match unparen(expr) {
+        Expression::Literal(LiteralValue::Number(n)) => {
+            if n.is_finite() && n.fract() == 0.0 {
+                NumProof::Yes
+            } else {
+                NumProof::No
+            }
+        }
+        Expression::Identifier(name) => NumProof::Binding {
+            func: func.to_string(),
+            name: name.clone(),
+        },
+        Expression::UnaryExpression(u) if matches!(u.operator.as_str(), "-" | "+" | "~") => {
+            num_proof(func, &u.argument)
+        }
+        Expression::BinaryExpression(b)
+            if matches!(
+                b.operator.as_str(),
+                "+" | "-" | "*" | "%" | "|" | "&" | "^" | "<<" | ">>" | ">>>"
+            ) =>
+        {
+            NumProof::all(vec![num_proof(func, &b.left), num_proof(func, &b.right)])
+        }
+        Expression::UpdateExpression(u) => match unparen(&u.argument) {
+            target @ (Expression::Identifier(_) | Expression::MemberExpression(_)) => {
+                num_proof(func, target)
+            }
+            _ => NumProof::No,
+        },
+        Expression::CallExpression(call) => match unparen(&call.callee) {
+            Expression::Identifier(callee) if !is_allocation(expr) => NumProof::Call {
+                caller: func.to_string(),
+                callee: callee.clone(),
+            },
+            _ => NumProof::No,
+        },
+        Expression::MemberExpression(m) => match (&m.object, m.computed_index.is_some()) {
+            (Expression::Identifier(name), true) => NumProof::Elements {
+                func: func.to_string(),
+                name: name.clone(),
+            },
+            (Expression::Identifier(name), false) if m.dot_name() == Some("length") => {
+                NumProof::Length {
+                    func: func.to_string(),
+                    name: name.clone(),
+                }
+            }
+            _ => NumProof::No,
+        },
+        _ => NumProof::No,
+    }
+}
+
+/// The number proof of every element of an array literal: a hole or a spread
+/// (whose elements are unknown) is [`NumProof::No`].
+pub(crate) fn literal_elements_proof(func: &str, arr: &ArrayExpression) -> NumProof {
+    NumProof::all(
+        arr.elements
+            .iter()
+            .map(|element| match element {
+                Some(ExpressionOrSpread::Expression(expr)) => num_proof(func, expr),
+                Some(ExpressionOrSpread::Spread(_)) | Some(ExpressionOrSpread::Empty) | None => {
+                    NumProof::No
+                }
+            })
+            .collect(),
+    )
+}
+
+/// The number proof of the elements an allocation (`new Array(n)`,
+/// `Array(n)`, `….fill(v)`) holds: its length argument must be a number (a
+/// single non-number argument becomes the element) and its fill value, when
+/// there is one, must be proven. An unfilled slot is a hole, which kali's
+/// array lane already reads as `0` everywhere (not this project's lane).
+pub(crate) fn allocation_proof(func: &str, expr: &Expression) -> NumProof {
+    let mut parts = Vec::new();
+    if let Some(value) = fill_value(expr) {
+        parts.push(num_proof(func, value));
+    }
+    // Find the innermost `Array(n)` / `Uint8Array(n)` call.
+    let mut cursor = unparen(expr);
+    loop {
+        cursor = match cursor {
+            Expression::NewExpression(n) => {
+                parts.extend(n.args.iter().map(|arg| num_proof(func, arg)));
+                unparen(&n.callee)
+            }
+            Expression::CallExpression(call) => match unparen(&call.callee) {
+                Expression::MemberExpression(m) if m.dot_name() == Some("fill") => {
+                    unparen(&m.object)
+                }
+                _ => {
+                    parts.extend(call.args.iter().map(|arg| num_proof(func, arg)));
+                    break;
+                }
+            },
+            _ => break,
+        };
+    }
+    NumProof::all(parts)
+}
+
+/// An argument at a call site, as an array whose elements the R15 proof can
+/// account for when the receiving param is a runtime array.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ArgArrayProof {
+    /// A bare identifier: its element class (if any) is the array's.
+    Identifier(String),
+    /// A bare-identifier call: the callee's returned element class.
+    Call(String),
+    /// A fresh array (a literal or an allocation) with these element proofs.
+    Elements(NumProof),
+    /// Anything else, or a position at/after a spread argument.
+    Unknown,
+}
+
+pub(crate) fn arg_array_proof(func: &str, arg: &Expression) -> ArgArrayProof {
+    if is_allocation(arg) {
+        return ArgArrayProof::Elements(allocation_proof(func, arg));
+    }
+    match unparen(arg) {
+        Expression::ArrayExpression(arr) => {
+            ArgArrayProof::Elements(literal_elements_proof(func, arr))
+        }
+        Expression::Identifier(name) => ArgArrayProof::Identifier(name.clone()),
+        Expression::CallExpression(call) => match unparen(&call.callee) {
+            Expression::Identifier(callee) => ArgArrayProof::Call(callee.clone()),
+            _ => ArgArrayProof::Unknown,
+        },
+        _ => ArgArrayProof::Unknown,
+    }
+}
+
 /// Classify one `return` argument. `is_const_literal(name)` is true when `name`
 /// is a `const` binding of an array literal in the returning function;
 /// `is_let_literal(name)` when it is a `let`/`var` one.
@@ -427,9 +642,22 @@ pub(crate) fn solve(
                 if facts.non_taintable.contains(f) && facts.declaration_counts.get(f) == Some(&1) {
                     continue;
                 }
+                // Ruling R17: a param that is a runtime array only because it
+                // is subscripted (not array-fed, not call-bound; an allocation
+                // of a param's name re-declares it, which `repr_infer`'s
+                // `shadowed_index_names` already keeps off the allocation
+                // arm of `is_base_runtime_array`) does not make `return p`
+                // array-shaped here. `head(v)` returning `v` on one path and
+                // `v[0]` on another is a scalar-or-array function kali keeps
+                // on its pre-project lane; admission is unchanged.
+                let subscripted_param_only = |n: &str| {
+                    params.get(f).is_some_and(|ps| ps.iter().any(|p| p == n))
+                        && !fed.contains(&(f.clone(), n.to_string()))
+                        && !call_bound.contains(&(f.clone(), n.to_string()))
+                };
                 let array_shaped = |arg: &ReturnArg| match arg {
                     ReturnArg::Literal(_) | ReturnArg::Allocation | ReturnArg::BadArray(_) => true,
-                    ReturnArg::Binding(n) => is_array(f, n),
+                    ReturnArg::Binding(n) => is_array(f, n) && !subscripted_param_only(n),
                     ReturnArg::Call(g) => returning.contains(g),
                     ReturnArg::NonArray => false,
                 };

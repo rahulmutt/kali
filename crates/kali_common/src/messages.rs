@@ -129,6 +129,7 @@ pub const ARRAY_RETURN_FORM: &str =
     "only a `function` declaration with a unique name can return an array";
 pub const ARRAY_RETURN_LET_LITERAL: &str =
     "it returns a `let`/`var` binding of an array literal, which can be reassigned";
+pub const ARRAY_RETURN_CONST_COMPUTED: &str = "it returns a `const` binding of an array literal with computed elements, which kali would re-evaluate at the return";
 
 pub fn array_return_refused_message(func: &str, reason: &str) -> String {
     format!("returning an array from `{func}` is unavailable in the current phase: {reason}")
