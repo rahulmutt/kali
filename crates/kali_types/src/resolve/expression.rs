@@ -1944,6 +1944,7 @@ impl TypeContext {
                 self.reject_runtime_string_store(expr);
                 self.reject_array_binding_scalar_reassignment(expr);
                 self.reject_literal_array_unfoldable_mutation(expr);
+                self.reject_runtime_array_length_write(expr);
 
                 if self.resolve_late_env_assignment_mutation(expr) {
                     return;

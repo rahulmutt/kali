@@ -6,6 +6,7 @@ impl TypeContext {
     pub(crate) fn resolve_member_expression(&mut self, expr: &MemberExpression) {
         self.reject_unprovable_string_length(expr);
         self.reject_nonuniform_forin_key_object_access(expr);
+        self.reject_runtime_array_negative_index(expr);
 
         if !self.gate_static_string_receiver_index(expr) {
             self.gate_nameless_computed_member(expr);
@@ -386,6 +387,75 @@ impl TypeContext {
             && !self
                 .repr_table
                 .is_array_return_callee_shadowed(self.current_function_name(), callee)
+    }
+
+    /// The receiver is a plain fixed-length runtime array: a registered
+    /// structural binding that is not growable, or a direct call to an
+    /// array-returning declaration. The resolver's twin of codegen's
+    /// `is_runtime_array_value` (array-bounds spec §3.3). An anonymous callee
+    /// is not recognised, because `call_returns_runtime_array` keys by the bare
+    /// name (amendment A-3).
+    pub(crate) fn is_plain_runtime_array_receiver(&self, object: &Expression) -> bool {
+        match object {
+            Expression::Identifier(base) => {
+                self.is_structural_runtime_array(base) && !self.is_growable_array_binding(base)
+            }
+            Expression::CallExpression(call) => self.call_returns_runtime_array(call),
+            _ => false,
+        }
+    }
+
+    /// `a[-1]`, read or store, on a plain runtime array (array-bounds spec §3.3).
+    /// The parser folds a `+`/`-` unary over a number literal into `property`
+    /// (`a[-1]` carries `"-1"`; `-0` folds to `"0"`; `a[-i]` carries `None`).
+    pub(crate) fn reject_runtime_array_negative_index(&mut self, expr: &MemberExpression) {
+        let negative = expr
+            .property
+            .as_deref()
+            .and_then(|property| property.parse::<i64>().ok())
+            .is_some_and(|value| value < 0);
+        if negative && self.is_plain_runtime_array_receiver(&expr.object) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                kali_common::runtime_array_negative_index_unavailable_message().to_string(),
+            ));
+        }
+    }
+
+    /// `a.push(…)` and the other `RUNTIME_ARRAY_MUTATORS` on a plain runtime
+    /// array (array-bounds spec §3.3).
+    pub(crate) fn reject_runtime_array_mutator_call(&mut self, expr: &CallExpression) {
+        let Expression::MemberExpression(member) = &expr.callee else {
+            return;
+        };
+        let Some(method) = member.property.as_deref() else {
+            return;
+        };
+        if member.computed_index.is_none()
+            && kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method)
+            && self.is_plain_runtime_array_receiver(&member.object)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                kali_common::runtime_array_mutator_unavailable_message(method),
+            ));
+        }
+    }
+
+    /// `a.length = v`, with any assignment operator, on a plain runtime array
+    /// (array-bounds spec §3.3).
+    pub(crate) fn reject_runtime_array_length_write(&mut self, assign: &AssignmentExpression) {
+        let Expression::MemberExpression(member) = &assign.left else {
+            return;
+        };
+        if member.property.as_deref() == Some("length")
+            && self.is_plain_runtime_array_receiver(&member.object)
+        {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                kali_common::runtime_array_length_write_unavailable_message().to_string(),
+            ));
+        }
     }
 
     /// Steps 2–4 of spec §4.4 for a computed member with no static name:

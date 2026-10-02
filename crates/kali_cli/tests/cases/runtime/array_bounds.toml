@@ -296,3 +296,110 @@ rationale = """Control (spec §3.3): a growable-shape literal keeps its working 
 args = ["run", "ok_growable_push.js"]
 exit = "success"
 stdout = "4\n4\n"
+
+[[case]]
+name = "a_negative_literal_index_into_a_direct_call_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_into_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "a_negative_literal_index_store_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "w2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "push_on_a_call_bound_array_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "push_then_index_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "a_length_write_refuses_at_check_declaration"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "d5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_length_write_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "pop_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${MUT}"]
+
+[[case]]
+name = "shift_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.shift()`", "${MUT}"]
+
+[[case]]
+name = "unshift_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.unshift()`", "${MUT}"]
+
+[[case]]
+name = "splice_on_a_filled_array_refuses_at_check"
+rationale = """The `check` twin (amendment A-4)."""
+args = ["check", "n9.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.splice()`", "${MUT}"]
+
+[[case]]
+name = "a_growable_push_still_passes_check"
+rationale = """Control (spec §3.3): the mirror must not catch a growable-shape receiver."""
+args = ["check", "ok_growable_push.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_negative_index"
+rationale = """Amendment A-3: the resolver keys the array-return fact by the bare callee name, so it never proves an anonymous call's array (anon-array-return-discovered-defects.md §9). `run` refuses this program; `check` exits 0. Pinned so that closing §9 moves this case on purpose."""
+args = ["check", "a1.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_push"
+rationale = """Amendment A-3, as above."""
+args = ["check", "a3.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_push_then_index"
+rationale = """Amendment A-3, as above."""
+args = ["check", "a4.js"]
+exit = "success"
+
+[[case]]
+name = "the_anonymous_lane_static_refusals_are_run_only_length_write"
+rationale = """Amendment A-3, as above."""
+args = ["check", "a5.js"]
+exit = "success"
