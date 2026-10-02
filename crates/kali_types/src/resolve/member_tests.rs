@@ -513,7 +513,13 @@ fn a_negative_literal_index_store_on_a_filled_array_refuses() {
 
 #[test]
 fn each_length_changing_method_on_a_filled_array_refuses() {
-    for call in ["a.push(4)", "a.pop()", "a.shift()", "a.unshift(1)", "a.splice(0, 1)"] {
+    for call in [
+        "a.push(4)",
+        "a.pop()",
+        "a.shift()",
+        "a.unshift(1)",
+        "a.splice(0, 1)",
+    ] {
         let source =
             format!("function main(){{ const a = new Array(3).fill(4); {call}; }} main();");
         let messages = e5506_messages(&source);
@@ -546,5 +552,41 @@ fn in_bounds_access_and_a_growable_push_do_not_refuse() {
                 && !any_contains(&messages, LEN),
             "{source}: {messages:?}"
         );
+    }
+}
+
+#[test]
+fn wrapped_receivers_and_a_string_method_key_refuse_like_the_bare_spelling() {
+    for (shape, needle) in [
+        ("(a).push(4)", MUT),
+        ("a?.push(1)", MUT),
+        ("a[\"push\"](1)", MUT),
+        ("(a as number[]).push(1)", MUT),
+        ("(a).pop()", MUT),
+        ("(a).length = 1", LEN),
+        ("(a)[-1]", NEG),
+        ("(a as number[])[-1] = 2", NEG),
+    ] {
+        let source = format!(
+            "function main(){{ const a = new Array(3).fill(4); {shape}; console.log(a.length); }} main();"
+        );
+        let messages = e5506_messages(&source);
+        assert!(any_contains(&messages, needle), "{shape}: {messages:?}");
+    }
+}
+
+#[test]
+fn a_wrapped_growable_receiver_does_not_refuse() {
+    for shape in [
+        "(a).push(4)",
+        "a?.push(4)",
+        "a[\"push\"](4)",
+        "(a as number[]).push(4)",
+    ] {
+        let source = format!(
+            "function main(){{ const a = [1,2,3]; {shape}; console.log(a.length); }} main();"
+        );
+        let messages = e5506_messages(&source);
+        assert!(!any_contains(&messages, MUT), "{shape}: {messages:?}");
     }
 }

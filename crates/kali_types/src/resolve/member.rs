@@ -394,9 +394,10 @@ impl TypeContext {
     /// array-returning declaration. The resolver's twin of codegen's
     /// `is_runtime_array_value` (array-bounds spec §3.3). An anonymous callee
     /// is not recognised, because `call_returns_runtime_array` keys by the bare
-    /// name (amendment A-3).
+    /// name (amendment A-3). Transparent wrappers (`(a)`, `a as T`, `a?.`,
+    /// `satisfies`) are unwrapped, as codegen's `bare_identifier_name` does.
     pub(crate) fn is_plain_runtime_array_receiver(&self, object: &Expression) -> bool {
-        match object {
+        match super::expression::unwrap_transparent(object) {
             Expression::Identifier(base) => {
                 self.is_structural_runtime_array(base) && !self.is_growable_array_binding(base)
             }
@@ -431,8 +432,7 @@ impl TypeContext {
         let Some(method) = member.property.as_deref() else {
             return;
         };
-        if member.computed_index.is_none()
-            && kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method)
+        if kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method)
             && self.is_plain_runtime_array_receiver(&member.object)
         {
             self.diagnostics.push(Diagnostic::error(

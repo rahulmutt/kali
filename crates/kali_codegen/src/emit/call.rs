@@ -6467,9 +6467,9 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Push the array's i64 base handle as an i32 address, with no index term.
-    /// Shared by [`emit_array_element_address_node`] (which adds `index * 8` on
-    /// top) and the runtime-array `.length` header read, which loads directly at
-    /// `offset: 0` from this same base.
+    /// Serves the runtime-array `.length` header reads, which load directly at
+    /// `offset: 0` from this base. The element-address path does not use it: it
+    /// keeps the base an i64 so its bounds guard can read the length header.
     pub(crate) fn emit_array_base_address(&mut self, function: &mut Function, base_id: LirNodeId) {
         let _ = self.emit_node(function, base_id, true);
         function.instruction(&Instruction::I32WrapI64);

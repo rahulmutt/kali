@@ -1,4 +1,3 @@
-
 # Cases for the array-bounds project (spec
 # docs/superpowers/specs/2026-10-02-array-bounds-design.md).
 #
@@ -20,6 +19,27 @@ MUT = "on a runtime array is unavailable in the current phase"
 LEN = "assigning to `.length` of a runtime array is unavailable"
 
 [source]
+"w_paren_push.js" = '''
+function main(){ const a = new Array(3).fill(4); (a).push(4); console.log(a.length); } main();
+'''
+"w_optional_push.js" = '''
+function main(){ const a = new Array(3).fill(4); a?.push(1); console.log(a.length); } main();
+'''
+"w_string_key_push.js" = '''
+function main(){ const a = new Array(3).fill(4); a["push"](1); console.log(a.length); } main();
+'''
+"w_as_push.js" = '''
+function main(){ const a = new Array(3).fill(4); (a as number[]).push(1); console.log(a.length); } main();
+'''
+"w_paren_neg.js" = '''
+function main(){ const a = new Array(3).fill(4); (a)[-1]; console.log(a.length); } main();
+'''
+"w_paren_len.js" = '''
+function main(){ const a = new Array(3).fill(4); (a).length = 1; console.log(a.length); } main();
+'''
+"w_paren_growable.js" = '''
+function main(){ const a = [1,2,3]; (a).push(4); console.log(a.length); } main();
+'''
 "a2.js" = '''
 const f = () => [1,2,3]; console.log(f()[5]);
 '''
@@ -402,4 +422,94 @@ exit = "success"
 name = "the_anonymous_lane_static_refusals_are_run_only_length_write"
 rationale = """Amendment A-3, as above."""
 args = ["check", "a5.js"]
+exit = "success"
+
+[[case]]
+name = "paren_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: a parenthesised receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_paren_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "paren_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_paren_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "optional_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: an optional-chain receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_optional_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "optional_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_optional_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "string_key_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: a string-literal method key is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_string_key_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "string_key_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_string_key_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "as_push_refuses_at_check_and_run"
+rationale = """Amendment A-4: an `as`-cast receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_as_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "as_push_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_as_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "paren_neg_refuses_at_check_and_run"
+rationale = """Amendment A-4: a parenthesised receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_paren_neg.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "paren_neg_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_paren_neg.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEG}"]
+
+[[case]]
+name = "paren_len_refuses_at_check_and_run"
+rationale = """Amendment A-4: a parenthesised receiver is the same plain runtime array, so `check` agrees with `run`."""
+args = ["check", "w_paren_len.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "paren_len_refuses_at_run"
+rationale = """The `run` side of the same shape."""
+args = ["run", "w_paren_len.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LEN}"]
+
+[[case]]
+name = "a_parenthesised_growable_push_still_passes_check"
+rationale = """Control: the unwrap never reaches a growable receiver."""
+args = ["check", "w_paren_growable.js"]
 exit = "success"

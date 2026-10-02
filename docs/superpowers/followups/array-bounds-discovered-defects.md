@@ -69,9 +69,6 @@ kali: 5
 exit 0
 ```
 
-`reverse`, `sort` and `copyWithin` silently skip the call (wrong value,
-exit 0). `fill` is correct.
-
 ## §3. The anonymous lane: `kali check` exits 0 where `kali run` refuses (amendment A-3)
 
 For rows a1 and a3-a5 (`const f = () => [1,2,3]; …`) `kali check` exits 0
@@ -80,7 +77,7 @@ the resolver's runtime-array registry, which learns `const a = f()` from
 `call_returns_runtime_array`; that keys by the bare callee name, while an
 anonymous function's fact is keyed by its `__kali_fn_N` id. This is
 `anon-array-return-discovered-defects.md` §9. It is fail-closed at `run`.
-Rows d1, d3-d5, n1, n3, n4 and w2 refuse under both commands. Fixing §9's key
+Rows d1, d3-d5, n1, n3, n4, n7, n8, n9 and w2 refuse under both commands. Fixing §9's key
 would close this gap.
 
 ## §4. An out-of-range non-negative index is known only at run time (spec §1.1)
@@ -158,7 +155,8 @@ diff <(cut -f1,2 tools/array-return-probes/baseline-bounds.tsv | sort) <(cut -f1
 
 23 probe rows moved: 22 `bounds_*` rows and `r21_oob_control`, all
 SILENT to REFUSES or TRAPS, all wanted. No `bounds_ok_*` row moved. Capability
-loss: none. No existing cargo test moved and none was re-pinned.
+loss: not none, see "Measured capability loss" below. No existing cargo test
+moved and none was re-pinned.
 
 Task 5's triage table, verbatim (name | before | after | class):
 
@@ -193,6 +191,27 @@ bounds_ok_* | CORRECT | CORRECT | unchanged
 `r21_oob_control` is cited in `array-return-discovered-defects.md` §6, which
 now says it traps.
 
+### Measured capability loss (decision PENDING)
+
+A `push` on a plain runtime array whose growth is never observed, or is never
+reached, ran correctly at the baseline and is now an `E5506` refusal. Spec §5.1
+reserves this trade-off for the human partner: an in-bounds program that now
+refuses is brought back, not resolved by the implementer. **The decision is
+PENDING.** No refusal was narrowed or removed. Each program below was run as
+`node P.js` and as `kali run P.js` / `kali check P.js` on a `kali` built from
+`016557d60` and on the HEAD build (`kali check` and `kali run` agree at HEAD in
+every row).
+
+| program | node | `016557d60` | HEAD |
+|---|---|---|---|
+| `function f(){return [1,2,3];} function main(){ const a=f(); a.push(4); console.log(a[0]); } main();` | `1` | `1`, exit 0 | E5506, exit 1 |
+| `function main(){ const a = new Array(3).fill(4); if (a.length > 5) { a.push(1); } console.log(a[0]); } main();` (the `push` never runs) | `4` | `4`, exit 0 | E5506, exit 1 |
+| `function f(){ return [1,2,3]; } function g(){ const a = f(); a.push(4); } console.log(f()[0]);` (`g` is never called) | `1` | `1`, exit 0 | E5506, exit 1 |
+| `function f(){ return [1,2,3]; } function main(){ const a = f(); a.push(4); console.log(a[0]); } main();` (`unobserved_push`; same shape as the first row, the push is not observed) | `1` | `1`, exit 0 | E5506, exit 1 |
+
+The refusal is static, so it fires whether or not the `push` executes and
+whether or not the new length is read.
+
 ## §6. A float index on a plain runtime array produces invalid wasm
 
 `function main(){ const a = new Array(3).fill(4); console.log(a[1.5]); } main();`
@@ -204,13 +223,20 @@ an invalid module, at the baseline `016557d60` (function[41]) and at HEAD
 at `run`, but reported as an internal `E4201`, not an honest refusal, and
 `check` does not predict it.
 
-## §7. A parenthesised receiver: `check` exits 0, `run` refuses (A-4)
+## §7. Wrapped receivers: `check` exited 0, `run` refused (A-4), now closed
 
-`function main(){ const a = new Array(3).fill(4); (a).push(4); console.log(a.length); } main();`
-`kali check` exits 0, while `kali run` refuses with the E5506 `.push()`
-message. The `kali_types` predicate does not unwrap parentheses, so the
-mirror (§3.3 of the spec) misses it; codegen's refusal catches it. This is a
-`check` / `run` disagreement, fail-closed at `run`. Not fixed.
+`(a).push(4)`, `a?.push(1)`, `a["push"](1)` and `(a as number[]).push(1)` on a
+plain runtime array passed `kali check` (exit 0) while `kali run` refused with
+the E5506 `.push()` message; `(a).length = 1`, `(a)[-1]` and
+`(a as number[])[-1]` disagreed the same way. Cause: the `kali_types` predicate
+`is_plain_runtime_array_receiver` did not unwrap transparent wrappers, and the
+mutator gate required a non-computed callee, which excluded a string-literal
+method key. Fixed: the predicate unwraps through the resolver's existing
+`unwrap_transparent` (parentheses, `as`, `satisfies`, optional chain), and the
+mutator gate no longer excludes a literal method key. `check` and `run` now
+both refuse every shape above. A growable receiver in the same wrappers is not
+caught. `a!.push(1)` is `E3100` under both commands, a separate pre-existing
+diagnostic. No wrapped shape is known to disagree.
 
 ## §8. A string-literal negative key is refused as a negative index
 
@@ -218,3 +244,44 @@ mirror (§3.3 of the spec) misses it; codegen's refusal catches it. This is a
 and `run` both refuse it with the negative-index `E5506`. node prints
 `undefined`. This is fail-closed and consistent between the two commands, but
 no case pins it.
+
+## §9. The literal-array lane still silently no-ops mutators (out of scope, filed)
+
+A literal array (`[1,2,3]`) takes the static-fold lane, not the plain
+runtime-array lane this project guards. Its mutators and `.length` write are
+silently skipped at exit 0, identically at `016557d60` and at HEAD (measured on
+both builds):
+
+| program | node | `016557d60` | HEAD |
+|---|---|---|---|
+| `function main(){ const a=[1,2,3]; a.pop(); console.log(a.length);} main();` | `2` | `3` | `3` |
+| `const a=[1,2,3]; a.push(4); console.log(a.length);` | `4` | `3` | `3` |
+| `const a=[1,2,3]; a.length = 1; console.log(a.length);` | `1` | `3` | `3` |
+
+`kali check` exits 0 on all three. Not fixed.
+
+## §10. Write-trap ordering: `a[5] = v()` traps before `v` runs
+
+`function v(){ console.log("side"); return 9; } function main(){ const a = new Array(3).fill(4); a[5] = v(); console.log(a[0]); } main();`
+node prints `side` then `4`. At `016557d60` kali printed `side` then `4` too
+(the out-of-range store was silently accepted). At HEAD kali traps with the
+`E4000` out-of-bounds message at exit 1 and prints nothing, because the store
+computes and checks the element address before evaluating the right-hand side.
+The address-first order predates the branch; the baseline simply never trapped,
+so the order was unobservable. JS evaluates the right-hand side first, so the
+side effect is lost before the trap. Not fixed.
+
+## §11. A shadowing inner binding is confused with the outer array
+
+Both programs are pre-existing miscompiles of an inner `const a` that shadows an
+outer `a`; the array facts are keyed by name.
+
+* `shadow.js`: `function f(){ return [1,2,3]; } function main(){ const a = f(); { const a = []; a.push(5); console.log(a.length); } console.log(a.length); } main();`
+  node prints `1` then `3`; kali prints `0` then `0` at `016557d60` and at HEAD,
+  exit 0 (`check` exits 0).
+* `shadow_obj.js`: `function main(){ const a = new Array(3).fill(4); { const a = [9]; a.push(1); console.log(a.length); } console.log(a[0]); } main();`
+  node prints `2` then `4`. `016557d60` printed `0` then `0` (wrong, exit 0).
+  HEAD refuses the inner growable `push` with E5506 under `check` and `run`
+  (the outer name is a plain runtime array), so a wrong answer became a refusal.
+
+Not fixed.

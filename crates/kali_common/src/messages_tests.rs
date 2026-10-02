@@ -153,5 +153,8 @@ fn runtime_array_refusal_messages_are_stable() {
 
 #[test]
 fn runtime_array_mutators_are_the_five_fixed_length_breakers() {
-    assert_eq!(RUNTIME_ARRAY_MUTATORS, &["push", "pop", "shift", "unshift", "splice"]);
+    assert_eq!(
+        RUNTIME_ARRAY_MUTATORS,
+        &["push", "pop", "shift", "unshift", "splice"]
+    );
 }
