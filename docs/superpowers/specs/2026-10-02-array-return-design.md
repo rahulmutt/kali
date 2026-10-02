@@ -330,8 +330,10 @@ The patch is then reverted with `git checkout` and is not committed.
 
 * S1-S8 print node's output in both scopes. S9 and S10 refuse with `E5506`.
 * Every §2.3 row either keeps its baseline output or moves as that table says.
-* `bash scripts/test-gate.sh` reports zero failures against the baseline count
-  measured at `368b5b5ea` under Rust 1.99.0. Every re-pinned case carries a
+* `bash scripts/test-gate.sh` reports zero failures against the baseline
+  measured at `368b5b5ea` under Rust 1.99.0: **12105 passed, 0 failed, 27
+  ignored** (`cargo test --workspace --no-fail-fast`; the gate itself reported
+  `GATE OK: 0 failing tests`). Every re-pinned case carries a
   rationale naming this project.
 * `cargo clippy --workspace` is clean under 1.99.0.
 
