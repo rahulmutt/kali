@@ -436,8 +436,11 @@ Both printed `0` where node prints `6`. No probe moves out of CORRECT.
 `emit_aggregate_literal`'s array branch refuses with `E5506` when `want_value` is
 set. It was measured at full width on top of backstop 1 (`d98f9dc49`).
 
-**2501 failing tests.** The full list, as the gate printed it, is
-`tools/array-return-probes/backstop2-full-width-failures.txt`. By family:
+**2501 failing tests.** The full list is not committed. To reproduce it, apply
+the backstop 2 patch to `emit/literal.rs` at `d98f9dc49` and run
+`bash scripts/test-gate.sh`. The patch: in `emit_aggregate_literal`'s array
+(`else`) branch, when `want_value` is set, emit and drop each child, then return
+`self.deny_e5506(...)`. By family:
 `browser/` 1269, `misc/` 191, `array/` 146, `soundness/` 81, `oracle/` 79,
 `runtime/` 68, `object/` 52, `string/` 7 (case trials), and 608 tests in
 hand-written targets.
@@ -464,9 +467,9 @@ turn out to be.
 parent to test: `LirNode` (`kali_lir/src/node.rs`) carries only
 `kind/text/children/function_flavor`, and `FunctionEmitter` keeps no emit stack.
 The backstop was reverted and is not committed. **Final width: none.** The
-array-literal placeholder `0` stays as it was. It is filed in
-`array-return-discovered-defects.md` with this table (§5), as a silent lane with
-no backstop.
+array-literal placeholder `0` stays as it was. It is to be filed in
+`array-return-discovered-defects.md` (§5, Task 10) with this table, as a silent
+lane with no backstop.
 
 ### 4.2 Tests that land
 
