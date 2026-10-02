@@ -140,3 +140,52 @@ fn call_bound_registration_requires_a_call_init() {
     );
     assert!(admitted.is_empty(), "{admitted:?}");
 }
+
+/// Compiles `source`, optionally admitting the first anonymous function
+/// (`__kali_fn_0`, HIR's synthetic name when the CLI pre-pass has not run) as
+/// array-returning, and returns the E5506 messages codegen raised
+/// (anon-array-return spec §3.2).
+fn anon_array_return_e5506_messages(source: &str, admit: bool) -> Vec<String> {
+    let program = parse_and_lower_lir(source);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    if admit {
+        ctx.repr_table
+            .set_array_return("__kali_fn_0", kali_common::Repr::I64);
+    }
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32))
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+#[test]
+fn anon_alias_direct_index_reads_the_admitted_return() {
+    let src = "const f = () => [1, 2, 3]; console.log(f()[0]);";
+    let refused = anon_array_return_e5506_messages(src, false);
+    assert!(
+        refused.iter().any(|m| m.contains("indexed read")),
+        "not admitted: backstop 1 refuses ({refused:?})"
+    );
+    let admitted = anon_array_return_e5506_messages(src, true);
+    assert!(admitted.is_empty(), "admitted: {admitted:?}");
+}
+
+#[test]
+fn anon_iife_length_reads_the_admitted_return() {
+    let src = "console.log((() => [1, 2, 3])().length);";
+    assert!(!anon_array_return_e5506_messages(src, false).is_empty());
+    assert!(anon_array_return_e5506_messages(src, true).is_empty());
+}
+
+#[test]
+fn anon_let_alias_is_not_resolved() {
+    let src = "let f = () => [1, 2, 3]; console.log(f()[0]);";
+    assert!(!anon_array_return_e5506_messages(src, true).is_empty());
+}

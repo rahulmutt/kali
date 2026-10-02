@@ -832,21 +832,44 @@ impl<'a> FunctionEmitter<'a> {
     /// its own top-level wasm function keyed by its name, never as a local of
     /// the enclosing function, so this cannot decline A4's shape; it only
     /// catches a slot inference did not see as a shadow.
+    ///
+    /// The callee is resolved the way the call is lowered, so a `const f = () =>
+    /// …` alias (followed through `const h = f` chains by `bindings`) and an
+    /// immediately-invoked arrow reach the anonymous body's `__kali_fn_N` key
+    /// (anon-array-return spec §3.2). Inference resolves the same aliases in
+    /// `repr_infer::array_return_callee`; the two must agree, and the
+    /// `anon_*` probes are the gate.
     pub(crate) fn array_return_call_elem(&self, id: LirNodeId) -> Option<kali_common::Repr> {
         let target = self.unwrap_transparent_value_node(id);
         let node = self.node(target);
         if node.kind != LirNodeKind::Call {
             return None;
         }
-        let callee = self.bare_identifier_name(*node.children.first()?)?;
-        if self
-            .repr_table
-            .is_array_return_callee_shadowed(&self.function_name, &callee)
-            || self.locals.contains_key(&callee)
-        {
-            return None;
+        let callee = *node.children.first()?;
+        let source_name = self.bare_identifier_name(callee);
+        if let Some(name) = &source_name {
+            if self
+                .repr_table
+                .is_array_return_callee_shadowed(&self.function_name, name)
+                || self.locals.contains_key(name)
+            {
+                return None;
+            }
         }
-        self.repr_table.array_return(&callee)
+        // Resolve the callee exactly as the call itself is lowered
+        // (`emit/call.rs`, `resolve_bound_member_callable_node`): a `const`
+        // alias or an IIFE lands on the anonymous body's `__kali_fn_N`
+        // (anon-array-return spec §3.2).
+        let bound = self
+            .resolve_bound_member_callable_node(callee)
+            .unwrap_or_else(|| self.unwrap_transparent_value_node(callee));
+        let key = self
+            .node(bound)
+            .text
+            .clone()
+            .filter(|text| self.functions.contains_key(text))
+            .or(source_name)?;
+        self.repr_table.array_return(&key)
     }
 
     /// True when `name` is a GROWABLE runtime-array binding of the current
