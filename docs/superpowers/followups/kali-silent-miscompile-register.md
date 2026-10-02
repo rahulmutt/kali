@@ -263,7 +263,7 @@ a defect.
 | R-03 forEach / expr-arrow filter | **FAIL_CLOSED** (both scopes) | E5506 via the first-class-fn-value guard; the diagnostic text is word for word R-02's and R-05's, differing only in the quoted callee. `reduce`/`map` are a different program and are not what this row measures. |
 | R-04 console drops later args | **FIXED** (both scopes) | all sinks, both scopes; multi-arg routes booleans through `emit_as_string` correctly. The case measures one cell of R-04's boundary (a `var` reference in the middle position); five further boundary shapes were re-measured by hand at `4cfa218814` and **all agreed with node**, so the entry is fixed, not merely the cell. |
 | R-05 object-literal method / `this` → 0 | **FAIL_CLOSED** (both scopes) | ~~`E3100` "undefined identifier 'm'"~~ — at `4cfa218814` the §2 repro refuses with the same `E5506` first-class-callee message R-02 and R-03 produce; fail-loud either way, so the verdict class is unchanged. BUT class-method `this.field` is a different program: it is **R-36**, has no case here, and this row does not speak for it. |
-| R-06 var/let composite init | **FIXED** (declarator-init lane `r06a`) / **SILENT** (whole-object reassignment `r06b`, R-06-R2) / **FAIL_CLOSED** (array elements `r06c`, R-06-R3) | objects-half closed PR #26 covers the **declarator initializer only**. Whole-object *reassignment* (`var o={f:1}; o={f:2}; o.f`→`0`, node `2`) is **R-06-R2**, still silent. Arrays-half is **R-06-R3**, still silent; both elements of `var a=[7,9]` read `0`. The three lanes are three programs and get three cases; the entry is not fixed. |
+| R-06 var/let composite init | **FIXED** (declarator-init lane `r06a`) / **SILENT** (whole-object reassignment `r06b`, R-06-R2) / **FAIL_CLOSED** (array elements `r06c`, R-06-R3) | objects-half closed PR #26 covers the **declarator initializer only**. Whole-object *reassignment* (`var o={f:1}; o={f:2}; o.f`→`0`, node `2`) is **R-06-R2**, still silent. Arrays-half is **R-06-R3**: ~~still silent; both elements of `var a=[7,9]` read `0`~~ **FAIL_CLOSED since 2026-10-02** (array-return project, backstop 1, `docs/superpowers/specs/2026-10-02-array-return-design.md` §4.1): measured at `d2202ed4b` against node v26.10.0, the `r06c` program exits 1 with empty stdout and `E5506` ("no lane proves this receiver is an array") where node prints `7` then `9`. Not fixed — kali still cannot read a `var` array literal's elements; it now says so. The three lanes are three programs and get three cases; the entry is not fixed. |
 | R-07 `const` is not a binding | **FIXED** (both scopes) | `const` is a real binding now. The two scopes use the register's own two repros (Repro A "classic swap" in-function, Repro B "stale read" at module scope) rather than one repro wrapped twice; a third case in `classifier_ground_truth.toml` pins the FIXED class on Repro A. Under the defect these printed a plausible wrong answer at exit 0, so a regression would classify SILENT and name R-07. |
 | R-08 `===`/`!==`/`==`/`!=` half | **FAIL_CLOSED** (`r08eq`, both scopes) | ~~FIXED — conflation cases all correct; null-guard now fail-closed~~ **CHANGED at this regeneration: FIXED → FAIL_CLOSED.** The move is narrower than the class name suggests and must not be read as a regression: the repro's first three comparisons still agree with node, and the whole program now exits 1 only because its **fourth** comparison (a `let`-bound `0` against `null`) is refused with `E5506 operator '===' cannot be decided here`. One refused comparison takes the program's verdict; the three conflation cases are unaffected. |
 | R-08 `??` half | **SILENT** (`r08nc`, both scopes) | `let a=0; a??9`→9, and the `var`, parameter and call-return operands all →9/10 against node's `0`. All four operand kinds reproduce digit for digit. Unchanged — this half is untouched by the `===` half's move. |
@@ -272,7 +272,7 @@ a defect.
 | R-11 bitwise compound assign | **FIXED** (local-scalar lane, both scopes) | ~~CLOSED 2026-07-25 (`28f18b3ff`)~~ — the class is now stated in the classifier's vocabulary rather than as a project event: **FIXED**. All six operators match (`and=2 or=14 xor=7 shl=24 shr=3 ushr=3`). **This case measures the local-scalar lane only** — the entry's own repro. R-11's guard-bypass shapes (object field, array element, parameter) are different programs with no case here, and as of `61c2d48ea9` §2 records some of them refusing with `E5506`; this row does not speak for them. The `&=`/`+=` relation is **INVERTED** on the object-field lane — as of `61c2d48ea9`, `o.a &= 3` lowers to `2` while `o.a += 1` refuses with `E5506`; see §3's G3 edit. |
 | R-12 alias defeats array-store guard | **FAIL_CLOSED** (both scopes) | **RE-DERIVED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project, and NOT RETIRED.** The two `r12` cases now assert `fail_closed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named this row alongside R-13's and R-59's, and it is re-derived here rather than left to ride along. Measured at `71b5f42f6c` against `node v26.8.1`, both scopes: `const a=[1,2]; const b=a; b[0]=7; console.log("b0="+b[0]);` exits 1 with empty stdout and the shared `E5506: computed member access …` under `kali run`, where node prints `b0=7` at exit 0. **node's `b0=7` is still not produced, so the behaviour this entry names is NOT fixed** — what moved is the class, from a store that vanished silently to one that refuses loudly, which is the R-32 precedent this file already records (an entry can leave the SILENT filter without being fixed). Two readings this row must not be given: the un-aliased spelling `const a=[1,2]; a[0]=7;` refuses too, with the neighbouring `mutating a literal array` message, so the alias is no longer the discriminator between refusal and silence; and **`kali check` still exits 0 on the aliased program** while `run` refuses — a spec §8 twin disagreement the oracle harness cannot see, because it observes `run` only. **Consequence for the ranking**: with no SILENT lane left R-12 leaves the SILENT filter and `tools/blast-radius/clusters.json`, and because R-13 leaves in the same regeneration **G3 loses both of its members, so G3's cluster definition goes with them** — forced by `crates/kali_blast_radius/src/ranking.rs:326`, not chosen. ~~the store vanishes and the read-back through the alias reports the pre-store value (kali `b0=1`, node `b0=7`). The discriminator is **SCOPE, not declarator kind**, per the 2026-07-25 correction on `372a3f440`; both scopes measure SILENT here because both cases carry the alias.~~ |
 | R-13 computed var-key get/set | **FIXED** (read `r13r`; write `r13w`), both scopes | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** Re-derived from the four `r13r`/`r13w` cases, which now assert `fixed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named the mismatch first and the row followed it. ~~SILENT (read `r13r`) / SILENT (write `r13w`), both scopes: read →`v=0` where node reads `2`; write vanishes (kali `dot=2`, node `dot=8`). Two repros, two lanes, one class. A third case in `classifier_ground_truth.toml` pins the SILENT class on the read repro. One of the three frontier candidates, and still silent at `4cfa218814`.~~ **WHAT IS PINNED BY A LIVE CASE**: the `const` key, read and store, both scopes. **WHAT IS NOT PINNED HERE AND IS PINNED ELSEWHERE**: the `var`-key spelling this entry's ground-truth fixture used is now FAIL_CLOSED (`object/computed_member_static_name.toml`, `check_refuses_a_var_key` and `run_refuses_a_var_key`), so the classifier's SILENT fixture moved to R-10. |
-| R-14 returned array reads zeros | **FIXED** (both scopes) | kali `r=0`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. The "object-return is correct" control that FLIPPED is **R-44**, a different entry with no case here. Arrays are broken even when bound, not only when indexed off the call expression. |
+| R-14 returned array reads zeros | **FIXED** (both scopes) | **RETIRED 2026-10-02 by the array-return project (`docs/superpowers/specs/2026-10-02-array-return-design.md`) — its one lane moved.** Both `r14` cases assert `fixed`: measured at `22350647b` against node v26.10.0, kali prints `r=1` at exit 0, matching node. The arena/escape hypothesis is refuted (spec §2.1); see §2's STATUS line. ~~kali `r=0`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`.~~ The "object-return is correct" control that FLIPPED is **R-44**, a different entry with no case here. ~~Arrays are broken even when bound, not only when indexed off the call expression.~~ Both the bound and the direct form now compute. |
 | R-15 `.split()` result | **FAIL_CLOSED** (`.length` + element lane `r15`, both scopes) / **SILENT** (element-only lane `r15e`, both scopes) | **Moved 2026-09-11 by the length-fails-closed project, NOT fixed and NOT retired:** the `r15` program's `.length` read now refuses (`E5506`, the `.length` floor), which stops the whole program before its element read; the element read alone still leaks the handle and `r15e` pins that. Before 2026-09-11: element-read shape → `len=0` plus a leaked handle (`1=-9223354418898927615`, node `1=b`). The `STATUS 2026-07-20` partial closure added the *runtime* `.split()` fallback to the deny-set; the register's own repro binds a string **literal**, so it reaches the preserved static-ASCII fold lane and the deny-set never sees it. Partial closure, live defect. Lane `r15e` (added 2026-09-11 by the length-fails-closed project) reads the element alone, so the leaking half stays measured by itself when the `r15` program's `.length` read refuses. |
 | R-16 per-method string repr leak | **SILENT** (both scopes) | `.slice()`/`.charAt()`/`.toUpperCase()`/`.repeat()` leak the raw handle in concat position (kali `c=-9223354388834156541`, node `c=hel`). The handle's bit pattern is allocation-dependent and differs from the one recorded in 2026-07; the two kali runs of the case agree with each other, so the pair does not rank NONDETERMINISTIC. |
 | R-17 string handles escape as ints | **SILENT** (both scopes) | join/element/`Object.keys` concat lanes; both handles match the recorded bit patterns digit for digit and both consumers still leak, so neither lane was closed and neither masks the other. |
@@ -959,6 +959,24 @@ cases (`fail_closed`, not `silent`) and §0.2's row. This is the last of the
 four register entries this project filed (R-64, R-65, R-66, R-67); all four
 are now retired.
 
+**Updated 2026-10-02 (array-return, Task 10).** The right-hand column moved
+once more: **R-68** (printing a whole runtime array prints its handle) was
+added as a tier-ranked §2 **Tier 4** entry — rendering-only, the array in
+memory is correct — so the Tier-4 cell reads **6** where it read 5, and the
+right-hand column is now **53** tier-ranked entries in §2 (8 + 37 + 2 + 6).
+The register holds **68** numbered entries in total (R-01..R-68), the other
+15 being the same un-ranked §0.3 set (R-35..R-46) plus §7's R-50, R-55 and
+R-62. Both figures were re-counted by `### R-` headers per tier heading
+rather than incremented. (The table above was last brought up to date at
+R-61's filing — its Tier-2 cell reads 32 — so these paragraphs, not the
+table, carry the current figures.) R-68 is filed and retired for its
+console-argument lane in one edit, but it is **not** retired as an entry:
+its template-literal, concat and alias lanes still print the handle at exit
+0. Like R-61 it carries **no §0.2 row**: no oracle case pins it, so the
+ranking's SILENT filter never sees it. **R-14 is retired in the same
+movement** (CLOSED, both scopes FIXED) without moving either count, the
+same no-op-on-the-count shape R-63's and R-65's retirements took above.
+
 Every entry in this document is an **exit-0, no-diagnostic** divergence unless the entry
 says otherwise. Fail-closed behavior (`E5506`, `E3100`, `E4201`, traps) is recorded only as
 context, because refusing to compile is the correct outcome and not a defect of this class.
@@ -1456,7 +1474,7 @@ tier, ordering is by blast radius.
   - **Falsifies G7's "R-06 falls out of the R-07 fix" inference**: R-07 is fixed and R-06 still reproduced on fresh `main`, so R-06 was an independent defect (a fold-vs-materialize gap: read-only mutable objects were neither foldable — not `const` — nor materialized — no write), not a symptom of R-07.
   - **Two whole-stage-review CRITICALs (the signature "denylist leaks; only an allowlist at the choke closes the class" lesson, twice):** (1) an initial bare-`Literal(Boolean)` denylist leaked — `var t=true; var o={f:t}`, `{f:!0}`, `{f:1>0}` → new nonzero-wrong `1`; and `{f:7n}` → `7`. Converted to the allowlist above. (2) the allowlist's unary arm recursed into ITS argument unconditionally, admitting unary-`+`-on-string: `{f:+"hi"}`→`617` (node NaN), `{f:+"3.5"}`→`285`; decimal strings `{f:+"3"}`→3 coincidentally matched and masked it. Closed by restricting the unary operand to a numeric literal.
   - **Residuals (out of scope this stage; left no-worse, tracked):**
-    - **R-06-R1 — returned/escaping objects.** `function h(){var o={f:7}; return o;} h().f` → silent-`0` today (the member-on-call hole, R-14 territory) — even for `const`/write objects. Verified no-worse (no new crash, no new nonzero) after this fix. Real fix = R-14 escape stage.
+    - **R-06-R1 — returned/escaping objects.** `function h(){var o={f:7}; return o;} h().f` → silent-`0` today (the member-on-call hole, R-14 territory) — even for `const`/write objects. Verified no-worse (no new crash, no new nonzero) after this fix. ~~Real fix = R-14 escape stage.~~ **Corrected 2026-10-02 (array-return):** R-14 was not an escape-stage defect — its traced mechanism (`docs/superpowers/specs/2026-10-02-array-return-design.md` §2.1) is a callee that never allocated the literal plus a caller read that fell to a placeholder `0`, and closing it touched no escape or arena analysis. This residual is unaffected and still open: measured at `d2202ed4b` against node v26.10.0, `function h(){var o={f:7}; return o;} console.log(h().f);` prints `0` at exit 0 (node `7`), and so does the `const o` spelling.
     - **R-06-R2 — whole-object reassignment.** `var o={f:1}; o={f:2}; o.f` → silent-`0`; the object-literal-RHS assignment store is a distinct mechanism from the declarator init. Unchanged. **Re-measured on merged `main` (`372a3f440`) 2026-07-25, and the `let` spelling measures IDENTICAL**: `var o={f:1}; o={f:2}; o.f` → `0` (node `2`) and `let o={a:6}; o={a:9}; o.a` → `0` (node `9`), both exit 0, no diagnostic. `var` and `let` are one lane here, not two — see §7.10, where the `let` sighting is now a cross-reference to this residual.
     - **R-06-R3 — arrays.** `var a=[7,9]` / `var a=[1,2]; a[0]=9` read back `0` — var-array runtime storage largely unimplemented. Own later stage (entangled with R-12/R-13/arena lanes). **Re-measured on merged `main` (`372a3f440`) 2026-07-25; on the indexing and `.length` shapes the `let` spelling measures IDENTICAL to the `var` one, so `var` and `let` are ONE lane there:**
       - store: `var a=[1,2]; a[0]=9; a[0]` → `0` and `let a=[1,2]; a[0]=9; a[0]` → `0`, node `9` for both; `let a=[1,2,3]; a[1]=5; a[1]` → `0`, node `5`.
@@ -2481,14 +2499,23 @@ tier, ordering is by blast radius.
   (`f().a` → 1).
 - **Severity**: silent-wrong-value.
 - **Blast radius**: high — "build an array, return it" is a basic idiom.
-- **Mechanism hypothesis**: consistent with the array's backing storage living in a
+- ~~**Mechanism hypothesis**: consistent with the array's backing storage living in a
   callee-local region reclaimed at return (or whose pointer is not propagated), so the caller
   reads a zeroed slot. The arena reclamation lane is the natural suspect: a returned array
   must be promoted out of the callee's scratch arena, and objects evidently are while arrays
   are not. Raising it: check whether the escape/arena analysis treats array literals as
-  returned-heap.
+  returned-heap.~~ *(Refuted 2026-10-02 — see the STATUS line below.)*
 - **Confidence**: high on behavior (3 transcripts + 2 discriminating controls); low on
   mechanism.
+- **STATUS 2026-10-02 (array-return): CLOSED.** Mechanism traced (spec
+  `docs/superpowers/specs/2026-10-02-array-return-design.md` §2.1): no arena or
+  escape reclamation is involved. The callee never allocated the literal
+  (`emit_aggregate_literal` pushed `0`), and the caller's `a[0]` fell into the
+  numeric-index fallback (`emit/operators.rs`), which pushed `0` too. The
+  arena hypothesis above is refuted. A `function` declaration returning
+  integer arrays now hands back a real array in both scopes, bound or direct;
+  every other array-shaped return refuses with `E5506`. Oracle cases
+  `r14_returned_array_reads_zeros_{module_scope,in_function}` measure CORRECT.
 
 ### R-15: `.split()` returns a length-0 array plus handle garbage
 
@@ -5542,6 +5569,78 @@ tier, ordering is by blast radius.
   cited lines); the cluster/root-cause-group placement is deliberately left open rather than
   guessed.
 
+
+### R-68: Printing a whole runtime array prints its handle — **CLOSED 2026-10-02 for the console-argument lane (FAIL_CLOSED); the template-literal, concat and alias lanes are NOT**
+
+- **Added**: 2026-10-02, by the **array-return** project
+  (`docs/superpowers/specs/2026-10-02-array-return-design.md` §2.2 row S10,
+  §2.4), and retired for its console-argument lane in the same edit. The
+  console guard itself landed earlier on the same branch (`fefe62c60`); this
+  entry files what it closed and what it did not.
+- **Verification**: `CONFIRMED-BY-CONTROLLER` — the baseline row measured at
+  `368b5b5ea` (spec §2.2, S10); every lane below re-measured at `d2202ed4b`
+  against **`node v26.10.0`**, in **both** scopes, on `target/debug/kali`
+  built from that commit.
+- **Root-cause group**: **unclustered**. Adjacent to **R-31** (G8) but not
+  the same lane: R-31 is the *fold-lane* literal (`const a=[1,2]; console.log(a)`
+  prints the length `2`), this entry is a *runtime* array — a `new Array`
+  allocation, a `.fill` result, or (since the array-return project) a
+  call-bound array — whose i64 is a heap handle, and every sink below renders
+  that handle as a number.
+- **Repro** (S10): `function main(){const a=new Array(3).fill(4); console.log(a);} main();`
+  → node `[ 4, 4, 4 ]`; kali `4104` at exit 0 with empty stderr, at `368b5b5ea`.
+  The array-return project made the same print reachable from a call-bound
+  binding (S9: `function f(){return [1,2,3];} function main(){const a=f(); console.log(a);} main();`,
+  node `[ 1, 2, 3 ]`), which is why it joined that project (spec §2.4).
+- **Severity**: **Tier 4** — rendering-only: the array in memory is correct,
+  and its elements read back correctly; only the whole-value render is wrong.
+- **Blast radius**: uncountable (`predicates.json`): whether an identifier
+  holds a runtime array is kali's own repr/lane classification, not an acorn
+  shape. No §0.2 row and no oracle case: the closed lane is pinned by
+  `crates/kali_cli/tests/cases/runtime/array_return_refusals.toml`
+  (`printing_a_call_bound_array_refuses`,
+  `printing_a_local_runtime_array_refuses`,
+  `printing_a_runtime_array_as_a_later_argument_refuses`), and the open lanes
+  below are pinned by nothing.
+- **Every lane, measured at `d2202ed4b` against node v26.10.0** (`a` is
+  `new Array(3).fill(4)` unless the row says otherwise; module and in-function
+  scope agree on every row):
+
+  | lane | program | node | kali |
+  |---|---|---|---|
+  | console argument (S10) | `console.log(a)` | `[ 4, 4, 4 ]` | exit 1, `E5506` "printing a whole runtime array …" |
+  | console, later argument | `console.log(a, 1)` | `[ 4, 4, 4 ] 1` | exit 1, same `E5506` |
+  | `console.error` | `console.error(a)` | `[ 4, 4, 4 ]` | exit 1, same `E5506` |
+  | call-bound (S9) | `const a=f(); console.log(a)`, `f` returns `[1,2,3]` | `[ 1, 2, 3 ]` | exit 1, same `E5506` |
+  | direct call | `console.log(f())` | `[ 1, 2, 3 ]` | exit 1, same `E5506` |
+  | **template literal** | `` console.log(`x${a}`) `` | `x4,4,4` | **`x4112`, exit 0** |
+  | **concat** | `console.log("v=" + a)` | `v=4,4,4` | **`v=4112`, exit 0** |
+  | **alias** | `const b = a; console.log(b)` | `[ 4, 4, 4 ]` | **`4104`, exit 0** |
+  | **template, call-bound** | `` const a=f(); console.log(`x${a}`) `` | `x1,2,3` | **`x4112`, exit 0** |
+  | **alias, call-bound** | `const a=f(); const b=a; console.log(b)` | `[ 1, 2, 3 ]` | **`4104`, exit 0** |
+  | `String(a)` | `console.log(String(a))` | `4,4,4` | exit 1, `E5506` "String(<object/array>) …" (pre-existing) |
+
+  `kali check` exits 0 on every row; every refusal is raised by codegen.
+- **STATUS 2026-10-02 (array-return): CLOSED for the console-argument lane
+  (FAIL_CLOSED), NOT for the entry.** Both console-argument emitters
+  (`emit_console_argument` and `emit_console_argument_as_string`,
+  `crates/kali_codegen/src/emit/call.rs:31` and `:78`) now refuse with `E5506`
+  when the argument is a runtime-array identifier or a call to an
+  array-returning function (`is_runtime_array_value`, `:17`). That covers every
+  console method and every argument position. **Three lanes still print the
+  handle silently**: a template-literal substitution and a string concat
+  (neither goes through a console-argument emitter; both take the `+`
+  coercion ladder, whose terminal arm renders the handle with
+  `int_to_string`), and an alias (`const b = a` does not make `b` an array
+  binding, so the guard does not see it). All three are pre-existing on plain
+  `new Array` bindings and were left open by ruling (array-return R13: widening
+  the string paths without a measured backstop risks capability loss); they
+  are filed in `docs/superpowers/followups/array-return-discovered-defects.md`
+  §2. **This entry is retired only when those three lanes move.**
+- **Confidence**: high on behaviour (every row measured both scopes); high on
+  the closed lane's mechanism (the guard's two sites above); medium on the open
+  lanes' mechanism (read, not traced end to end).
+
 ---
 
 ## 3. Root-cause clusters
@@ -6071,7 +6170,7 @@ any code.
 | **R-02 + R-05 (cluster G2)** — first-class function values | **large, architectural** | The honest interim move is far cheaper than the full fix: make the call-lowering choke point **fail closed** for any callee outside the admitted lanes (statically-resolved name, `const`-bound literal, Stage C env-pointer closure). That converts an extreme silent-miscompile into an `E5506` in a small change, and defers real indirect-call support to its own stage. Strongly recommended as a near-term action even though the full capability is architectural. |
 | **R-10** block shadowing | medium–large | Requires the resolver to push a scope frame per block. Contained in concept, but it changes binding identity everywhere and interacts with R-07's storage change; sequence it after R-07. |
 | **R-06** `var`/`let` composite initializers dropped | unknown | **Diagnose before estimating.** If cluster G7's inference holds, this falls out of the R-07 storage fix. If it does not, this is an undiagnosed defect of very high blast radius with nobody's mechanism attached to it, and it needs its own investigation first. Resolving G7 either way is the single highest-information cheap experiment in this document. |
-| **R-14** returned arrays read back as zeros | medium | Suspect the escape/arena analysis (returned objects are promoted, arrays evidently are not). Interacts with the arena reclamation lanes shipped in Specs 6-7; treat as an escape-analysis change, not a codegen patch. |
+| **R-14** returned arrays read back as zeros | ~~medium~~ **DONE 2026-10-02** | ~~Suspect the escape/arena analysis (returned objects are promoted, arrays evidently are not). Interacts with the arena reclamation lanes shipped in Specs 6-7; treat as an escape-analysis change, not a codegen patch.~~ **Closed by the array-return project** (`docs/superpowers/specs/2026-10-02-array-return-design.md`). The suspicion was wrong: §2.1 of that spec traces it to codegen at both ends (the callee pushed `0` instead of allocating, the caller's index read fell to a placeholder `0`), with no escape or arena involvement. It was a codegen-plus-inference change after all. |
 | **R-23** `typeof` | small–medium, **but check history first** | Project memory records a `typeof` codegen flip that was **reverted** in throw-fallout Stage 5 per the decision rule. Establish whether that revert is what leaves this open before re-doing the work — and whether the decision traded a test regression for a live silent miscompile. |
 
 ### Not recommended for fixing yet

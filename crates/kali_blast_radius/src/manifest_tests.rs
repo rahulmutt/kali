@@ -446,8 +446,26 @@ const FROZEN_CORPUS_HASH: &str = "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67
 /// are unchanged: they were already upper bounds by construction, and
 /// disclosing that fact changes no number in `counts.json`, only the prose
 /// that explains it.
+///
+/// **Re-frozen 2026-10-02**, the twelfth movement of these constants, by the
+/// array-return project filing **R-68** (§2, Tier 4 — printing a whole
+/// runtime array prints its handle; its console-argument lane retired in the
+/// same edit, its template-literal, concat and alias lanes still open). One
+/// more §2 entry, one more catalogue record, and **`matchers.mjs` did NOT
+/// move**: the record is `uncountable`, on R-17/R-21's representation ground —
+/// the handle prints only for a value kali's repr inference classifies as a
+/// runtime array (an allocation, a call-bound array, an array-fed parameter),
+/// and an alias of one or a call-bound binding is not an acorn shape. A
+/// partial syntactic proxy exists (an identifier bound directly to `new
+/// Array(…)` reaching a console argument or a `+`/template operand) and was
+/// deliberately not written: it would miss the call-bound and alias lanes that
+/// are the reason the entry was filed, publishing an under-count as a
+/// frequency. The incentive this comment warns about above does not apply
+/// here: R-68 has no §0.2 row, so the SILENT filter never admits it and its
+/// `uncountable` kind cannot place it in any band. `counts.json` was
+/// regenerated and the only change is R-68's own null record.
 const FROZEN_PREDICATES_SHA256: &str =
-    "e956118cdf0dd70d1dfa43a0383c3db5b4adff306b4751c2d815e29f98be4655";
+    "311bc84f753e971dfc1967da42c554c4986a26c9c29ca27a0e29b7ba7ee76e11";
 const FROZEN_MATCHERS_SHA256: &str =
     "eb2e74dc9f39517fe418cb0b05a4acaa0003ad1c684084d9ea8930d20bacce17";
 

@@ -467,9 +467,9 @@ turn out to be.
 parent to test: `LirNode` (`kali_lir/src/node.rs`) carries only
 `kind/text/children/function_flavor`, and `FunctionEmitter` keeps no emit stack.
 The backstop was reverted and is not committed. **Final width: none.** The
-array-literal placeholder `0` stays as it was. It is to be filed in
-`array-return-discovered-defects.md` (§5, Task 10) with this table, as a silent
-lane with no backstop.
+array-literal placeholder `0` stays as it was. It is filed in
+`docs/superpowers/followups/array-return-discovered-defects.md` §8 with this
+table, as a silent lane with no backstop.
 
 ### 4.2 Tests that land
 
@@ -501,7 +501,11 @@ lane with no backstop.
 * `bash scripts/test-gate.sh` reports zero failures against the baseline
   measured at `368b5b5ea` under Rust 1.99.0: **12105 passed, 0 failed, 27
   ignored** (`cargo test --workspace --no-fail-fast`; the gate itself reported
-  `GATE OK: 0 failing tests`). Every re-pinned case carries a
+  `GATE OK: 0 failing tests`). **Final, measured 2026-10-02 at the Task 10
+  tree (`d2202ed4b` plus the Task 10 docs, register and blast-radius test-pin
+  edits): 12220 passed, 0 failed, 27 ignored** (the same command; the gate
+  reported `GATE OK: 0 failing tests`). The +115 passed are the cases this
+  project added; the ignored count did not move. Every re-pinned case carries a
   rationale naming this project.
 * `cargo clippy --workspace` is clean under 1.99.0.
 

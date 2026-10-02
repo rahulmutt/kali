@@ -87,11 +87,11 @@ working as designed, and it is the first thing §6 discusses.
 | what | value | where it is recorded |
 |---|---|---|
 | corpus hash | `ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f` | `tools/blast-radius/corpus/manifest.json`, verified on every run |
-| node | `v26.8.2` | `counts.json` |
+| node | `v26.10.0` | `counts.json` |
 | acorn | `8.18.0` | `counts.json` |
-| kali binary | `kali 0.1.0` (`/workspace/.cache/cargo-target/debug/kali`) | `accepts.json` |
+| kali binary | `kali 0.1.0` (`/workspace/target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `fefe62c607` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `d2202ed4b1` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -410,6 +410,7 @@ No frequency exists for these, so they are banded on **tier alone** and are neve
 | R-29 | 3 | no — removed by the SILENT filter | structurally uncountable | An assignment to a `const` binding is a TypeError at run time, so no program that runs clean under node can execute one; the construct and this corpus's runnability requirement are mutually exclusive (corpus/README.md). This zero is not a frequency and must never be ranked as one. |
 | R-54 | 3 | no — removed by the SILENT filter | no syntactic predicate (representation- or runtime-typed) | only invalid JavaScript triggers it -- acorn, like node, rejects a second `default` clause as a SyntaxError, so the shape can never appear in a corpus file that parses |
 | R-61 | 2 | no — removed by the SILENT filter | no syntactic predicate (representation- or runtime-typed) | a BUILD-TIER condition, not a syntactic one -- the triggering source (`new Array(n)`, optionally `.fill(v)`, later read by a literal index) is identical text whether it compiles correctly at --fast or wrongly at --release/--release-advanced, so no acorn-visible AST shape distinguishes a corpus file this matters for from one it does not; the corpus matchers run once over source text and have no concept of build tier |
+| R-68 | 4 | no — removed by the SILENT filter | no syntactic predicate (representation- or runtime-typed) | a representation condition -- the handle is printed only when the value is a RUNTIME array (a `new Array`/`.fill` allocation, a call-bound array, an array-fed parameter, or an alias of one), which is kali's own lane classification from repr inference; acorn sees `console.log(a)` or a `${a}` substitution identically whether `a` holds a runtime array, a fold-lane literal (R-31's lane) or a scalar |
 
 **Banded on tier alone** (only the entries the SILENT filter admits):
 
@@ -1214,6 +1215,45 @@ unchanged; §3.3 marks R-63 `(not in the ranking)`; §3.4 counts 10 of the 28
 ranked entries with a non-SILENT lane (was 9 of the 29), adding R-15 (FAIL_CLOSED
 / SILENT). §4 and §5 did not move. Every figure above is read out of the
 regenerated §2–§5 and the `counts.json` and `accepts.json` diffs.
+
+**AMENDMENT 2026-10-02 — a TENTH regeneration, retiring R-14 and filing
+R-68 (array-return project, `docs/superpowers/specs/2026-10-02-array-return-design.md`).**
+The generated regions were re-spliced three times on the branch (Task 7 at
+R-14's retirement, Task 9 at R-06's `r06c` lane moving to FAIL_CLOSED, and
+Task 10, which re-ran `accepts.mjs`, `count.mjs` and `rank` and moved nothing
+further in §2–§3); this paragraph records the net churn against the
+branch's base `472500fc6`. **R-14** moved to FIXED in both scopes and left the
+SILENT filter, which empties **N1** down to R-48 alone (`| N1 — escape/provenance
+loss | 2 | 0 | R-48 |`, was `| … | 2 | 7 | R-14, R-48 |`). **On the reachable
+axis (§2.2), N1 moves from Band 2 to Band 3**, joining the zero-frequency
+Tier-2 clusters; band 1 is unchanged, G7 moves up from Band 3 to Band 2, and
+the old Bands 4 and 5 renumber to 3 and 4 with no frequency changed. **On the
+raw axis (§2.3), N1 leaves band 1** (raw 99 → 0, all of it R-14's) and **G8
+moves up from Band 2 into band 1** at 79, which also makes G8 the countable-only band 1's Tier-2
+member; G2 (R-51) and G7 now share Band 2, and every later band renumbers down
+by one, N1 landing in the last band with the other zero-frequency clusters.
+§2.4 prices 11 of the 27 ranked entries (was 11 of 28): R-21's raw-band-1
+effect becomes `unchanged`, and R-23's move to G4 now promotes G7 on both axes
+instead of N1 on the reachable one. **The italic note under both band-1
+tables is now wrong and is not generated from data**: it is a fixed string in
+`crates/kali_blast_radius/src/ranking.rs` (`:520`) saying R-21 moves a band 1
+on "both axes" and R-23 on "the reachable axis", while §2.4 now measures R-21
+moving neither band 1 and R-23 moving both (it was already half-stale at the
+base, where R-21 moved the raw axis only). It is left for the generator's
+owner to derive from §2.4's rows rather than patched by hand here. §3 drops R-14's row and R-06's lanes cell
+reads `FIXED / SILENT / FAIL_CLOSED` (was `FIXED / SILENT / SILENT`); §3.1
+removes 24 entries (was 23), listing R-14 at raw 99 / reachable 7 / FIXED, and
+of the 27 entries that enter only 5 have a nonzero reachable count (was 6 of
+28). **R-68** (a whole runtime array prints its handle, Tier 4) appears only in
+§4's uncountable table, as `no — removed by the SILENT filter`: that is the
+generator's wording for any entry without a SILENT §0.2 row, and R-68 has no
+§0.2 row at all — like R-61, no oracle case pins it — so it never reached the
+filter. Its template-literal, concat and alias lanes are still silent, and a
+later project that pins them with oracle cases will bring it into the ranking.
+`accepts.json` did not move apart from its `kaliBinary` path (this checkout
+builds into `target/`); `counts.json` moved `nodeVersion` to `v26.10.0` and
+gained R-68's null record. Every figure above is read out of the regenerated
+§2–§5 and `git diff 472500fc6 -- docs/superpowers/followups/blast-radius-ranking.md`.
 
 ### 6.1 The most important thing here is not a rank
 

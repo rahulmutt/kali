@@ -2388,7 +2388,7 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope, confirming `Scopes affected: both, measured`.
 
-A note for the ranking, since R-48 sits in the same escape/provenance-loss family as R-14: the two are NOT the same measurement. R-14 loses an array across a RETURN; this one loses it into a FIELD, with no call boundary anywhere in the program. Both are in this file and both still measure SILENT."""
+A note for the ranking, since R-48 sits in the same escape/provenance-loss family as R-14: the two are NOT the same measurement. R-14 loses an array across a RETURN; this one loses it into a FIELD, with no call boundary anywhere in the program. Both are in this file and ~~both still measure SILENT~~ both measured SILENT on 2026-08-15. As of 2026-10-02 R-14 measures FIXED (the array-return project, docs/superpowers/specs/2026-10-02-array-return-design.md) and this case still measures SILENT: re-measured at `d2202ed4b` against node v26.10.0, kali prints `0` at exit 0 where node prints `[ 1, 2 ]`. The array-return project did not touch object fields."""
 
 [[case]]
 name = "r53v_for_of_var_loop_variable_module_scope"
