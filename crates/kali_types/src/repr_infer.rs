@@ -3064,6 +3064,9 @@ impl ReprInfer {
                 for param in &decl.params {
                     self.block_fn_alias(&decl.name, param);
                 }
+                // `function f` declares `f` in `func`: a second declaration
+                // of any `const f` alias there, so it blocks the alias.
+                self.note_fn_alias(func, "function", &decl.name, None);
                 self.collect_local_names(&decl.name, &decl.body.body);
             }
             Statement::VariableDeclaration(decl) => {

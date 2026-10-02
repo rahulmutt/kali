@@ -1756,6 +1756,19 @@ fn anon_alias_does_not_fall_through_to_module_scope() {
 }
 
 #[test]
+fn anon_function_declaration_blocks_a_const_alias_of_its_name() {
+    // A same-scope `function f` (here in a block, which shares `func`'s flat
+    // scope) is a second declaration of `f`: the inner `f()` must not resolve
+    // to the outer arrow.
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\n{ function f() { return [7, 8, 9]; } console.log(g(f())); }\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
 fn anon_redeclared_name_is_not_an_alias() {
     let t = reprs_with_fn_id(
         "const f = () => [1, 2, 3];\nif (true) { const f = 2; }\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
