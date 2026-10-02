@@ -101,7 +101,7 @@ that spec's §2.1.
 *(Measured at `d2202ed4b` against node v26.10.0: row 1 prints `4`, row 2
 prints `1`, both at exit 0, matching node. §2's two rows below did not move
 to CORRECT: both now refuse with `E5506` (exit 1) instead of printing `0` —
-see `docs/superpowers/followups/array-return-discovered-defects.md` §1.)*
+see `docs/superpowers/followups/array-return-discovered-defects.md` §5.)*
 
 ## §2. An allocation held by an object property reads zeros — cross-reference R-48
 

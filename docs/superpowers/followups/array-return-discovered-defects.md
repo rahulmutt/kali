@@ -8,7 +8,7 @@ it left, so the silence is not read as absence.
 
 **Oracle:** `node v26.10.0` (the plan named v26.8.2, which is not installed on
 this machine; the probe programs use no version-sensitive behaviour).
-**Measured at:** the branch head `d2202ed4b`, on `target/debug/kali` built
+**Measured at:** `d2202ed4b`, on `target/debug/kali` built
 from that commit (`cargo build -p kali_cli`), except where a row names an
 earlier commit. Probe rows come from `tools/array-return-probes/run.sh` at
 that commit; the baseline column of every probe row is
@@ -85,6 +85,7 @@ the spike's capability-loss count first.
 | `const a = new Array(3).fill(4); console.log("v=" + a);` | `v=4,4,4` | `v=4112`, exit 0 |
 | `const a = new Array(3).fill(4); const b = a; console.log(b);` | `[ 4, 4, 4 ]` | `4104`, exit 0 |
 | `` function f(){return [1,2,3];} const a=f(); console.log(`x${a}`); `` | `x1,2,3` | `x4112`, exit 0 |
+| `function f(){return [1,2,3];} const a=f(); console.log("v=" + a);` (measured at `8f9ee70d4`, no compiler change since `d2202ed4b`) | `v=1,2,3` | `v=4112`, exit 0 |
 | `function f(){return [1,2,3];} const a=f(); const b=a; console.log(b);` | `[ 1, 2, 3 ]` | `4104`, exit 0 |
 
 Every row reproduces identically inside `function main(){…} main();`. `kali
