@@ -842,7 +842,7 @@ impl<'a> FunctionEmitter<'a> {
     /// probes are the gate. Any other callee (a member expression, a computed
     /// member, a call result, …) is `None`: the member-call lowering resolves
     /// `o.f` to a same-named top-level declaration `f`, so resolving the callee
-    /// as the call is lowered read the wrong function's array (followups §2 of
+    /// as the call is lowered read the wrong function's array (followups §3 of
     /// `anon-array-return-discovered-defects.md`).
     pub(crate) fn array_return_call_elem(&self, id: LirNodeId) -> Option<kali_common::Repr> {
         let target = self.unwrap_transparent_value_node(id);

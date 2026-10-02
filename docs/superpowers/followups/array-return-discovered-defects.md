@@ -66,12 +66,14 @@ from `main`) and the object-method row still refuse, and are filed in
 measured at `d2202ed4b`.
 Re-measured at `97c008bc5` against node v26.10.0: the first four rows print
 `2`, `2`, `1` and `1` at exit 0, and the last two refuse as the table says
-(`anon-array-return-discovered-defects.md` §7). The passed-on rows first
+(`anon-array-return-discovered-defects.md` §10). The passed-on rows first
 computed in Task 4's probe run (`42e3a45ec`), and the direct-index rows in
 Task 5's (`c2c2eb1b9`). That
-project's own new silent rows were filed in its followups §1 and §2; its Task 8
-closed §1 and §2's direct-index row (`fef5de60a`, `4898f3994`), and §2's
-remaining rows are pre-existing member-lowering rows.
+project's own new silent rows were filed in its followups §2 and §3; its Task 8
+closed §2 and §3's direct-index row (`fef5de60a`, `4898f3994`), and §3's
+remaining rows are pre-existing member-lowering rows. Its final review filed
+further rows in its §1 (the runtime-array defects of this file's §3, reached
+through an anonymous return), §7 and §9.
 
 | program | node | kali |
 |---|---|---|

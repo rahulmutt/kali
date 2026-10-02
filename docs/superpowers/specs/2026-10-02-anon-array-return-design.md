@@ -233,7 +233,7 @@ Before the real-value half lands, apply only the narrowed exemption (§3.1
 an `E5506` that did not refuse at the baseline. Each one is either admitted by
 the full change or brought back to the human partner before proceeding. The
 same diff is recomputed at the end of the branch and recorded in the
-followups file (§6).
+followups file (§12).
 
 ### 5.2 Probes and oracle cases
 
@@ -329,7 +329,7 @@ A-1..A-6 were made during planning; A-7 onward during implementation.
   alias, like any other second declaration. The block-level shape
   `const f = () => [1, 2, 3]; … { function f() { return [7, 8, 9]; } g(f()); }`
   is then declined by inference, not admitted. It still prints the
-  pre-existing `0` (node `8`), which is R-10's class (followups §5).
+  pre-existing `0` (node `8`), which is R-10's class (followups §6).
 * **A-8 (§3.3 belt).** `emit_return`'s taint arm
   (`crates/kali_codegen/src/emit/control_flow.rs`, the
   `array_return_taint(&self.function_name)` branch) is unchanged, and still
@@ -357,7 +357,7 @@ A-1..A-6 were made during planning; A-7 onward during implementation.
   `4898f3994`, every `f(3)` form prints `3`, and every `f(true)`, `f("a")` and
   `f(1.5)` form refuses `E5506` "an element is not an integer" at check and
   run; the IIFE `f(1.5)` forms (passed-on and direct) were measured at
-  `f45f3c4ac` and refuse the same way (followups §1 of
+  `f45f3c4ac` and refuse the same way (followups §2 of
   `docs/superpowers/followups/anon-array-return-discovered-defects.md`).
 * **A-10 (§3.2 "caller side", member callees).** `array_return_call_elem`
   resolves only a bare-identifier callee, through `bindings`, or a callee
@@ -374,4 +374,31 @@ A-1..A-6 were made during planning; A-7 onward during implementation.
   `068b29950`. Task 8 (`4898f3994`) restored §3.2's resolution, and the row
   refuses again through backstop 1. The member lowering itself is not
   changed, and its scalar and passed-on rows stay silent as at the baseline
-  (followups §2).
+  (followups §3).
+* **A-11 (§1 "exactly as for a `function` declaration", §3.2 "Every consumer
+  goes through this function").** Neither holds for `kali_types`' resolver.
+  `call_returns_runtime_array` (`crates/kali_types/src/resolve/member.rs`) and
+  the call-bound runtime-array registration in
+  `crates/kali_types/src/resolve/mod.rs` look up `array_return(callee)` by the
+  source callee name, and an anonymous function's fact is keyed by
+  `__kali_fn_N`. So a read the resolver classifies at check time refuses for
+  `const F = () => [1,2,3]; const b = F(); let i = 1; console.log(b[i]);`
+  (`E5506` "computed member access", at `check` and `run`) where the
+  `function F` declaration twin computes `2`. A loop over `b.length` and
+  `F()?.[1]` refuse for the arrow where the declaration computes. This is an
+  over-refusal, not a silent value, and the baseline refused the same programs. §3.2's sentence is true
+  of codegen's consumers (`array_return_call_elem`) only. Filed, not fixed:
+  followups §9 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`.
+* **A-12 (§1 claim; §3.1 alias table; §3.4 agreement risk).** A `const` arrow
+  or an IIFE wrapped in a TypeScript assertion or `satisfies`
+  (`const f = (() => [1,2,3]) as any;`, `… satisfies any`,
+  `((() => [1,2,3]) as any)()`) is inside §1's claim and does not meet it.
+  `note_fn_alias` and `direct_callee` see through the wrapper (`unparen`), so
+  the synthetic id is `called`, but `visit_expr` has no arm for
+  `TypeAssertion` or `SatisfiesExpression`, so the body is never walked:
+  never admitted, never tainted, and the caller reads the placeholder `0`
+  (node `2`). The scalar control `(() => 7) as any` computes. The wrapped forms
+  print the baseline's `0`, so this is not a regression, and the `.js`-only
+  probe gate (A-4) could not see it. Filed, not fixed: followups §7 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`.
