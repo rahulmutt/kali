@@ -25,7 +25,7 @@ only").
 
 ## 1. What this project is
 
-**The claim:** a top-level `function` whose every `return` yields an array of
+**The claim:** a `function` declaration (at any depth, A4) whose every `return` yields an array of
 `I64` elements hands its caller a real runtime array. The caller can read it bound
 (`const b = f(); b[i]`, `b.length`, `g(b)`) or directly (`f()[k]`, `f().length`).
 Every other array-shaped return refuses with `E5506`, and so does every read that
@@ -166,8 +166,8 @@ style of `set_array_binding`/`is_array_binding`. `return_repr` is **unchanged**
 and stays `I64`, which is exactly what an array handle is at the Wasm level.
 `Repr` gains no variant.
 
-**Classifying a return argument.** Each `return` argument of a top-level
-`function` is classified as one of:
+**Classifying a return argument.** Each `return` argument of a
+`function` declaration (at any depth, A4) is classified as one of:
 
 | class | shapes | element repr |
 |---|---|---|
@@ -337,6 +337,18 @@ mk(){const a=new Array(2).fill("x"); return a;} function main(){const c=mk();
 console.log(c[0]);} main();` passes `kali check` and prints `0` (node prints
 `x`). Under this design it is *bad-array* (a String element) and refuses.
 §4.2's refusals file pins it.
+
+**A4 — nested `function` declarations are admitted.** The register's own
+in-function R-14 repro (`crates/kali_cli/tests/cases/oracle/tier2.toml`,
+`r14_function.js`) declares `f` *inside* `main`. Under "top-level only" it would
+refuse rather than compute. `repr_infer` and codegen both key a declaration by
+its own name, at any depth (`repr_infer.rs:2044`, `visit_stmt`'s
+`FunctionDeclaration` arm), and `emit_return` runs the same epilogue for both.
+So a `function` declaration at **any** depth is a candidate, provided its name
+is declared **exactly once** in the program. `self.functions` is last-wins on a
+repeated name, so a repeated name is not one function. Arrow functions,
+function expressions, methods and class members stay excluded (§3.1). The
+`nested_decl` probe pins it.
 
 ### 3.5 Data flow, end to end
 
