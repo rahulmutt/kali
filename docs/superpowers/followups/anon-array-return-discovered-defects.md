@@ -73,17 +73,6 @@ capability-loss spike and the final probe diff.
 | final review: TypeScript-wrapped `const` arrow or IIFE | §7 |
 | final review: the resolver's bare-name consumer | §9 |
 
----|---|
-| 1. module-scope `const` from another function; `let`-bound arrow | §7 |
-| 2. param-dependent elements | §1 |
-| 3. named function expression called immediately | §3 |
-| 4. switch-case blind spot | §6 |
-| 5. redeclared alias; callback-plus-call | §4, §8 |
-| 6. spike capability-loss list, and Task 4's restoration | §9 |
-| (c) block-level `function` shadowing a `const` arrow | §5 |
-| (d) member call resolved to a same-named declaration | §2 |
-| (e) `check` / `run` disagreement on callbacks | §8 |
-
 ---
 
 ## §1. Runtime-array defects now reachable through an anonymous return

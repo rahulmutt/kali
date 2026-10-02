@@ -522,7 +522,7 @@ impl NumProofCheck<'_> {
     /// escaping as a value, and no unwalked code. An anonymous `__kali_fn_N`
     /// is reached only through edges resolved to it (a `const` alias or an
     /// IIFE), so with none enumerated its call sites are unknown, never
-    /// vacuously proven (followups §1).
+    /// vacuously proven (followups §2).
     fn call_sites_enumerable(&self, func: &str) -> bool {
         !self.unwalked
             && self.infer.array_return_facts.declaration_counts.get(func) == Some(&1)
@@ -1790,8 +1790,10 @@ impl ReprInfer {
     /// declaration of the same name, of any kind, blocks it.
     fn note_fn_alias(&mut self, func: &str, kind: &str, name: &str, init: Option<&Expression>) {
         let key = (func.to_string(), name.to_string());
-        if self.fn_aliases.contains_key(&key) {
-            self.fn_aliases.insert(key, FnAlias::Blocked);
+        if let std::collections::btree_map::Entry::Occupied(mut entry) =
+            self.fn_aliases.entry(key.clone())
+        {
+            entry.insert(FnAlias::Blocked);
             return;
         }
         let alias = match (kind, init.map(crate::array_return::unparen)) {
@@ -4695,7 +4697,7 @@ impl ReprInfer {
                     // implicit return. A directly-called arrow is a candidate
                     // form (anon-array-return §3.1); an uncalled one is exempt.
                     // Its facts are a `return`'s, element obligations included,
-                    // or ruling R15 has nothing to refute (followups §1).
+                    // or ruling R15 has nothing to refute (followups §2).
                     let class = self.note_array_return(id, Some(&a.body));
                     self.visit_array_return_value(id, &class, &a.body);
                     // Stage P5 T-new-E: the body expression IS the arrow's
