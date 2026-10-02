@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `d2202ed4b1` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `8f9ee70d4d` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -195,7 +195,7 @@ Frequency is the count over the 126 corpus programs kali accepts, of which 126 a
 | R-22 (unclustered) | 2 | n/a — uncountable member | R-22 |
 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 59 | R-23, R-30, R-31 |
 
-*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds two that move a band 1: R-21 (both axes) and R-23 (the reachable axis, by changing G8's worst tier). Quote this table with §2.4, not on its own.*
+*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds one that moves a band 1: R-23 (both axes). Quote this table with §2.4, not on its own.*
 
 **Band 2**
 
@@ -239,7 +239,7 @@ The same clusters banded on the count over all 177 corpus programs, accepted or 
 | R-22 (unclustered) | 2 | n/a — uncountable member | R-22 |
 | G8 — per-sink rendering divergence: direct-log and concat are separate formatters | 2 | 79 | R-23, R-30, R-31 |
 
-*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds two that move a band 1: R-21 (both axes) and R-23 (the reachable axis, by changing G8's worst tier). Quote this table with §2.4, not on its own.*
+*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested assignment and finds one that moves a band 1: R-23 (both axes). Quote this table with §2.4, not on its own.*
 
 **Band 2**
 
@@ -1235,12 +1235,14 @@ by one, N1 landing in the last band with the other zero-frequency clusters.
 §2.4 prices 11 of the 27 ranked entries (was 11 of 28): R-21's raw-band-1
 effect becomes `unchanged`, and R-23's move to G4 now promotes G7 on both axes
 instead of N1 on the reachable one. **The italic note under both band-1
-tables is now wrong and is not generated from data**: it is a fixed string in
-`crates/kali_blast_radius/src/ranking.rs` (`:520`) saying R-21 moves a band 1
-on "both axes" and R-23 on "the reachable axis", while §2.4 now measures R-21
-moving neither band 1 and R-23 moving both (it was already half-stale at the
-base, where R-21 moved the raw axis only). It is left for the generator's
-owner to derive from §2.4's rows rather than patched by hand here. §3 drops R-14's row and R-06's lanes cell
+tables was a fixed string** in `crates/kali_blast_radius/src/ranking.rs`
+saying R-21 moves a band 1 on "both axes" and R-23 on "the reachable axis".
+After this regeneration §2.4 measured R-21 moving neither band 1 and R-23
+moving both, and the note had already been half-stale at the base, where R-21
+moved the raw axis only. In the same project's review round the generator was
+changed to derive the note from §2.4's own rows, and it now reads "finds one
+that moves a band 1: R-23 (both axes)". A later regeneration cannot leave it
+stale. §3 drops R-14's row and R-06's lanes cell
 reads `FIXED / SILENT / FAIL_CLOSED` (was `FIXED / SILENT / SILENT`); §3.1
 removes 24 entries (was 23), listing R-14 at raw 99 / reachable 7 / FIXED, and
 of the 27 entries that enter only 5 have a nonzero reachable count (was 6 of

@@ -481,6 +481,118 @@ pub fn render(root: &Path) -> String {
     }
     let _ = writeln!(out);
 
+    // ------------------------------- 2.3, how much the contested calls matter
+    //
+    // Every assignment the register states two ways is re-run with the OTHER
+    // one taken, one at a time, and band 1 is recomputed. A clustering nobody
+    // can move is not being defended here -- what is published is how far band
+    // 1 moves when someone does.
+    let band_one_names =
+        |input: &[(String, Vec<String>)], axis: fn(&Counts) -> Option<u64>| -> BTreeSet<String> {
+            band(&aggregate(&scored(axis), input))
+                .first()
+                .expect("a non-empty band 1")
+                .iter()
+                .map(|cluster| cluster.name.clone())
+                .collect()
+        };
+    let base_reachable = band_one_names(&cluster_input, |c| c.reachable);
+    let base_raw = band_one_names(&cluster_input, |c| c.raw);
+    let mut sensitivity: Vec<(String, String, String, String)> = Vec::new();
+    for (id, other) in &alternate_cluster {
+        let moved: Vec<(String, Vec<String>)> = cluster_input
+            .iter()
+            .map(|(name, entries)| {
+                let mut entries: Vec<String> = entries
+                    .iter()
+                    .filter(|member| *member != id)
+                    .cloned()
+                    .collect();
+                if name == other {
+                    entries.push(id.clone());
+                    entries.sort();
+                }
+                (name.clone(), entries)
+            })
+            // A cluster emptied by the move ranks nothing and is dropped.
+            .filter(|(_, entries)| !entries.is_empty())
+            .collect();
+        let describe = |before: &BTreeSet<String>, after: BTreeSet<String>| -> String {
+            if *before == after {
+                "unchanged".to_string()
+            } else {
+                let gained: Vec<&String> = after.difference(before).collect();
+                let lost: Vec<&String> = before.difference(&after).collect();
+                let mut parts = Vec::new();
+                if !gained.is_empty() {
+                    parts.push(format!(
+                        "gains {}",
+                        gained
+                            .iter()
+                            .map(|name| format!("**{name}**"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+                if !lost.is_empty() {
+                    parts.push(format!(
+                        "loses {}",
+                        lost.iter()
+                            .map(|name| format!("**{name}**"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+                parts.join("; ")
+            }
+        };
+        sensitivity.push((
+            id.clone(),
+            other.clone(),
+            describe(&base_reachable, band_one_names(&moved, |c| c.reachable)),
+            describe(&base_raw, band_one_names(&moved, |c| c.raw)),
+        ));
+    }
+
+    // The band-1 caveat is DERIVED from the rows above rather than typed: a
+    // hand-written list of which entries move band 1 went stale the first
+    // time a regeneration moved them (2026-10-02, array-return: it named R-21
+    // on "both axes" and R-23 on "the reachable axis" while §2.4 measured R-21
+    // moving neither and R-23 moving both).
+    let movers: Vec<String> = sensitivity
+        .iter()
+        .filter_map(|(id, _, reachable, raw)| {
+            let axes = match (reachable != "unchanged", raw != "unchanged") {
+                (true, true) => "both axes",
+                (true, false) => "the reachable axis",
+                (false, true) => "the raw axis",
+                (false, false) => return None,
+            };
+            Some(format!("{id} ({axes})"))
+        })
+        .collect();
+    let band_one_caveat =
+        match movers.len() {
+            0 => "*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested \
+              assignment and finds none that moves a band 1 at this regeneration. Quote this \
+              table with §2.4, not on its own.*"
+                .to_string(),
+            count => {
+                let listed = match movers.as_slice() {
+                    [only] => only.clone(),
+                    [init @ .., last] => format!("{} and {last}", init.join(", ")),
+                    [] => unreachable!("count is nonzero"),
+                };
+                format!(
+                "*Band 1 is contingent on the cluster assignment. §2.4 re-runs every contested \
+                 assignment and finds {} that move{} a band 1: {listed}. Quote this table with \
+                 §2.4, not on its own.*",
+                if count == 1 { "one".to_string() } else { count.to_string() },
+                if count == 1 { "s" } else { "" },
+            )
+            }
+        };
+
     let render_bands = |out: &mut String, title: &str, note: &str, bands: &[Vec<Cluster>]| {
         let _ = writeln!(out, "### {title}\n");
         let _ = writeln!(out, "{note}\n");
@@ -515,13 +627,7 @@ pub fn render(root: &Path) -> String {
                 // at and quote, and its membership is contingent on cluster
                 // calls the register itself states two ways. The caveat travels
                 // with the table rather than waiting in §6.
-                let _ = writeln!(
-                    out,
-                    "\n*Band 1 is contingent on the cluster assignment. §2.4 re-runs every \
-                     contested assignment and finds two that move a band 1: R-21 (both axes) \
-                     and R-23 (the reachable axis, by changing G8's worst tier). Quote this \
-                     table with §2.4, not on its own.*"
-                );
+                let _ = writeln!(out, "\n{band_one_caveat}");
             }
             let _ = writeln!(out);
         }
@@ -582,23 +688,6 @@ pub fn render(root: &Path) -> String {
         &raw_bands,
     );
 
-    // ------------------------------- 2.3, how much the contested calls matter
-    //
-    // Every assignment the register states two ways is re-run with the OTHER
-    // one taken, one at a time, and band 1 is recomputed. A clustering nobody
-    // can move is not being defended here -- what is published is how far band
-    // 1 moves when someone does.
-    let band_one_names =
-        |input: &[(String, Vec<String>)], axis: fn(&Counts) -> Option<u64>| -> BTreeSet<String> {
-            band(&aggregate(&scored(axis), input))
-                .first()
-                .expect("a non-empty band 1")
-                .iter()
-                .map(|cluster| cluster.name.clone())
-                .collect()
-        };
-    let base_reachable = band_one_names(&cluster_input, |c| c.reachable);
-    let base_raw = band_one_names(&cluster_input, |c| c.raw);
     let _ = writeln!(out, "### 2.4 How much the contested assignments matter\n");
     let _ = writeln!(
         out,
@@ -614,59 +703,11 @@ pub fn render(root: &Path) -> String {
         "| entry | assigned | moved to | reachable band 1 | raw band 1 |"
     );
     let _ = writeln!(out, "|---|---|---|---|---|");
-    for (id, other) in &alternate_cluster {
-        let moved: Vec<(String, Vec<String>)> = cluster_input
-            .iter()
-            .map(|(name, entries)| {
-                let mut entries: Vec<String> = entries
-                    .iter()
-                    .filter(|member| *member != id)
-                    .cloned()
-                    .collect();
-                if name == other {
-                    entries.push(id.clone());
-                    entries.sort();
-                }
-                (name.clone(), entries)
-            })
-            // A cluster emptied by the move ranks nothing and is dropped.
-            .filter(|(_, entries)| !entries.is_empty())
-            .collect();
-        let describe = |before: &BTreeSet<String>, after: BTreeSet<String>| -> String {
-            if *before == after {
-                "unchanged".to_string()
-            } else {
-                let gained: Vec<&String> = after.difference(before).collect();
-                let lost: Vec<&String> = before.difference(&after).collect();
-                let mut parts = Vec::new();
-                if !gained.is_empty() {
-                    parts.push(format!(
-                        "gains {}",
-                        gained
-                            .iter()
-                            .map(|name| format!("**{name}**"))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ));
-                }
-                if !lost.is_empty() {
-                    parts.push(format!(
-                        "loses {}",
-                        lost.iter()
-                            .map(|name| format!("**{name}**"))
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ));
-                }
-                parts.join("; ")
-            }
-        };
+    for (id, other, reachable, raw) in &sensitivity {
         let _ = writeln!(
             out,
-            "| {id} | {} | {other} | {} | {} |",
+            "| {id} | {} | {other} | {reachable} | {raw} |",
             assignment[id].0,
-            describe(&base_reachable, band_one_names(&moved, |c| c.reachable)),
-            describe(&base_raw, band_one_names(&moved, |c| c.raw)),
         );
     }
     let _ = writeln!(out);
