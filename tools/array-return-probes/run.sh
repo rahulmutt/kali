@@ -17,6 +17,8 @@ for p in "$here"/probes/*.js; do
     verdict=CORRECT
   elif [ $kali_exit -ne 0 ] && grep -q E5506 /tmp/array-return-probe.err; then
     verdict=REFUSES
+  elif [ $kali_exit -ne 0 ] && grep -q 'kali: array index out of bounds' /tmp/array-return-probe.err; then
+    verdict=TRAPS
   elif [ $kali_exit -eq 0 ]; then
     verdict=SILENT
   else

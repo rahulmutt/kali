@@ -1,0 +1,88 @@
+anon_alias_chain	CORRECT	2	2
+anon_allocation_control	CORRECT	4	4
+anon_arrow_passed_on	CORRECT	2	2
+anon_boolean_elements	REFUSES	true	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
+anon_bound	CORRECT	3	3
+anon_direct_index	CORRECT	1	1
+anon_direct_length	CORRECT	3	3
+anon_fnexpr_passed_on	CORRECT	2	2
+anon_iife_passed_on	CORRECT	2	2
+anon_let_control	REFUSES	2	error[E5506]: calling 'f' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+anon_map_callback_control	REFUSES	2	error[E5506]: calling 'map' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+anon_member_call_decl	REFUSES	4	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+anon_mixed_return	REFUSES	1	error[E5506]: returning an array from `f` is unavailable in the current phase: it mixes array and non-array returns
+anon_module_from_main_control	REFUSES	2	error[E5506]: calling 'f' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+anon_nested_const	CORRECT	2	2
+anon_param_true	REFUSES	true	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
+anon_scalar_control	CORRECT	7	7
+anon_side_effect_body	CORRECT	ran|2	ran|2
+arrow_return	REFUSES	1	error[E5506]: calling 'f' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+boolean_elements	REFUSES	true	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
+bound_length	CORRECT	3	3
+bound_passed_on	CORRECT	3	3
+bounds_a1	SILENT	undefined	3
+bounds_a2	SILENT	undefined	0
+bounds_a3	SILENT	4	3
+bounds_a4	SILENT	4	0
+bounds_a5	SILENT	1	3
+bounds_d1	SILENT	undefined	3
+bounds_d2	SILENT	undefined	0
+bounds_d3	SILENT	4	3
+bounds_d4	SILENT	4	0
+bounds_d5	SILENT	1	3
+bounds_g1	SILENT	undefined	0
+bounds_n1	SILENT	undefined	3
+bounds_n2	SILENT	undefined	0
+bounds_n3	SILENT	4 1	1 3
+bounds_n4	SILENT	2	3
+bounds_n5	SILENT	undefined	0
+bounds_n6	SILENT	undefined	3
+bounds_n7	SILENT	2	3
+bounds_n8	SILENT	4	3
+bounds_n9	SILENT	2	3
+bounds_ok_call_nested	CORRECT	8 9	8 9
+bounds_ok_growable_push	CORRECT	4|4	4|4
+bounds_ok_last	CORRECT	9 3	9 3
+bounds_ok_loop	CORRECT	12	12
+bounds_ok_nested	CORRECT	2	2
+bounds_p1	SILENT	undefined	0
+bounds_w1	SILENT	4 9	3 51
+bounds_w2	SILENT	4 3	4 9
+call_arg_direct	CORRECT	2	2
+callback_escape	REFUSES	3,2	error[E5506]: array callback method 'map' is unavailable in the current direct-runtime path; use a supported iterator slice or the later compatibility path
+computed_elements	CORRECT	5,10,6	5,10,6
+const_literal_return	CORRECT	2	2
+direct_length	CORRECT	2	2
+dyn_index	CORRECT	3	3
+empty_literal	CORRECT	0	0
+falls_off_end	REFUSES	1	error[E5506]: returning an array from `f` is unavailable in the current phase: it mixes array and non-array returns
+float_elements	REFUSES	1.5	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
+float_fill_return	REFUSES	1.5	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
+growable_escape_control	REFUSES	2	error[E5506]: returning an array from `f` is unavailable in the current phase: it returns a growable array
+if_else_both_return	CORRECT	2	2
+let_literal_return	REFUSES	2	error[E5506]: returning an array from `f` is unavailable in the current phase: it returns a `let`/`var` binding of an array literal, which can be reassigned
+loop_alloc_return	CORRECT	2	2
+mixed_returns	REFUSES	1	error[E5506]: returning an array from `f` is unavailable in the current phase: it mixes array and non-array returns
+mutate_call_bound	CORRECT	9	9
+mutual_recursion	OTHER	5	error[E3100]: undefined identifier 'g'
+nested_array_elements	REFUSES	1	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
+nested_decl	CORRECT	1,3	1,3
+object_return_control	CORRECT	1	1
+passed_on	CORRECT	2	2
+r21_oob_control	SILENT	undefined	0
+r48_function_control	REFUSES	6	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+r48_module_control	REFUSES	6	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+reassign_control	REFUSES	4	error[E5506]: reassigning an array binding to a non-array value is unavailable in the current direct-runtime path
+recursion	CORRECT	8	8
+s01_direct_index	CORRECT	r=1	r=1
+s02_bound_module	CORRECT	1,3	1,3
+s03_bound_in_main	CORRECT	1,3	1,3
+s04_fill_binding_return	CORRECT	4	4
+s05_param_pass_through	CORRECT	1	1
+s06_loop_filled	CORRECT	9	9
+s07_store_then_return	CORRECT	7	7
+s08_direct_fill	CORRECT	2	2
+s09_print_call_bound	REFUSES	[ 1, 2, 3 ]	error[E5506]: printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead
+s10_print_local	REFUSES	[ 4, 4, 4 ]	error[E5506]: printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead
+s11_string_elements	REFUSES	x	error[E5506]: returning an array from `mk` is unavailable in the current phase: an element is not an integer
+string_literal_elements	REFUSES	a	error[E5506]: returning an array from `f` is unavailable in the current phase: an element is not an integer
