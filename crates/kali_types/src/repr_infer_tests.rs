@@ -2090,18 +2090,15 @@ fn array_return_const_literal_with_computed_elements_taints_const_computed() {
 }
 
 #[test]
-fn array_return_subscripted_param_return_is_not_mixed() {
-    // Ruling R17: a param that is an array only because it is subscripted
-    // does not make `return v` array-shaped for the MIXED taint.
+fn array_return_subscripted_param_returned_beside_a_scalar_taints_mixed() {
+    // A subscripted param counts as a runtime array, so `return v` beside a
+    // scalar return taints MIXED. The refusal is kept: kali's `typeof v` on
+    // such a param is not a runtime test, so the untainted lane prints `0`
+    // for `head(5)` (followups §18).
     let t = reprs(
         "function head(v) { if (typeof v === \"number\") { return v; } return v[0]; }\nconsole.log(head(5));\n",
     );
     assert_eq!(t.array_return("head"), None);
-    assert_eq!(t.array_return_taint("head"), None);
-    // An array-fed param still is (the ruling's exclusion).
-    let t = reprs(
-        "function head(v, n) { if (n === 0) { return v; } return v[0] + n; }\nconsole.log(head(new Array(3).fill(5), 1));\n",
-    );
     assert_eq!(
         t.array_return_taint("head"),
         Some(kali_common::ARRAY_RETURN_MIXED)

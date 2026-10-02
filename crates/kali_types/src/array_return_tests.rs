@@ -467,52 +467,6 @@ fn non_taintable_declaration_is_neither_admitted_nor_tainted() {
     assert!(s.tainted.contains_key("f"));
 }
 
-#[test]
-fn subscripted_param_return_does_not_taint_mixed() {
-    // Ruling R17: `v` is a runtime array only because it is subscripted (a
-    // base param, not array-fed, not call-bound), so `return v` beside a
-    // scalar return is not array-shaped and taints nothing.
-    let facts = facts_one(
-        "head",
-        vec![ReturnArg::Binding("v".into()), ReturnArg::NonArray],
-    );
-    let mut params = BTreeMap::new();
-    params.insert("head".to_string(), vec!["v".to_string()]);
-    let s = solve(&facts, &[], &params, &BTreeSet::new(), &|f, n| {
-        f == "head" && n == "v"
-    });
-    assert!(s.array_returning.is_empty());
-    assert!(s.tainted.is_empty());
-    // Admission is unchanged: alone, `return v` is still admitted.
-    let facts = facts_one("head", vec![ReturnArg::Binding("v".into())]);
-    let s = solve(&facts, &[], &params, &BTreeSet::new(), &|f, n| {
-        f == "head" && n == "v"
-    });
-    assert!(s.array_returning.contains("head"));
-}
-
-#[test]
-fn array_fed_param_return_still_taints_mixed() {
-    // Ruling R17's exclusion: an array-fed param stays array-shaped.
-    let facts = facts_one(
-        "head",
-        vec![ReturnArg::Binding("v".into()), ReturnArg::NonArray],
-    );
-    let mut params = BTreeMap::new();
-    params.insert("head".to_string(), vec!["v".to_string()]);
-    let feeds = vec![Feed {
-        caller: "_start".into(),
-        callee: "head".into(),
-        index: 0,
-        shape: ArgShape::Allocation,
-    }];
-    let s = solve(&facts, &feeds, &params, &BTreeSet::new(), &no_base);
-    assert_eq!(
-        s.tainted.get("head"),
-        Some(&kali_common::ARRAY_RETURN_MIXED)
-    );
-}
-
 fn first_return_arg_of(src: &str) -> Expression {
     first_return_arg(src).expect("a return argument")
 }

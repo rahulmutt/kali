@@ -642,22 +642,9 @@ pub(crate) fn solve(
                 if facts.non_taintable.contains(f) && facts.declaration_counts.get(f) == Some(&1) {
                     continue;
                 }
-                // Ruling R17: a param that is a runtime array only because it
-                // is subscripted (not array-fed, not call-bound; an allocation
-                // of a param's name re-declares it, which `repr_infer`'s
-                // `shadowed_index_names` already keeps off the allocation
-                // arm of `is_base_runtime_array`) does not make `return p`
-                // array-shaped here. `head(v)` returning `v` on one path and
-                // `v[0]` on another is a scalar-or-array function kali keeps
-                // on its pre-project lane; admission is unchanged.
-                let subscripted_param_only = |n: &str| {
-                    params.get(f).is_some_and(|ps| ps.iter().any(|p| p == n))
-                        && !fed.contains(&(f.clone(), n.to_string()))
-                        && !call_bound.contains(&(f.clone(), n.to_string()))
-                };
                 let array_shaped = |arg: &ReturnArg| match arg {
                     ReturnArg::Literal(_) | ReturnArg::Allocation | ReturnArg::BadArray(_) => true,
-                    ReturnArg::Binding(n) => is_array(f, n) && !subscripted_param_only(n),
+                    ReturnArg::Binding(n) => is_array(f, n),
                     ReturnArg::Call(g) => returning.contains(g),
                     ReturnArg::NonArray => false,
                 };

@@ -307,21 +307,23 @@ args = ["check", "async_direct_index.js"]
 exit = "success"
 
 [[case]]
-name = "subscripted_param_returned_beside_a_scalar_is_not_tainted_mixed"
-rationale = """Ruling R17 (final-review fix wave): `v` is a runtime array only because it is subscripted, so `return v` no longer counts as an array-shaped return and `head` is not tainted MIXED; it keeps its pre-project lane. That lane is SILENT-WRONG: kali prints `0` at exit 0 where node v26.10.0 prints `5`, because `typeof v === "number"` is false for a subscripted param (the same program with `return 7` in place of `return v`, which has no array-shaped return at all, prints `0` where node prints `7`). This pins the pre-existing lane, not a correct result; it is filed for followup (docs/superpowers/followups/array-return-discovered-defects.md). At `2724509b8` kali refused with `error[E5506]: returning an array from `head` is unavailable in the current phase: it mixes array and non-array returns`; before the project (no MIXED taint existed) the program took this same lane."""
-args = ["run", "head_typeof_subscripted_param.js"]
-exit = "success"
-stdout = "0\n"
+name = "subscripted_param_returned_beside_a_scalar_refuses_at_check"
+rationale = """A param subscripted in its body counts as a runtime array, so `return v` beside a scalar return taints `head` MIXED, and it refuses. node v26.10.0 prints `5`. The refusal is kept on purpose (final-review fix wave; the proposed ruling R17 was reversed): with no taint, kali took the pre-existing lane and printed `0` at exit 0, because `typeof v === "number"` is false for a param kali treats as an array (followups §18). The program took that silent lane before the project too, when no MIXED taint existed."""
+args = ["check", "head_typeof_subscripted_param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `head`", "it mixes array and non-array returns"]
 
 [[case]]
-name = "subscripted_param_returned_beside_a_scalar_checks"
-rationale = """Ruling R17's `check` half: `kali check` admits the program above (no MIXED taint). node v26.10.0 prints `5`; `kali run` prints `0` (see the run case)."""
-args = ["check", "head_typeof_subscripted_param.js"]
-exit = "success"
+name = "subscripted_param_returned_beside_a_scalar_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "head_typeof_subscripted_param.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "returning an array from `head`", "it mixes array and non-array returns"]
 
 [[case]]
 name = "array_fed_param_returned_beside_a_scalar_still_refuses"
-rationale = """Ruling R17 exempts only a param that is an array because it is subscripted. Here every call passes `new Array(3).fill(5)`, so `v` is array-fed and `return v` stays array-shaped: `head` is tainted MIXED and refuses, where node v26.10.0 prints `6`. Unchanged from `2724509b8`, where kali refused the same way."""
+rationale = """Every call passes `new Array(3).fill(5)`, so `v` is array-fed and `return v` is array-shaped: `head` is tainted MIXED and refuses, where node v26.10.0 prints `6`. Unchanged from `2724509b8`, where kali refused the same way. A control with no array-shaped return prints `6`, so this program most likely printed `6` before the project (followups §18)."""
 args = ["run", "head_array_fed_param_or_number.js"]
 exit = "failure"
 stdout = ""
