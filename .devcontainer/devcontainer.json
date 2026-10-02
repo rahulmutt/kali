@@ -1,6 +1,6 @@
 {
   "name": "kali",
-  "image": "ghcr.io/rahulmutt/dev:sha-655d843",
+  "image": "ghcr.io/rahulmutt/dev:sha-d68288d",
   "workspaceFolder": "/workspace",
   "remoteUser": "dev",
   "containerEnv": {
