@@ -218,3 +218,12 @@ fn array_return_refused_message_names_function_and_reason() {
         "returning an array from `f` is unavailable in the current phase: it mixes array and non-array returns"
     );
 }
+
+#[test]
+fn array_return_callee_shadow_fact_round_trips() {
+    let mut t = ReprTable::default();
+    assert!(!t.is_array_return_callee_shadowed("main", "f"));
+    t.set_array_return_callee_shadowed("main", "f");
+    assert!(t.is_array_return_callee_shadowed("main", "f"));
+    assert!(!t.is_array_return_callee_shadowed("other", "f"));
+}

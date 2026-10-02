@@ -6164,6 +6164,20 @@ impl ReprInfer {
         for (caller, binding) in &solution.call_bound {
             table.set_call_bound_array_binding(caller, binding);
         }
+        // Publish the callee-shadow decision so the resolver and codegen read
+        // the same fact inference used (`callee_is_shadowed`).
+        let scopes: BTreeSet<&String> = self
+            .local_names
+            .keys()
+            .chain(self.parents.keys())
+            .collect();
+        for f in table_array_returning_names(&table, &solution.array_returning) {
+            for scope in scopes.iter().map(|s| s.as_str()).chain([TOP_LEVEL]) {
+                if self.callee_is_shadowed(scope, &f) {
+                    table.set_array_return_callee_shadowed(scope, &f);
+                }
+            }
+        }
         for (f, reason) in &array_return_taints {
             table.set_array_return_taint(f, reason);
             table.add_shape_conflict(kali_common::array_return_refused_message(f, reason));
@@ -7386,4 +7400,16 @@ fn constructor_name(callee: &Expression) -> Option<String> {
         },
         _ => None,
     }
+}
+
+/// Names of the functions admitted as array-returning in `table`.
+fn table_array_returning_names(
+    table: &ReprTable,
+    candidates: &BTreeSet<String>,
+) -> Vec<String> {
+    candidates
+        .iter()
+        .filter(|f| table.array_return(f).is_some())
+        .cloned()
+        .collect()
 }

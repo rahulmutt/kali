@@ -368,35 +368,24 @@ impl TypeContext {
     }
 
     /// `call` is a bare-identifier call to a function the inference admitted
-    /// as array-returning, and the name is not shadowed by a binding on the
-    /// active scope stack below the module scope.
+    /// as array-returning, and the name resolves to that declaration from the
+    /// enclosing function.
     ///
-    /// Shadow check (neither suggested helper fit: `binding_repr_function_key`
-    /// returns `_start` for a shadowing block-local at module level, and no
-    /// "is declared function" query exists): walk the scope stack and refuse
-    /// if the name is bound in any scope other than the outermost module
-    /// scope, which is where top-level function declarations bind. A nested
-    /// hit is always a param/local/block binding shadowing the function.
+    /// The shadow decision is inference's own fact
+    /// (`ReprTable::is_array_return_callee_shadowed`, keyed by the enclosing
+    /// function's inference name, `_start` at module scope): a param/local
+    /// binding of that name anywhere in the caller or a lexically enclosing
+    /// function shadows it, hoisting-aware, so a later `const f` is seen. A
+    /// nested `function f` declaration is not a shadow of itself, so it is
+    /// admitted. Codegen reads the same fact.
     pub(crate) fn call_returns_runtime_array(&self, call: &kali_ast::CallExpression) -> bool {
         let Expression::Identifier(callee) = &call.callee else {
             return false;
         };
-        if self.repr_table.array_return(callee).is_none() {
-            return false;
-        }
-        let mut current = self.scope_stack.last().copied();
-        while let Some(scope_id) = current {
-            let Some(scope) = self.scopes.get(&scope_id) else {
-                return false;
-            };
-            // The outermost (module) scope holds the declared functions
-            // themselves; every scope nested inside it is a shadow site.
-            if scope.parent.is_some() && scope.contains(callee) {
-                return false;
-            }
-            current = scope.parent;
-        }
-        true
+        self.repr_table.array_return(callee).is_some()
+            && !self
+                .repr_table
+                .is_array_return_callee_shadowed(self.current_function_name(), callee)
     }
 
     /// Steps 2–4 of spec §4.4 for a computed member with no static name:

@@ -116,6 +116,12 @@ pub struct ReprTable {
     /// runtime array from THIS set, never from `array_bindings`, which
     /// over-proves array-ness for any bracket-indexed binding.
     call_bound_array_bindings: HashSet<(String, String)>,
+    /// `(func, name)` where `name` is an array-returning function but a call
+    /// to `name` inside `func` does NOT resolve to that declaration: a
+    /// param/local/inner binding of that name (anywhere in `func` or a
+    /// lexically enclosing function, hoisting-aware) shadows it. A nested
+    /// `function name` declaration is not a shadow of itself.
+    shadowed_array_return_callees: HashSet<(String, String)>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
     /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
     /// shapes visible at the call site: a bare-identifier array binding, or a
@@ -638,6 +644,16 @@ impl ReprTable {
     pub fn is_call_bound_array_binding(&self, func: &str, binding: &str) -> bool {
         self.call_bound_array_bindings
             .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    pub fn set_array_return_callee_shadowed(&mut self, func: &str, name: &str) {
+        self.shadowed_array_return_callees
+            .insert((func.to_string(), name.to_string()));
+    }
+
+    pub fn is_array_return_callee_shadowed(&self, func: &str, name: &str) -> bool {
+        self.shadowed_array_return_callees
+            .contains(&(func.to_string(), name.to_string()))
     }
 
     /// Distinct NAMES of every growable-array binding across all functions.
