@@ -1718,6 +1718,53 @@ fn array_return_arrow_is_not_tainted_under_the_narrowing() {
     }
 }
 
+// ---- Anonymous array returns (spec 2026-10-02-anon-array-return-design.md §3.1) ----
+
+#[test]
+fn anon_alias_call_reaches_the_arrow_and_taints_it_before_candidates_exist() {
+    // Task 3 state: the call through `const f` now reaches `__kali_fn_0`, which
+    // is directly called but not yet a candidate form, so it taints FORM.
+    // Task 4 turns this into admission and rewrites this test.
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_FORM)
+    );
+}
+
+#[test]
+fn anon_let_binding_is_never_an_alias() {
+    let t = reprs_with_fn_id(
+        "let f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_alias_does_not_fall_through_to_module_scope() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nfunction main() { function g(x) { return x[1]; } console.log(g(f())); }\nmain();\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_redeclared_name_is_not_an_alias() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nif (true) { const f = 2; }\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
 #[test]
 fn array_return_named_function_expression_taints_form() {
     // A NAMED function expression keeps its own name (not `__kali_fn_N`), is
