@@ -360,8 +360,32 @@ impl TypeContext {
             Expression::MemberExpression(_) => self
                 .growable_i64_field_member_parts(&member.object)
                 .is_some(),
+            // Mirrors codegen's direct-call read lane (`array_return_call_elem`,
+            // spec 2026-10-02 §3.3): `f()[i]` where `f` returns a runtime array.
+            Expression::CallExpression(call) => self.call_returns_runtime_array(call),
             _ => false,
         }
+    }
+
+    /// `call` is a bare-identifier call to a function the inference admitted
+    /// as array-returning, and the name resolves to that declaration from the
+    /// enclosing function.
+    ///
+    /// The shadow decision is inference's own fact
+    /// (`ReprTable::is_array_return_callee_shadowed`, keyed by the enclosing
+    /// function's inference name, `_start` at module scope): a param/local
+    /// binding of that name anywhere in the caller or a lexically enclosing
+    /// function shadows it, hoisting-aware, so a later `const f` is seen. A
+    /// nested `function f` declaration is not a shadow of itself, so it is
+    /// admitted. Codegen reads the same fact.
+    pub(crate) fn call_returns_runtime_array(&self, call: &kali_ast::CallExpression) -> bool {
+        let Expression::Identifier(callee) = &call.callee else {
+            return false;
+        };
+        self.repr_table.array_return(callee).is_some()
+            && !self
+                .repr_table
+                .is_array_return_callee_shadowed(self.current_function_name(), callee)
     }
 
     /// Steps 2–4 of spec §4.4 for a computed member with no static name:

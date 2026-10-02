@@ -88,3 +88,55 @@ mod unsupported_generators;
 
 #[path = "control_flow_tests/pipeline_basics.rs"]
 mod pipeline_basics;
+
+/// Compiles `source` with `main`'s `b` marked call-bound (array-return
+/// project, spec 2026-10-02 §3.3), optionally admitting `f` as
+/// array-returning, and returns the E5506 messages codegen raised.
+fn call_bound_e5506_messages(source: &str, admit_f: bool) -> Vec<String> {
+    let program = parse_and_lower_lir(source);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.repr_table.set_call_bound_array_binding("main", "b");
+    if admit_f {
+        ctx.repr_table.set_array_return("f", kali_common::Repr::I64);
+    }
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32))
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+#[test]
+fn call_bound_registration_requires_a_call_init() {
+    let computed = kali_common::computed_member_access_unavailable_message();
+    // The call-bound fact alone does not register `b`: without `f` admitted
+    // as array-returning, the declarator lane declines and `b[i]` refuses.
+    let not_admitted = call_bound_e5506_messages(
+        "function f() { return [1, 2, 3]; } function main() { const b = f(); let i = 1; console.log(b[i]); } main();",
+        false,
+    );
+    assert!(
+        not_admitted.iter().any(|m| m == computed),
+        "{not_admitted:?}"
+    );
+    // An init that is no longer the call (an optimizer rewrite, or any other
+    // expression) does not register `b` either, even with `f` admitted.
+    let rewritten = call_bound_e5506_messages(
+        "function f() { return [1, 2, 3]; } function main() { let n = 1; const b = n + 1; let i = 1; console.log(b[i]); } main();",
+        true,
+    );
+    assert!(rewritten.iter().any(|m| m == computed), "{rewritten:?}");
+    // Control: the call init with `f` admitted registers `b`, so the read
+    // compiles.
+    let admitted = call_bound_e5506_messages(
+        "function f() { return [1, 2, 3]; } function main() { const b = f(); let i = 1; console.log(b[i]); } main();",
+        true,
+    );
+    assert!(admitted.is_empty(), "{admitted:?}");
+}

@@ -397,8 +397,8 @@
 #   R-13   read            function   silent          silent           same
 #   R-13   write           module     silent          silent           same
 #   R-13   write           function   silent          silent           same
-#   R-14   --              module     silent          silent           same
-#   R-14   --              function   silent          silent           same
+#   R-14   --              module     silent          ~~silent~~ fixed ~~same~~ MOVED (2026-10-02)
+#   R-14   --              function   silent          ~~silent~~ fixed ~~same~~ MOVED (2026-10-02)
 #   R-15   --              module     silent          silent           same
 #   R-15   --              function   silent          silent           same
 #   R-16   --              module     silent          silent           same
@@ -423,6 +423,12 @@
 # The three entries §0.1's amendment named as the likely frontier -- R-10, R-13,
 # R-14 -- ALL still measure SILENT, in both scopes, with no diagnostic on either
 # subcommand. The amendment's frontier stands.
+#
+# SUPERSEDED FOR R-14, 2026-10-02 (node v26.10.0): the array-return project
+# (docs/superpowers/specs/2026-10-02-array-return-design.md) closed R-14, and
+# both R-14 cases now measure FIXED (`r=1` at exit 0, matching node). The two
+# rows above keep the 2026-08-15 measurement struck through. R-10 and R-13 are
+# unaffected by this note.
 #
 # ---------------------------------------------------------------------------
 # WHAT THE SECOND PASS FOUND, 2026-08-15, commit `36f9c814a2`, node v26.7.0.
@@ -1195,7 +1201,7 @@ name = "r06c_var_array_element_reads_module_scope"
 kind = "oracle"
 register_entry = "R-06"
 program = "r06c_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-06, `R-06-R3` ARRAYS lane, module scope. A `var`-declared array literal, both of whose elements are read back. This is §2's Detail line for R-06 verbatim -- "`var a=[7,9]; a[0]`->`0`, `a[1]`->`0`" -- and BOTH reads are kept because that is how the register states it; one element alone would leave the "reads back as an empty/zero array" claim resting on a single observation.
 
 SCAFFOLDING: as with the `R-06-R2` lane, the register states this as expression fragments with an arrow to the value, so a `console.log(…)` was added around each read and nothing else.
@@ -1204,19 +1210,23 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `0` then `0` at exit 0 with empty stderr; node prints `7` then `9` at exit 0. Both elements read back zero, so the whole binding is empty rather than one slot being lost.
 
-WHAT THIS CASE DOES AND DOES NOT MEASURE. `R-06-R3` is a wide residual and this case takes its element-READ shape only. The residual's element-STORE shape (`var a=[1,2]; a[0]=9; a[0]`), its `.length` shape, and its `const`-store sub-case are different programs and are NOT what this case observes. The store shape in particular is recorded at `61c2d48ea9` as behaving differently by scope -- silent at module scope, `E5506` in-function -- so a single case could not have carried it alongside the reads without one masking the other. R-12 in this same file measures an array-element store directly."""
+WHAT THIS CASE DOES AND DOES NOT MEASURE. `R-06-R3` is a wide residual and this case takes its element-READ shape only. The residual's element-STORE shape (`var a=[1,2]; a[0]=9; a[0]`), its `.length` shape, and its `const`-store sub-case are different programs and are NOT what this case observes. The store shape in particular is recorded at `61c2d48ea9` as behaving differently by scope -- silent at module scope, `E5506` in-function -- so a single case could not have carried it alongside the reads without one masking the other. R-12 in this same file measures an array-element store directly.
+
+RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): SILENT -> FAIL_CLOSED. At `fefe62c60` kali printed `0` then `0` at exit 0; node v26.10.0 prints `7` then `9`. Both reads reached the numeric-index fallback, whose placeholder `0` now refuses with E5506 (exit 1, empty stdout). The lane is not fixed: kali still cannot read a `var` array literal's elements, it now says so."""
 
 [[case]]
 name = "r06c_var_array_element_reads_in_function"
 kind = "oracle"
 register_entry = "R-06"
 program = "r06c_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-06, `R-06-R3` ARRAYS lane, in-function scope. The module-scope program verbatim inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `0` then `0` at exit 0; node prints `7` then `9` at exit 0. Identical to the module scope. That matters for this lane specifically: `61c2d48ea9` records the array-element STORE as scope-dependent (silent at module scope, `E5506` in-function), so the READ shape agreeing across scopes is a real discriminator between the two shapes rather than a foregone conclusion."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `0` then `0` at exit 0; node prints `7` then `9` at exit 0. Identical to the module scope. That matters for this lane specifically: `61c2d48ea9` records the array-element STORE as scope-dependent (silent at module scope, `E5506` in-function), so the READ shape agreeing across scopes is a real discriminator between the two shapes rather than a foregone conclusion.
+
+RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): SILENT -> FAIL_CLOSED. At `fefe62c60` kali printed `0` then `0` at exit 0; node v26.10.0 prints `7` then `9`. Both reads reached the numeric-index fallback, whose placeholder `0` now refuses with E5506 (exit 1, empty stdout). The lane is not fixed: kali still cannot read a `var` array literal's elements, it now says so."""
 
 [[case]]
 name = "r07_const_is_a_binding_module_scope"
@@ -1537,10 +1547,10 @@ name = "r14_returned_array_reads_zeros_module_scope"
 kind = "oracle"
 register_entry = "R-14"
 program = "r14_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-14, module scope. §2's `Repro` verbatim: `function f() { return [1, 2, 3]; } console.log("r=" + f()[0]);` -- a plain array literal crossing a return, with no push and no store.
 
-Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `r=1` against kali `r=0` at exit 0, and §0.2's row reads "R-14 returned array reads zeros | **SILENT**". SILENT.
+Expected verdict: FIXED, closed by the array-return project (docs/superpowers/specs/2026-10-02-array-return-design.md). A function that returns an I64-element array literal on every path now hands its caller a real runtime array (§3.2), and the direct read `f()[0]` loads it (§3.3). Measured 2026-10-02 at `22350647b` against node v26.10.0: kali prints `r=1` at exit 0 with empty stderr; node prints `r=1` at exit 0. Superseded: as of `61c2d48ea9`, §2 recorded node `r=1` against kali `r=0` at exit 0, and §0.2's row read "R-14 returned array reads zeros | **SILENT**" -- ~~SILENT~~.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=0` at exit 0 with empty stderr; node prints `r=1` at exit 0.
 
@@ -1551,10 +1561,10 @@ name = "r14_returned_array_reads_zeros_in_function"
 kind = "oracle"
 register_entry = "R-14"
 program = "r14_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-14, in-function scope. The module-scope repro verbatim -- `f`'s declaration moving inside with it -- inside `function main() { … }` with a trailing `main();`.
 
-Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-14 records `Scopes affected: both -- including fully in-function`.
+Expected verdict: FIXED, as for the module scope, closed by the array-return project (docs/superpowers/specs/2026-10-02-array-return-design.md). The nested `function f` declaration is admitted by its amendment A4, which names this very program. Measured 2026-10-02 at `22350647b` against node v26.10.0: kali prints `r=1` at exit 0 with empty stderr; node prints `r=1` at exit 0. Superseded: ~~SILENT, as for the module scope~~ -- as of `61c2d48ea9`, §2's R-14 records `Scopes affected: both -- including fully in-function`.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=0` at exit 0; node prints `r=1` at exit 0. Identical to the module scope.
 
@@ -2378,7 +2388,7 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope, confirming `Scopes affected: both, measured`.
 
-A note for the ranking, since R-48 sits in the same escape/provenance-loss family as R-14: the two are NOT the same measurement. R-14 loses an array across a RETURN; this one loses it into a FIELD, with no call boundary anywhere in the program. Both are in this file and both still measure SILENT."""
+A note for the ranking, since R-48 sits in the same escape/provenance-loss family as R-14: the two are NOT the same measurement. R-14 loses an array across a RETURN; this one loses it into a FIELD, with no call boundary anywhere in the program. Both are in this file and ~~both still measure SILENT~~ both measured SILENT on 2026-08-15. As of 2026-10-02 R-14 measures FIXED (the array-return project, docs/superpowers/specs/2026-10-02-array-return-design.md) and this case still measures SILENT: re-measured at `d2202ed4b` against node v26.10.0, kali prints `0` at exit 0 where node prints `[ 1, 2 ]`. The array-return project did not touch object fields."""
 
 [[case]]
 name = "r53v_for_of_var_loop_variable_module_scope"

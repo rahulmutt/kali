@@ -109,6 +109,16 @@ impl FunctionEmitter<'_> {
                 &base_name,
             );
         }
+        // Array-return lane (spec 2026-10-02 §3.3): `f()[i]`, the call
+        // emitted once as the base.
+        if let Some(elem) = self.array_return_call_elem(node.children[0]) {
+            return self.emit_dynamic_array_read_node_elem(
+                function,
+                node.children[0],
+                node.children[1],
+                elem,
+            );
+        }
         // The fold decides the SHAPE of the string-receiver refusal, so it is
         // resolved before the refusal is taken. A statically-known string has
         // no INDEX lane in either spelling (`s[1]` was a silent `0`; `s[k]`

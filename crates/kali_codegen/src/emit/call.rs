@@ -11,6 +11,15 @@ enum ArrayLen {
 }
 
 impl<'a> FunctionEmitter<'a> {
+    /// A value that is a whole runtime `[len][elem…]` array: a bare
+    /// identifier in `array_bindings`, or a call to an array-returning
+    /// function. Its i64 is a handle, never a printable number.
+    pub(crate) fn is_runtime_array_value(&self, id: LirNodeId) -> bool {
+        self.bare_identifier_name(id)
+            .is_some_and(|name| self.array_bindings.contains(&name))
+            || self.array_return_call_elem(id).is_some()
+    }
+
     /// Emit `id` as a console-import argument: always leaves exactly one i64
     /// (tagged scalar or string handle) on the stack.
     ///
@@ -20,6 +29,13 @@ impl<'a> FunctionEmitter<'a> {
     /// second ladder, and so this lane gains the ladder's repr knowledge
     /// (a boolean renders `true`/`false`, not `1`/`0` — R-30).
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.is_runtime_array_value(id) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
+                    .to_string(),
+            ));
+        }
         if self.object_shape_of_node(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -60,6 +76,13 @@ impl<'a> FunctionEmitter<'a> {
     /// position 0, or printing an object in a later position would silently
     /// render a pointer.
     fn emit_console_argument_as_string(&mut self, function: &mut Function, id: LirNodeId) {
+        if self.is_runtime_array_value(id) {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
+                    .to_string(),
+            ));
+        }
         if self.object_shape_of_node(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -6322,13 +6345,27 @@ impl<'a> FunctionEmitter<'a> {
         index_text: &str,
         base_name: &str,
     ) -> EmittedValue {
+        let elem = self.array_elem_repr(base_name);
+        self.emit_dynamic_array_read_elem(function, base_id, index_text, elem)
+    }
+
+    /// [`emit_dynamic_array_read`] with the element repr given directly, for a
+    /// base that is not a named binding (the array-return lane's `f()[k]`,
+    /// spec 2026-10-02 §3.3, whose repr is the callee's `array_return`).
+    pub(crate) fn emit_dynamic_array_read_elem(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_text: &str,
+        elem: kali_common::Repr,
+    ) -> EmittedValue {
         self.emit_array_element_address(function, base_id, index_text);
         let mem_arg = MemArg {
             offset: 8,
             align: 3,
             memory_index: 0,
         };
-        match self.array_elem_repr(base_name) {
+        match elem {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
             // Spec 3 activates the `String` case: a proven string element loads
             // its tagged handle through the same i64 slot the int/object lanes use.
@@ -6418,13 +6455,26 @@ impl<'a> FunctionEmitter<'a> {
         index_id: LirNodeId,
         base_name: &str,
     ) -> EmittedValue {
+        let elem = self.array_elem_repr(base_name);
+        self.emit_dynamic_array_read_node_elem(function, base_id, index_id, elem)
+    }
+
+    /// [`emit_dynamic_array_read_node`] with the element repr given directly
+    /// (the array-return lane's `f()[i]`, spec 2026-10-02 §3.3).
+    pub(crate) fn emit_dynamic_array_read_node_elem(
+        &mut self,
+        function: &mut Function,
+        base_id: LirNodeId,
+        index_id: LirNodeId,
+        elem: kali_common::Repr,
+    ) -> EmittedValue {
         self.emit_array_element_address_node(function, base_id, index_id);
         let mem_arg = MemArg {
             offset: 8,
             align: 3,
             memory_index: 0,
         };
-        match self.array_elem_repr(base_name) {
+        match elem {
             kali_common::Repr::F64 => function.instruction(&Instruction::F64Load(mem_arg)),
             // Spec 3 activates the `String` case: a proven string element loads
             // its tagged handle through the same i64 slot the int/object lanes use.

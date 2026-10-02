@@ -609,10 +609,13 @@ rationale = """CONTROLLER RULING R15. WRONG ON PURPOSE, and NO TASK IN THIS PLAN
 
 Measured at `3ef65ef785` under `--api node` with `-- 5`, against node v26.8.1 run as `node argv.js 5`: node prints 5, 5, 5. kali prints 5, 0, 0 -- `process.argv[2]` is correct, `const i = 2; process.argv[i]` is 0, and `process.argv["2"]` is 0.
 
-WHY IT IS PINNED HERE RATHER THAN READ AS A FOLD DEFECT. The folded spelling agrees EXACTLY with the equivalent string-literal spelling, which is this project's whole contract: a folded bracket access is the literal bracket access. The root defect is that kali's argv intrinsic keys on the index child's LITERAL FORM, so `argv[2]` and `argv["2"]` disagree where JavaScript treats them as the same property key. It is pre-existing and unchanged from `dc19c3a040`, and it is a defect in the argv intrinsic rather than in the fold. `check` is clean on this program in both readings."""
+WHY IT IS PINNED HERE RATHER THAN READ AS A FOLD DEFECT. The folded spelling agrees EXACTLY with the equivalent string-literal spelling, which is this project's whole contract: a folded bracket access is the literal bracket access. The root defect is that kali's argv intrinsic keys on the index child's LITERAL FORM, so `argv[2]` and `argv["2"]` disagree where JavaScript treats them as the same property key. It is pre-existing and unchanged from `dc19c3a040`, and it is a defect in the argv intrinsic rather than in the fold. `check` is clean on this program in both readings.
+
+RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): at `fefe62c60` kali still printed 5, 0, 0 at exit 0; node v26.10.0 prints 5, 5, 5. The two `0`s came from the numeric-index fallback's placeholder, which now refuses with E5506, so `run` exits 1 with empty stdout. The argv intrinsic's literal-form keying described above is unchanged; it is simply no longer masked by a fabricated `0`."""
 args = ["run", "--api", "node", "argv_index_divergence.js", "--", "5"]
-exit = "success"
-stdout = "5\n0\n0\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lane proves this receiver is an array"]
 
 [[case]]
 name = "a_bracket_store_reaches_the_same_bigint_rendering_hole_the_dot_spelling_has"

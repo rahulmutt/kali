@@ -1,6 +1,6 @@
 {
   "corpusHash": "ca6f53339feb61b1ad988f5075c2648fd95a96b1796d67bcf2cd3af69090660f",
-  "kaliBinary": "/workspace/.cache/cargo-target/debug/kali",
+  "kaliBinary": "/workspace/target/debug/kali",
   "kaliVersion": "kali 0.1.0",
   "rates": {
     "anchor": {

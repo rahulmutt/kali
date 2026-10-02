@@ -1,0 +1,42 @@
+arrow_return	REFUSES	1	error[E5506]: calling 'f' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+boolean_elements	SILENT	true	0
+bound_length	REFUSES	3	error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0
+bound_passed_on	SILENT	3	0
+call_arg_direct	SILENT	2	0
+callback_escape	REFUSES	3,2	error[E5506]: array callback method 'map' is unavailable in the current direct-runtime path; use a supported iterator slice or the later compatibility path
+computed_elements	SILENT	5,10,6	0,0,0
+const_literal_return	SILENT	2	0
+direct_length	REFUSES	2	error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0
+dyn_index	REFUSES	3	error[E5506]: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object
+empty_literal	REFUSES	0	error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0
+falls_off_end	SILENT	1	0
+float_elements	SILENT	1.5	0
+float_fill_return	OTHER	1.5	error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[41]
+growable_escape_control	REFUSES	2	error[E5506]: growable array `a` in `f` uses `.push` but also appears in a position the growable-array lane does not support (escaping via `return` or an alias, a computed `["push"]` or optional-chain `?.push` call, capture by a nested function, or a non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, `for..of`, and `.join` are available
+if_else_both_return	SILENT	2	0
+let_literal_return	SILENT	2	0
+loop_alloc_return	SILENT	2	0
+mixed_returns	SILENT	1	0
+mutate_call_bound	REFUSES	9	error[E5506]: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the receiver is a runtime array or a `for..in` key over the same object
+mutual_recursion	OTHER	5	error[E3100]: undefined identifier 'g'
+nested_array_elements	SILENT	1	0
+nested_decl	SILENT	1,3	0,0
+object_return_control	CORRECT	1	1
+passed_on	SILENT	2	0
+r21_oob_control	SILENT	undefined	0
+r48_function_control	SILENT	6	0
+r48_module_control	SILENT	6	0
+reassign_control	REFUSES	4	error[E5506]: reassigning an array binding to a non-array value is unavailable in the current direct-runtime path
+recursion	SILENT	8	0
+s01_direct_index	SILENT	r=1	r=0
+s02_bound_module	SILENT	1,3	0,0
+s03_bound_in_main	SILENT	1,3	0,0
+s04_fill_binding_return	SILENT	4	0
+s05_param_pass_through	SILENT	1	0
+s06_loop_filled	SILENT	9	0
+s07_store_then_return	SILENT	7	0
+s08_direct_fill	SILENT	2	0
+s09_print_call_bound	SILENT	[ 1, 2, 3 ]	0
+s10_print_local	SILENT	[ 4, 4, 4 ]	4104
+s11_string_elements	SILENT	x	0
+string_literal_elements	SILENT	a	0

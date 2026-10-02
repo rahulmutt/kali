@@ -189,3 +189,41 @@ fn growable_array_field_repr_round_trips_in_a_shape() {
     assert!(Repr::GrowableArrayI64.is_growable_array());
     assert!(!Repr::I64.is_growable_array());
 }
+
+#[test]
+fn array_return_facts_default_to_absent() {
+    let t = ReprTable::default();
+    assert_eq!(t.array_return("f"), None);
+    assert_eq!(t.array_return_taint("f"), None);
+    assert!(!t.is_call_bound_array_binding("main", "a"));
+}
+
+#[test]
+fn array_return_facts_round_trip() {
+    let mut t = ReprTable::default();
+    t.set_array_return("f", Repr::I64);
+    t.set_array_return_taint("g", crate::ARRAY_RETURN_MIXED);
+    t.set_call_bound_array_binding("main", "a");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert_eq!(t.array_return_taint("g"), Some(crate::ARRAY_RETURN_MIXED));
+    assert!(t.is_call_bound_array_binding("main", "a"));
+    assert!(!t.is_call_bound_array_binding("f", "a"));
+}
+
+#[test]
+fn array_return_refused_message_names_function_and_reason() {
+    let m = crate::array_return_refused_message("f", crate::ARRAY_RETURN_MIXED);
+    assert_eq!(
+        m,
+        "returning an array from `f` is unavailable in the current phase: it mixes array and non-array returns"
+    );
+}
+
+#[test]
+fn array_return_callee_shadow_fact_round_trips() {
+    let mut t = ReprTable::default();
+    assert!(!t.is_array_return_callee_shadowed("main", "f"));
+    t.set_array_return_callee_shadowed("main", "f");
+    assert!(t.is_array_return_callee_shadowed("main", "f"));
+    assert!(!t.is_array_return_callee_shadowed("other", "f"));
+}

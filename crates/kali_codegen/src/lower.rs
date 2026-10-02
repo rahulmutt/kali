@@ -3652,6 +3652,13 @@ pub(crate) fn collect_function_locals(
         locals.push(growable_foreach_len_local_name());
     }
 
+    // Array-return lane: reserve the materialization scratch only in a function
+    // the inference admitted as array-returning, so every other function stays
+    // byte-identical.
+    if repr_table.array_return(function_name).is_some() {
+        locals.push(array_return_scratch_local_name());
+    }
+
     locals
 }
 
@@ -3662,6 +3669,14 @@ pub(crate) fn collect_function_locals(
 /// `ReprTable` entry), which is exactly what the helpers store in it.
 pub(crate) fn growable_scratch_local_name() -> String {
     "__growable_scratch".to_string()
+}
+
+/// Name of the dedicated i64 scratch local `emit_return` materializes a
+/// returned array literal into (array-return project, spec 2026-10-02 §3.2).
+/// Dedicated because element emission may use every generic and allocation
+/// scratch slot.
+pub(crate) fn array_return_scratch_local_name() -> String {
+    "__array_return_scratch".to_string()
 }
 
 /// Name of the shared i64 loop-index counter local for the runtime `for..of`

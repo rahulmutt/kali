@@ -174,8 +174,84 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Allocate a `[len][elem…]` runtime array for the array literal
+    /// `aggregate`, leave its handle in local `slot`, and store each element at
+    /// `8 + i*8`. With `elem_shape`, an object-literal child is materialized
+    /// through `emit_object_allocation`; every other child (a factory call, an
+    /// identifier, a scalar) is emitted as an i64. Shared by the declarator's
+    /// object-element lane and `emit_return`'s array arm (spec 2026-10-02
+    /// §3.2), so the two cannot drift.
+    pub(crate) fn emit_static_array_materialize(
+        &mut self,
+        function: &mut Function,
+        aggregate: &LirNode,
+        slot: u32,
+        elem_shape: Option<kali_common::ShapeId>,
+    ) {
+        let allocated = self.emit_array_allocation_static(function, aggregate.children.len());
+        if !allocated.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalSet(slot));
+        for (i, child) in aggregate.children.iter().copied().enumerate() {
+            function.instruction(&Instruction::LocalGet(slot));
+            function.instruction(&Instruction::I32WrapI64);
+            let child_node = self.node(child).clone();
+            let produced = match elem_shape {
+                Some(shape) if self.is_object_literal(&child_node) => {
+                    self.emit_object_allocation(function, &child_node, shape)
+                }
+                _ => self.emit_node(function, child, true),
+            };
+            if !produced.produced {
+                function.instruction(&Instruction::I64Const(0));
+            }
+            function.instruction(&Instruction::I64Store(MemArg {
+                offset: (8 + i * 8) as u64,
+                align: 3,
+                memory_index: 0,
+            }));
+        }
+    }
+
     pub(crate) fn emit_return(&mut self, function: &mut Function, node: &LirNode) -> EmittedValue {
         if let Some(arg) = node.children.first().copied() {
+            // Array-return lane (spec 2026-10-02 §3.2): an admitted function
+            // materializes a returned literal (or `const` literal binding,
+            // A2) into a runtime array. Any other admitted argument already
+            // produces its handle through `emit_node` below.
+            if self.repr_table.array_return(&self.function_name).is_some() {
+                if let Some(aggregate_id) = self.resolve_literal_aggregate(arg) {
+                    let aggregate = self.node(aggregate_id).clone();
+                    // `new Array(n)` and `new Array(n).fill(v)` lower to a
+                    // text-less one-child `Value` (the `new` wrapper), which
+                    // `is_array_literal` cannot tell from `[x]`. Those are
+                    // allocations: they already produce a handle through
+                    // `emit_node` below, and materializing them would wrap
+                    // that handle in a fresh one-element array.
+                    let is_allocation = self.resolve_array_alloc_call(aggregate_id).is_some()
+                        || self.resolve_array_fill_call(aggregate_id).is_some();
+                    if self.is_array_literal(&aggregate) && !is_allocation {
+                        let slot = self.locals[&crate::lower::array_return_scratch_local_name()];
+                        self.emit_static_array_materialize(function, &aggregate, slot, None);
+                        function.instruction(&Instruction::LocalGet(slot));
+                        self.emit_arena_unwind_for_return(function);
+                        self.emit_env_restore(function);
+                        function.instruction(&Instruction::Return);
+                        return EmittedValue {
+                            produced: false,
+                            shape: ValueShape::Unknown,
+                        };
+                    }
+                }
+            } else if let Some(reason) = self.repr_table.array_return_taint(&self.function_name) {
+                // Unreachable for an admitted program: every taint is also a
+                // shape conflict, which stops compilation before codegen.
+                // Kept so a future path that skips that check still refuses.
+                let message =
+                    kali_common::array_return_refused_message(&self.function_name, reason);
+                return self.deny_e5506(function, &message);
+            }
             // A function whose return repr is Object(shape) returning an
             // object literal materializes it (factory functions). Only the
             // direct return argument routes here — other literals in the
@@ -1645,40 +1721,42 @@ impl<'a> FunctionEmitter<'a> {
                                 if let (Some(aggregate), Some(index)) =
                                     (aggregate, self.locals.get(&name).copied())
                                 {
-                                    let allocated = self.emit_array_allocation_static(
+                                    // Registered BEFORE the materializer runs, as
+                                    // the pre-extraction code did, so every
+                                    // element emission sees the same
+                                    // `array_bindings` state (the allocation
+                                    // prefix does not read it).
+                                    self.array_bindings.insert(name.clone());
+                                    self.emit_static_array_materialize(
                                         function,
-                                        aggregate.children.len(),
+                                        &aggregate,
+                                        index,
+                                        Some(elem_shape),
                                     );
-                                    if !allocated.produced {
+                                    continue;
+                                }
+                            }
+                        }
+
+                        // Array-return lane (spec 2026-10-02 §3.3): `const b = f()`
+                        // where `f` returns a runtime array. Registered only while
+                        // the init is still that call, so an optimizer-rewritten
+                        // init (a literal) keeps its own lane. This replaces the
+                        // spec's entry seeding (ruling R4); the resolver uses the
+                        // same gate, so `kali check` and `kali run` agree.
+                        if let Some(name) = declarator.text.clone() {
+                            if self
+                                .repr_table
+                                .is_call_bound_array_binding(&self.function_name, &name)
+                                && self.array_return_call_elem(init).is_some()
+                            {
+                                if let Some(index) = self.locals.get(&name).copied() {
+                                    let produced = self.emit_node(function, init, true);
+                                    if !produced.produced {
                                         function.instruction(&Instruction::I64Const(0));
                                     }
                                     function.instruction(&Instruction::LocalSet(index));
-                                    self.array_bindings.insert(name.clone());
-                                    for (i, child) in aggregate.children.iter().copied().enumerate()
-                                    {
-                                        function.instruction(&Instruction::LocalGet(index));
-                                        function.instruction(&Instruction::I32WrapI64);
-                                        let child_node = self.node(child).clone();
-                                        let produced = if self.is_object_literal(&child_node) {
-                                            self.emit_object_allocation(
-                                                function,
-                                                &child_node,
-                                                elem_shape,
-                                            )
-                                        } else {
-                                            // Factory call / identifier: already
-                                            // an i64 pointer.
-                                            self.emit_node(function, child, true)
-                                        };
-                                        if !produced.produced {
-                                            function.instruction(&Instruction::I64Const(0));
-                                        }
-                                        function.instruction(&Instruction::I64Store(MemArg {
-                                            offset: (8 + i * 8) as u64,
-                                            align: 3,
-                                            memory_index: 0,
-                                        }));
-                                    }
+                                    self.array_bindings.insert(name);
                                     continue;
                                 }
                             }
@@ -2707,6 +2785,21 @@ impl<'a> FunctionEmitter<'a> {
                     if self.is_usp_getall_call(base_id) {
                         return self.emit_growable_length(function, base_id);
                     }
+                    // Array-return lane (spec 2026-10-02 §3.3): `f().length`
+                    // reads the returned array's length header; the call is
+                    // emitted once as the base.
+                    if self.array_return_call_elem(base_id).is_some() {
+                        self.emit_array_base_address(function, base_id);
+                        function.instruction(&Instruction::I64Load(MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
+                        return EmittedValue {
+                            produced: true,
+                            shape: ValueShape::Scalar,
+                        };
+                    }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
                         // Growable runtime array `.length` (throw-fallout
                         // Stage 4): decode the tagged handle, read `hdr.len`.
@@ -2852,6 +2945,24 @@ impl<'a> FunctionEmitter<'a> {
                         index_text,
                         &base_name,
                     );
+                }
+
+                // Array-return lane (spec 2026-10-02 §3.3): `f()[k]`. The call
+                // is the base, emitted exactly once by the address helper.
+                if let Some(index_text) = node
+                    .text
+                    .as_deref()
+                    .filter(|t| !t.is_empty() && *t != "length" && t.parse::<usize>().is_ok())
+                {
+                    if let Some(elem) = self.array_return_call_elem(node.children[0]) {
+                        let index_text = index_text.to_string();
+                        return self.emit_dynamic_array_read_elem(
+                            function,
+                            node.children[0],
+                            &index_text,
+                            elem,
+                        );
+                    }
                 }
 
                 // Stage P3 Task 4: member reads on a proven abort handle.
@@ -3080,6 +3191,16 @@ impl<'a> FunctionEmitter<'a> {
                         node.children[0],
                         node.children[1],
                         &base_name,
+                    );
+                }
+                // Array-return lane (spec 2026-10-02 §3.3): `f()[i]`, the call
+                // emitted once as the base. Mirrors `emit_computed_member`.
+                if let Some(elem) = self.array_return_call_elem(node.children[0]) {
+                    return self.emit_dynamic_array_read_node_elem(
+                        function,
+                        node.children[0],
+                        node.children[1],
+                        elem,
                     );
                 }
 

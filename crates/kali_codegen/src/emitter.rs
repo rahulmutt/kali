@@ -813,6 +813,42 @@ impl<'a> FunctionEmitter<'a> {
         self.repr_table.array_element(&self.function_name, name)
     }
 
+    /// Element repr of a call to an array-returning function (array-return
+    /// project, spec 2026-10-02 §3.3), or `None`: `id` (after
+    /// `unwrap_transparent_value_node`) is a `Call` whose callee is a bare
+    /// identifier naming a function inference admitted (`array_return`).
+    ///
+    /// The shadow test is inference's own fact,
+    /// `ReprTable::is_array_return_callee_shadowed(self.function_name, callee)`
+    /// — the same one `kali check`'s resolver reads (spec A1, rulings R5/R10),
+    /// so check, run and inference cannot disagree about which calls reach
+    /// the declaration. It is hoisting-aware and walks lexically enclosing
+    /// functions: a param or `const`/`let`/`var` binding named like the callee
+    /// declines, while a nested `function f` declaration (spec A4) is not a
+    /// shadow of itself and is admitted.
+    ///
+    /// A codegen `locals` slot of the callee's name also declines, as a
+    /// fail-closed belt only: a nested `function f` declaration is lowered as
+    /// its own top-level wasm function keyed by its name, never as a local of
+    /// the enclosing function, so this cannot decline A4's shape; it only
+    /// catches a slot inference did not see as a shadow.
+    pub(crate) fn array_return_call_elem(&self, id: LirNodeId) -> Option<kali_common::Repr> {
+        let target = self.unwrap_transparent_value_node(id);
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = self.bare_identifier_name(*node.children.first()?)?;
+        if self
+            .repr_table
+            .is_array_return_callee_shadowed(&self.function_name, &callee)
+            || self.locals.contains_key(&callee)
+        {
+            return None;
+        }
+        self.repr_table.array_return(&callee)
+    }
+
     /// True when `name` is a GROWABLE runtime-array binding of the current
     /// function (throw-fallout Stage 4) — the codegen half of the growable
     /// both-sides oracle, mirroring `repr_table.is_growable_array_binding`.

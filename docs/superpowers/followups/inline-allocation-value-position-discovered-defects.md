@@ -93,6 +93,16 @@ project picking up R-14 should re-run these two rows as discriminating
 controls once R-14's mechanism is understood, to confirm the allocation case
 moves with the literal case rather than needing its own fix.
 
+**Resolved 2026-10-02** by the array-return project
+(`docs/superpowers/specs/2026-10-02-array-return-design.md`). Both rows above
+now print node's output. The mechanism was not R-14's arena hypothesis; see
+that spec's §2.1.
+
+*(Measured at `d2202ed4b` against node v26.10.0: row 1 prints `4`, row 2
+prints `1`, both at exit 0, matching node. §2's two rows below did not move
+to CORRECT: both now refuse with `E5506` (exit 1) instead of printing `0` —
+see `docs/superpowers/followups/array-return-discovered-defects.md` §5.)*
+
 ## §2. An allocation held by an object property reads zeros — cross-reference R-48
 
 | program | node | kali |

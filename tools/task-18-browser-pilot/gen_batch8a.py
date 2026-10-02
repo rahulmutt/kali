@@ -297,6 +297,35 @@ LENGTH_GUARDS_AMENDMENT = (
     "refusing."
 )
 
+# 2026-10-02, array-return (spec docs/superpowers/specs/2026-10-02-array-return-design.md,
+# section 3.3 backstop 1, measured in section 4.1): the numeric-index fallback
+# now refuses with E5506 instead of pushing a placeholder `0`, so the Promise.all
+# and Promise.allSettled bundles' element reads stop the BUILD. Their build steps
+# are replaced by the refusal and the meta-json and harness steps are dropped,
+# because no artifact is emitted for them to read.
+ARRAY_RETURN_REFUSAL = (
+    "an indexed read is unavailable in the current phase for this receiver: no lane "
+    "proves this receiver is an array, so kali refuses rather than emit a placeholder 0"
+)
+ARRAY_RETURN_REFUSAL_NEEDLE = "no lane proves this receiver is an array"
+
+
+def array_return_repin(api, guard_error):
+    return (
+        "RE-PINNED 2026-10-02 by the array-return project (spec "
+        "docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, "
+        "measured in section 4.1). At `fefe62c60` the build succeeded and the harness failed "
+        f"closed with kali's own guard error (`Error: {guard_error}`, surfaced as a wasm "
+        "`RuntimeError: unreachable`): every `X[0]`/`X[1]` read on an awaited "
+        f"{api} result reached the numeric-index fallback, which pushed a placeholder "
+        "`0`, so the element guards fired on fabricated values. node v26.10.0 also fails "
+        f"this program, differently: it throws `TypeError: {api} called on non-object` at "
+        f"the first unbound `Object.freeze({api})(...)` call. The index fallback now refuses "
+        "with E5506, so the BUILD fails and no bundle is emitted; the meta-json and harness "
+        "steps are removed because there is no artifact for them to read."
+    )
+
+
 BUNDLE_TARGETS = {
     "promise_all_bundle": dict(
         helper="assert_browser_bundle_promise_all",
@@ -310,6 +339,7 @@ BUNDLE_TARGETS = {
         kc_doc="Canonical browser smoke body for the supported `Promise.all` slice.",
         what="the browser `Promise.all` smoke body",
         amended=LENGTH_GUARDS_AMENDMENT,
+        refused=array_return_repin("Promise.all", "unexpected Promise.all results"),
     ),
     "promise_all_settled_bundle": dict(
         helper="assert_browser_bundle_promise_all_settled",
@@ -323,6 +353,8 @@ BUNDLE_TARGETS = {
         kc_doc="Canonical browser smoke body for the supported `Promise.allSettled` slice.",
         what="the browser `Promise.allSettled` smoke body",
         amended=LENGTH_GUARDS_AMENDMENT,
+        refused=array_return_repin("Promise.allSettled",
+                                   "unexpected Promise.allSettled semantics"),
     ),
     "promise_race_bundle": dict(
         helper="assert_browser_bundle_promise_race",
@@ -432,7 +464,8 @@ def build_bundle(name, spec):
         P.ARGV_ORDER,
         "",
         (rule10_prose(escaped_all) + [""] + RULE10_EXTRA_OK + [""]) if constants else None,
-        _bundle_shape(c_build_exit, c_meta, c_fail, c_errors),
+        _bundle_shape(c_build_exit, c_meta, c_fail, c_errors,
+                      refused=bool(spec.get("refused"))),
         "",
         RULING16_NOTE,
     )
@@ -445,11 +478,14 @@ def build_bundle(name, spec):
         for n in fn_names:
             if not P.cite_line(text, rf"fn {n}\(", expect=1):
                 raise AssertionError(f"{name}: no `fn {n}` in source")
-        steps = bundle_steps(
-            "app.${ext}", harness_body, {"exit": "failure"},
-            json_output=json_output,
-            json_claims=envelope_build(errors=True) if json_output else None,
-            meta_fields=META)
+        if spec.get("refused"):
+            steps = _refused_build_steps(json_output)
+        else:
+            steps = bundle_steps(
+                "app.${ext}", harness_body, {"exit": "failure"},
+                json_output=json_output,
+                json_claims=envelope_build(errors=True) if json_output else None,
+                meta_fields=META)
         rationale = _bundle_rationale(
             name, spec, json_output, fn_names, repin, docs,
             c_helper, c_builder, c_build_exit, c_meta, c_fail, c_errors)
@@ -482,7 +518,37 @@ def _harness_body(text, helper, export):
     return body
 
 
-def _bundle_shape(c_build_exit, c_meta, c_fail, c_errors):
+def _refused_build_steps(json_output):
+    """The array-return re-pin: the build itself refuses, so it is the only step."""
+    argv = ["build", "--bundle", "--api", "browser"]
+    if json_output:
+        argv += ["--output", "json"]
+    argv += ["app.${ext}"]
+    step = {"args": argv, "exit": "failure"}
+    if json_output:
+        step["json"] = {"schemaVersion": 1, "command": "build", "success": False,
+                        "exitCode": 1,
+                        "errors": {"0": {"code": "E5506", "message": ARRAY_RETURN_REFUSAL}}}
+    else:
+        step["stderr_contains"] = ["E5506", ARRAY_RETURN_REFUSAL_NEEDLE]
+    return [step]
+
+
+def _bundle_shape(c_build_exit, c_meta, c_fail, c_errors, refused=False):
+    if refused:
+        return [
+            "ASSERTION SHAPE -- RE-PINNED 2026-10-02 by the array-return project, and NO",
+            "LONGER the source's. The source asserts the build succeeds"
+            f" ({c_build_exit}), pins",
+            f"the envelope ({c_errors}) and the metadata ({c_meta}), and then",
+            f"asserts the harness fails closed ({c_fail}). Kali now refuses",
+            "at BUILD time instead (E5506, the numeric-index fallback of spec",
+            "docs/superpowers/specs/2026-10-02-array-return-design.md section 3.3 backstop 1),",
+            "so each case is a single build step: `exit = \"failure\"` plus the E5506",
+            "stderr needles in text mode, or the failure envelope with errors.0 pinned to",
+            "E5506 in JSON mode. With no bundle emitted there is no meta-json or harness",
+            "step left to run.",
+        ]
     return [
         "ASSERTION SHAPE, mirrored from the source and nothing more.",
         f"`exit = \"success\"` on the `kali build --bundle` process: {c_build_exit}.",
@@ -542,9 +608,13 @@ def _bundle_rationale(name, spec, json_output, fn_names, repin, docs,
            if json_output else "")
         + f", asserts the emitted `app/app.meta.json` metadata ({c_meta}), then writes the "
           f"browser-bundle harness and runs it under node.",
-        f"THE BUILD SUCCEEDS; it is the HARNESS process that must fail closed ({c_fail}), so "
-        f"the `browser_bundle_harness` step carries `exit = \"failure\"` and no output claim -- "
-        f"the source makes none there, and inventing one would break rule 2.",
+        (f"In the source THE BUILD SUCCEEDS and it is the HARNESS process that must fail "
+         f"closed ({c_fail}); this case no longer mirrors that, because kali now refuses at "
+         f"build time (see the array-return re-pin below)."
+         if spec.get("refused") else
+         f"THE BUILD SUCCEEDS; it is the HARNESS process that must fail closed ({c_fail}), so "
+         f"the `browser_bundle_harness` step carries `exit = \"failure\"` and no output claim -- "
+         f"the source makes none there, and inventing one would break rule 2."),
         f"The program under test is {c_builder}; its text is the "
         f"byte-exact output of executing that real code (rules 8 and 9), never hand-derived.",
         f"RULE 12 -- the Rust comment prose of browser_{name}.rs, carried verbatim: "
@@ -552,6 +622,8 @@ def _bundle_rationale(name, spec, json_output, fn_names, repin, docs,
     ]
     if spec.get("amended"):
         parts.insert(4, spec["amended"])
+    if spec.get("refused"):
+        parts.insert(5 if spec.get("amended") else 4, spec["refused"])
     if docs:
         parts.append(P.rule13_carried(docs) + " That doc belongs to "
                      + spec["kc_fn"] + " (named plainly rather than backticked: U8's gate "

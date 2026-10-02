@@ -101,6 +101,27 @@ pub struct ReprTable {
     /// a SEPARATE lane from `array_bindings`' inline `[len][elem…]` layout.
     /// Misses fail closed (not growable == the pre-existing plain lane).
     growable_array_bindings: HashSet<(String, String)>,
+    /// Functions that return a runtime `[len][elem…]` array on every path,
+    /// with the element repr (array-return project, spec
+    /// docs/superpowers/specs/2026-10-02-array-return-design.md §3.1).
+    /// `return_repr` stays `I64` for them: the handle IS an i64.
+    array_returns: HashMap<String, Repr>,
+    /// Functions with at least one array-shaped return that are NOT
+    /// array-returning, with the refusal reason. Every entry is also a
+    /// shape conflict, so a program with one never reaches codegen.
+    array_return_taints: HashMap<String, &'static str>,
+    /// `(func, binding)` declared `const`/`let` with a bare-identifier call
+    /// to an array-returning function as its initializer. Narrower than
+    /// `array_bindings` on purpose: the resolver and codegen register a
+    /// runtime array from THIS set, never from `array_bindings`, which
+    /// over-proves array-ness for any bracket-indexed binding.
+    call_bound_array_bindings: HashSet<(String, String)>,
+    /// `(func, name)` where `name` is an array-returning function but a call
+    /// to `name` inside `func` does NOT resolve to that declaration: a
+    /// param/local/inner binding of that name (anywhere in `func` or a
+    /// lexically enclosing function, hoisting-aware) shadows it. A nested
+    /// `function name` declaration is not a shadow of itself.
+    shadowed_array_return_callees: HashSet<(String, String)>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
     /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
     /// shapes visible at the call site: a bare-identifier array binding, or a
@@ -597,6 +618,42 @@ impl ReprTable {
     pub fn is_growable_array_binding(&self, func: &str, binding: &str) -> bool {
         self.growable_array_bindings
             .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    pub fn set_array_return(&mut self, func: &str, elem: Repr) {
+        self.array_returns.insert(func.to_string(), elem);
+    }
+
+    pub fn array_return(&self, func: &str) -> Option<Repr> {
+        self.array_returns.get(func).copied()
+    }
+
+    pub fn set_array_return_taint(&mut self, func: &str, reason: &'static str) {
+        self.array_return_taints.insert(func.to_string(), reason);
+    }
+
+    pub fn array_return_taint(&self, func: &str) -> Option<&'static str> {
+        self.array_return_taints.get(func).copied()
+    }
+
+    pub fn set_call_bound_array_binding(&mut self, func: &str, binding: &str) {
+        self.call_bound_array_bindings
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    pub fn is_call_bound_array_binding(&self, func: &str, binding: &str) -> bool {
+        self.call_bound_array_bindings
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    pub fn set_array_return_callee_shadowed(&mut self, func: &str, name: &str) {
+        self.shadowed_array_return_callees
+            .insert((func.to_string(), name.to_string()));
+    }
+
+    pub fn is_array_return_callee_shadowed(&self, func: &str, name: &str) -> bool {
+        self.shadowed_array_return_callees
+            .contains(&(func.to_string(), name.to_string()))
     }
 
     /// Distinct NAMES of every growable-array binding across all functions.

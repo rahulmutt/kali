@@ -1785,53 +1785,47 @@ fn assert_browser_bundle_promise_all_sequencing(filename: &str, json_output: boo
     }
     let output = command.arg(&source_path).output().expect("run kali");
 
+    // RE-PINNED 2026-10-02 by the array-return project
+    // (docs/superpowers/specs/2026-10-02-array-return-design.md §3.3 backstop 1,
+    // measured in §4.1). OLD READING (`fefe62c60`): the build succeeded and the
+    // browser-bundle harness failed closed (a wasm `unreachable` trap) because
+    // `values[0]` / `values[1]` on the awaited `Promise.all` result reached the
+    // numeric-index fallback, which pushed a placeholder `0`, so the program's
+    // own guard threw; node v26.10.0 runs `promiseAllSmoke(1n, 2n)` to `0n`.
+    // That fallback now refuses with E5506, so the BUILD fails and no bundle
+    // exists for a harness to run. (The earlier PR #16 rev2 honest re-pin, family
+    // `promise`, pinned the harness failure; see
+    // docs/superpowers/followups/pr16-honest-repin-inventory.md.)
     assert!(
-        output.status.success(),
-        "stdout: {}\nstderr: {}",
+        !output.status.success(),
+        "must refuse at build: stdout: {}\nstderr: {}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-
-    let bundle_dir = dir.path().join("app");
-    let metadata: Value = serde_json::from_str(
-        &fs::read_to_string(bundle_dir.join("app.meta.json")).expect("read meta"),
-    )
-    .expect("parse metadata json");
-    assert_artifact_metadata_provenance(&metadata, "bundle", 16, None);
-    assert_eq!(metadata["apiSurface"], "browser");
-
-    let harness_path = bundle_dir
-        .parent()
-        .expect("bundle root parent")
-        .join("browser-bundle-smoke.mjs");
-    let harness = kali_runtime_contract::browser_bundle_harness_script(
-        "app",
-        false,
-        r#"const mod = await import(bundleJs.href);
-const result = await mod.promiseAllSmoke(1n, 2n);
-if (result !== 0n) {
-  throw new Error(`unexpected result ${result}`);
-}
-console.log(String(result));
-"#,
+    let refusal = "no lane proves this receiver is an array";
+    if json_output {
+        let envelope = parse_json_stdout(&output);
+        assert_eq!(envelope["schemaVersion"], 1);
+        assert_eq!(envelope["command"], "build");
+        assert_eq!(envelope["success"], false);
+        assert_eq!(envelope["exitCode"], 1);
+        let errors = envelope["errors"].as_array().expect("errors array");
+        assert!(
+            errors.iter().any(|error| error["code"] == "E5506"
+                && error["message"]
+                    .as_str()
+                    .is_some_and(|message| message.contains(refusal))),
+            "errors: {errors:?}"
+        );
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("E5506"), "stderr: {stderr}");
+        assert!(stderr.contains(refusal), "stderr: {stderr}");
+    }
+    assert!(
+        !dir.path().join("app").join("app.meta.json").exists(),
+        "a refused build must not emit a bundle"
     );
-    fs::write(&harness_path, harness).expect("write browser bundle harness");
-
-    let mut harness_command = browser_bundle_harness_command_parts();
-    let harness_executable = harness_command.remove(0);
-    let output = Command::new(&harness_executable)
-        .current_dir(&bundle_dir)
-        .args(&harness_command)
-        .arg(&harness_path)
-        .output()
-        .expect("run browser bundle harness");
-
-    // Honest re-pin (PR #16 rev2, family `promise`): the build step succeeds (its
-    // own success assert above holds honestly); kali fails closed/loud only at
-    // browser-bundle execution here — this helper's 4 worklist callers in
-    // runtime_smoke/build.rs are all class A — see
-    // docs/superpowers/followups/pr16-honest-repin-inventory.md.
-    assert!(!output.status.success(), "must fail closed: {output:?}");
 }
 
 fn assert_browser_bundle_unary_prefix_semantics(filename: &str, json_output: bool) {

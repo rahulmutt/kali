@@ -3196,7 +3196,7 @@ fn unwrap_transparent(expr: &Expression) -> &Expression {
 /// section invites a future project to replace it with real identity
 /// resolution — but it is ALSO what keeps Task 6's collision closed for these
 /// spellings, and relaxing it alone reopens R-66 in the new arms.
-fn expression_is_array_allocation(expr: &Expression) -> bool {
+pub(crate) fn expression_is_array_allocation(expr: &Expression) -> bool {
     match unwrap_transparent(expr) {
         Expression::NewExpression(new_expr) => match unwrap_transparent(&new_expr.callee) {
             Expression::CallExpression(call) => {

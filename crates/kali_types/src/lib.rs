@@ -4,6 +4,7 @@
 //! downstream compiler stages use to catch unresolved names and duplicate
 //! bindings before lowering.
 
+mod array_return;
 mod builtins;
 mod context;
 mod growable;

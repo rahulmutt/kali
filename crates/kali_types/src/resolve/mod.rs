@@ -2,7 +2,7 @@
 use crate::*;
 
 mod call;
-mod expression;
+pub(crate) mod expression;
 mod function;
 mod jsx;
 mod member;
@@ -971,6 +971,31 @@ impl TypeContext {
                 // string store / `.length` / `join` lanes require this
                 // structural proof, not the repr-table proof alone.
                 if self.declarator_registers_runtime_array(init) {
+                    if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                        scope
+                            .runtime_array_bindings
+                            .insert(declarator.id.clone(), true);
+                    } else if self.global_scope.contains(&declarator.id) {
+                        self.global_scope
+                            .runtime_array_bindings
+                            .insert(declarator.id.clone(), true);
+                    }
+                }
+                // Array-return lane (spec 2026-10-02 A1): `const b = f()` where
+                // `f` returns a runtime array. Keyed on the NARROW call-bound
+                // fact and on the init still being that call, mirroring
+                // codegen's declarator arm; never on `is_array_binding`, which
+                // over-proves (see `nameless_computed_member_is_admitted_by_a_runtime_lane`).
+                if declaration.kind != "var"
+                    && matches!(init, Expression::CallExpression(call)
+                        if self.call_returns_runtime_array(call))
+                    && self
+                        .binding_repr_function_key(&declarator.id)
+                        .is_some_and(|func| {
+                            self.repr_table
+                                .is_call_bound_array_binding(&func, &declarator.id)
+                        })
+                {
                     if let Some(scope) = self.scopes.get_mut(&target_scope) {
                         scope
                             .runtime_array_bindings

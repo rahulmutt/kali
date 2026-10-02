@@ -252,7 +252,16 @@
     "SILENT filter, and an entry outside that filter carries no assignment. Same shape as R-64's,",
     "R-66's and R-67's departures above: R-65 held its OWN singleton cluster definition",
     "(\"R-65 (unclustered)\"), so both it and its assignment leave together -- the R-56 precedent, not",
-    "the R-63 one, because R-56 was also a singleton. Nothing this project filed remains SILENT."
+    "the R-63 one, because R-56 was also a singleton. Nothing this project filed remains SILENT.",
+    "",
+    "REMOVED 2026-10-02 by the array-return project",
+    "(docs/superpowers/specs/2026-10-02-array-return-design.md): R-14 leaves. Both its oracle cases",
+    "(`r14_returned_array_reads_zeros_{module_scope,in_function}`) now assert FIXED -- kali prints",
+    "`r=1`, matching node v26.10.0 -- so it left the SILENT filter, and an entry outside that filter",
+    "carries no assignment. The gate `every_zero_two_row_is_the_class_set_its_live_cases_assert`",
+    "named the mismatch first and the §0.2 row followed it. N1's cluster DEFINITION stays: R-48 is",
+    "still a member and still SILENT, so this is the R-13 precedent (a member leaves a cluster that",
+    "survives), not the R-56 one."
   ],
   "clusters": [
     {
@@ -368,13 +377,6 @@
       "cluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost",
       "registerSource": "G7.",
       "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-14",
-      "cluster": "N1 — escape/provenance loss",
-      "registerSource": "unclustered (arena/escape suspicion, untraced).",
-      "alternate": "Paired with R-48 by §2's R-48 line, not by R-14's own.",
       "alternateCluster": null
     },
     {

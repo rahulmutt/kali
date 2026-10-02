@@ -560,15 +560,26 @@ impl<'a> FunctionEmitter<'a> {
                     }
                 }
 
+                // The floor (spec 2026-10-02 §3.3 backstop 1). Every lane above
+                // declined; this used to drop the receiver and push `0`, the
+                // silent value R-14 came out of. Emit the receiver first so a
+                // refusal specific to it wins, as the `.length` floor does.
+                let errors_before = self.diagnostics.iter().filter(|d| d.is_error()).count();
                 let produced = self.emit_node(function, arg, true);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
                 }
-                function.instruction(&Instruction::I64Const(0));
-                EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Unknown,
+                if self.diagnostics.iter().filter(|d| d.is_error()).count() > errors_before {
+                    function.instruction(&Instruction::Unreachable);
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
                 }
+                self.deny_e5506(
+                    function,
+                    "an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0",
+                )
             }
             "version" => {
                 if let Some(rendered) = self.render_package_json_version_access(arg) {
