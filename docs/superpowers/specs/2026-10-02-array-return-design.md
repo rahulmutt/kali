@@ -198,9 +198,10 @@ decision, and the default is *non-array*.
   `"it returns a growable array"`, `"it returns a `let`/`var` binding of an
   array literal, which can be reassigned"`, and (ruling R16) `"it returns a
   `const` binding of an array literal with computed elements, which kali would
-  re-evaluate at the return"`. A param that is a runtime array only because it
-  is subscripted (not array-fed, not call-bound) does not make `return p`
-  array-shaped for this taint (ruling R17); admission is unchanged.
+  re-evaluate at the return"`. A param subscripted in its body counts as a
+  runtime array here too, so `return v` beside a scalar return taints MIXED.
+  That refusal is deliberate: the untainted lane mis-lowers `typeof v` on such
+  a param (followups §18).
 * otherwise, untouched by this lane's facts: no `array_returns` or
   `array_return_tainted` entry. The inference graph is **not** byte-identical,
   though. Phase B now visits every `.fill(v)` value a second time (the

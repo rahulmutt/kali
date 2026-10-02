@@ -38,7 +38,8 @@ by how likely a reader is to hit them; several of them carry a `kali check` /
 `kali run` disagreement. §15 records the backstop that did land, and §16
 answers the brief's item about `callback_escape`. §17 and §18 were added by the
 final-review fix wave: §17 is a silent re-evaluation in the local fold lane,
-§18 the lanes ruling R17 hands back to the pre-project path.
+§18 why the MIXED refusal is kept for a subscripted param returned beside a
+scalar, and §19 lists ruling R15's branch-relative refusals and its blind spots.
 
 | brief item (Task 10 Step 4) | section |
 |---|---|
@@ -400,35 +401,71 @@ are not this project's lane.
 when every element is a number literal (as R16 does at the return) and
 allocate the rest at the declaration.
 
-## §18. Ruling R17: a subscripted param returned beside a scalar keeps its pre-project lane
+## §18. A subscripted param returned beside a scalar keeps the MIXED refusal (`typeof` on an array-treated param)
 
-Measured at `1e18b38fa` against node v26.10.0.
+Measured at the final-review fix wave against node v26.10.0.
 
 | program | node | kali `run` | kali `check` |
 |---|---|---|---|
-| `function head(v) { if (typeof v === "number") { return v; } return v[0]; } console.log(head(5));` | `5` | **`0`, exit 0** | exit 0 |
+| `function head(v) { if (typeof v === "number") { return v; } return v[0]; } console.log(head(5));` | `5` | exit 1, `E5506` "returning an array from `head` … it mixes array and non-array returns" | exit 1, same |
 | `function head(v) { if (typeof v === "number") { return 7; } return v[0]; } console.log(head(5));` (control: no array-shaped return) | `7` | **`0`, exit 0** | exit 0 |
-| `function head(v, n) { if (n === 0) { return v; } return v[0] + n; } console.log(head(new Array(3).fill(5), 1));` | `6` | exit 1, `E5506` "returning an array from `head` … it mixes array and non-array returns" | exit 1, same |
+| `function head(v, n) { if (n === 0) { return v; } return v[0] + n; } console.log(head(new Array(3).fill(5), 1));` | `6` | exit 1, same MIXED `E5506` | exit 1, same |
 
-At `2724509b8` the first row refused with the MIXED taint, because `v` (a param
-subscripted in its body) counted as a runtime array, so `return v` was
-array-shaped. Ruling R17 stops a subscripted-only param from counting for the
-taint, so `head` keeps its pre-project lane, and that lane is silent: kali's
-`typeof v === "number"` is false for a param it treats as an array, so it reads
-`v[0]` off the integer `5`. The control row has no array return at all and
-prints `0` the same way, so the defect is the `typeof` lowering, and the
-program took this lane before the project too (no MIXED taint existed).
+The final whole-branch review counted the first row as a capability loss of the
+MIXED taint, and a proposed ruling (R17) stopped a param that is an array only
+because it is subscripted from counting for that taint. The ruling was
+measured and **reversed**. Untainted, the first row printed `0` at exit 0
+where node prints `5`: kali's `typeof v === "number"` is false for a param it
+treats as an array (the param is subscripted), so it reads `v[0]` off the
+integer `5`. The control row has no array return at all and prints `0` the
+same way. So the defect is the pre-existing `typeof` lowering, the first row
+was silent before the project (no MIXED taint existed then), and the MIXED
+refusal is kept for this shape because it is the only thing that stops it.
 
-The third row is unchanged: every call passes an allocation, so `v` is
-array-fed, R17's exclusion keeps it array-shaped, and `head` still refuses.
-Before the project it carried no taint. No baseline binary was built; the
-control `function head(v, n) { if (n === 0) { return 0; } return v[0] + n; }`
-with the same call (no array-shaped return, so the pre-project lane) prints
-`6` at `1e18b38fa`, matching node, so the third row most likely printed `6`
-before the project too. It is a capability loss of the MIXED taint that R17
-does not recover.
+The third row's `v` is array-fed (every call passes an allocation), so it
+refuses MIXED as well. A control with no array-shaped return
+(`return 0` in place of `return v`) prints `6`, matching node, so this row most
+likely printed `6` before the project. That one is a real capability loss of
+the MIXED taint; kali has no "array or scalar" return repr to recover it with.
 
-**What it would cost:** the first row needs `typeof` on a param that is an
-array only by subscript to stay a runtime test (or to refuse). The third needs
-a return repr that is "array or scalar", which kali does not have; refusing is
-the honest floor.
+**What it would cost:** `typeof` on a param that is an array only by subscript
+must stay a runtime test (or refuse); only then can the MIXED taint be relaxed
+for the first row.
+
+## §19. Ruling R15: refusals relative to this branch, and blind spots
+
+Ruling R15 admits a returned element only when it is proven an integer
+number. These programs refuse with `E5506` "returning an array from `f` … an
+element is not an integer" under `check` and `run` (measured at the
+final-review fix wave, node v26.10.0). The element check before R15
+(`2724509b8`) admitted each of them, since it tested only the solved string and
+float axes; whether each then printed node's value was not re-measured:
+
+| kind | program | node |
+|---|---|---|
+| a `Math.*` element | `function f(x) { return [Math.floor(x), 1]; } const b = f(3); console.log(b[0]);` | `3` |
+| an object member read | `function f() { const o = { n: 4 }; return [o.n, 1]; } const b = f(); console.log(b[0]);` | `4` |
+| a param of an escaping function | `function f(x) { return [x, 1]; } const h = f; const b = f(2); console.log(b[0]);` | `2` |
+| a binding or param in a class-containing program | `class C {} function f(x) { return [x, 1]; } const b = f(2); console.log(b[0]);` | `2` |
+
+None of these computed at the baseline `368b5b5ea`: a returned array literal
+was never allocated (`emit_aggregate_literal` pushed `0`, spec §2.1), so every
+one read `0` there. They are not a loss against the baseline, only possibly
+against this branch's own intermediate commits. Admitting them needs a number proof for
+the builtin call (`Math.floor` of a proven number), for an object field (the
+`numeric_shape_fields` proof), for calls through an escaping value, and for
+code in class bodies.
+
+**Blind spots shared with the string and float element checks.** The proof
+sees every store the body walk records into an element node. It does not see:
+
+* a store from a closure: the arrow's `a[0] = …` is keyed under the arrow, not
+  the outer binding (`function f() { const a = new Array(2).fill(0); const s = () => { a[0] = 1.5; }; s(); return a; }` refuses for an unrelated reason,
+  computed member access in the arrow, so no silent row was found);
+* mutation through a method it does not model: `function f() { const a = new Array(2).fill(0); a.unshift(9); return a; } const b = f(); console.log(b[0]);`
+  prints `0` where node prints `9` (exit 0, `check` exits 0), and `a.splice(0, 1, 9)` prints `0` where
+  node prints `9` the same way. A non-number inserted this way would reach a
+  caller unproven.
+
+The solved element repr (string/float) misses the same stores, so these are
+gaps of the runtime-array element analysis, not of R15 alone.
