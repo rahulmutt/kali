@@ -12,6 +12,11 @@
 | item picked | `docs/superpowers/followups/inline-allocation-value-position-discovered-defects.md` §1, "A returned or passed-through allocation, rebound, reads zeros — cross-reference R-14" |
 | defects this closes | R-14 (both scopes, literal and allocation returns, bound and direct forms); the whole-array `console.log` handle print (§2.4) |
 
+**Oracle note (appended by the final-review fix wave).** `node v26.8.2` above
+is the oracle this spec was written against; it is not installed on the
+machine the branch was built on. Every measurement on this branch, the
+baseline table included, used `node v26.10.0` (ruling R1).
+
 **Scope was chosen by the human partner:** R-14 alone (§1 of the item), not the
 N1 family. R-48 (`inline-allocation-value-position-discovered-defects.md` §2) is
 measured as a control only. A returned array becomes a **real value** for
@@ -171,11 +176,11 @@ and stays `I64`, which is exactly what an array handle is at the Wasm level.
 
 | class | shapes | element repr |
 |---|---|---|
-| *literal* | an array literal, empty or with only `I64`-solving elements; **or an identifier bound by `const` to such a literal** (amendment A2) | `I64` |
+| *literal* | an array literal, empty or with only `I64`-solving elements; **or an identifier bound by `const` to a literal whose elements are all number literals, optionally under unary `-`/`+`** (amendment A2, ruling R16) | `I64` |
 | *binding* | an identifier that is a **runtime** array of the function: a `new Array`/`.fill` local, an array param (`is_array_binding`), an array-fed param (amendment A3), or a call-bound array local (§3.1, call site) | that binding's solved `array_element` |
 | *allocation* | `new Array(n)`, `new Array(n).fill(v)` | the allocation's solved element repr |
 | *call* | a call to another array-returning function | that function's element repr |
-| *bad-array* | an array literal with any non-`I64` element (float, string, boolean, nested array, object, spread, hole); an identifier bound by `let`/`var` to an array literal; a growable binding; any of the above whose element repr is not `I64` | — |
+| *bad-array* | an array literal with any non-`I64` element (float, string, boolean, nested array, object, spread, hole); an identifier bound by `let`/`var` to an array literal; an identifier bound by `const` to a literal with a computed element (ruling R16); a growable binding; any of the above whose element repr is not `I64` | — |
 | *non-array* | anything else, including a bare `return;` | — |
 
 The classifier is an **exhaustive match with no wildcard arm** over the
@@ -190,9 +195,40 @@ decision, and the default is *non-array*.
 * **array-tainted** with a reason: at least one return is array-shaped (any
   class but *non-array*), and the function is not array-returning. Reasons are
   `"it mixes array and non-array returns"`, `"an element is not an integer"`,
-  `"it returns a growable array"`, and `"it returns a `let`/`var` binding of an
-  array literal, which can be reassigned"`.
-* otherwise, untouched. Every program with no array return is byte-identical.
+  `"it returns a growable array"`, `"it returns a `let`/`var` binding of an
+  array literal, which can be reassigned"`, and (ruling R16) `"it returns a
+  `const` binding of an array literal with computed elements, which kali would
+  re-evaluate at the return"`. A param that is a runtime array only because it
+  is subscripted (not array-fed, not call-bound) does not make `return p`
+  array-shaped for this taint (ruling R17); admission is unchanged.
+* otherwise, untouched by this lane's facts: no `array_returns` or
+  `array_return_tainted` entry. The inference graph is **not** byte-identical,
+  though. Phase B now visits every `.fill(v)` value a second time (the
+  declarator's side sink, beside the `fill` call arm) and every integer-shaped
+  array-literal return's elements (into the `%return` element node). That adds
+  nodes and edges, and a duplicate `CallEdge` when `v` contains a call. An
+  R8-exempt binding filled with a float (`const a = new Array(2).fill(1.5)` in
+  an uncalled function) now solves its element `F64`. The ruling-R15 proof
+  below adds bookkeeping only (no node, edge or seed).
+
+**The element proof (ruling R15).** `"an element is not an integer"` is a
+**positive** proof, not only the solved element repr. After solving, an
+admitted function's returned element class (its `%return` element node, with
+every element node unioned into it by call-bound, array-fed and binding
+returns and by `resolve_calls`) is admitted only when every value stored into
+it is proven an integer number, and every array it aliases was made by a form
+whose elements are accounted for. A value is proven when it is an integer
+literal; `-`/`+`/`~`, `++`/`--` or `+ - * % | & ^ << >> >>>` over proven
+values; a param of a non-escaping, once-declared function whose every call
+site passes a proven value; a declared binding every write of which (the
+numeric-binding proof's write frontier) is proven; a call to a function every
+return of which is proven; or an element read or `.length` of a proven array.
+Anything else taints the function with this reason: an array (a runtime
+array binding, a call to an array-returning function), an object, `null`,
+`undefined` (including an uninitialized `let`), the `NaN`/`Infinity`
+identifiers, a BigInt, a boolean, a float. The proof is a greatest fixed
+point, so recursion (`f(n - 1)`) and arrays passed back and forth keep their
+admission.
 
 Recursion and mutual recursion (`call` returns) are solved by a fixed point that
 starts optimistic, with every candidate array-returning, and demotes until
@@ -317,7 +353,12 @@ return through `resolve_literal_aggregate`, which already follows a binding to
 its literal, as the object arm does. This is sound only because a literal array
 cannot be mutated: that already refuses with "mutating a literal array is
 unavailable". A `let`/`var` literal binding is *bad-array*, since it can be
-reassigned.
+reassigned. **Ruling R16 narrows A2:** the binding is the *literal* class only
+when every element is a number literal (optionally under unary `-`/`+`),
+because the return re-evaluates the elements, which gives the declaration's
+values only when none is computed (`let x = 1; const a = [x]; x = 2; return
+a;` returned `[2]`, and `const a = [t()]` called `t` twice); any other `const`
+literal binding that is returned is *bad-array* with its own reason.
 
 **A3 — S5's parameter is not an array binding today.** In `function f(x){return
 x;}`, `x` is never subscripted, so it has no element node and

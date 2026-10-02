@@ -2513,16 +2513,30 @@ tier, ordering is by blast radius.
   (`emit_aggregate_literal` pushed `0`), and the caller's `a[0]` fell into the
   numeric-index fallback (`emit/operators.rs`), which pushed `0` too. The
   arena hypothesis above is refuted. A `function` declaration returning
-  integer arrays now hands back a real array in both scopes, bound or direct;
-  every other array-shaped return **from a `function` declaration** refuses
-  with `E5506`. That is the whole of the closure: other function forms keep
+  integer arrays now hands back a real array in both scopes, bound or direct.
+  A return the classifier calls array-shaped but cannot make real (mixed
+  array and non-array returns, an element not proven an integer, a growable
+  binding, a `let`/`var` literal binding, a `const` literal binding with a
+  computed element) refuses with `E5506` under `kali check` and `kali run`
+  alike. That is the whole of the closure. **Not every array-shaped return
+  refuses** (re-measured 2026-10-02 at `1e18b38fa` against node v26.10.0;
+  `kali check` exits 0 on every row): a ternary or logical return
+  (`return c ? [1,2] : [3,4]`, `return a || [1,2]`, `return a && [1,2]`) is
+  not array-shaped to the classifier. Its direct index and bound forms
+  (`f(true)[1]`, `const a = f(true); a[1]`) refuse at `kali run` only, through
+  codegen's backstop 1. Passing it on (`g(f(true))` with `g(x){return x[1]}`)
+  prints `0` where node prints `2`; `.length` through a param prints `0`
+  where node prints `2`; printing it (`console.log(f(true))`) prints `0` where
+  node prints `[ 1, 2 ]`; and `a || [1,2]` passed on prints `0` where node
+  prints `2` (`&&` the same). Other function forms keep
   their pre-project lanes, and some of those are still silent. An arrow or
   function-expression array return passed on to an array parameter still
   reads `0`, an exported (uncalled) array-returning declaration hands the
   host a heap handle or its old `0`, and async and generator declarations are
   not candidates at all. See
-  `docs/superpowers/followups/array-return-discovered-defects.md` §1, §7 and
-  §12. R-14 is CLOSED for its own repro shape, a `function` declaration.
+  `docs/superpowers/followups/array-return-discovered-defects.md` §1, §7, §9
+  and §12. R-14 is CLOSED for its own repro shape, a `function` declaration
+  returning an array literal.
   Oracle cases
   `r14_returned_array_reads_zeros_{module_scope,in_function}` measure CORRECT.
 

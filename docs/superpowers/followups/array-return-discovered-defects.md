@@ -31,10 +31,14 @@ runtime-array lane that this project made reachable from a call. §5 and §6 are
 cross-references to existing register entries (R-48, R-21). §7 is a silent
 host-visible value with no in-program reader. §8 is the backstop that was
 measured and dropped, so a silent placeholder lane stays open with no guard.
-§9-§14 fail closed (an honest `E5506` or another diagnostic), and are ranked
+§9-§14 fail closed (an honest `E5506` or another diagnostic), except §9's
+pass-on, `.length` and print rows, which are silent (the section's first title
+overclaimed; see §9), and are ranked
 by how likely a reader is to hit them; several of them carry a `kali check` /
 `kali run` disagreement. §15 records the backstop that did land, and §16
-answers the brief's item about `callback_escape`.
+answers the brief's item about `callback_escape`. §17 and §18 were added by the
+final-review fix wave: §17 is a silent re-evaluation in the local fold lane,
+§18 the lanes ruling R17 hands back to the pre-project path.
 
 | brief item (Task 10 Step 4) | section |
 |---|---|
@@ -133,8 +137,8 @@ call-bound binding is the closure-environment lane's work.
 
 | program | node | kali |
 |---|---|---|
-| `function f(x){ const t = x > 1; return [t]; } console.log(f(2)[0]);` | `true` | `1`, exit 0 |
-| `function f(x){ const t = x > 1; return [t, x]; } function main(){ const b = f(2); console.log(b[0]); } main();` | `true` | `1`, exit 0 |
+| `function f(x){ const t = x > 1; return [t]; } console.log(f(2)[0]);` | `true` | `1`, exit 0 at `d2202ed4b`; exit 1, `E5506` "… an element is not an integer" at `1e18b38fa` (ruling R15) |
+| `function f(x){ const t = x > 1; return [t, x]; } function main(){ const b = f(2); console.log(b[0]); } main();` | `true` | `1`, exit 0 at `d2202ed4b`; exit 1, same `E5506` at `1e18b38fa` |
 | `function main(){ const t = 3 > 1; const a = new Array(2).fill(t); console.log(a[0]); } main();` | `true` | `1`, exit 0 |
 | probe `boolean_elements`: `function f() { return [true, false]; } function main() { const a = f(); console.log(a[0]); } main();` | `true` | exit 1, `E5506` "returning an array from `f` … an element is not an integer" |
 
@@ -144,6 +148,12 @@ to that check, so it is admitted, stored as `1`, and read back as an integer.
 The `.fill(t)` row involves no return at all, so the gap is in the
 runtime-array element repr, not in this project's classifier. It is the R-30
 family (no `Repr::Boolean` axis) reaching array elements.
+
+**Update (final-review fix wave, ruling R15).** The two return rows now refuse
+under `check` and `run`: a returned element is admitted only when positively
+proven an integer number, and `t`'s only write, `x > 1`, is a comparison. The
+`.fill(t)` row (`1`, exit 0, re-measured at `1e18b38fa`) is unchanged, since it
+returns nothing.
 
 **What it would cost:** narrowing the element check to refuse any element
 whose inferred repr is boolean is cheap and closes the return rows. The
@@ -239,19 +249,34 @@ a parent link on `LirNode`), then the narrowed backstop re-measured against
 the (b) table above. Why the unnarrowed refusal reached 2501 tests was not
 investigated.
 
-## §9. A ternary array return refuses
+## §9. A ternary or logical array return: the direct and bound forms refuse, every other use is silent
 
-| program | node | kali |
-|---|---|---|
-| `function f(c){ return c ? [1] : [2]; } console.log(f(true)[0]);` | `1` | exit 1, `E5506` "no lane proves this receiver is an array" |
-| `function f(c){ return c ? [1,2] : [3,4]; } function main(){ const b = f(false); console.log(b[0]); } main();` | `3` | exit 1, same `E5506` |
+This section's first title, "A ternary array return refuses", overclaimed
+(final whole-branch review). Re-measured at `1e18b38fa`, node v26.10.0:
 
-`kali check` exits 0 on both, and only codegen refuses (backstop 1). The
-classifier calls `c ? [..] : [..]` `NonArray`, so `f` is not array-returning
-and its literals keep the placeholder lane. The refusal is honest. The work to
-admit it would be a `Conditional` arm in the return classifier that requires
-both branches to be admitted literals or allocations, plus a materializing
-return arm per branch.
+| program | node | kali `run` | kali `check` |
+|---|---|---|---|
+| `function f(c){ return c ? [1] : [2]; } console.log(f(true)[0]);` | `1` | exit 1, `E5506` "no lane proves this receiver is an array" | exit 0 |
+| `function f(c){ return c ? [1,2] : [3,4]; } function main(){ const b = f(false); console.log(b[0]); } main();` | `3` | exit 1, same `E5506` | exit 0 |
+| `function f(c) { return c ? [1, 2] : [3, 4]; } function g(x) { return x[1]; } console.log(g(f(true)));` | `2` | **`0`, exit 0** | exit 0 |
+| `function f(c) { return c ? [1, 2] : [3, 4]; } function g(x) { return x.length; } console.log(g(f(true)));` | `2` | **`0`, exit 0** | exit 0 |
+| `function f(c) { return c ? [1, 2] : [3, 4]; } console.log(f(true));` | `[ 1, 2 ]` | **`0`, exit 0** | exit 0 |
+| `function f(a) { return a \|\| [1, 2]; } function g(x) { return x[1]; } console.log(g(f(0)));` | `2` | **`0`, exit 0** | exit 0 |
+| `function f(a) { return a && [1, 2]; } function g(x) { return x[1]; } console.log(g(f(1)));` | `2` | **`0`, exit 0** | exit 0 |
+
+The classifier calls a `ConditionalExpression` or `LogicalExpression` return
+`NonArray`, so `f` is neither array-returning nor tainted and its literals keep
+the placeholder lane (§8). Only a read that reaches codegen's numeric-index
+floor refuses: the direct index and the bound index (backstop 1, codegen only,
+so `check` and `run` disagree). Passing the result to an array param, `.length`
+through that param, and printing it never reach that floor and print `0`.
+These rows are silent wrong values and belong with §1-§6 by consequence; they
+stay numbered here so existing citations hold. The work to admit them would be
+`Conditional`/`Logical` arms in the return classifier that require every
+branch to be an admitted literal or allocation, plus a materializing return
+arm per branch. The cheaper fail-closed step is to classify such a return as
+*bad-array* when any branch is array-shaped, which taints `f` and refuses all
+seven rows under `check` and `run`.
 
 ## §10. Assignment and destructuring from an array-returning call refuse
 
@@ -262,6 +287,7 @@ return arm per branch.
 | `function f(){ return [1,2,3]; } function main(){ let b; b = f(); console.log(b[1]); } main();` | `2` | exit 1, `E5506` "reassigning an array binding to a non-array value …" | exit 1, same |
 | `function f(){ return [1,2,3]; } function main(){ const [x] = f(); console.log(x); } main();` | `1` | exit 1, `E5506` "a reserved word cannot be used as a binding name" | exit 1, same |
 | `function f(){ return [1,2,3]; } const [x, y] = f(); console.log(x + "," + y);` | `1,2` | exit 1, same `E5506` | exit 1, same |
+| `function g(){ return [4,5]; } function main(){ let c = 0; [c] = g(); console.log(c); } main();` | `4` | **`0`, exit 0** | exit 0 |
 
 Spec §3.1 keeps assignment on its refusing lane, and so does probe
 `reassign_control`. The first two rows refuse only in codegen, so `check` and
@@ -271,6 +297,13 @@ describe the program, since there is no reserved word in it. The parser's
 accepts only a binding-name token, so every array pattern gets this message
 whatever its initializer. It is not this project's refusal, and destructuring
 is unsupported in general.
+
+The last row (added by the final-review fix wave, measured at `1e18b38fa`) is
+destructuring **assignment**, not a declaration, and it is silent: kali prints
+`0` where node prints `4`. It is pre-existing across kali, not this project's
+lane: `repr_infer`'s `visit_assignment` already records that a destructuring
+assignment is a runtime no-op ("`let a = 0n; [a] = [1n]; console.log(a)` prints
+`0`"), and it taints the target names rather than modelling the write.
 
 ## §11. Non-`I64` element arrays refuse
 
@@ -305,7 +338,7 @@ It now refuses, but only in codegen, so `kali check` admits a program that
 
 | program | node | kali `run` | kali `check` | note |
 |---|---|---|---|---|
-| `function f(x){ x[0]; return x; } console.log(f(5));` | `5` | exit 1, `E5506` "printing a whole runtime array …" | exit 0 | A param subscripted in its body counts as a runtime array (spec-sanctioned), so `f` is array-returning. It is admitted although `5` is passed, and only the console guard stops it. |
+| `function f(x){ x[0]; return x; } console.log(f(5));` | `5` | exit 1, `E5506` "returning an array from `f` … an element is not an integer" (at `d2202ed4b`: "printing a whole runtime array …") | exit 1, same (at `d2202ed4b`: exit 0) | A param subscripted in its body counts as a runtime array (spec-sanctioned), so `f` is array-returning. Since ruling R15 the returned elements need a proof, and the scalar argument `5` is not an array whose elements are accounted for, so `f` is tainted and `check` and `run` agree. |
 | `function f(){ return [1,2,3]; } console.log(f()["length"]);` | `3` | exit 1, `E5506` "rendering a String() result bound to a variable … or returned from a function …" | exit 0 | A string-literal index. The message does not describe the program. Pre-existing for `new Array` bindings. |
 | `function f(){ return [1,2,3]; } console.log(f()["2"]);` | `3` | exit 1, same `E5506` | exit 0 | same |
 | `function f(){ return [1,2,3]; } function main(){ const b=f(); console.log(b["length"]); } main();` | `3` | exit 1, same `E5506` | exit 0 | same |
@@ -343,3 +376,59 @@ node `3,2`) reads REFUSES at `d2202ed4b` (`E5506` "array callback method 'map'
 is unavailable …"), as it did at Task 7. Brief item 8 asks for an entry only if
 the verdict is neither CORRECT nor REFUSES, so this section records the
 measurement and nothing more.
+
+## §17. A local `const` array literal with a computed element is re-evaluated at each read (R-07 class)
+
+Filed by the final-review fix wave (ruling R16), measured at `1e18b38fa`
+against node v26.10.0. `kali check` exits 0 on both.
+
+| program | node | kali `run` |
+|---|---|---|
+| `function main() { let x = 1; const a = [x]; x = 2; console.log(a[0]); } main();` | `1` | **`2`, exit 0** |
+| `function t() { console.log("tick"); return 1; } function main() { const a = [t()]; console.log("between"); console.log(a[0]); } main();` | `tick` `between` `1` | **`tick` `between` `tick` `1`, exit 0** |
+
+A `const` array literal is fold-lane: codegen never allocates it and folds each
+read back to the literal's element expression, so the element is evaluated at
+the read, not at the declaration. This is register R-07's class in the local
+fold lane. Ruling R16 closed the same defect where this project exposed it, at
+a `return` (a `const` literal binding with a computed element now refuses with
+"it returns a `const` binding of an array literal with computed elements, which
+kali would re-evaluate at the return"). The local rows above return nothing and
+are not this project's lane.
+
+**What it would cost:** the fold lane would have to fold a `const` literal only
+when every element is a number literal (as R16 does at the return) and
+allocate the rest at the declaration.
+
+## §18. Ruling R17: a subscripted param returned beside a scalar keeps its pre-project lane
+
+Measured at `1e18b38fa` against node v26.10.0.
+
+| program | node | kali `run` | kali `check` |
+|---|---|---|---|
+| `function head(v) { if (typeof v === "number") { return v; } return v[0]; } console.log(head(5));` | `5` | **`0`, exit 0** | exit 0 |
+| `function head(v) { if (typeof v === "number") { return 7; } return v[0]; } console.log(head(5));` (control: no array-shaped return) | `7` | **`0`, exit 0** | exit 0 |
+| `function head(v, n) { if (n === 0) { return v; } return v[0] + n; } console.log(head(new Array(3).fill(5), 1));` | `6` | exit 1, `E5506` "returning an array from `head` … it mixes array and non-array returns" | exit 1, same |
+
+At `2724509b8` the first row refused with the MIXED taint, because `v` (a param
+subscripted in its body) counted as a runtime array, so `return v` was
+array-shaped. Ruling R17 stops a subscripted-only param from counting for the
+taint, so `head` keeps its pre-project lane, and that lane is silent: kali's
+`typeof v === "number"` is false for a param it treats as an array, so it reads
+`v[0]` off the integer `5`. The control row has no array return at all and
+prints `0` the same way, so the defect is the `typeof` lowering, and the
+program took this lane before the project too (no MIXED taint existed).
+
+The third row is unchanged: every call passes an allocation, so `v` is
+array-fed, R17's exclusion keeps it array-shaped, and `head` still refuses.
+Before the project it carried no taint. No baseline binary was built; the
+control `function head(v, n) { if (n === 0) { return 0; } return v[0] + n; }`
+with the same call (no array-shaped return, so the pre-project lane) prints
+`6` at `1e18b38fa`, matching node, so the third row most likely printed `6`
+before the project too. It is a capability loss of the MIXED taint that R17
+does not recover.
+
+**What it would cost:** the first row needs `typeof` on a param that is an
+array only by subscript to stay a runtime test (or to refuse). The third needs
+a return repr that is "array or scalar", which kali does not have; refusing is
+the honest floor.
