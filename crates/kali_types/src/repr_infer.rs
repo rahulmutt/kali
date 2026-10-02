@@ -346,6 +346,31 @@ fn expr_is_write_free(name: &str, expr: &Expression) -> bool {
     }
 }
 
+/// True when `statements` contain a class declaration or class expression
+/// ANYWHERE, at any depth and in any position. Exhaustive by construction:
+/// it searches the serialized AST (externally tagged enums, so a class node is
+/// an object key `ClassDeclaration`/`ClassExpression`, or the `kind` tag of an
+/// `export default class`), rather than a hand-written walker that a new AST
+/// position could slip past. A serialization failure answers `true`
+/// (fail-closed: it only declines admission).
+fn program_contains_class(statements: &[Statement]) -> bool {
+    fn is_class_tag(name: &str) -> bool {
+        name == "ClassDeclaration" || name == "ClassExpression"
+    }
+    fn search(value: &serde_json::Value) -> bool {
+        match value {
+            serde_json::Value::Object(map) => map.iter().any(|(key, v)| {
+                is_class_tag(key)
+                    || (key == "kind" && v.as_str().is_some_and(is_class_tag))
+                    || search(v)
+            }),
+            serde_json::Value::Array(items) => items.iter().any(search),
+            _ => false,
+        }
+    }
+    serde_json::to_value(statements).map_or(true, |value| search(&value))
+}
+
 /// A deferred interprocedural call constraint, resolved after every function
 /// body has been walked (so all param/return/element nodes already exist).
 struct CallEdge {
@@ -750,13 +775,23 @@ struct ReprInfer {
     /// `(func, binding)` declared `const`/`let` with an allocation initializer:
     /// the runtime arrays codegen's declarator lanes already allocate.
     allocation_bindings: BTreeSet<(String, String)>,
-    /// `(func, binding)` allocation bindings spelled `new Array(n).fill(v)`, to
-    /// a node `v` flows into. The declarator lane never visits `v`, so the
-    /// binding's own element node does not see it; Phase C0 joins this node to
-    /// an admitted function's return element node only, so the emit-time
-    /// element check sees a float/string fill without moving the binding's
-    /// existing element repr.
-    allocation_fill_nodes: BTreeMap<(String, String), usize>,
+    /// `(func, binding)` -> a node that element values the declarator lane
+    /// never visits flow into: the `v` of an allocation spelled `new
+    /// Array(n).fill(v)`, and the elements of a WRAPPED `const` array literal
+    /// (`([x, 1])`, `[x, 1] as number[]`, which `init_is_array` /
+    /// `note_array_init` do not see through). Phase C0 joins this node to an
+    /// admitted function's return element node only, so the emit-time element
+    /// check sees those values without moving the binding's existing element
+    /// repr.
+    binding_elem_sinks: BTreeMap<(String, String), usize>,
+    /// `(func, binding)` allocation bindings declared `let` (reassignable).
+    let_allocation_bindings: BTreeSet<(String, String)>,
+    /// True when some code Phase B never walks could write a binding: a class
+    /// (no class body is walked) or a fn-expr/arrow in an exotic unseeded
+    /// position (`nested_fns_registered − nested_fns_seeded`). Then every
+    /// `let` call-bound binding and `let` allocation base is declined, since
+    /// `array_return_written_names` cannot be complete (fix round 1).
+    array_return_unwalked_code: bool,
     /// `(func, binding)` call-bound candidates declared `let` (reassignable):
     /// admitted only when `array_return_written_names` never names them.
     let_call_bound_bindings: BTreeSet<(String, String)>,
@@ -1074,6 +1109,10 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // the axes are solved. Module scope (`_start`) is deliberately not
     // analyzed: a module-level push receiver keeps the plain lane.
     infer.collect_growable_candidates(statements);
+
+    // Array-return lane (fix round 1): a class body is never walked, so its
+    // writes are invisible to `array_return_written_names`.
+    infer.array_return_unwalked_code = program_contains_class(statements);
 
     // P3 Task 2: `abort_controller_shadowed` and `abort_bindings` are both
     // populated DURING Phase B below (inline in `visit_stmt`/
@@ -2880,7 +2919,11 @@ impl ReprInfer {
                         // Spec 4a Task 5: `return c` where `c` is an active
                         // for-in key lifts the key (hence the return) to String.
                         self.seed_for_in_key_string_use(func, arg);
-                        let rn = match (&class, arg) {
+                        // Match the UNWRAPPED argument: the classifier sees
+                        // through parentheses / `as` / `satisfies`, so the
+                        // element routing must too, or a wrapped literal's
+                        // elements never reach `%return` (fix round 1).
+                        let rn = match (&class, crate::array_return::unparen(arg)) {
                             // An integer-shaped array literal: its elements flow
                             // into the function's return element node, so their
                             // repr is solved like any array's. `visit_expr` has
@@ -2888,12 +2931,12 @@ impl ReprInfer {
                             // element), so no element is visited twice.
                             (
                                 crate::array_return::ReturnArg::Literal(None),
-                                Expression::ArrayExpression(_),
+                                literal @ Expression::ArrayExpression(_),
                             ) => {
                                 self.note_array_init(
                                     func,
                                     crate::array_return::RETURN_ARRAY_KEY,
-                                    arg,
+                                    literal,
                                 );
                                 self.new_node()
                             }
@@ -3159,6 +3202,23 @@ impl ReprInfer {
                             if crate::array_return::literal_elements_are_integer_shaped(arr)
                     );
                     if integer_shaped {
+                        if !self.init_is_array(init) {
+                            // A wrapped literal: `note_array_init` never feeds
+                            // `id`'s element node, so feed a side sink.
+                            if let Expression::ArrayExpression(arr) =
+                                crate::array_return::unparen(init)
+                            {
+                                let sink = self.new_node();
+                                for element in arr.elements.iter().flatten() {
+                                    if let kali_ast::ExpressionOrSpread::Expression(expr) = element
+                                    {
+                                        let en = self.visit_expr(func, expr);
+                                        self.add_edge(en, sink);
+                                    }
+                                }
+                                self.binding_elem_sinks.insert(key.clone(), sink);
+                            }
+                        }
                         self.const_literal_array_bindings.insert(key);
                     } else {
                         self.const_bad_literal_array_bindings.insert(key);
@@ -3174,7 +3234,10 @@ impl ReprInfer {
                         let vn = self.visit_expr(func, value);
                         let sink = self.new_node();
                         self.add_edge(vn, sink);
-                        self.allocation_fill_nodes.insert(key.clone(), sink);
+                        self.binding_elem_sinks.insert(key.clone(), sink);
+                    }
+                    if kind == "let" {
+                        self.let_allocation_bindings.insert(key.clone());
                     }
                     self.allocation_bindings.insert(key);
                 }
@@ -4971,13 +5034,19 @@ impl ReprInfer {
         // A reassigned `let` call-bound binding, and a name declared twice in
         // its function, are never call-bound arrays.
         let written = &self.array_return_written_names;
+        let unwalked = self.array_return_unwalked_code
+            || !self
+                .nested_fns_registered
+                .is_subset(&self.nested_fns_seeded);
+        let let_allocations = &self.let_allocation_bindings;
         let let_bound = &self.let_call_bound_bindings;
         let shadowed = &self.shadowed_index_names;
         self.array_return_facts
             .call_bound
             .retain(|(caller, binding, _)| {
                 let key = (caller.clone(), binding.clone());
-                !shadowed.contains(&key) && !(let_bound.contains(&key) && written.contains(binding))
+                !shadowed.contains(&key)
+                    && !(let_bound.contains(&key) && (unwalked || written.contains(binding)))
             });
         let params: BTreeMap<String, Vec<String>> = self
             .functions
@@ -4990,7 +5059,8 @@ impl ReprInfer {
             let key = (func.to_string(), name.to_string());
             (allocation_bindings.contains(&key)
                 && !shadowed.contains(&key)
-                && !written.contains(name))
+                && !written.contains(name)
+                && !(unwalked && let_allocations.contains(&key)))
                 || (params
                     .get(func)
                     .is_some_and(|ps| ps.iter().any(|p| p == name))
@@ -5036,7 +5106,7 @@ impl ReprInfer {
                     ReturnArg::Binding(n) | ReturnArg::Literal(Some(n)) => {
                         let n_elem = self.array_elem_node_for(f, &n);
                         self.uf.union(f_elem, n_elem);
-                        if let Some(&fill) = self.allocation_fill_nodes.get(&(f.clone(), n)) {
+                        if let Some(&fill) = self.binding_elem_sinks.get(&(f.clone(), n)) {
                             self.add_edge(fill, f_elem);
                         }
                     }

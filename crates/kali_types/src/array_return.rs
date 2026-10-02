@@ -259,7 +259,9 @@ pub(crate) struct ArrayReturnFacts {
 /// unknown) carries [`ArgShape::Other`], so such a param is never array-fed. A
 /// callee or argument-call name that the caller shadows with a param or local
 /// is not a call to the declared function: such an edge is dropped, and such
-/// an argument is `Other`.
+/// an argument is `Other`. A param not proven never-written in its own body
+/// (`repr_infer`'s `readonly_params`) gets no feed at all, so a written param
+/// is never array-fed.
 #[derive(Clone, Debug)]
 pub(crate) struct Feed {
     pub(crate) caller: String,

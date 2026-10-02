@@ -1893,3 +1893,81 @@ fn array_return_uncalled_function_is_not_tainted() {
     let t = reprs("function f() { return [1, 2]; }\n");
     assert_eq!(t.array_return("f"), Some(Repr::I64));
 }
+
+// Fix round 1: a wrapped array literal (parentheses / `as` / `satisfies`) is
+// the literal class, so its elements must reach the element check.
+#[test]
+fn array_return_wrapped_literals_feed_the_element_check() {
+    for src in [
+        "function f(x) { return ([x]); }\nconst a = f(1.5);\n",
+        "function f(x: number) { return [x] as number[]; }\nconst a = f(1.5);\n",
+        "function f(x) { const a = ([x]); return a; }\nconst b = f(1.5);\n",
+        "function f(x: number) { const a = [x] as number[]; return a; }\nconst b = f(1.5);\n",
+    ] {
+        let t = reprs(src);
+        assert_eq!(t.array_return("f"), None, "{src}");
+        assert_eq!(
+            t.array_return_taint("f"),
+            Some(kali_common::ARRAY_RETURN_ELEMENT),
+            "{src}"
+        );
+    }
+    // Integer elements through the same wrappers stay admitted.
+    for src in [
+        "function f() { return ([1, 2]); }\nconst a = f();\n",
+        "function f() { const a = ([1, 2]); return a; }\nconst b = f();\n",
+    ] {
+        assert_eq!(reprs(src).array_return("f"), Some(Repr::I64), "{src}");
+    }
+}
+
+// Fix round 1: a wrapped allocation (`(new Array(n))`, `new Array(n) as T`)
+// is kept as a base runtime array: codegen's declarator lane allocates it
+// (measured with `kali run`: `const a = (new Array(2)); a[0] = 3;` prints
+// `3`/`2` for `a[0]`/`a.length`, and so do the `.fill` and `as number[]`
+// spellings). Its fill value reaches the element check through the wrapper.
+#[test]
+fn array_return_wrapped_allocation_is_a_base_array() {
+    let t = reprs("function f() { const a = (new Array(2).fill(1)); return a; }\nconst b = f();\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    let t = reprs(
+        "function f() { const a = new Array(2).fill(1) as number[]; return a; }\nconst b = f();\n",
+    );
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    let t =
+        reprs("function f() { const a = (new Array(2).fill(1.5)); return a; }\nconst b = f();\n");
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+// Fix round 1: writes inside a class body are never walked, so a program
+// with a class declines every `let` call-bound binding (and `let` allocation
+// base); `const` ones are unaffected.
+#[test]
+fn array_return_class_body_write_declines_let_call_bound() {
+    let t = reprs(
+        "function g() { return [1, 2]; }\n\
+         function main() { let a = g(); class C { m() { a = 5; } } new C().m(); console.log(a); }\n\
+         main();\n",
+    );
+    assert!(!t.is_call_bound_array_binding("main", "a"));
+    let t = reprs(
+        "function g() { return [1, 2]; }\n\
+         function main() { const a = g(); class C {} console.log(a[0]); }\nmain();\n",
+    );
+    assert!(t.is_call_bound_array_binding("main", "a"));
+    // A class expression in an unwalked position counts too.
+    let t = reprs(
+        "function g() { return [1, 2]; }\n\
+         function main() { let a = g(); const xs = [class { m() { a = 5; } }]; console.log(a[0]); }\n",
+    );
+    assert!(!t.is_call_bound_array_binding("main", "a"));
+    // A `let` allocation base in a class-bearing program is not admitted.
+    let t = reprs(
+        "function f() { let a = new Array(2).fill(1); class C { m() { a = 5; } } return a; }\n\
+         const b = f();\n",
+    );
+    assert_eq!(t.array_return("f"), None);
+}
