@@ -607,7 +607,10 @@ fn called_anonymous_non_candidate_is_tainted_form() {
     facts.candidate_forms.clear();
     let escaping: BTreeSet<String> = ["__kali_fn_0".to_string()].into();
     let s = solve(&facts, &[], &BTreeMap::new(), &escaping, &no_base);
-    assert_eq!(s.tainted.get("__kali_fn_0"), Some(&kali_common::ARRAY_RETURN_FORM));
+    assert_eq!(
+        s.tainted.get("__kali_fn_0"),
+        Some(&kali_common::ARRAY_RETURN_FORM)
+    );
 }
 
 #[test]
@@ -627,4 +630,13 @@ fn called_anonymous_candidate_is_array_returning() {
     let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
     assert!(s.array_returning.contains("__kali_fn_0"));
     assert!(s.tainted.is_empty());
+}
+
+#[test]
+fn named_iife_is_not_a_call() {
+    // `g` is scoped to its own body; keying on it would alias a declaration.
+    let src = "function f() { return (function g() { return [1, 2]; })(); }";
+    assert_eq!(classify(src), ReturnArg::NonArray);
+    let arg = first_return_arg(src).expect("argument");
+    assert_eq!(arg_shape(&arg), ArgShape::Other);
 }

@@ -10,7 +10,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kali_ast::{ArrayExpression, CallExpression, Expression, ExpressionOrSpread, LiteralValue, Statement};
+use kali_ast::{
+    ArrayExpression, CallExpression, Expression, ExpressionOrSpread, LiteralValue, Statement,
+};
 
 /// The reserved element-node key for a function's returned array. Not a legal
 /// identifier, so it cannot collide with a binding.
@@ -415,16 +417,22 @@ pub(crate) fn classify_init(init: &Expression) -> InitKind {
 
 /// The function a call reaches as written at the call site: a bare-identifier
 /// callee's name, or an immediately-invoked arrow's or function expression's
-/// synthetic `__kali_fn_N` id (named in place by `name_anon_functions`).
+/// synthetic `__kali_fn_N` id (named in place by `name_anon_functions`). A
+/// named function expression's own name is scoped to its body, so it is not
+/// resolvable at the call site and is not keyed.
 /// Resolving a `const f = () => …` alias needs scope facts, so that is
 /// `repr_infer`'s job (anon-array-return spec §3.1).
 pub(crate) fn direct_callee(call: &CallExpression) -> Option<String> {
     match unparen(&call.callee) {
         Expression::Identifier(name) => Some(name.clone()),
-        Expression::ArrowFunctionExpression(arrow) => arrow.id.clone(),
-        Expression::FunctionExpression(func) => func.id.clone(),
+        Expression::ArrowFunctionExpression(arrow) => synthetic_id(&arrow.id),
+        Expression::FunctionExpression(func) => synthetic_id(&func.id),
         _ => None,
     }
+}
+
+fn synthetic_id(id: &Option<String>) -> Option<String> {
+    id.clone().filter(|id| id.starts_with("__kali_fn_"))
 }
 
 /// The `v` of an allocation spelled `new Array(n).fill(v)` / `Array(n).fill(v)`.
