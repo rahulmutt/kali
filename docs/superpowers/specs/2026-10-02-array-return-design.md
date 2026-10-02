@@ -263,7 +263,10 @@ array-binding arms they mirror.
    `I64Const(0)`.
 2. `emit_aggregate_literal` (`literal.rs:13-45`) refuses with `E5506` when it is
    reached for an **array** literal in a position whose value is consumed. The
-   object-literal branch is left alone.
+   object-literal branch is left alone. **Dropped as measured (§4.1, "Backstop 2,
+   measured").** At full width it refused correct programs, this project's own
+   lanes among them. Its narrowing needs the literal's parent node, and that
+   site does not have it.
 3. A whole-array `console.log` of a runtime array binding (single argument or
    one of several) refuses with `E5506`. That covers S9 and S10.
 
@@ -385,6 +388,85 @@ backstops at full width) is applied to the working tree and measured two ways:
   (investigate).
 
 The patch is then reverted with `git checkout` and is not committed.
+
+The two remaining backstops (§3.3, 1 and 2) were then measured one at a time,
+each at full width, by `bash scripts/test-gate.sh` and
+`tools/array-return-probes/run.sh`. The oracle is node v26.10.0. "Correct
+before" means the program printed node's output at the start commit `fefe62c60`.
+A case pinned to a value that differs from node's is class (a) even if it was
+passing.
+
+#### Backstop 1, measured
+
+The numeric-index fallback (`emit/operators.rs`, the floor of the numeric-index
+arm) refuses with `E5506` (`"no lane proves this receiver is an array"`). It emits
+the receiver first, so a refusal specific to the receiver wins. Measured alone, on
+top of `fefe62c60`.
+
+**27 failing tests: 27 (a), 0 (b), 0 (c).** Re-pinning them moved one more gate
+(`every_zero_two_row_is_the_class_set_its_live_cases_assert`), because R-06's
+r06c cases now assert `fail_closed`. R-06's §0.2 status cell follows its cases,
+and the ranking's generated regions are re-spliced from the generator. With no
+(b) rows there is no narrowing. **Final width: full**, committed as `d98f9dc49`.
+
+| # | test (trials) | class | kali at `fefe62c60` | node v26.10.0 | now |
+|---|---|---|---|---|---|
+| 1-8 | `browser/promise_all_bundle::{promise_all_bundle__text, json_promise_all_bundle__json}` × ext js/ts/jsx/tsx | (a) | build OK; harness throws kali's own guard `Error: unexpected Promise.all results` (wasm `unreachable`), because every `X[0]`/`X[1]` read was a placeholder `0` | throws `TypeError: Promise.all called on non-object` (unbound `Object.freeze(Promise.all)(…)`) | build refuses, E5506 |
+| 9-16 | `browser/promise_all_settled_bundle::{…__text, json_…__json}` × 4 ext | (a) | build OK; harness throws `Error: unexpected Promise.allSettled semantics` | throws `TypeError: Promise.allSettled called on non-object` | build refuses, E5506 |
+| 17-20 | `runtime_smoke` `build::{,json_}build_emits_browser_bundle_promise_all_sequencing{,_in_js_input}` | (a) | build OK; harness traps (`values[0]`/`values[1]` read `0`, so the guard throws) | `promiseAllSmoke(1n, 2n)` returns `0n` | build refuses, E5506 |
+| 21 | `object/computed_member_static_name::the_argv_index_lane_disagrees_with_itself_between_a_number_and_a_string_spelling` | (a) | `5 0 0` | `5 5 5` | refuses, E5506 |
+| 22 | `object/property_key_identity::bigint_key_is_stored_under_zero_module_scope` | (a) | `false 0 1` | `false undefined 1` | refuses, E5506 |
+| 23 | `object/property_key_identity::bigint_key_is_stored_under_zero_in_function` | (a) | `false 0 1` | `false undefined 1` | refuses, E5506 |
+| 24 | `oracle/tier2::r06c_var_array_element_reads_module_scope` | (a) | `0 0` (silent) | `7 9` | `fail_closed` |
+| 25 | `oracle/tier2::r06c_var_array_element_reads_in_function` | (a) | `0 0` (silent) | `7 9` | `fail_closed` |
+| 26 | `runtime_argv::process_argv_huge_literal_index_never_flows_as_a_real_string` | (a) | `0` | `undefined` | refuses, E5506 |
+| 27 | `runtime/array_return::async_function_stays_off_the_array_return_lane` | (a) | `0` | `undefined` | refuses, E5506 |
+
+Its `_checks` twin still passes. `kali check` does not reach codegen, so it still
+admits that async program, and check and run now disagree on it (a followup).
+The new case `array_return_refusals.toml::a_literal_index_on_a_non_array_receiver_refuses`
+pins the backstop. `function f() { return 3; } console.log("v=" + f()[0]);`
+printed `v=0` at exit 0 at `fefe62c60`, where node prints `v=undefined`.
+
+Probes: `r48_function_control` and `r48_module_control` move SILENT → REFUSES.
+Both printed `0` where node prints `6`. No probe moves out of CORRECT.
+
+#### Backstop 2, measured
+
+`emit_aggregate_literal`'s array branch refuses with `E5506` when `want_value` is
+set. It was measured at full width on top of backstop 1 (`d98f9dc49`).
+
+**2501 failing tests.** The full list, as the gate printed it, is
+`tools/array-return-probes/backstop2-full-width-failures.txt`. By family:
+`browser/` 1269, `misc/` 191, `array/` 146, `soundness/` 81, `oracle/` 79,
+`runtime/` 68, `object/` 52, `string/` 7 (case trials), and 608 tests in
+hand-written targets.
+
+**(b) is not empty, and it includes this project's own lanes.** The rows below
+were correct before: each printed node's output and now refuses with this
+backstop's E5506.
+
+| (b) row | evidence of "correct before" |
+|---|---|
+| `runtime/array_return::{allocation_returned_directly, bound_passed_on, computed_elements, dyn_index, empty_literal, if_else_both_return, mutate_call_bound, nested_decl, r14_register_in_function, s03_bound_in_main, s06_loop_filled, s07_store_then_return, s08_direct_fill}_computes`, `::const_literal_binding_return` (14) | each case pins node v26.10.0's exact output |
+| probes `bound_passed_on` (3), `computed_elements` (5,10,6), `const_literal_return` (2), `dyn_index` (3), `empty_literal` (0), `if_else_both_return` (2), `mutate_call_bound` (9), `nested_decl` (1,3), `s03_bound_in_main` (1,3), `s06_loop_filled` (9), `s07_store_then_return` (7), `s08_direct_fill` (2) (12) | the probe runner's CORRECT verdict (stdout equal to node's, shown in parentheses) at backstop 1 |
+| `nbody_runs_and_matches_canonical_output`, `spectral_norm_runs_and_matches_canonical_output`, `fannkuch_redux_runs_and_matches_canonical_output`, `mandelbrot_runs_and_matches_canonical_output`, `binary_trees_small_n_matches_canonical_output`, `binary_trees_canonical_n21_matches_output` (6) | the benchmark's canonical output |
+| `acceptance_web_baseline_prefix_matches_node_byte_for_byte`, `acceptance_web_baseline_with_url_matches_node_byte_for_byte`, `delete_reinsert_enumeration_matches_node`, `quoted_and_numeric_like_keys_enumerate_in_es_order` (4) | node byte-for-byte or ES-order comparison |
+
+One probe is (a): `r21_oob_control` moves SILENT → REFUSES (kali `0`, node
+`undefined`). The remaining ~2480 rows were **not individually classified**.
+Once (b) is non-empty, this backstop is narrowed or dropped whatever those rows
+turn out to be.
+
+**Narrowing is not available at this site, so backstop 2 is dropped entirely.**
+§3.3's narrowing would refuse only when the literal's parent is a `Return`, a
+`Call` argument or a declarator initializer. `emit_aggregate_literal` has no
+parent to test: `LirNode` (`kali_lir/src/node.rs`) carries only
+`kind/text/children/function_flavor`, and `FunctionEmitter` keeps no emit stack.
+The backstop was reverted and is not committed. **Final width: none.** The
+array-literal placeholder `0` stays as it was. It is filed in
+`array-return-discovered-defects.md` with this table (§5), as a silent lane with
+no backstop.
 
 ### 4.2 Tests that land
 
