@@ -1,0 +1,198 @@
+# Cases for the anon-array-return project (spec
+# docs/superpowers/specs/2026-10-02-anon-array-return-design.md, sections 2-3).
+#
+# A `const`-bound or immediately-invoked anonymous function that returns an I64
+# array hands its caller a real runtime array. Every `_computes` case prints
+# node v26.10.0's exact output; each rationale records kali's output at the
+# baseline `068b29950` (tools/array-return-probes/baseline-anon.tsv).
+#
+# `[source]` keys are one file per program (see this directory's README).
+
+[constants]
+REFUSED = "is unavailable in the current phase"
+
+[source]
+"arrow_passed_on.js" = '''
+const f = () => [1,2,3]; function g(x){return x[1];} console.log(g(f()));
+'''
+"fnexpr_passed_on.js" = '''
+const f = function(){ return [1,2,3]; }; function g(x){return x[1];} console.log(g(f()));
+'''
+"iife_passed_on.js" = '''
+function g(x){return x[1];} console.log(g((() => [1,2,3])()));
+'''
+"nested_const.js" = '''
+function main(){ const f = () => [1,2,3]; function g(x){return x[1];} console.log(g(f())); } main();
+'''
+"alias_chain.js" = '''
+const f = () => [1,2,3]; const h = f; function g(x){return x[1];} console.log(g(h()));
+'''
+"side_effect_body.js" = '''
+const f = () => { console.log("ran"); return [1,2]; }; function g(x){return x[1];} console.log(g(f()));
+'''
+"direct_index.js" = '''
+const f = () => [1,2,3]; console.log(f()[0]);
+'''
+"direct_length.js" = '''
+const f = () => [1,2,3]; console.log(f().length);
+'''
+"bound.js" = '''
+const f = () => [1,2,3]; const a = f(); console.log(a[2]);
+'''
+"allocation_return.js" = '''
+const f = (n) => new Array(n).fill(4); function g(x){return x[1];} console.log(g(f(3)));
+'''
+"mixed_return.js" = '''
+const f = (c) => { if (c) { return [1]; } return 0; }; function g(x){return x[0];} console.log(g(f(true)));
+'''
+"boolean_elements.js" = '''
+const f = () => [true, false]; function g(x){return x[0];} console.log(g(f()));
+'''
+"let_alias.js" = '''
+let f = () => [1,2,3]; function g(x){return x[1];} console.log(g(f()));
+'''
+"module_alias_called_from_main.js" = '''
+const f = () => [1,2,3]; function main(){ function g(x){return x[1];} console.log(g(f())); } main();
+'''
+"param_dependent_elements.js" = '''
+const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(3)));
+'''
+"called_and_passed_as_callback.js" = '''
+const f = () => [1, 2]; console.log(f()[1]); const xs = new Array(2).fill(0); xs.forEach(f); console.log("done");
+'''
+"map_callback_returning_array.js" = '''
+const xs = new Array(2).fill(1); const ys = xs.map(x => x + 1); console.log(ys[0]);
+'''
+
+[[case]]
+name = "arrow_alias_passed_on_computes"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_arrow_passed_on`, SILENT) where node v26.10.0 prints `2`: the anonymous function was never an array-return candidate, so its literal return was the placeholder `0`. Spec §2.1 row 1."""
+args = ["run", "arrow_passed_on.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "function_expression_alias_passed_on_computes"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_fnexpr_passed_on`, SILENT) where node v26.10.0 prints `2`: the anonymous function was never an array-return candidate, so its literal return was the placeholder `0`. Spec §2.1."""
+args = ["run", "fnexpr_passed_on.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "iife_passed_on_computes"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_iife_passed_on`, SILENT) where node v26.10.0 prints `2`: the anonymous function was never an array-return candidate, so its literal return was the placeholder `0`. Spec §2.1."""
+args = ["run", "iife_passed_on.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "nested_const_alias_passed_on_computes"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_nested_const`, SILENT) where node v26.10.0 prints `2`: the anonymous function was never an array-return candidate, so its literal return was the placeholder `0`. The `const` is inside `main`. Spec §2.1."""
+args = ["run", "nested_const.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "alias_chain_passed_on_computes"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_alias_chain`, SILENT) where node v26.10.0 prints `2`: the anonymous function was never an array-return candidate, so its literal return was the placeholder `0`. `const h = f` chains resolve to the same function. Spec §2.1."""
+args = ["run", "alias_chain.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "side_effect_body_computes"
+rationale = """At `068b29950` kali printed `ran` then `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_side_effect_body`, SILENT) where node v26.10.0 prints `ran` then `2`: the body runs exactly once and its array is real. Spec §2.1."""
+args = ["run", "side_effect_body.js"]
+exit = "success"
+stdout = "ran\n2\n"
+
+[[case]]
+name = "direct_index_computes"
+rationale = """At `068b29950` kali printed `error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0` (exit non-zero) (tools/array-return-probes/baseline-anon.tsv row `anon_direct_index`, REFUSES) where node v26.10.0 prints `1`. Spec §2.1."""
+args = ["run", "direct_index.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "direct_length_computes"
+rationale = """At `068b29950` kali printed `error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0` (exit non-zero) (tools/array-return-probes/baseline-anon.tsv row `anon_direct_length`, REFUSES) where node v26.10.0 prints `3`. Spec §2.1."""
+args = ["run", "direct_length.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "bound_computes"
+rationale = """At `068b29950` kali printed `error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0` (exit non-zero) (tools/array-return-probes/baseline-anon.tsv row `anon_bound`, REFUSES) where node v26.10.0 prints `3`. Spec §2.1."""
+args = ["run", "bound.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "allocation_return_computes"
+rationale = """A pin: already correct at the baseline. At `068b29950` kali printed `4` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_allocation_control`, CORRECT), matching node v26.10.0. Spec §2.1."""
+args = ["run", "allocation_return.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "param_dependent_elements_computes"
+rationale = """Elements computed from a parameter are proven integers, so the return is admitted. Baseline: not measured at the baseline `068b29950` (no probe row). Kali now prints node v26.10.0's `3`. Spec §2.1."""
+args = ["run", "param_dependent_elements.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "anon_mixed_return_refuses_at_check"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_mixed_return`, SILENT: `1|0`) where node v26.10.0 prints `1`. A directly-called anonymous function that mixes array and non-array returns refuses like a declaration (spec §3.3)."""
+args = ["check", "mixed_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it mixes array and non-array returns"]
+
+[[case]]
+name = "anon_mixed_return_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "mixed_return.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "it mixes array and non-array returns"]
+
+[[case]]
+name = "anon_boolean_elements_refuses_at_check"
+rationale = """At `068b29950` kali printed `0` at exit 0 (tools/array-return-probes/baseline-anon.tsv row `anon_boolean_elements`, SILENT) where node v26.10.0 prints `true`. A boolean element is stored as `1`/`0`, so the caller would print `1`: bad-array, as for a declaration (spec §3.3)."""
+args = ["check", "boolean_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "anon_boolean_elements_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "boolean_elements.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "let_alias_refuses_at_run"
+rationale = """Out of scope (spec §1.1); must keep refusing. At `068b29950` kali refused identically (baseline-anon.tsv row `anon_let_control`, REFUSES); node v26.10.0 prints `2`."""
+args = ["run", "let_alias.js"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "module_alias_called_from_main_refuses_at_run"
+rationale = """Out of scope (spec §1.1); must keep refusing. At `068b29950` kali refused identically (baseline-anon.tsv row `anon_module_from_main_control`, REFUSES); node v26.10.0 prints `2`."""
+args = ["run", "module_alias_called_from_main.js"]
+exit = "failure"
+stderr_contains = ["E5506", "first-class function value"]
+
+[[case]]
+name = "anon_called_and_passed_as_callback_refuses_at_run"
+rationale = """`f` is called and also passed to `forEach`. `kali run` refuses at the callback call (a first-class function value); `kali check` admits the program, so check and run disagree here. Not measured at the baseline `068b29950` (no probe row). node v26.10.0 prints `2` then `done`."""
+args = ["run", "called_and_passed_as_callback.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling 'forEach'"]
+
+[[case]]
+name = "anon_map_callback_control_refuses_at_run"
+rationale = """A control: a callback is never an array-return candidate. `kali run` refuses `xs.map(...)` as a first-class function value, as at `068b29950` (baseline-anon.tsv row `anon_map_callback_control`, REFUSES); node v26.10.0 prints `2`. `kali check` admits it."""
+args = ["run", "map_callback_returning_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling 'map'"]
