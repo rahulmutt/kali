@@ -519,11 +519,15 @@ impl NumProofCheck<'_> {
     }
 
     /// Every call of `func` is an enumerated call edge: one declaration, not
-    /// escaping as a value, and no unwalked code.
+    /// escaping as a value, and no unwalked code. An anonymous `__kali_fn_N`
+    /// is reached only through edges resolved to it (a `const` alias or an
+    /// IIFE), so with none enumerated its call sites are unknown, never
+    /// vacuously proven (followups §1).
     fn call_sites_enumerable(&self, func: &str) -> bool {
         !self.unwalked
             && self.infer.array_return_facts.declaration_counts.get(func) == Some(&1)
             && !self.infer.escaping_function_names.contains(func)
+            && (!func.starts_with("__kali_fn_") || self.edges_to(func).next().is_some())
     }
 
     /// Every recorded write of `(scope, name)` is a proven number, and no
@@ -1087,6 +1091,9 @@ struct ReprInfer {
     fn_alias_names: BTreeMap<String, String>,
     /// `__kali_fn_N` ids called immediately (`(() => [1])()`).
     iife_callees: BTreeSet<String>,
+    /// Ruling R15: each IIFE's argument proofs, appended to
+    /// `number_proof_edges` in Phase C0 (an IIFE is no `CallEdge`).
+    iife_number_proof_edges: Vec<NumberProofEdge>,
     /// Non-async, non-generator `__kali_fn_N` bodies: candidate forms once
     /// directly called (anon-array-return spec §3.1).
     anon_fn_forms: BTreeSet<String>,
@@ -1873,6 +1880,78 @@ impl ReprInfer {
             return Some(id);
         }
         (!self.callee_is_shadowed(func, name)).then(|| name.to_string())
+    }
+
+    /// Array-return lane (spec 2026-10-02 §3.1): record one `return` of `func`
+    /// (a `return` statement, or a concise arrow body), of every function;
+    /// `solve` decides admission. Ruling R15: also the return's number proof
+    /// (for a `[g()]` element) and, for a returned allocation, its elements'.
+    fn note_array_return(
+        &mut self,
+        func: &str,
+        arg: Option<&Expression>,
+    ) -> crate::array_return::ReturnArg {
+        let class = self.classify_array_return(func, arg);
+        self.array_return_facts
+            .returns
+            .entry(func.to_string())
+            .or_default()
+            .push(class.clone());
+        self.return_number_proofs
+            .entry(func.to_string())
+            .or_default()
+            .push(arg.map_or(crate::array_return::NumProof::No, |arg| {
+                crate::array_return::num_proof(func, arg)
+            }));
+        if let (crate::array_return::ReturnArg::Allocation, Some(arg)) = (&class, arg) {
+            self.return_allocation_proofs
+                .entry(func.to_string())
+                .or_default()
+                .push(crate::array_return::allocation_proof(func, arg));
+        }
+        class
+    }
+
+    /// Visit a returned value of `func` classified `class`, routing an admitted
+    /// form's elements into `func`'s return element node. Match the UNWRAPPED
+    /// value: the classifier sees through parentheses / `as` / `satisfies`, so
+    /// the element routing must too, or a wrapped literal's elements never
+    /// reach `%return` (fix round 1).
+    fn visit_array_return_value(
+        &mut self,
+        func: &str,
+        class: &crate::array_return::ReturnArg,
+        arg: &Expression,
+    ) -> usize {
+        match (class, crate::array_return::unparen(arg)) {
+            // An integer-shaped array literal: its elements flow into the
+            // function's return element node, so their repr is solved like any
+            // array's. `visit_expr` has no `ArrayExpression` arm (its `_`
+            // default visits no element), so no element is visited twice.
+            (
+                crate::array_return::ReturnArg::Literal(None),
+                literal @ Expression::ArrayExpression(_),
+            ) => {
+                self.note_array_init(func, crate::array_return::RETURN_ARRAY_KEY, literal);
+                self.new_node()
+            }
+            // An allocation records its element repr through the fill value.
+            (crate::array_return::ReturnArg::Allocation, _) => {
+                if let Some(value) = crate::array_return::fill_value(arg) {
+                    let elem =
+                        self.array_elem_node_for(func, crate::array_return::RETURN_ARRAY_KEY);
+                    let vn = self.visit_expr(func, value);
+                    self.add_edge(vn, elem);
+                    self.element_store_sources.push((elem, vn));
+                    self.elem_number_obligations
+                        .push((elem, crate::array_return::num_proof(func, value)));
+                    self.new_node()
+                } else {
+                    self.visit_expr(func, arg)
+                }
+            }
+            _ => self.visit_expr(func, arg),
+        }
     }
 
     /// Classify one `return` argument of `func` for the array-return lane
@@ -3409,34 +3488,7 @@ impl ReprInfer {
                     // `return <call to tainted fn>` taints `func`'s return.
                     self.record_string_result_return(func, arg);
                 }
-                // Array-return lane (spec 2026-10-02 §3.1): classify every
-                // return, of every function; `solve` decides admission.
-                let class = self.classify_array_return(func, stmt.argument.as_ref());
-                self.array_return_facts
-                    .returns
-                    .entry(func.to_string())
-                    .or_default()
-                    .push(class.clone());
-                // Ruling R15: the return's number proof (for a `[g()]`
-                // element) and, for a returned allocation, its elements'.
-                self.return_number_proofs
-                    .entry(func.to_string())
-                    .or_default()
-                    .push(
-                        stmt.argument
-                            .as_ref()
-                            .map_or(crate::array_return::NumProof::No, |arg| {
-                                crate::array_return::num_proof(func, arg)
-                            }),
-                    );
-                if let (crate::array_return::ReturnArg::Allocation, Some(arg)) =
-                    (&class, &stmt.argument)
-                {
-                    self.return_allocation_proofs
-                        .entry(func.to_string())
-                        .or_default()
-                        .push(crate::array_return::allocation_proof(func, arg));
-                }
+                let class = self.note_array_return(func, stmt.argument.as_ref());
                 if let Some(arg) = &stmt.argument {
                     if let Expression::ObjectExpression(obj) = arg {
                         self.record_object_literal(func, ObjSlot::Return(func.to_string()), obj);
@@ -3455,47 +3507,7 @@ impl ReprInfer {
                         // Spec 4a Task 5: `return c` where `c` is an active
                         // for-in key lifts the key (hence the return) to String.
                         self.seed_for_in_key_string_use(func, arg);
-                        // Match the UNWRAPPED argument: the classifier sees
-                        // through parentheses / `as` / `satisfies`, so the
-                        // element routing must too, or a wrapped literal's
-                        // elements never reach `%return` (fix round 1).
-                        let rn = match (&class, crate::array_return::unparen(arg)) {
-                            // An integer-shaped array literal: its elements flow
-                            // into the function's return element node, so their
-                            // repr is solved like any array's. `visit_expr` has
-                            // no `ArrayExpression` arm (its `_` default visits no
-                            // element), so no element is visited twice.
-                            (
-                                crate::array_return::ReturnArg::Literal(None),
-                                literal @ Expression::ArrayExpression(_),
-                            ) => {
-                                self.note_array_init(
-                                    func,
-                                    crate::array_return::RETURN_ARRAY_KEY,
-                                    literal,
-                                );
-                                self.new_node()
-                            }
-                            // An allocation records its element repr through
-                            // the fill value.
-                            (crate::array_return::ReturnArg::Allocation, _) => {
-                                if let Some(value) = crate::array_return::fill_value(arg) {
-                                    let elem = self.array_elem_node_for(
-                                        func,
-                                        crate::array_return::RETURN_ARRAY_KEY,
-                                    );
-                                    let vn = self.visit_expr(func, value);
-                                    self.add_edge(vn, elem);
-                                    self.element_store_sources.push((elem, vn));
-                                    self.elem_number_obligations
-                                        .push((elem, crate::array_return::num_proof(func, value)));
-                                    self.new_node()
-                                } else {
-                                    self.visit_expr(func, arg)
-                                }
-                            }
-                            _ => self.visit_expr(func, arg),
-                        };
+                        let rn = self.visit_array_return_value(func, &class, arg);
                         let ret = self.return_node_for(func);
                         self.add_edge(rn, ret);
                     }
@@ -4673,16 +4685,13 @@ impl ReprInfer {
                     // expression under the arrow's own scope so its seeds/edges
                     // (e.g. a string `+`) are registered under `__kali_fn_N`.
                     self.note_anon_fn_form(id, a.is_async, false, None);
-                    self.visit_expr(id, &a.body);
                     // Array-return lane: the body expression IS the arrow's
                     // implicit return. A directly-called arrow is a candidate
                     // form (anon-array-return §3.1); an uncalled one is exempt.
-                    let class = self.classify_array_return(id, Some(&a.body));
-                    self.array_return_facts
-                        .returns
-                        .entry(id.to_string())
-                        .or_default()
-                        .push(class);
+                    // Its facts are a `return`'s, element obligations included,
+                    // or ruling R15 has nothing to refute (followups §1).
+                    let class = self.note_array_return(id, Some(&a.body));
+                    self.visit_array_return_value(id, &class, &a.body);
                     // Stage P5 T-new-E: the body expression IS the arrow's
                     // implicit return, so a `(y) => String(y)` taints the arrow's
                     // return exactly like a block-bodied `return String(y)`
@@ -5486,12 +5495,9 @@ impl ReprInfer {
                 let mut arg_scalar_syntactic = Vec::with_capacity(call.args.len());
                 let mut arg_numeric_literal = Vec::with_capacity(call.args.len());
                 let mut arg_array_shapes = Vec::with_capacity(call.args.len());
-                let mut arg_num_proofs = Vec::with_capacity(call.args.len());
-                let mut arg_array_proofs = Vec::with_capacity(call.args.len());
+                let (arg_num_proofs, arg_array_proofs) = Self::call_arg_proofs(func, &call.args);
                 for arg in &call.args {
                     arg_array_shapes.push(crate::array_return::arg_shape(arg));
-                    arg_num_proofs.push(crate::array_return::num_proof(func, arg));
-                    arg_array_proofs.push(crate::array_return::arg_array_proof(func, arg));
                     if matches!(arg, Expression::ObjectExpression(_)) {
                         self.obj_conflicts.push(
                             "an object literal passed directly as a call argument is unavailable in the current phase; bind it to a const first"
@@ -5518,12 +5524,6 @@ impl ReprInfer {
                 {
                     for shape in &mut arg_array_shapes[first_spread..] {
                         *shape = crate::array_return::ArgShape::Other;
-                    }
-                    for proof in &mut arg_num_proofs[first_spread..] {
-                        *proof = crate::array_return::NumProof::No;
-                    }
-                    for proof in &mut arg_array_proofs[first_spread..] {
-                        *proof = crate::array_return::ArgArrayProof::Unknown;
                     }
                 }
                 let result_node = self.new_node();
@@ -5552,6 +5552,15 @@ impl ReprInfer {
                     Expression::Identifier(_)
                 ) {
                     if let Some(id) = crate::array_return::direct_callee(call) {
+                        // Ruling R15: the IIFE is its body's only call site, so
+                        // its argument proofs are the param proof's one edge.
+                        let (num, array) = Self::call_arg_proofs(func, &call.args);
+                        self.iife_number_proof_edges.push(NumberProofEdge {
+                            caller: func.to_string(),
+                            callee: id.clone(),
+                            num,
+                            array,
+                        });
                         self.iife_callees.insert(id);
                     }
                 }
@@ -5562,6 +5571,38 @@ impl ReprInfer {
                 self.new_node()
             }
         }
+    }
+
+    /// Ruling R15: each positional argument's number proof and array proof.
+    /// A spread argument hides how many positions it fills, so it and every
+    /// later position are `No` / `Unknown`.
+    fn call_arg_proofs(
+        func: &str,
+        args: &[Expression],
+    ) -> (
+        Vec<crate::array_return::NumProof>,
+        Vec<crate::array_return::ArgArrayProof>,
+    ) {
+        let first_spread = args
+            .iter()
+            .position(|arg| matches!(arg, Expression::SpreadElement(_)))
+            .unwrap_or(args.len());
+        args.iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                if index < first_spread {
+                    (
+                        crate::array_return::num_proof(func, arg),
+                        crate::array_return::arg_array_proof(func, arg),
+                    )
+                } else {
+                    (
+                        crate::array_return::NumProof::No,
+                        crate::array_return::ArgArrayProof::Unknown,
+                    )
+                }
+            })
+            .unzip()
     }
 
     /// True when `expr` SYNTACTICALLY evaluates to a primitive scalar
@@ -5795,19 +5836,24 @@ impl ReprInfer {
                 ArgShape::Allocation | ArgShape::Other => {}
             }
         }
-        // Ruling R15: snapshot every non-shadowed edge's argument proofs
-        // before `resolve_calls` drains `calls`.
-        let number_proof_edges: Vec<NumberProofEdge> = self
+        // Ruling R15: snapshot every edge's argument proofs before
+        // `resolve_calls` drains `calls`, keyed by the array-return callee the
+        // call reaches (a `const` alias's `__kali_fn_N`; a shadowed callee has
+        // none and is skipped), plus every IIFE's edge. `CallEdge.callee`
+        // itself is not resolved (amendment A-1).
+        let mut number_proof_edges: Vec<NumberProofEdge> = self
             .calls
             .iter()
-            .filter(|edge| !self.callee_is_shadowed(&edge.caller, &edge.callee))
-            .map(|edge| NumberProofEdge {
-                caller: edge.caller.clone(),
-                callee: edge.callee.clone(),
-                num: edge.arg_num_proofs.clone(),
-                array: edge.arg_array_proofs.clone(),
+            .filter_map(|edge| {
+                Some(NumberProofEdge {
+                    caller: edge.caller.clone(),
+                    callee: self.array_return_callee(&edge.caller, &edge.callee)?,
+                    num: edge.arg_num_proofs.clone(),
+                    array: edge.arg_array_proofs.clone(),
+                })
             })
             .collect();
+        number_proof_edges.append(&mut self.iife_number_proof_edges);
         self.number_proof_edges = number_proof_edges;
         self.array_return_solution = solution;
     }

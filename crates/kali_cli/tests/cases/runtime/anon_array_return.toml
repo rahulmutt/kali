@@ -57,6 +57,15 @@ const f = () => [1,2,3]; function main(){ function g(x){return x[1];} console.lo
 "param_dependent_elements.js" = '''
 const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(3)));
 '''
+"param_true_direct.js" = '''
+const f = (n) => [n, n]; console.log(f(true)[0]);
+'''
+"param_true_iife.js" = '''
+function g(x){return x[1];} console.log(g(((n) => [n, n])(true)));
+'''
+"param_float_direct.js" = '''
+const f = (n) => [n, n]; console.log(f(1.5)[0]);
+'''
 "called_and_passed_as_callback.js" = '''
 const f = () => [1, 2]; console.log(f()[1]); const xs = new Array(2).fill(0); xs.forEach(f); console.log("done");
 '''
@@ -136,10 +145,45 @@ stdout = "4\n"
 
 [[case]]
 name = "param_dependent_elements_computes"
-rationale = """Elements computed from a parameter are proven integers, so the return is admitted. Baseline: not measured at the baseline `068b29950` (no probe row). Kali now prints node v26.10.0's `3`. Spec §2.1."""
+rationale = """Elements computed from a parameter are proven integers by ruling R15, which enumerates the call `f(3)` resolved through the `const` alias to the arrow. At `068b29950` kali printed `0` at exit 0 (measured by hand, followups §1 of docs/superpowers/followups/anon-array-return-discovered-defects.md; no probe row). Kali now prints node v26.10.0's `3`. Spec §2.1."""
 args = ["run", "param_dependent_elements.js"]
 exit = "success"
 stdout = "3\n"
+
+[[case]]
+name = "anon_param_boolean_argument_refuses_at_check"
+rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused at run with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` kali printed `1` at exit 0 (`kali check` exit 0) where node v26.10.0 prints `true`, because ruling R15's param proof had no edge into `__kali_fn_N` and held vacuously. The param's only call site passes a boolean, so the element is not a proven integer (spec §3.3)."""
+args = ["check", "param_true_direct.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "anon_param_boolean_argument_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "param_true_direct.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "anon_iife_param_boolean_argument_refuses_at_check"
+rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali printed `0` at exit 0, and at `cb63f9909` `1` at exit 0 (`kali check` exit 0), where node v26.10.0 prints `true`. An IIFE recorded no ruling-R15 edge, so its param proof held vacuously. The IIFE's edge now carries the boolean argument, and the refusal uses the anonymous message (spec §3.3)."""
+args = ["check", "param_true_iife.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from an immediately-invoked function", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "anon_iife_param_boolean_argument_refuses_at_run"
+rationale = """The `run` twin of the case above (amendment A1: check and run refuse the same programs)."""
+args = ["run", "param_true_iife.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from an immediately-invoked function", "${REFUSED}", "an element is not an integer"]
+
+[[case]]
+name = "anon_param_float_argument_refuses_at_run"
+rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` it failed at load with `E4201` "failed to load WASM module" while `kali check` exited 0. node v26.10.0 prints `1.5`. A float argument is not a proven integer (spec §3.3)."""
+args = ["run", "param_float_direct.js"]
+exit = "failure"
+stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
 
 [[case]]
 name = "anon_mixed_return_refuses_at_check"

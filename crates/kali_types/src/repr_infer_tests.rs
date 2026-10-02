@@ -1773,9 +1773,8 @@ fn anon_mixed_return_refuses_under_its_binding_name() {
 #[test]
 fn anon_async_arrow_is_not_a_candidate_and_never_tainted() {
     // Ruling R12, as for declarations: the call yields a Promise.
-    let mut parsed = crate::test_support::parse_statements(
-        "const f = async () => [1, 2];\nconst p = f();\n",
-    );
+    let mut parsed =
+        crate::test_support::parse_statements("const f = async () => [1, 2];\nconst p = f();\n");
     if let kali_ast::Statement::VariableDeclaration(decl) = &mut parsed[0] {
         if let Some(kali_ast::Expression::ArrowFunctionExpression(a)) =
             decl.declarations[0].init.as_mut()
@@ -1835,6 +1834,58 @@ fn anon_redeclared_name_is_not_an_alias() {
     );
     assert_eq!(t.array_return_taint("__kali_fn_0"), None);
     assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_param_elements_proven_by_integer_argument_admit() {
+    // Ruling R15 over an anonymous callee: the param proof enumerates the
+    // call `f(3)`, resolved through the `const` alias to `__kali_fn_0`.
+    let t = reprs_with_fn_id("const f = (n) => [n, n];\nconst a = f(3);\n", "__kali_fn_0");
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_param_elements_with_boolean_argument_taint_element() {
+    // Followups §1: before the fix `edges_to("__kali_fn_0")` was empty, so
+    // the param proof held vacuously, and the concise body recorded no
+    // element obligation, so `f(true)[0]` printed `1`.
+    let t = reprs_with_fn_id(
+        "const f = (n) => [n, n];\nconst a = f(true);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn anon_function_expression_param_elements_with_boolean_argument_taint_element() {
+    // A `return` statement always recorded its element obligation; the param
+    // proof now enumerates the alias-resolved edge instead of none.
+    let t = reprs_with_fn_id(
+        "const f = function (n) { return [n, n]; };\nconst a = f(true);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn anon_concise_arrow_allocation_fill_with_boolean_argument_taint_element() {
+    // A concise arrow body records a returned allocation's fill proof, as a
+    // `return` statement does.
+    let t = reprs_with_fn_id(
+        "const f = (v) => new Array(2).fill(v);\nconst a = f(true);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
 }
 
 #[test]
