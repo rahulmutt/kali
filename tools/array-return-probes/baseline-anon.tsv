@@ -1,0 +1,18 @@
+anon_alias_chain	SILENT	2	0
+anon_allocation_control	CORRECT	4	4
+anon_arrow_passed_on	SILENT	2	0
+anon_boolean_elements	SILENT	true	0
+anon_bound	REFUSES	3	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+anon_direct_index	REFUSES	1	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+anon_direct_length	REFUSES	3	error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length, so kali refuses rather than emit a placeholder 0
+anon_fnexpr_passed_on	SILENT	2	0
+anon_iife_passed_on	SILENT	2	0
+anon_let_control	REFUSES	2	error[E5506]: calling 'f' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+anon_map_callback_control	REFUSES	2	error[E5506]: calling 'map' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+anon_member_call_decl	REFUSES	4	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+anon_mixed_return	SILENT	1	0
+anon_module_from_main_control	REFUSES	2	error[E5506]: calling 'f' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead
+anon_nested_const	SILENT	2	0
+anon_param_true	REFUSES	true	error[E5506]: an indexed read is unavailable in the current phase for this receiver: no lane proves this receiver is an array, so kali refuses rather than emit a placeholder 0
+anon_scalar_control	CORRECT	7	7
+anon_side_effect_body	SILENT	ran|2	ran|0

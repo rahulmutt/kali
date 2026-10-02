@@ -140,3 +140,71 @@ fn call_bound_registration_requires_a_call_init() {
     );
     assert!(admitted.is_empty(), "{admitted:?}");
 }
+
+/// Compiles `source`, optionally admitting the first anonymous function
+/// (`__kali_fn_0`, HIR's synthetic name when the CLI pre-pass has not run) as
+/// array-returning, and returns the E5506 messages codegen raised
+/// (anon-array-return spec §3.2).
+fn anon_array_return_e5506_messages(source: &str, admit: bool) -> Vec<String> {
+    array_return_e5506_messages(source, if admit { &["__kali_fn_0"] } else { &[] })
+}
+
+/// Compiles `source` with each of `admitted` set array-returning (`I64`), and
+/// returns the E5506 messages codegen raised.
+fn array_return_e5506_messages(source: &str, admitted: &[&str]) -> Vec<String> {
+    let program = parse_and_lower_lir(source);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    for key in admitted {
+        ctx.repr_table.set_array_return(key, kali_common::Repr::I64);
+    }
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == Some(kali_error::_error_codes::e5::FEATURE_UNAVAILABLE as u32))
+        .map(|d| d.message.clone())
+        .collect()
+}
+
+#[test]
+fn anon_alias_direct_index_reads_the_admitted_return() {
+    let src = "const f = () => [1, 2, 3]; console.log(f()[0]);";
+    let refused = anon_array_return_e5506_messages(src, false);
+    assert!(
+        refused.iter().any(|m| m.contains("indexed read")),
+        "not admitted: backstop 1 refuses ({refused:?})"
+    );
+    let admitted = anon_array_return_e5506_messages(src, true);
+    assert!(admitted.is_empty(), "admitted: {admitted:?}");
+}
+
+#[test]
+fn anon_iife_length_reads_the_admitted_return() {
+    let src = "console.log((() => [1, 2, 3])().length);";
+    assert!(!anon_array_return_e5506_messages(src, false).is_empty());
+    assert!(anon_array_return_e5506_messages(src, true).is_empty());
+}
+
+#[test]
+fn member_call_is_not_resolved_to_a_same_named_declaration() {
+    // Followups §2: `o.f` is lowered to the declaration `f`, so resolving the
+    // member callee as the call is lowered read `f`'s `[1, 2, 3]` and printed
+    // `1` (node: `4`). A member callee is not an array-return call; backstop 1
+    // refuses the read.
+    let src = "function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);";
+    let refused = array_return_e5506_messages(src, &["f"]);
+    assert!(
+        refused.iter().any(|m| m.contains("indexed read")),
+        "{refused:?}"
+    );
+}
+
+#[test]
+fn anon_let_alias_is_not_resolved() {
+    let src = "let f = () => [1, 2, 3]; console.log(f()[0]);";
+    assert!(!anon_array_return_e5506_messages(src, true).is_empty());
+}

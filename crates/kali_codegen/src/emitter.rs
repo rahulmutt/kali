@@ -832,21 +832,58 @@ impl<'a> FunctionEmitter<'a> {
     /// its own top-level wasm function keyed by its name, never as a local of
     /// the enclosing function, so this cannot decline A4's shape; it only
     /// catches a slot inference did not see as a shadow.
+    ///
+    /// Only two callee shapes resolve (anon-array-return spec §3.2, amendment
+    /// A-10): a bare identifier, followed through `bindings` so a `const f =
+    /// () => …` alias (and `const h = f` chains) reaches the anonymous body's
+    /// `__kali_fn_N` key, and a callee that is itself an anonymous function
+    /// expression (an IIFE). Inference resolves the same shapes in
+    /// `repr_infer::array_return_callee`; the two must agree, and the `anon_*`
+    /// probes are the gate. Any other callee (a member expression, a computed
+    /// member, a call result, …) is `None`: the member-call lowering resolves
+    /// `o.f` to a same-named top-level declaration `f`, so resolving the callee
+    /// as the call is lowered read the wrong function's array (followups §3 of
+    /// `anon-array-return-discovered-defects.md`).
     pub(crate) fn array_return_call_elem(&self, id: LirNodeId) -> Option<kali_common::Repr> {
         let target = self.unwrap_transparent_value_node(id);
         let node = self.node(target);
         if node.kind != LirNodeKind::Call {
             return None;
         }
-        let callee = self.bare_identifier_name(*node.children.first()?)?;
-        if self
-            .repr_table
-            .is_array_return_callee_shadowed(&self.function_name, &callee)
-            || self.locals.contains_key(&callee)
-        {
-            return None;
+        let callee = *node.children.first()?;
+        let source_name = self.bare_identifier_name(callee);
+        if let Some(name) = &source_name {
+            if self
+                .repr_table
+                .is_array_return_callee_shadowed(&self.function_name, name)
+                || self.locals.contains_key(name)
+            {
+                return None;
+            }
         }
-        self.repr_table.array_return(&callee)
+        let compiled = |id: LirNodeId| {
+            self.node(id)
+                .text
+                .clone()
+                .filter(|text| self.functions.contains_key(text))
+        };
+        let key = match source_name {
+            // A bare identifier: a `const` alias lands on the anonymous body's
+            // `__kali_fn_N`; any other name is looked up as itself.
+            Some(name) => {
+                let bound = self.unwrap_transparent_value_node(self.resolve_bound_node(callee));
+                compiled(bound).unwrap_or(name)
+            }
+            // An IIFE: the callee is the anonymous function expression itself.
+            None => {
+                let target = self.unwrap_transparent_value_node(callee);
+                if !crate::lower::is_function_like(&self.program.nodes, target) {
+                    return None;
+                }
+                compiled(target)?
+            }
+        };
+        self.repr_table.array_return(&key)
     }
 
     /// True when `name` is a GROWABLE runtime-array binding of the current

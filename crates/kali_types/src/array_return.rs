@@ -10,7 +10,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kali_ast::{ArrayExpression, Expression, ExpressionOrSpread, LiteralValue, Statement};
+use kali_ast::{
+    ArrayExpression, CallExpression, Expression, ExpressionOrSpread, LiteralValue, Statement,
+};
 
 /// The reserved element-node key for a function's returned array. Not a legal
 /// identifier, so it cannot collide with a binding.
@@ -245,12 +247,24 @@ pub(crate) fn allocation_proof(func: &str, expr: &Expression) -> NumProof {
     if let Some(value) = fill_value(expr) {
         parts.push(num_proof(func, value));
     }
-    // Find the innermost `Array(n)` / `Uint8Array(n)` call.
+    parts.extend(
+        allocation_length_args(expr)
+            .into_iter()
+            .map(|arg| num_proof(func, arg)),
+    );
+    NumProof::all(parts)
+}
+
+/// The arguments of an allocation's innermost `Array(…)` / `new Array(…)` /
+/// `Uint8Array(…)` call (its length, `n` in `new Array(n).fill(v)`): every
+/// sub-expression of the allocation except its `.fill` value.
+pub(crate) fn allocation_length_args(expr: &Expression) -> Vec<&Expression> {
+    let mut args = Vec::new();
     let mut cursor = unparen(expr);
     loop {
         cursor = match cursor {
             Expression::NewExpression(n) => {
-                parts.extend(n.args.iter().map(|arg| num_proof(func, arg)));
+                args.extend(n.args.iter());
                 unparen(&n.callee)
             }
             Expression::CallExpression(call) => match unparen(&call.callee) {
@@ -258,14 +272,14 @@ pub(crate) fn allocation_proof(func: &str, expr: &Expression) -> NumProof {
                     unparen(&m.object)
                 }
                 _ => {
-                    parts.extend(call.args.iter().map(|arg| num_proof(func, arg)));
+                    args.extend(call.args.iter());
                     break;
                 }
             },
             _ => break,
         };
     }
-    NumProof::all(parts)
+    args
 }
 
 /// An argument at a call site, as an array whose elements the R15 proof can
@@ -291,9 +305,9 @@ pub(crate) fn arg_array_proof(func: &str, arg: &Expression) -> ArgArrayProof {
             ArgArrayProof::Elements(literal_elements_proof(func, arr))
         }
         Expression::Identifier(name) => ArgArrayProof::Identifier(name.clone()),
-        Expression::CallExpression(call) => match unparen(&call.callee) {
-            Expression::Identifier(callee) => ArgArrayProof::Call(callee.clone()),
-            _ => ArgArrayProof::Unknown,
+        Expression::CallExpression(call) => match direct_callee(call) {
+            Some(callee) => ArgArrayProof::Call(callee),
+            None => ArgArrayProof::Unknown,
         },
         _ => ArgArrayProof::Unknown,
     }
@@ -333,9 +347,9 @@ pub(crate) fn classify_return_arg(
                 ReturnArg::Binding(name.clone())
             }
         }
-        Expression::CallExpression(call) => match unparen(&call.callee) {
-            Expression::Identifier(callee) => ReturnArg::Call(callee.clone()),
-            _ => ReturnArg::NonArray,
+        Expression::CallExpression(call) => match direct_callee(call) {
+            Some(callee) => ReturnArg::Call(callee),
+            None => ReturnArg::NonArray,
         },
         Expression::Literal(_)
         | Expression::BinaryExpression(_)
@@ -382,9 +396,9 @@ pub(crate) fn arg_shape(arg: &Expression) -> ArgShape {
     }
     match unparen(arg) {
         Expression::Identifier(name) => ArgShape::Identifier(name.clone()),
-        Expression::CallExpression(call) => match unparen(&call.callee) {
-            Expression::Identifier(callee) => ArgShape::Call(callee.clone()),
-            _ => ArgShape::Other,
+        Expression::CallExpression(call) => match direct_callee(call) {
+            Some(callee) => ArgShape::Call(callee),
+            None => ArgShape::Other,
         },
         _ => ArgShape::Other,
     }
@@ -405,12 +419,38 @@ pub(crate) fn classify_init(init: &Expression) -> InitKind {
     }
     match unparen(init) {
         Expression::ArrayExpression(_) => InitKind::ArrayLiteral,
-        Expression::CallExpression(call) => match unparen(&call.callee) {
-            Expression::Identifier(callee) => InitKind::Call(callee.clone()),
-            _ => InitKind::Other,
+        Expression::CallExpression(call) => match direct_callee(call) {
+            Some(callee) => InitKind::Call(callee),
+            None => InitKind::Other,
         },
         _ => InitKind::Other,
     }
+}
+
+/// The function a call reaches as written at the call site: a bare-identifier
+/// callee's name, or an immediately-invoked arrow's or function expression's
+/// synthetic `__kali_fn_N` id (named in place by `name_anon_functions`). A
+/// named function expression's own name is scoped to its body, so it is not
+/// resolvable at the call site and is not keyed.
+/// Resolving a `const f = () => …` alias needs scope facts, so that is
+/// `repr_infer`'s job (anon-array-return spec §3.1).
+pub(crate) fn direct_callee(call: &CallExpression) -> Option<String> {
+    match unparen(&call.callee) {
+        Expression::Identifier(name) => Some(name.clone()),
+        Expression::ArrowFunctionExpression(arrow) => synthetic_id(&arrow.id),
+        Expression::FunctionExpression(func) => synthetic_id(&func.id),
+        _ => None,
+    }
+}
+
+fn synthetic_id(id: &Option<String>) -> Option<String> {
+    id.clone().filter(|id| is_synthetic_fn_id(id))
+}
+
+/// True when `name` is the synthetic `__kali_fn_N` id the pre-resolver gives
+/// an anonymous function (anon-array-return spec §3.1).
+pub(crate) fn is_synthetic_fn_id(name: &str) -> bool {
+    name.starts_with("__kali_fn_")
 }
 
 /// The `v` of an allocation spelled `new Array(n).fill(v)` / `Array(n).fill(v)`.
@@ -626,14 +666,13 @@ pub(crate) fn solve(
                 if returning.contains(f) {
                     continue;
                 }
-                // Pre-decided narrowing (plan Task 4 step 10): an arrow or
-                // anonymous function expression (`__kali_fn_N`) is never
-                // tainted. Callbacks such as `xs.flatMap(x => [x])` return an
-                // array the array-method lanes already consume correctly;
-                // tainting them refused working programs. Such a function
-                // stays on its existing lane (a direct call through its
-                // binding already refuses as a first-class function call).
-                if !facts.is_candidate(f) && f.starts_with("__kali_fn_") {
+                // An anonymous `__kali_fn_N` that is never directly called is a
+                // callback (`xs.flatMap(x => [x])`): the array-method lanes
+                // consume its result, and tainting it refused working programs
+                // (plan Task 4 step 10 of the array-return project). One that IS
+                // directly called, through a `const` alias or immediately
+                // (anon-array-return spec §3.1), is tainted like a declaration.
+                if !facts.is_candidate(f) && is_synthetic_fn_id(f) && !facts.called.contains(f) {
                     continue;
                 }
                 // Ruling R12: an `async` or generator declaration is not a

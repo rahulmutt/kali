@@ -209,9 +209,14 @@ fn non_candidate_form_with_array_return_is_tainted_form() {
     let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
     assert_eq!(s.tainted.get("g"), Some(&kali_common::ARRAY_RETURN_FORM));
 
+    // An anonymous non-candidate that is never directly called is exempt
+    // (anon-array-return spec §3.1); `called_anonymous_non_candidate_is_tainted_form`
+    // covers the called one.
     let mut facts = facts_one("__kali_fn_0", vec![ReturnArg::Literal(None)]);
     facts.candidate_forms.clear();
-    let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
+    facts.called.clear();
+    let escaping: BTreeSet<String> = ["__kali_fn_0".to_string()].into();
+    let s = solve(&facts, &[], &BTreeMap::new(), &escaping, &no_base);
     assert_eq!(s.tainted.get("__kali_fn_0"), None);
 }
 
@@ -551,4 +556,87 @@ fn number_literal_elements_are_the_const_literal_class() {
     assert!(!lit("function f() { return [x]; }"));
     assert!(!lit("function f() { return [t()]; }"));
     assert!(!lit("function f() { return [1 + 1]; }"));
+}
+
+#[test]
+fn iife_call_is_call_to_its_synthetic_id() {
+    let mut parsed = parse("function f() { return (() => [1, 2])(); }");
+    let Statement::FunctionDeclaration(decl) = &mut parsed[0] else {
+        panic!("not a declaration");
+    };
+    let Statement::ReturnStatement(ret) = &mut decl.body.body[0] else {
+        panic!("not a return");
+    };
+    let Some(Expression::CallExpression(call)) = ret.argument.as_mut() else {
+        panic!("not a call");
+    };
+    let mut callee = &mut call.callee;
+    while let Expression::ParenthesizedExpression(inner) = callee {
+        callee = &mut inner.expression;
+    }
+    let Expression::ArrowFunctionExpression(arrow) = callee else {
+        panic!("not an arrow: {callee:?}");
+    };
+    arrow.id = Some("__kali_fn_0".into());
+    let arg = ret.argument.clone();
+    assert_eq!(
+        classify_return_arg(arg.as_ref(), &|_| false, &|_| false),
+        ReturnArg::Call("__kali_fn_0".into())
+    );
+    let arg = arg.expect("argument");
+    assert_eq!(arg_shape(&arg), ArgShape::Call("__kali_fn_0".into()));
+    assert_eq!(classify_init(&arg), InitKind::Call("__kali_fn_0".into()));
+    assert_eq!(
+        arg_array_proof("f", &arg),
+        ArgArrayProof::Call("__kali_fn_0".into())
+    );
+}
+
+#[test]
+fn unnamed_iife_is_not_a_call() {
+    // Without the pre-pass id there is nothing to key on.
+    assert_eq!(
+        classify("function f() { return (() => [1, 2])(); }"),
+        ReturnArg::NonArray
+    );
+}
+
+#[test]
+fn called_anonymous_non_candidate_is_tainted_form() {
+    let mut facts = facts_one("__kali_fn_0", vec![ReturnArg::Literal(None)]);
+    facts.candidate_forms.clear();
+    let escaping: BTreeSet<String> = ["__kali_fn_0".to_string()].into();
+    let s = solve(&facts, &[], &BTreeMap::new(), &escaping, &no_base);
+    assert_eq!(
+        s.tainted.get("__kali_fn_0"),
+        Some(&kali_common::ARRAY_RETURN_FORM)
+    );
+}
+
+#[test]
+fn uncalled_escaping_anonymous_function_is_never_tainted() {
+    // A callback: escaping (so not R8-exempt) but never directly called.
+    let mut facts = facts_one("__kali_fn_0", vec![ReturnArg::Literal(None)]);
+    facts.candidate_forms.clear();
+    facts.called.clear();
+    let escaping: BTreeSet<String> = ["__kali_fn_0".to_string()].into();
+    let s = solve(&facts, &[], &BTreeMap::new(), &escaping, &no_base);
+    assert_eq!(s.tainted.get("__kali_fn_0"), None);
+}
+
+#[test]
+fn called_anonymous_candidate_is_array_returning() {
+    let facts = facts_one("__kali_fn_0", vec![ReturnArg::Literal(None)]);
+    let s = solve(&facts, &[], &BTreeMap::new(), &BTreeSet::new(), &no_base);
+    assert!(s.array_returning.contains("__kali_fn_0"));
+    assert!(s.tainted.is_empty());
+}
+
+#[test]
+fn named_iife_is_not_a_call() {
+    // `g` is scoped to its own body; keying on it would alias a declaration.
+    let src = "function f() { return (function g() { return [1, 2]; })(); }";
+    assert_eq!(classify(src), ReturnArg::NonArray);
+    let arg = first_return_arg(src).expect("argument");
+    assert_eq!(arg_shape(&arg), ArgShape::Other);
 }

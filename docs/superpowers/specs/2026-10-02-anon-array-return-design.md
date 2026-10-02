@@ -1,0 +1,404 @@
+# A `const`-bound or immediately-invoked anonymous function returns a real array, or refuses
+
+## 0. Provenance
+
+| what | value |
+|---|---|
+| baseline commit | `068b29950` (`main`, merge of PR #45 `array-return`) |
+| branch | `anon-array-return` |
+| toolchain | `rustc 1.99.0 (b940084d7 2026-09-28)` |
+| kali binary | `kali 0.1.0`, `target/debug/kali`, `cargo build -p kali_cli` at the baseline |
+| oracle | `node v26.10.0` |
+| measured on | 2026-10-02 |
+| item picked | `docs/superpowers/followups/array-return-discovered-defects.md` §1, "An arrow or function-expression array return, passed to an array parameter, reads `0`" |
+| defects this closes | that §1, plus the nested-`const`, `const`-alias-chain and IIFE rows §2.1 adds |
+
+**Scope was chosen by the human partner:** real values wherever codegen
+already resolves the callee statically to an anonymous function body, and a
+refusal (`E5506`) for every other directly-called anonymous array return.
+The two other options were "admit everything callable" and "fail closed only".
+The approach (resolve `const` function aliases when inference records its facts) was
+chosen over rewriting call sites in the `name_anon_functions` pre-pass and over
+registering `const f = () => …` as a declaration named `f` (§4).
+
+**Citation convention.** Every line reference is as of the baseline commit.
+
+---
+
+## 1. What this project is
+
+**The claim:** an arrow or function expression that is (a) bound by a `const`
+declarator, directly or through a chain of `const` identifier aliases, in the
+same function as the call, or (b) called immediately (an IIFE), and whose every
+`return` yields an array of `I64` elements, hands its caller a real runtime
+array. The caller can read it bound or directly, or pass it on, exactly as
+for a `function` declaration under the array-return project
+(`2026-10-02-array-return-design.md` §1). Such a function whose returns are
+array-shaped but not admitted refuses with `E5506` at check time, as a
+declaration does.
+
+### 1.1 What this project does NOT claim
+
+* It does **not** resolve a `let`/`var`-bound function value, a module-scope
+  `const` function called from inside another function, an object method, or
+  any call through a first-class function value. Every one of those refuses
+  today (`E5506` "call through a first-class function value", or `E3100`) and
+  keeps refusing.
+* It does **not** change callbacks. An anonymous function that is never
+  directly called (`xs.map(x => [x])`, `setTimeout(cb)`) produces no fact, is
+  never tainted, and keeps its pre-project lane.
+* It does **not** reopen backstop 2 (`array-return-discovered-defects.md` §8):
+  an unadmitted, uncalled anonymous body that returns a literal still emits the
+  placeholder `0`, with no guard.
+* It does **not** fix R-68's open lanes (§2 of the followups), R-21 (an
+  out-of-bounds read prints `0`), R-48, or the runtime-array defects of §3 of
+  the followups. Returned arrays inherit all of those, exactly as declaration
+  returns do.
+
+---
+
+## 2. What was measured
+
+### 2.1 The silent surface at the baseline
+
+`kali check` exits 0 on every SILENT row.
+
+| program | node | kali | verdict |
+|---|---|---|---|
+| `const f = () => [1,2,3]; function g(x){return x[1];} console.log(g(f()));` | `2` | `0`, exit 0 | SILENT |
+| `const f = function(){ return [1,2,3]; }; function g(x){return x[1];} console.log(g(f()));` | `2` | `0`, exit 0 | SILENT |
+| `function g(x){return x[1];} console.log(g((() => [1,2,3])()));` | `2` | `0`, exit 0 | SILENT |
+| `function main(){ const f = () => [1,2,3]; function g(x){return x[1];} console.log(g(f())); } main();` | `2` | `0`, exit 0 | SILENT |
+| `const f = () => [1,2,3]; const h = f; function g(x){return x[1];} console.log(g(h()));` | `2` | `0`, exit 0 | SILENT |
+| `const f = () => { console.log("ran"); return [1,2]; }; function g(x){return x[1];} console.log(g(f()));` | `ran` `2` | `ran` `0`, exit 0 | SILENT (the body runs) |
+| `const f = () => [1,2,3]; console.log(f()[0]);` | `1` | `E5506` indexed read, exit 1 | REFUSES (backstop 1) |
+| `const f = () => [1,2,3]; console.log(f().length);` | `3` | `E5506` `.length`, exit 1 | REFUSES |
+| `const f = () => [1,2,3]; const a = f(); console.log(a[2]);` | `3` | `E5506` indexed read, exit 1 | REFUSES |
+
+### 2.2 Controls at the baseline
+
+| program | node | kali | why it is a control |
+|---|---|---|---|
+| `const f = () => 7; console.log(f());` | `7` | `7` | codegen already resolves `f` to `__kali_fn_N` and runs it |
+| `const f = (n) => new Array(n).fill(4); function g(x){return x[1];} console.log(g(f(3)));` | `4` | `4` | an allocation return already produces its handle |
+| `const f = () => 7; function main(){ console.log(f()); } main();` | `7` | `E5506` first-class call | out of scope; must keep refusing |
+| `let f = () => [1,2,3]; function g(x){return x[1];} console.log(g(f()));` | `2` | `E5506` first-class call | out of scope; must keep refusing |
+| probe `arrow_return` (`f` module-scope, called in `main`) | `1` | `E5506` | out of scope; must keep refusing |
+
+### 2.3 Mechanism
+
+Three facts combine:
+
+1. **Codegen resolves the call.** A `const` declarator records
+   `name → init node` in the per-function, flat `self.bindings`
+   (`crates/kali_codegen/src/emit/control_flow.rs:1906-1911`), and
+   `resolve_bound_node` (`emit/call.rs:6699`) follows it, so `f()` runs
+   `__kali_fn_N`. A module-scope binding is not visible inside another
+   function's emitter, which is why §2.2's third row refuses.
+2. **Inference does not.** The array-return lane keys every fact on a bare
+   callee name (`crates/kali_types/src/array_return.rs`, `ReturnArg::Call`,
+   `ArgShape::Call`, `InitKind::Call`, `ArgArrayProof::Call`,
+   `NumProof::Call`). Only a `function` declaration is a candidate form
+   (`repr_infer.rs:3186-3205`). `Call("f")` matches nothing, and
+   `__kali_fn_N` is never admitted.
+3. **Nothing taints it.** `solve` exempts every `__kali_fn_*` that is not a
+   candidate (`array_return.rs:630-638`, the plan's pre-decided narrowing),
+   so the body keeps the literal placeholder `0`. Since `g`'s `x` is
+   subscripted, it counts as a runtime array (followups §13), so `x[1]` reads
+   through handle `0` and prints `0`.
+
+HIR lowers a concise arrow body to a synthetic `return <expr>`
+(`crates/kali_hir/src/lowering/function.rs:42-70`), so `emit_return` already
+runs under `function_name == "__kali_fn_N"` for both arrow forms.
+
+---
+
+## 3. Design
+
+### 3.1 Inference (`kali_types`)
+
+**Alias table.** During the body walk, `repr_infer` records
+`(func, name) → __kali_fn_N` for a declarator that is `const` and whose
+initializer, after `array_return::unparen`, is either
+
+* an `ArrowFunctionExpression` or `FunctionExpression` (key: its synthetic
+  `id`), or
+* a bare identifier already in the table **for the same `func`** (the
+  `const h = f` chain).
+
+A name declared more than once in `func`, by any declarator kind, a param, or
+a nested `function` declaration, is removed from the table. Codegen's
+`bindings` is flat, not block-scoped, so a re-declared name is ambiguous, and
+inference declines to guess. There is **no** fall-through to module scope
+(unlike `binding_scope`, `repr_infer.rs:1815`), because codegen's per-function
+`bindings` has none.
+
+**Resolution.** One helper, `resolve_callee(func, name) -> String`, returns
+the table's `__kali_fn_N` or `name` unchanged. It is applied at every point
+where a bare-identifier callee becomes an array-return fact: return
+classification (`ReturnArg::Call`), feeds (`ArgShape::Call`), call-bound
+declarators (`InitKind::Call`), argument array proofs
+(`ArgArrayProof::Call`), number proofs (`NumProof::Call`), call edges, and
+`ArrayReturnFacts::called`. `array_return.rs` stays pure. It sees resolved
+keys and needs no knowledge of aliases.
+
+**IIFE.** A call whose callee, after `unparen`, is itself an arrow or
+function expression records that expression's `__kali_fn_N` as the callee in
+the same places.
+
+**Candidates.** A non-async, non-generator `__kali_fn_N` that is in `called`
+joins `candidate_forms` with a declaration count of 1, and
+`body_falls_off_end` applies to its body. A concise arrow body is a single
+`return` and never falls off. An async arrow joins `non_taintable` (ruling
+R12).
+
+**`solve`.** The fixed point is unchanged. The narrowing at
+`array_return.rs:630-638` becomes:
+
+> an anonymous `__kali_fn_N` **not in `called`** is never tainted, which keeps
+> callbacks on their lane. One that **is** in `called` is admitted or tainted
+> exactly like a declaration (`MIXED`, `ELEMENT`, `LET_LITERAL`, `FORM`).
+
+**Shadow fact.** `is_array_return_callee_shadowed(func, name)` (published via
+`ReprTable`) declines when `name` is a param or a `let`/`var` binding of
+`func`, so a `let f = () => …` never resolves, matching codegen's `locals`
+belt.
+
+**Published.** `array_return("__kali_fn_N")`,
+`array_return_taint("__kali_fn_N")`, and `call_bound` / `array_fed_params`
+computed from resolved facts. These are the same `ReprTable` keys a declaration
+uses.
+
+### 3.2 Codegen (`kali_codegen`)
+
+**Callee side.** No change. `emit_return` (`emit/control_flow.rs:217`), the
+scratch reservation (`lower.rs:3658`) and literal materialization key on
+`self.function_name`, which is `__kali_fn_N` inside an anonymous body.
+
+**Caller side.** `array_return_call_elem` (`emitter.rs:835`) gains one
+resolution step:
+
+1. Run the existing shadow decline on the **source** callee name
+   (`is_array_return_callee_shadowed` plus the `locals` belt).
+2. If the callee node resolves through `resolve_bound_node` and
+   `unwrap_transparent_value_node` to a function-expression value whose text
+   is `__kali_fn_N`, look up `array_return("__kali_fn_N")`. Otherwise look up
+   the bare name as today.
+3. An IIFE's callee node already is that value, so step 2 covers it.
+
+Every consumer goes through this function, so the direct index, `.length`,
+the console-argument guard and argument passing all read real memory with no
+per-consumer edits. The call-bound lane reads `is_call_bound_array_binding`,
+which inference now computes from resolved facts.
+
+### 3.3 Refusals
+
+* **At check time.** A directly-called anonymous function whose returns are
+  array-shaped but not admitted becomes a shape conflict and `E5506`, through
+  `kali_common::array_return_refused_message`. The message names the source
+  binding (`f`), not `__kali_fn_N`. An IIFE has no source name, so its message
+  says "an immediately-invoked function".
+* **Callbacks** (not in `called`) produce no fact and no refusal.
+* `emit_return`'s taint arm stays as the belt for any path that skips the
+  shape-conflict check.
+
+### 3.4 The agreement risk
+
+Inference's alias table and codegen's `bindings` must resolve the same calls.
+If inference declines a shape that codegen resolves, the old silent `0`
+survives on that shape. This is the A1 discipline of the array-return
+project: check, run and inference must not disagree. It is guarded by a
+both-sides test (§5.3) and by the oracle rows (§5.2). Backstop 2 is
+deliberately not used as a net (§1.1).
+
+---
+
+## 4. Approaches not taken
+
+| approach | why not |
+|---|---|
+| Rewrite `f()` to `__kali_fn_N()` in the `name_anon_functions` pre-pass | A global AST rewrite. Every other lane (shadow guards, string-result taint, diagnostics that name `f`) would see a different program. The blast radius is far larger than the defect. |
+| Register `const f = () => …` as a declaration named `f` | Codegen emits the body as `__kali_fn_N`, so `emit_return` would look up the wrong key, and `f` would collide with the shadow machinery that treats `const f` as a shadow of a `function f`. |
+| Fail closed only (taint every called anonymous array return) | Chosen against by the human partner: the runtime representation and the callee-side materialization already exist, so the real-value half is mostly callee resolution. |
+
+---
+
+## 5. Testing and measurement
+
+### 5.1 The capability-loss spike (gate)
+
+Before the real-value half lands, apply only the narrowed exemption (§3.1
+`solve`) with alias resolution feeding `called`. Then run `cargo test --workspace` and
+`tools/array-return-probes/run.sh`, and list every test or probe that moves to
+an `E5506` that did not refuse at the baseline. Each one is either admitted by
+the full change or brought back to the human partner before proceeding. The
+same diff is recomputed at the end of the branch and recorded in the
+followups file (§12).
+
+### 5.2 Probes and oracle cases
+
+* New probes `tools/array-return-probes/probes/anon_*.js`: every §2.1 row,
+  every §2.2 control, and `flatMap`/`map` callbacks returning `[x]` (their
+  output must not change). `baseline.tsv` gains their baseline column,
+  measured at `068b29950`.
+* `crates/kali_cli/tests/cases/runtime/array_return.toml`: the §2.1 rows at
+  node's output, including the alias chain, nested `const`, IIFE and
+  side-effecting bodies, the bound (`const a = f()`) form, and `.length`.
+* `crates/kali_cli/tests/cases/runtime/array_return_refusals.toml`: a called
+  anonymous function with a mixed return, a boolean element, a `let`
+  literal, and an async arrow, with `kali check` and `kali run` both
+  refusing. The §2.2 out-of-scope controls, still refusing.
+* Any `oracle/` case that pins a §2.1 row at `0` is re-pinned to node's value.
+
+No new `tests/*.rs` integration target.
+
+### 5.3 Unit tests (sibling `*_tests.rs` files)
+
+* `array_return_tests.rs`: `solve` admits a called anonymous candidate, taints
+  a called mixed one, and leaves an uncalled one untainted.
+* `repr_infer` tests: the alias table covers a single alias, a chain, a
+  re-declaration that drops, a `let` that never enters, no module-scope
+  fall-through, and an IIFE callee.
+* `control_flow_tests.rs` / emitter tests: `array_return_call_elem` resolves
+  through `bindings` and declines on a shadowed source name.
+* **Agreement test:** over the §5.2 probe sources, every call that codegen's
+  `resolve_bound_node` resolves to an `__kali_fn_N` whose returns are
+  array-shaped has a matching resolved inference fact.
+
+### 5.4 Gates
+
+`cargo test --workspace` passes, including
+`kali_blast_radius::ranking::ranking_tests::spliced_document_matches_the_generator`.
+If any ranked entry moves, the ranking is regenerated with
+`cargo run -p kali_blast_radius --example rank`.
+
+---
+
+## 6. Bookkeeping
+
+* `docs/superpowers/followups/array-return-discovered-defects.md` §1: marked
+  FIXED with the closing commit. Its §9, §13 and §16 cross-references are
+  re-checked.
+* A new `docs/superpowers/followups/anon-array-return-discovered-defects.md`
+  records what was measured and not fixed, at minimum the out-of-scope
+  controls of §2.2 (they need first-class function values) and the §5.1
+  capability-loss diff.
+* `kali-silent-miscompile-register.md` is amended only if an entry's lane
+  moves.
+* No CLI, schema, diagnostic-code or maturity change. `E5506` and its
+  array-return message family already exist, so the AGENTS.md §6 CLI change
+  packet does not apply.
+
+---
+
+## 7. Amendments
+
+A-1..A-6 were made during planning; A-7 onward during implementation.
+
+* **A-1 (§3.1 "call edges").** `CallEdge.callee` is not rewritten. Only the
+  array-return facts resolve it (`called`, feeds, `call_bound`, returns, and the
+  R15 discharge), so `resolve_calls`' param-repr inference is not widened to
+  anonymous bodies. Consequence (corrected by A-9): the R15 number-proof edges
+  are not `CallEdge`s. They are snapshotted from the `CallEdge`s with each
+  callee resolved through `array_return_callee`, plus one edge per IIFE, so
+  an arrow whose returned elements are its params refuses `ELEMENT` unless
+  every call passes a proven integer.
+* **A-2 (§3.1 "shadow fact").** No new `ReprTable` fact. `let`/`var`/param names
+  are `Blocked` in the alias table, and codegen's existing `locals` belt and
+  `is_array_return_callee_shadowed` decline on the source name.
+* **A-3 (§5.2 async arrow).** An async arrow follows ruling R12: it is
+  `non_taintable`, keeps its pre-project lane, and is not a refusal case.
+* **A-4 (§5.3 agreement test).** The both-sides agreement check is realized as
+  the `anon_*` probe gate (no `anon_*` probe is SILENT) plus the
+  `runtime/anon_array_return.toml` shape matrix, not as a unit test. Codegen's
+  resolution is not reachable from `kali_types`.
+* **A-5 (§3.3 named function expressions).** `direct_callee` keys an arrow or
+  function expression only by a synthetic `__kali_fn_N` id. A named function
+  expression's own name is scoped to its body, so keying it would resolve the
+  call against an unrelated declaration of that name; a named IIFE therefore
+  keeps its pre-project lane (measured SILENT, followups).
+* **A-6 (§5.2 case files).** The cases live in a new
+  `runtime/anon_array_return.toml` in the same `cases` target, rather than being
+  appended to `array_return.toml` / `array_return_refusals.toml`, so this
+  project's baseline (`068b29950`) is not mixed with that one's (`368b5b5ea`).
+  For the same reason the `anon_*` probes' baseline column went to a new
+  `tools/array-return-probes/baseline-anon.tsv`, not to `baseline.tsv` as
+  §5.2 says.
+* **A-7 (§3.1 "alias table", Task 3 fix round `b86bffa9e`).** A `function`
+  declaration of the same name in the same function scope blocks a `const`
+  alias, like any other second declaration. The block-level shape
+  `const f = () => [1, 2, 3]; … { function f() { return [7, 8, 9]; } g(f()); }`
+  is then declined by inference, not admitted. It still prints the
+  pre-existing `0` (node `8`), which is R-10's class (followups §6).
+* **A-8 (§3.3 belt).** `emit_return`'s taint arm
+  (`crates/kali_codegen/src/emit/control_flow.rs`, the
+  `array_return_taint(&self.function_name)` branch) is unchanged, and still
+  names an anonymous body by its synthetic `__kali_fn_N` id. It is unreachable
+  for an admitted program: every taint is also a shape conflict, which
+  inference reports first with the `const` binding's name. A comment at the
+  arm says so (`64162beba`). No display name is plumbed into `ReprTable`.
+* **A-9 (§5.3 / plan Review Focus #3, param-dependent elements).**
+  `const f = (n) => [n, n]` was predicted to refuse `ELEMENT` for a
+  non-integer argument (A-1's original consequence). Measured at `97c008bc5`
+  against node v26.10.0, it was admitted for any argument: `f(true)` printed
+  `1` where node prints `true` (exit 0) in the passed-on, direct, bound and
+  IIFE forms, and `f(1.5)` failed at load with `E4201`. Ruling R15's param
+  proof held vacuously, because the R15 edges named the source callee `f` and
+  an IIFE recorded none, so `edges_to("__kali_fn_N")` was empty. A concise
+  arrow body also recorded no element obligation for its returned literal.
+  Task 8 (`fef5de60a`) fixed both. The R15 edges are keyed by
+  `array_return_callee(caller, callee)` (an edge it returns `None` for is
+  skipped), every IIFE records its own edge with its argument proofs, and an
+  anonymous `__kali_fn_N` with no edge is not call-site-enumerable
+  (`call_sites_enumerable`, fail-closed). A concise arrow body records a
+  `return` statement's facts through the same helpers, and fix round 1
+  (`615af7548`) made a returned allocation visit its length arguments, so a
+  call there (`new Array(g(k)).fill(7)`) is an edge too. Re-measured at
+  `4898f3994`, every `f(3)` form prints `3`, and every `f(true)`, `f("a")` and
+  `f(1.5)` form refuses `E5506` "an element is not an integer" at check and
+  run; the IIFE `f(1.5)` forms (passed-on and direct) were measured at
+  `f45f3c4ac` and refuse the same way (followups §2 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`).
+* **A-10 (§3.2 "caller side", member callees).** `array_return_call_elem`
+  resolves only a bare-identifier callee, through `bindings`, or a callee
+  that is itself an anonymous function expression (an IIFE). Any other callee
+  (a member expression, a computed member, a call result) is not an
+  array-return call and yields `None`. This is §3.2 step 2's resolution
+  (`resolve_bound_node`). The plan
+  (`docs/superpowers/plans/2026-10-02-anon-array-return.md`) and Task 5
+  (`c2c2eb1b9`) deviated from it: they resolved the callee "exactly as the
+  call is lowered", through `resolve_bound_member_callable_node`, and that
+  resolver lowers `o.f` to a same-named top-level declaration `f`. `function
+  f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);`
+  then printed `1` at `cb63f9909` (node `4`), where it refused at
+  `068b29950`. Task 8 (`4898f3994`) restored §3.2's resolution, and the row
+  refuses again through backstop 1. The member lowering itself is not
+  changed, and its scalar and passed-on rows stay silent as at the baseline
+  (followups §3).
+* **A-11 (§1 "exactly as for a `function` declaration", §3.2 "Every consumer
+  goes through this function").** Neither holds for `kali_types`' resolver.
+  `call_returns_runtime_array` (`crates/kali_types/src/resolve/member.rs`) and
+  the call-bound runtime-array registration in
+  `crates/kali_types/src/resolve/mod.rs` look up `array_return(callee)` by the
+  source callee name, and an anonymous function's fact is keyed by
+  `__kali_fn_N`. So a read the resolver classifies at check time refuses for
+  `const F = () => [1,2,3]; const b = F(); let i = 1; console.log(b[i]);`
+  (`E5506` "computed member access", at `check` and `run`) where the
+  `function F` declaration twin computes `2`. A loop over `b.length` and
+  `F()?.[1]` refuse for the arrow where the declaration computes. This is an
+  over-refusal, not a silent value, and the baseline refused the same programs. §3.2's sentence is true
+  of codegen's consumers (`array_return_call_elem`) only. Filed, not fixed:
+  followups §9 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`.
+* **A-12 (§1 claim; §3.1 alias table; §3.4 agreement risk).** A `const` arrow
+  or an IIFE wrapped in a TypeScript assertion or `satisfies`
+  (`const f = (() => [1,2,3]) as any;`, `… satisfies any`,
+  `((() => [1,2,3]) as any)()`) is inside §1's claim and does not meet it.
+  `note_fn_alias` and `direct_callee` see through the wrapper (`unparen`), so
+  the synthetic id is `called`, but `visit_expr` has no arm for
+  `TypeAssertion` or `SatisfiesExpression`, so the body is never walked:
+  never admitted, never tainted, and the caller reads the placeholder `0`
+  (node `2`). The scalar control `(() => 7) as any` computes. The wrapped forms
+  print the baseline's `0`, so this is not a regression, and the `.js`-only
+  probe gate (A-4) could not see it. Filed, not fixed: followups §7 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`.

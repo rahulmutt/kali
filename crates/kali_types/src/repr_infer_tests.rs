@@ -1718,6 +1718,203 @@ fn array_return_arrow_is_not_tainted_under_the_narrowing() {
     }
 }
 
+// ---- Anonymous array returns (spec 2026-10-02-anon-array-return-design.md §3.1) ----
+
+#[test]
+fn anon_alias_call_admits_the_arrow() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn anon_alias_call_bound_binding_is_an_array() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nconst a = f();\nconsole.log(a[2]);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+    assert!(t.is_call_bound_array_binding("_start", "a"));
+}
+
+#[test]
+fn anon_block_bodied_function_expression_is_admitted() {
+    let t = reprs_with_fn_id(
+        "const f = function () { return [1, 2, 3]; };\nconst a = f();\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+}
+
+#[test]
+fn anon_mixed_return_refuses_under_its_binding_name() {
+    let t = reprs_with_fn_id(
+        "const f = function (c) { if (c) { return [1]; } return 0; };\nconst a = f(true);\nconsole.log(a[0]);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_MIXED)
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("returning an array from `f`")
+                && m.contains(kali_common::ARRAY_RETURN_MIXED)),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn anon_async_arrow_is_not_a_candidate_and_never_tainted() {
+    // Ruling R12, as for declarations: the call yields a Promise.
+    let mut parsed =
+        crate::test_support::parse_statements("const f = async () => [1, 2];\nconst p = f();\n");
+    if let kali_ast::Statement::VariableDeclaration(decl) = &mut parsed[0] {
+        if let Some(kali_ast::Expression::ArrowFunctionExpression(a)) =
+            decl.declarations[0].init.as_mut()
+        {
+            a.id = Some("__kali_fn_0".into());
+        }
+    }
+    let t = infer_reprs(&parsed);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+}
+
+#[test]
+fn anonymous_refusal_message_names_an_immediately_invoked_function() {
+    let m = kali_common::array_return_refused_message_anonymous(kali_common::ARRAY_RETURN_MIXED);
+    assert!(m.starts_with("returning an array from an immediately-invoked function is unavailable in the current phase"));
+}
+
+#[test]
+fn anon_let_binding_is_never_an_alias() {
+    let t = reprs_with_fn_id(
+        "let f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_alias_does_not_fall_through_to_module_scope() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nfunction main() { function g(x) { return x[1]; } console.log(g(f())); }\nmain();\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_function_declaration_blocks_a_const_alias_of_its_name() {
+    // A same-scope `function f` (here in a block, which shares `func`'s flat
+    // scope) is a second declaration of `f`: the inner `f()` must not resolve
+    // to the outer arrow.
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nfunction g(x) { return x[1]; }\n{ function f() { return [7, 8, 9]; } console.log(g(f())); }\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_redeclared_name_is_not_an_alias() {
+    let t = reprs_with_fn_id(
+        "const f = () => [1, 2, 3];\nif (true) { const f = 2; }\nfunction g(x) { return x[1]; }\nconsole.log(g(f()));\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+    assert_eq!(t.array_return("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_param_elements_proven_by_integer_argument_admit() {
+    // Ruling R15 over an anonymous callee: the param proof enumerates the
+    // call `f(3)`, resolved through the `const` alias to `__kali_fn_0`.
+    let t = reprs_with_fn_id("const f = (n) => [n, n];\nconst a = f(3);\n", "__kali_fn_0");
+    assert_eq!(t.array_return("__kali_fn_0"), Some(Repr::I64));
+    assert_eq!(t.array_return_taint("__kali_fn_0"), None);
+}
+
+#[test]
+fn anon_param_elements_with_boolean_argument_taint_element() {
+    // Followups §1: before the fix `edges_to("__kali_fn_0")` was empty, so
+    // the param proof held vacuously, and the concise body recorded no
+    // element obligation, so `f(true)[0]` printed `1`.
+    let t = reprs_with_fn_id(
+        "const f = (n) => [n, n];\nconst a = f(true);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn anon_function_expression_param_elements_with_boolean_argument_taint_element() {
+    // A `return` statement always recorded its element obligation; the param
+    // proof now enumerates the alias-resolved edge instead of none.
+    let t = reprs_with_fn_id(
+        "const f = function (n) { return [n, n]; };\nconst a = f(true);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn anon_concise_arrow_allocation_fill_with_boolean_argument_taint_element() {
+    // A concise arrow body records a returned allocation's fill proof, as a
+    // `return` statement does.
+    let t = reprs_with_fn_id(
+        "const f = (v) => new Array(2).fill(v);\nconst a = f(true);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn anon_concise_arrow_allocation_length_call_is_a_call_edge() {
+    // Review fix round 1: the length `g(k)` is visited, so its call edge
+    // carries `k`, and the allocation's length proof (`Return(g)` over
+    // `Param(g, x)`) is refuted by `f(1.5)`.
+    let t = reprs_with_fn_id(
+        "function g(x) { return x * 2; }\nconst f = (k) => new Array(g(k)).fill(7);\nconst a = f(1.5);\n",
+        "__kali_fn_0",
+    );
+    assert_eq!(
+        t.array_return_taint("__kali_fn_0"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
+#[test]
+fn returned_allocation_length_call_is_a_call_edge() {
+    // The `return` statement twin, on a declaration.
+    let t = reprs(
+        "function g(x) { return x * 2; }\nfunction f(k) { return new Array(g(k)).fill(7); }\nconst a = f(1.5);\n",
+    );
+    assert_eq!(
+        t.array_return_taint("f"),
+        Some(kali_common::ARRAY_RETURN_ELEMENT)
+    );
+}
+
 #[test]
 fn array_return_named_function_expression_taints_form() {
     // A NAMED function expression keeps its own name (not `__kali_fn_N`), is
