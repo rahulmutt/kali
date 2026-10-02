@@ -49,6 +49,9 @@ function main() { const a = new Array(3).fill(4); console.log(a); } main();
 "print_second_argument.js" = '''
 function main() { const a = new Array(3).fill(4); console.log("a", a); } main();
 '''
+"index_on_scalar_call.js" = '''
+function f() { return 3; } console.log("v=" + f()[0]);
+'''
 
 [[case]]
 name = "mixed_array_and_scalar_returns_refuses_at_check"
@@ -197,3 +200,10 @@ rationale = """The multi-argument lane. Measured at the task's start commit `9c2
 args = ["run", "print_second_argument.js"]
 exit = "failure"
 stderr_contains = ["E5506", "printing a whole runtime array"]
+
+[[case]]
+name = "a_literal_index_on_a_non_array_receiver_refuses"
+rationale = """The numeric-index fallback used to drop the receiver and print `0`. Measured at this task's start commit `fefe62c60`: kali printed `v=0` at exit 0 where node v26.10.0 prints `v=undefined`. Spec §3.3 backstop 1."""
+args = ["run", "index_on_scalar_call.js"]
+exit = "failure"
+stderr_contains = ["E5506", "no lane proves this receiver is an array"]

@@ -1201,7 +1201,7 @@ name = "r06c_var_array_element_reads_module_scope"
 kind = "oracle"
 register_entry = "R-06"
 program = "r06c_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-06, `R-06-R3` ARRAYS lane, module scope. A `var`-declared array literal, both of whose elements are read back. This is §2's Detail line for R-06 verbatim -- "`var a=[7,9]; a[0]`->`0`, `a[1]`->`0`" -- and BOTH reads are kept because that is how the register states it; one element alone would leave the "reads back as an empty/zero array" claim resting on a single observation.
 
 SCAFFOLDING: as with the `R-06-R2` lane, the register states this as expression fragments with an arrow to the value, so a `console.log(…)` was added around each read and nothing else.
@@ -1210,19 +1210,23 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `0` then `0` at exit 0 with empty stderr; node prints `7` then `9` at exit 0. Both elements read back zero, so the whole binding is empty rather than one slot being lost.
 
-WHAT THIS CASE DOES AND DOES NOT MEASURE. `R-06-R3` is a wide residual and this case takes its element-READ shape only. The residual's element-STORE shape (`var a=[1,2]; a[0]=9; a[0]`), its `.length` shape, and its `const`-store sub-case are different programs and are NOT what this case observes. The store shape in particular is recorded at `61c2d48ea9` as behaving differently by scope -- silent at module scope, `E5506` in-function -- so a single case could not have carried it alongside the reads without one masking the other. R-12 in this same file measures an array-element store directly."""
+WHAT THIS CASE DOES AND DOES NOT MEASURE. `R-06-R3` is a wide residual and this case takes its element-READ shape only. The residual's element-STORE shape (`var a=[1,2]; a[0]=9; a[0]`), its `.length` shape, and its `const`-store sub-case are different programs and are NOT what this case observes. The store shape in particular is recorded at `61c2d48ea9` as behaving differently by scope -- silent at module scope, `E5506` in-function -- so a single case could not have carried it alongside the reads without one masking the other. R-12 in this same file measures an array-element store directly.
+
+RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): SILENT -> FAIL_CLOSED. At `fefe62c60` kali printed `0` then `0` at exit 0; node v26.10.0 prints `7` then `9`. Both reads reached the numeric-index fallback, whose placeholder `0` now refuses with E5506 (exit 1, empty stdout). The lane is not fixed: kali still cannot read a `var` array literal's elements, it now says so."""
 
 [[case]]
 name = "r06c_var_array_element_reads_in_function"
 kind = "oracle"
 register_entry = "R-06"
 program = "r06c_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-06, `R-06-R3` ARRAYS lane, in-function scope. The module-scope program verbatim inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `0` then `0` at exit 0; node prints `7` then `9` at exit 0. Identical to the module scope. That matters for this lane specifically: `61c2d48ea9` records the array-element STORE as scope-dependent (silent at module scope, `E5506` in-function), so the READ shape agreeing across scopes is a real discriminator between the two shapes rather than a foregone conclusion."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `0` then `0` at exit 0; node prints `7` then `9` at exit 0. Identical to the module scope. That matters for this lane specifically: `61c2d48ea9` records the array-element STORE as scope-dependent (silent at module scope, `E5506` in-function), so the READ shape agreeing across scopes is a real discriminator between the two shapes rather than a foregone conclusion.
+
+RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): SILENT -> FAIL_CLOSED. At `fefe62c60` kali printed `0` then `0` at exit 0; node v26.10.0 prints `7` then `9`. Both reads reached the numeric-index fallback, whose placeholder `0` now refuses with E5506 (exit 1, empty stdout). The lane is not fixed: kali still cannot read a `var` array literal's elements, it now says so."""
 
 [[case]]
 name = "r07_const_is_a_binding_module_scope"

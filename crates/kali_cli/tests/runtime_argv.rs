@@ -83,22 +83,36 @@ fn process_argv_huge_literal_index_never_flows_as_a_real_string() {
     // `parse_number_literal` overflows and returns `None`, so this index is
     // never a recognized argv element on the codegen side, before or after
     // the kali_types fix.
+    //
+    // RE-PINNED 2026-10-02 by the array-return project
+    // (docs/superpowers/specs/2026-10-02-array-return-design.md §3.3 backstop 1,
+    // measured in §4.1). OLD READING (`fefe62c60`): kali exited 0 and printed
+    // `0`, the numeric-index fallback's placeholder; node v26.10.0 prints
+    // `undefined`. That fallback now refuses with E5506 rather than fabricate a
+    // value. The contract this test guards (the pathological index never flows
+    // as a real argv string) is kept, and asserted more strongly: stdout is
+    // empty, so it cannot be `hello`.
     let out = run_node_source_with_args(
         "console.log(process.argv[10000000000000000000]);\n",
         &["hello"],
     );
     assert!(
-        out.status.success(),
-        "stderr: {}",
+        !out.status.success(),
+        "expected the honest refusal, not a silent value; stdout: {} stderr: {}",
+        String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     // Must NOT leak the real guest arg (that would mean the pathological
     // literal was somehow honored as a genuine argv index/string).
     assert_ne!(stdout, "hello\n");
-    // Takes the same harmless numeric-placeholder fallback as every other
-    // unrecognized argv index shape (negative literal, variable index).
-    assert_eq!(stdout, "0\n");
+    assert_eq!(stdout, "");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("no lane proves this receiver is an array"),
+        "stderr: {stderr}"
+    );
 }
 
 #[test]

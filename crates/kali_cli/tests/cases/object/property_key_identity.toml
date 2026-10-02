@@ -259,17 +259,19 @@ main();
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_module_scope"
-rationale = "RE-PINNED, was wrong now differently wrong (Task 2): node prints `false`, `undefined`, `1`. kali now prints `false`, `0`, `1` -- `Object.hasOwn(o, 0)` is fixed (the parser reads `42n` as `PropertyName::BigInt(\"42\")` instead of falling back to the key `0`, so `hasOwn` and `o[42]` now agree with node), but `o[0]` reads `0` instead of `undefined`. That residual is a DIFFERENT defect -- a static member read returning a fabricated `0` rather than the value JavaScript would produce -- not the key-identity defect this task fixes. It is reached here because the property is ABSENT, but the final whole-branch review measured the same fabricated `0` coming back for a PRESENT property too, so the defect is not only an absent-property one; see `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope`. Not chased here; see the commit message."
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): node prints `false`, `undefined`, `1`. kali now prints `false`, `0`, `1` -- `Object.hasOwn(o, 0)` is fixed (the parser reads `42n` as `PropertyName::BigInt(\"42\")` instead of falling back to the key `0`, so `hasOwn` and `o[42]` now agree with node), but `o[0]` reads `0` instead of `undefined`. That residual is a DIFFERENT defect -- a static member read returning a fabricated `0` rather than the value JavaScript would produce -- not the key-identity defect this task fixes. It is reached here because the property is ABSENT, but the final whole-branch review measured the same fabricated `0` coming back for a PRESENT property too, so the defect is not only an absent-property one; see `a_present_property_on_a_from_entries_object_also_reads_the_fabricated_zero_module_scope`. Not chased here; see the commit message. RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): at `fefe62c60` kali printed `false`, `0`, `1` at exit 0; node v26.10.0 prints `false`, `undefined`, `1`. The fabricated `0` for `o[0]` was the numeric-index fallback's placeholder, which now refuses with E5506, so the program exits 1 with empty stdout."
 args = ["run", "bigint_module.js"]
-exit = "success"
-stdout = "false\n0\n1\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lane proves this receiver is an array"]
 
 [[case]]
 name = "bigint_key_is_stored_under_zero_in_function"
-rationale = "RE-PINNED, was wrong now differently wrong (Task 2): same as the module-scope case, in function scope. node prints `false`, `undefined`, `1`; kali prints `false`, `0`, `1`. The key-identity part of this case is fixed; the `o[0]` residual is the same absent-property-read defect described on the module-scope case, not this task's defect."
+rationale = "RE-PINNED, was wrong now differently wrong (Task 2): same as the module-scope case, in function scope. node prints `false`, `undefined`, `1`; kali prints `false`, `0`, `1`. The key-identity part of this case is fixed; the `o[0]` residual is the same absent-property-read defect described on the module-scope case, not this task's defect. RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): at `fefe62c60` kali printed `false`, `0`, `1` at exit 0; node v26.10.0 prints `false`, `undefined`, `1`. The fabricated `0` for `o[0]` was the numeric-index fallback's placeholder, which now refuses with E5506, so the program exits 1 with empty stdout."
 args = ["run", "bigint_function.js"]
-exit = "success"
-stdout = "false\n0\n1\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lane proves this receiver is an array"]
 
 [[case]]
 name = "object_keys_renders_small_magnitude_key_with_rust_display_module_scope"

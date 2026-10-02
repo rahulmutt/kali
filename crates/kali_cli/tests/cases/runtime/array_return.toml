@@ -288,13 +288,14 @@ stdout = "6,4\n"
 
 [[case]]
 name = "async_function_stays_off_the_array_return_lane"
-rationale = """Ruling R12: an `async` declaration is not an array-return candidate (its call yields a Promise) and is never tainted, so `f()[0]` stays on its PRE-EXISTING lane. That lane is SILENT-WRONG: kali prints `0` at exit 0 where node v26.10.0 prints `undefined`. This pins the pre-existing lane, not a correct result; it is filed for followup. At `4ec806e59` kali printed the same `0`; at `22350647b`, before this ruling, the array-return lane read the literal and printed `1`. `kali check` admits the program too (see the `_checks` twin), so check and run agree."""
+rationale = """Ruling R12: an `async` declaration is not an array-return candidate (its call yields a Promise) and is never tainted, so `f()[0]` stays on its PRE-EXISTING lane. That lane is SILENT-WRONG: kali prints `0` at exit 0 where node v26.10.0 prints `undefined`. This pins the pre-existing lane, not a correct result; it is filed for followup. At `4ec806e59` kali printed the same `0`; at `22350647b`, before this ruling, the array-return lane read the literal and printed `1`. RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): at `fefe62c60` kali printed `0` at exit 0 where node v26.10.0 prints `undefined`; the pre-existing lane was the numeric-index fallback, which now refuses with E5506 instead of pushing `0`."""
 args = ["run", "async_direct_index.js"]
-exit = "success"
-stdout = "0\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lane proves this receiver is an array"]
 
 [[case]]
 name = "async_function_stays_off_the_array_return_lane_checks"
-rationale = """Check/run agreement for ruling R12: `kali check` admits the program `kali run` compiles (to its pre-existing silent `0`; node v26.10.0 prints `undefined`)."""
+rationale = """Ruling R12's `check` half: `kali check` admits this program. RE-PINNED 2026-10-02 by the array-return project (spec docs/superpowers/specs/2026-10-02-array-return-design.md, section 3.3 backstop 1, measured in section 4.1): `kali run` now refuses it with E5506 at codegen (the numeric-index fallback), which `check` does not reach, so check and run DISAGREE on this program; node v26.10.0 prints `undefined`. The disagreement is filed for followup with the async lane itself."""
 args = ["check", "async_direct_index.js"]
 exit = "success"
