@@ -444,7 +444,13 @@ pub(crate) fn direct_callee(call: &CallExpression) -> Option<String> {
 }
 
 fn synthetic_id(id: &Option<String>) -> Option<String> {
-    id.clone().filter(|id| id.starts_with("__kali_fn_"))
+    id.clone().filter(|id| is_synthetic_fn_id(id))
+}
+
+/// True when `name` is the synthetic `__kali_fn_N` id the pre-resolver gives
+/// an anonymous function (anon-array-return spec §3.1).
+pub(crate) fn is_synthetic_fn_id(name: &str) -> bool {
+    name.starts_with("__kali_fn_")
 }
 
 /// The `v` of an allocation spelled `new Array(n).fill(v)` / `Array(n).fill(v)`.
@@ -666,10 +672,7 @@ pub(crate) fn solve(
                 // (plan Task 4 step 10 of the array-return project). One that IS
                 // directly called, through a `const` alias or immediately
                 // (anon-array-return spec §3.1), is tainted like a declaration.
-                if !facts.is_candidate(f)
-                    && f.starts_with("__kali_fn_")
-                    && !facts.called.contains(f)
-                {
+                if !facts.is_candidate(f) && is_synthetic_fn_id(f) && !facts.called.contains(f) {
                     continue;
                 }
                 // Ruling R12: an `async` or generator declaration is not a

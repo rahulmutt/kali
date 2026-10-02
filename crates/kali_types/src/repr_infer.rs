@@ -527,7 +527,8 @@ impl NumProofCheck<'_> {
         !self.unwalked
             && self.infer.array_return_facts.declaration_counts.get(func) == Some(&1)
             && !self.infer.escaping_function_names.contains(func)
-            && (!func.starts_with("__kali_fn_") || self.edges_to(func).next().is_some())
+            && (!crate::array_return::is_synthetic_fn_id(func)
+                || self.edges_to(func).next().is_some())
     }
 
     /// Every recorded write of `(scope, name)` is a proven number, and no
@@ -1799,7 +1800,7 @@ impl ReprInfer {
             }
             ("const", Some(Expression::FunctionExpression(f))) => {
                 f.id.clone()
-                    .filter(|id| id.starts_with("__kali_fn_"))
+                    .filter(|id| crate::array_return::is_synthetic_fn_id(id))
                     .map(FnAlias::Function)
             }
             ("const", Some(Expression::Identifier(other))) => Some(FnAlias::Binding(other.clone())),
@@ -1842,7 +1843,7 @@ impl ReprInfer {
     fn array_return_refusal(&self, f: &str, reason: &str) -> String {
         match self.fn_alias_names.get(f) {
             Some(name) => kali_common::array_return_refused_message(name, reason),
-            None if f.starts_with("__kali_fn_") => {
+            None if crate::array_return::is_synthetic_fn_id(f) => {
                 kali_common::array_return_refused_message_anonymous(reason)
             }
             None => kali_common::array_return_refused_message(f, reason),
@@ -4663,7 +4664,7 @@ impl ReprInfer {
                     // F-AB-2 lockstep: record what walk 4 seeds (see
                     // `nested_fns_seeded`).
                     self.nested_fns_seeded.insert(id.to_string());
-                    if id.starts_with("__kali_fn_") {
+                    if crate::array_return::is_synthetic_fn_id(id) {
                         self.note_anon_fn_form(id, f.is_async, f.generator, Some(&body.body));
                     }
                     self.visit_block(id, body);
