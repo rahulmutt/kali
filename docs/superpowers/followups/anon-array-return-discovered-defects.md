@@ -17,6 +17,9 @@ against `kali run P.js` and `kali check P.js`, with the program text given in
 full. Their **baseline** column was measured on a `kali` built from
 `068b29950` in a throwaway worktree. A row that says "not measured at the
 baseline" was not.
+§1 and §2 were re-measured by Task 8 at `4898f3994`, on `target/debug/kali`
+built from that commit, and their `cb63f9909` column on a `kali` built from
+`cb63f9909` in a throwaway worktree. Each says so at its head.
 
 **Register:** no entry of `kali-silent-miscompile-register.md` moved lane, so
 the register and `blast-radius-ranking.md` are not edited. Read at
@@ -29,10 +32,15 @@ return passed on to an array parameter still reads `0`" and points at
 §2 is a silent lane of R-05's class, whose §0.2 row reads FAIL_CLOSED. None of
 them is filed in the register by this project.
 
-**Ranked, most consequential first.** §1-§5 are silent wrong values: kali exits
-0 and prints something node does not. §1 and §2 lead because this branch made
-them: forms of each refused at the baseline and are silent at `97c008bc5`.
-§3-§5 were silent at the baseline and are unchanged. §6 is a debug-build panic that
+**Ranked, most consequential first.** §1-§5 were filed as silent wrong
+values: kali exits 0 and prints something node does not. §1 and §2 led
+because this branch made them: forms of each refused at the baseline and were
+silent at `97c008bc5`. Task 8 closed both of this branch's own regressions
+(§1 entirely, and §2's direct-index row), re-measured at `4898f3994`. §2's
+remaining silent rows are pre-existing member-lowering rows (silent at the
+baseline, or not measured there), like §3-§5. The section numbers are kept,
+not re-ranked, because the spec's amendments and the `anon_array_return.toml`
+rationales cite them. §1 is now a FIXED record. §6 is a debug-build panic that
 precedes the switch-case blind spot the plan asked about. §7 and §8 fail
 closed: §7 is the out-of-scope shapes that need first-class function values,
 and §8 is a `kali check` / `kali run` disagreement on callback rows. §9 records
@@ -52,86 +60,115 @@ the capability-loss spike and the final probe diff.
 
 ---
 
-## §1. An arrow whose elements are its params admits any argument (ruling R15 discharges vacuously)
+## §1. An arrow whose elements are its params admits any argument (ruling R15 discharges vacuously) — FIXED by Task 8
 
-| program | node | kali `run` at `97c008bc5` | kali `check` | baseline `068b29950` |
-|---|---|---|---|---|
-| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(3)));` | `3` | `3`, exit 0 | exit 0 | `0`, exit 0 |
-| `const f = (n) => [n, n]; console.log(f(3)[0]);` | `3` | `3`, exit 0 | exit 0 | exit 1, `E5506` "no lane proves this receiver is an array" |
-| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(true)));` | `true` | **`1`, exit 0** | exit 0 | `0`, exit 0 |
-| `const f = (n) => [n, n]; console.log(f(true)[0]);` | `true` | **`1`, exit 0** | exit 0 | exit 1, `E5506` "no lane proves this receiver is an array" |
-| `const f = (n) => [n, n]; const a = f(true); console.log(a[0]);` | `true` | **`1`, exit 0** | exit 0 | exit 1, same `E5506` |
-| `function g(x){return x[1];} console.log(g(((n) => [n, n])(true)));` | `true` | **`1`, exit 0** | exit 0 | `0`, exit 0 |
-| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f("a")));` | `a` | `a`, exit 0 | exit 0 | `0`, exit 0 |
-| `const f = (n) => [n, n]; console.log(f("a")[0]);` | `a` | `a`, exit 0 | exit 0 | exit 1, same `E5506` |
-| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(1.5)));` | `1.5` | exit 1, `E4201` "failed to load WASM module: failed to compile" | exit 0 | exit 1, same `E4201` |
-| `const f = (n) => [n, n]; console.log(f(1.5)[0]);` | `1.5` | exit 1, same `E4201` | exit 0 | exit 1, `E5506` "no lane proves this receiver is an array" |
-| `const f = (n) => [n, n]; const a = f(1.5); console.log(a[0]);` | `1.5` | exit 1, same `E4201` | exit 0 | exit 1, same `E5506` |
-| control: `function f(n){ return [n, n]; } function g(x){return x[1];} console.log(g(f(true)));` | `true` | exit 1, `E5506` "returning an array from `f` … an element is not an integer" | exit 1, same | exit 1, same |
-| control: the same with `f(1.5)` | `1.5` | exit 1, same `E5506` | exit 1, same | exit 1, same |
+**FIXED** by Task 8 (`fef5de60a`). Re-measured at `4898f3994` against node
+v26.10.0 on `target/debug/kali` built from that commit. The `cb63f9909` column
+is the record before the fix. The baseline column is the one measured at
+`068b29950` when this section was filed.
 
-**This branch made the `true` rows silent.** The direct and bound `true` rows
-refused at the baseline (backstop 1) and print `1` at `97c008bc5`. The
-passed-on and IIFE `true` rows were silent at the baseline (`0`) and are
-silent now (`1`). The float rows still fail closed, but the direct and bound
-ones moved from an honest `E5506` to a WASM compile failure at load time, with
-`kali check` exiting 0. The string rows print node's value, and nothing proves
-that they should. The `function` declaration controls refuse, as ruling R15
-requires.
+| program | node | kali `run` at `4898f3994` | kali `check` at `4898f3994` | `run` at `cb63f9909` (`check`) | baseline `068b29950` |
+|---|---|---|---|---|---|
+| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(3)));` | `3` | `3`, exit 0 | exit 0 | `3`, exit 0 (exit 0) | `0`, exit 0 |
+| `const f = (n) => [n, n]; console.log(f(3)[0]);` | `3` | `3`, exit 0 | exit 0 | `3`, exit 0 (exit 0) | exit 1, `E5506` "no lane proves this receiver is an array" |
+| `const f = (n) => [n, n]; const a = f(3); console.log(a[0]);` | `3` | `3`, exit 0 | exit 0 | `3`, exit 0 (exit 0) | not measured at the baseline |
+| `function g(x){return x[1];} console.log(g(((n) => [n, n])(3)));` | `3` | `3`, exit 0 | exit 0 | `3`, exit 0 (exit 0) | not measured at the baseline |
+| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(true)));` | `true` | exit 1, `E5506` "returning an array from `f` … an element is not an integer" | exit 1, same | **`1`, exit 0** (exit 0) | `0`, exit 0 |
+| `const f = (n) => [n, n]; console.log(f(true)[0]);` | `true` | exit 1, same `E5506` | exit 1, same | **`1`, exit 0** (exit 0) | exit 1, `E5506` "no lane proves this receiver is an array" |
+| `const f = (n) => [n, n]; const a = f(true); console.log(a[0]);` | `true` | exit 1, same `E5506` | exit 1, same | **`1`, exit 0** (exit 0) | exit 1, same `E5506` |
+| `function g(x){return x[1];} console.log(g(((n) => [n, n])(true)));` | `true` | exit 1, `E5506` "returning an array from an immediately-invoked function … an element is not an integer" | exit 1, same | **`1`, exit 0** (exit 0) | `0`, exit 0 |
+| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f("a")));` | `a` | exit 1, `E5506` "returning an array from `f` … an element is not an integer" | exit 1, same | `a`, exit 0 (exit 0) | `0`, exit 0 |
+| `const f = (n) => [n, n]; console.log(f("a")[0]);` | `a` | exit 1, same `E5506` | exit 1, same | `a`, exit 0 (exit 0) | exit 1, same `E5506` |
+| `const f = (n) => [n, n]; function g(x){return x[1];} console.log(g(f(1.5)));` | `1.5` | exit 1, same `E5506` | exit 1, same | exit 1, `E4201` "failed to load WASM module: failed to compile" (exit 0) | exit 1, same `E4201` |
+| `const f = (n) => [n, n]; console.log(f(1.5)[0]);` | `1.5` | exit 1, same `E5506` | exit 1, same | exit 1, same `E4201` (exit 0) | exit 1, `E5506` "no lane proves this receiver is an array" |
+| `const f = (n) => [n, n]; const a = f(1.5); console.log(a[0]);` | `1.5` | exit 1, same `E5506` | exit 1, same | exit 1, same `E4201` (exit 0) | exit 1, same `E5506` |
+| `const f = function(n){ return [n, n]; }; console.log(f(true)[0]);` | `true` | exit 1, same `E5506` | exit 1, same | **`1`, exit 0** (exit 0) | not measured at the baseline |
+| `const f = (v) => new Array(2).fill(v); console.log(f(true)[0]);` | `true` | exit 1, same `E5506` | exit 1, same | **`1`, exit 0** (exit 0) | not measured at the baseline |
+| `const f = (v) => new Array(2).fill(v); console.log(f(3)[0]);` | `3` | `3`, exit 0 | exit 0 | `3`, exit 0 (exit 0) | not measured at the baseline |
+| control: `function f(n){ return [n, n]; } function g(x){return x[1];} console.log(g(f(true)));` | `true` | exit 1, `E5506` "returning an array from `f` … an element is not an integer" | exit 1, same | exit 1, same (exit 1) | exit 1, same |
+| control: the same with `f(1.5)` | `1.5` | exit 1, same `E5506` | exit 1, same | exit 1, same (exit 1) | exit 1, same |
 
-The plan (Review Focus #3) and spec amendment A-1 predicted that this arrow
-would refuse `ELEMENT`, because no call edge targets `__kali_fn_N`. The
-mechanism goes the other way. Ruling R15's param fact
-(`crates/kali_types/src/repr_infer.rs:560-573`, `NumFact::Param`) holds when
-`call_sites_enumerable(func)` and every edge in `edges_to(func)` proves its
-argument. Task 4 registered a called anonymous body with a declaration count
-of 1 (`repr_infer.rs:5721-5730`), so `call_sites_enumerable` is true. The
-R15 edges are snapshotted from `self.calls` with the source callee name `f`
-(`repr_infer.rs:5798-5810`, amendment A-1), and an IIFE has no edge, so
-`edges_to("__kali_fn_N")` is empty and `.all(…)` is vacuously true. The param
-is "proven" an integer for any argument. See spec amendment A-9.
+Every row prints node's value or refuses with `E5506` at both `check` and
+`run`, as spec §1 claims. The `3` rows still compute. The string rows printed
+node's `a` at `cb63f9909` with nothing proving it. They now refuse, which is
+no loss against the baseline, where they printed `0` or refused. The
+`function` declaration controls are unchanged.
 
-**What it would cost:** the correct fix gives `__kali_fn_N` its real call
-edges, so the R15 param proof enumerates them. That means resolving
-`NumberProofEdge.callee` through the alias table, and recording an edge for an
-IIFE, in the snapshot at `repr_infer.rs:5798`, without widening
-`resolve_calls`' param-repr inference (A-1's reason). The cheap fail-closed
-step is to make `call_sites_enumerable` false for an anonymous id. That
-refuses every param-dependent row (`ELEMENT`), including the `3` rows. It is
-no loss against the baseline, where the passed-on `3` row printed `0` and the
-direct one refused. The rows that compute now would need the correct fix.
+**Mechanism, as it was at `cb63f9909`.** Two gaps made ruling R15's element
+proof hold vacuously for a called anonymous body.
+
+1. The param fact. `NumFact::Param` (`crates/kali_types/src/repr_infer.rs`,
+   `NumProofCheck::fact_holds`) holds when `call_sites_enumerable(func)` and
+   every edge in `edges_to(func)` proves its argument. A called anonymous body
+   joins the candidates with a declaration count of 1, so
+   `call_sites_enumerable` was true. The R15 edges were snapshotted from
+   `self.calls` under the source callee name `f` (amendment A-1), and an IIFE
+   recorded no edge, so `edges_to("__kali_fn_N")` was empty and `.all(…)` was
+   vacuously true. This is the only gap for a block-bodied function
+   expression (the `function(n){ return [n, n]; }` row).
+2. The concise arrow body. The arrow arm of `visit_expr` classified the body
+   as a return but recorded none of a `return` statement's other facts: no
+   element obligation for a returned literal, no fill proof for a returned
+   allocation, and no return number proof. With no obligation on the return
+   element class there was nothing for the param fact to refute, so even a
+   correct edge would not have refused. It also left the elements' repr
+   unwired, which is why `f(1.5)` failed at WASM load instead of refusing.
+
+**The fix (`fef5de60a`).** The R15 snapshot keys each edge by
+`array_return_callee(caller, callee)`, the same resolution the array-return
+facts use, and skips an edge it returns `None` for (a shadowed callee, as
+before). Every IIFE pushes its own edge with its argument proofs.
+`CallEdge.callee` and `resolve_calls` are unchanged (A-1). An anonymous id
+with no edge is not call-site-enumerable, a fail-closed guard no measured
+program reaches, since every way an anonymous body becomes `called` now
+records an edge. A concise arrow body records a return's facts through the
+same helpers as a `return` statement (`note_array_return`,
+`visit_array_return_value`). See spec amendment A-9.
 
 ## §2. A member call `o.f()` runs a same-named top-level declaration
 
-| program | node | kali `run` at `97c008bc5` | kali `check` | baseline `068b29950` |
-|---|---|---|---|---|
-| `function f(){return 7;} const o = {f: () => 5}; console.log(o.f());` | `5` | **`7`, exit 0** | exit 0 | `7`, exit 0 |
-| `function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);` | `4` | **`1`, exit 0** | exit 0 | exit 1, `E5506` "no lane proves this receiver is an array" |
-| `function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; function g(x){return x[1];} console.log(g(o.f()));` | `5` | **`2`, exit 0** | exit 0 | `2`, exit 0 |
-| control: `const o = {f: () => 5}; console.log(o.f());` | `5` | exit 1, `E5506` "calling 'f' is unavailable … call through a first-class function value" | exit 0 | not measured at the baseline |
-| control: `const o = {f: () => [4,5,6]}; console.log(o.f()[0]);` | `4` | exit 1, same `E5506` | exit 0 | not measured at the baseline |
+The direct-index row is closed by Task 8 (`4898f3994`). The scalar and
+passed-on rows are not. Re-measured at `4898f3994` against node v26.10.0. The
+`cb63f9909` column is the record before Task 8, and the baseline column is
+the one measured at `068b29950` when this section was filed.
+
+| program | node | kali `run` at `4898f3994` | kali `check` at `4898f3994` | `run` at `cb63f9909` | baseline `068b29950` |
+|---|---|---|---|---|---|
+| `function f(){return 7;} const o = {f: () => 5}; console.log(o.f());` | `5` | **`7`, exit 0** | exit 0 | `7`, exit 0 | `7`, exit 0 |
+| `function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; console.log(o.f()[0]);` | `4` | exit 1, `E5506` "an indexed read is unavailable … no lane proves this receiver is an array" | exit 0 | **`1`, exit 0** | exit 1, `E5506` "no lane proves this receiver is an array" |
+| `function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; function g(x){return x[1];} console.log(g(o.f()));` | `5` | **`2`, exit 0** | exit 0 | `2`, exit 0 | `2`, exit 0 |
+| `function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; const h = o.f; console.log(h()[0]);` | `4` | exit 1, `E5506` "an indexed read is unavailable … no lane proves this receiver is an array" | exit 0 | exit 1, same `E5506` | not measured at the baseline |
+| `function f(){return [1,2,3];} const o = {f: () => [4,5,6]}; const h = o.f; function g(x){return x[1];} console.log(g(h()));` | `5` | **`2`, exit 0** | exit 0 | `2`, exit 0 | not measured at the baseline |
+| control: `const o = {f: () => 5}; console.log(o.f());` | `5` | exit 1, `E5506` "calling 'f' is unavailable … call through a first-class function value" | exit 0 | exit 1, same `E5506` | not measured at the baseline |
+| control: `const o = {f: () => [4,5,6]}; console.log(o.f()[0]);` | `4` | exit 1, same `E5506` | exit 0 | exit 1, same `E5506` | not measured at the baseline |
 
 Found in Task 5's review. Codegen lowers the member callee `o.f` to the
 top-level declaration `f`, so the wrong function runs. With no declaration
 named `f` (the controls), the call refuses, as register R-05's lane does
-(FAIL_CLOSED at its §0.2 row). The scalar and passed-on rows were silent at
-the baseline, and this project did not change them.
+(FAIL_CLOSED at its §0.2 row). `kali check` exits 0 on every row: each
+refusal here is codegen's.
 
-**This branch made the direct-index row silent.** At the baseline it refused
-through backstop 1. Task 5 (`c2c2eb1b9`) made `array_return_call_elem`
-(`crates/kali_codegen/src/emitter.rs:842-873`) resolve its callee "exactly as
-the call itself is lowered", through `resolve_bound_member_callable_node`. That
-resolver lands on the declaration `f`, which is an admitted array return, so
-`o.f()[0]` reads `f`'s real array and prints `1`. The caller side agrees with
-the call, and the call is wrong. Task 5's review deferred, as a minor, a test
-pinning that a member call fails closed.
+**What Task 8 closed.** Task 5 (`c2c2eb1b9`) made `array_return_call_elem`
+(`crates/kali_codegen/src/emitter.rs`) resolve its callee "exactly as the
+call itself is lowered", through `resolve_bound_member_callable_node`. That
+resolver lands on the declaration `f`, an admitted array return, so
+`o.f()[0]` read `f`'s real array and printed `1`. Task 8 (`4898f3994`)
+narrows `array_return_call_elem` to a bare-identifier callee (through
+`bindings`) or a callee that is itself an anonymous function expression (an
+IIFE). Any other callee is not an array-return call, so the direct-index row
+refuses through backstop 1 again, as at the baseline (spec amendment A-10).
+The `anon_member_call_decl` probe and the
+`member_call_with_same_named_declaration_refuses_at_run` case pin it.
+
+**What remains.** The scalar and passed-on rows were silent at the baseline,
+and are unchanged at `4898f3994`. They are R-05's class, not this project's.
+Task 8 also measured a `const h = o.f` alias: its passed-on row prints `2` at
+`cb63f9909` and at `4898f3994`, by the same member lowering.
 
 **What it would cost:** the member-call lowering must not resolve a property
 name to a same-named top-level declaration. It should refuse as R-05's lane
-does without the declaration. That one fix closes all three rows. A narrower
-step for this lane alone would have `array_return_call_elem` return `None`
-for a member-expression callee, which moves the direct-index row back to
-REFUSES and leaves the other two as they were at the baseline.
+does without the declaration. That one fix closes the three remaining silent
+rows.
 
 ## §3. A named function expression keeps its silent pre-project lane
 
@@ -309,5 +346,11 @@ and `anon_boolean_elements` and `anon_mixed_return` still refuse (below).
 `anon_map_callback_control` and `anon_module_from_main_control` did not move.
 The pre-change run at `02ff6a9ec` gives the same diff, except that
 `anon_iife_passed_on` reads REFUSES there, because Task 2 already tainted the
-called IIFE `FORM`. The probe gate misses §1: no probe passes a non-integer to
-a param-dependent arrow.
+called IIFE `FORM`. The probe gate missed §1 at `97c008bc5`: no probe passed
+a non-integer to a param-dependent arrow.
+
+**Task 8 probe run at `4898f3994`.** Task 8 added two probes,
+`anon_param_true` (§1's `f(true)[0]` row) and `anon_member_call_decl` (§2's
+direct-index row). Both read SILENT on a `kali` built from `cb63f9909` and
+REFUSES at `4898f3994`. There are 0 SILENT rows among the 18 `anon_*` probes,
+and no other probe moved between `cb63f9909` and `4898f3994`.

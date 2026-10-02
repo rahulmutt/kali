@@ -297,10 +297,10 @@ If any ranked entry moves, the ranking is regenerated with
   array-return facts resolve it (`called`, feeds, `call_bound`, returns, and the
   R15 discharge), so `resolve_calls`' param-repr inference is not widened to
   anonymous bodies. Consequence (corrected by A-9): the R15 number-proof edges
-  are snapshotted from the unresolved `CallEdge`s, so no edge targets
-  `__kali_fn_N`. An arrow whose returned elements are its params therefore
-  does **not** refuse `ELEMENT`, as planned. Its param proof discharges
-  vacuously, and it admits any argument (followups §1).
+  are not `CallEdge`s. They are snapshotted from the `CallEdge`s with each
+  callee resolved through `array_return_callee`, plus one edge per IIFE, so
+  an arrow whose returned elements are its params refuses `ELEMENT` unless
+  every call passes a proven integer.
 * **A-2 (§3.1 "shadow fact").** No new `ReprTable` fact. `let`/`var`/param names
   are `Blocked` in the alias table, and codegen's existing `locals` belt and
   `is_array_return_callee_shadowed` decline on the source name.
@@ -333,14 +333,34 @@ If any ranked entry moves, the ranking is regenerated with
   inference reports first with the `const` binding's name. A comment at the
   arm says so (`64162beba`). No display name is plumbed into `ReprTable`.
 * **A-9 (§5.3 / plan Review Focus #3, param-dependent elements).**
-  `const f = (n) => [n, n]` was predicted to refuse `ELEMENT` (A-1's original
-  consequence). Measured at `97c008bc5` against node v26.10.0, it is admitted.
-  `g(f(3))`, `f(3)[0]` and `f("a")[0]` print node's value. `f(true)` prints `1`
-  where node prints `true` (exit 0) in the passed-on, direct, bound and IIFE
-  forms. The direct and bound `true` forms refused at `068b29950`, so they are
-  this branch's own silent rows. `f(1.5)` fails at load with `E4201`. The
-  cause is that a called anonymous body joins the candidates with a
-  declaration count of 1, so ruling R15's `call_sites_enumerable` holds, and
-  `edges_to("__kali_fn_N")` is empty. Filed, not fixed, as followups §1 of
-  `docs/superpowers/followups/anon-array-return-discovered-defects.md`, with
-  its cost.
+  `const f = (n) => [n, n]` was predicted to refuse `ELEMENT` for a
+  non-integer argument (A-1's original consequence). Measured at `97c008bc5`
+  against node v26.10.0, it was admitted for any argument: `f(true)` printed
+  `1` where node prints `true` (exit 0) in the passed-on, direct, bound and
+  IIFE forms, and `f(1.5)` failed at load with `E4201`. Ruling R15's param
+  proof held vacuously, because the R15 edges named the source callee `f` and
+  an IIFE recorded none, so `edges_to("__kali_fn_N")` was empty. A concise
+  arrow body also recorded no element obligation for its returned literal.
+  Task 8 (`fef5de60a`) fixed both. The R15 edges are keyed by
+  `array_return_callee(caller, callee)` (an edge it returns `None` for is
+  skipped), every IIFE records its own edge with its argument proofs, and an
+  anonymous `__kali_fn_N` with no edge is not call-site-enumerable
+  (`call_sites_enumerable`, fail-closed). A concise arrow body records a
+  `return` statement's facts through the same helpers. Re-measured at
+  `4898f3994`, every `f(3)` form prints `3`, and every `f(true)`, `f("a")` and
+  `f(1.5)` form refuses `E5506` "an element is not an integer" at check and
+  run (followups §1 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`).
+* **A-10 (§3.2 "caller side", member callees).** `array_return_call_elem`
+  resolves only a bare-identifier callee, through `bindings`, or a callee
+  that is itself an anonymous function expression (an IIFE). Any other callee
+  (a member expression, a computed member, a call result) is not an
+  array-return call and yields `None`. As planned, §3.2 step 2 resolved the
+  callee "exactly as the call is lowered", through
+  `resolve_bound_member_callable_node`, and that resolver lowers `o.f` to a
+  same-named top-level declaration `f`. `function f(){return [1,2,3];} const o
+  = {f: () => [4,5,6]}; console.log(o.f()[0]);` then printed `1` at
+  `cb63f9909` (node `4`), where it refused at `068b29950`. At `4898f3994` it
+  refuses again through backstop 1. The member lowering itself is not
+  changed, and its scalar and passed-on rows stay silent as at the baseline
+  (followups §2).

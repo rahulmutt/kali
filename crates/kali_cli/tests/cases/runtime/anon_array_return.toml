@@ -155,7 +155,7 @@ stdout = "3\n"
 
 [[case]]
 name = "anon_param_boolean_argument_refuses_at_check"
-rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused at run with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` kali printed `1` at exit 0 (`kali check` exit 0) where node v26.10.0 prints `true`, because ruling R15's param proof had no edge into `__kali_fn_N` and held vacuously. The param's only call site passes a boolean, so the element is not a proven integer (spec §3.3)."""
+rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused at run with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` kali printed `1` at exit 0 (`kali check` exit 0) where node v26.10.0 prints `true`, because ruling R15's param proof had no edge into `__kali_fn_N` and held vacuously, and the concise arrow body recorded no element obligation to refute. The param's only call site passes a boolean, so the element is not a proven integer (spec §3.3)."""
 args = ["check", "param_true_direct.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
