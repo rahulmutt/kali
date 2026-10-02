@@ -55,7 +55,21 @@ scalar, and §19 lists ruling R15's branch-relative refusals and its blind spots
 
 ---
 
-## §1. An arrow or function-expression array return, passed to an array parameter, reads `0`
+## §1. An arrow or function-expression array return, passed to an array parameter, reads `0` — FIXED by anon-array-return
+
+**FIXED** on branch `anon-array-return` (spec
+`docs/superpowers/specs/2026-10-02-anon-array-return-design.md`): a `const`-bound
+or immediately-invoked anonymous function is an array-return candidate, and its
+rows print node's value. The `arrow_return` probe (module-scope `const` called
+from `main`) and the object-method row still refuse, and are filed in
+`anon-array-return-discovered-defects.md`. The table below is the record as
+measured at `d2202ed4b`.
+Re-measured at `97c008bc5` against node v26.10.0: the first four rows print
+`2`, `2`, `1` and `1` at exit 0, and the last two refuse as the table says
+(`anon-array-return-discovered-defects.md` §7). The passed-on rows first
+computed in Task 4's probe run (`42e3a45ec`), and the direct-index rows in
+Task 5's (`c2c2eb1b9`). That
+project's own new silent rows are filed in its followups §1 and §2.
 
 | program | node | kali |
 |---|---|---|

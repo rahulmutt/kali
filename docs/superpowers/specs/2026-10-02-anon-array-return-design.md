@@ -288,3 +288,59 @@ If any ranked entry moves, the ranking is regenerated with
 * No CLI, schema, diagnostic-code or maturity change. `E5506` and its
   array-return message family already exist, so the AGENTS.md §6 CLI change
   packet does not apply.
+
+---
+
+## 7. Amendments made during planning
+
+* **A-1 (§3.1 "call edges").** `CallEdge.callee` is not rewritten. Only the
+  array-return facts resolve it (`called`, feeds, `call_bound`, returns, and the
+  R15 discharge), so `resolve_calls`' param-repr inference is not widened to
+  anonymous bodies. Consequence (corrected by A-9): the R15 number-proof edges
+  are snapshotted from the unresolved `CallEdge`s, so no edge targets
+  `__kali_fn_N`. An arrow whose returned elements are its params therefore
+  does **not** refuse `ELEMENT`, as planned. Its param proof discharges
+  vacuously, and it admits any argument (followups §1).
+* **A-2 (§3.1 "shadow fact").** No new `ReprTable` fact. `let`/`var`/param names
+  are `Blocked` in the alias table, and codegen's existing `locals` belt and
+  `is_array_return_callee_shadowed` decline on the source name.
+* **A-3 (§5.2 async arrow).** An async arrow follows ruling R12: it is
+  `non_taintable`, keeps its pre-project lane, and is not a refusal case.
+* **A-4 (§5.3 agreement test).** The both-sides agreement check is realized as
+  the `anon_*` probe gate (no `anon_*` probe is SILENT) plus the
+  `runtime/anon_array_return.toml` shape matrix, not as a unit test. Codegen's
+  resolution is not reachable from `kali_types`.
+* **A-5 (§3.3 named function expressions).** `direct_callee` keys an arrow or
+  function expression only by a synthetic `__kali_fn_N` id. A named function
+  expression's own name is scoped to its body, so keying it would resolve the
+  call against an unrelated declaration of that name; a named IIFE therefore
+  keeps its pre-project lane (measured SILENT, followups).
+* **A-6 (§5.2 case files).** The cases live in a new
+  `runtime/anon_array_return.toml` in the same `cases` target, rather than being
+  appended to `array_return.toml` / `array_return_refusals.toml`, so this
+  project's baseline (`068b29950`) is not mixed with that one's (`368b5b5ea`).
+* **A-7 (§3.1 "alias table", Task 3 fix round `b86bffa9e`).** A `function`
+  declaration of the same name in the same function scope blocks a `const`
+  alias, like any other second declaration. The block-level shape
+  `const f = () => [1, 2, 3]; … { function f() { return [7, 8, 9]; } g(f()); }`
+  is then declined by inference, not admitted. It still prints the
+  pre-existing `0` (node `8`), which is R-10's class (followups §5).
+* **A-8 (§3.3 belt).** `emit_return`'s taint arm
+  (`crates/kali_codegen/src/emit/control_flow.rs`, the
+  `array_return_taint(&self.function_name)` branch) is unchanged, and still
+  names an anonymous body by its synthetic `__kali_fn_N` id. It is unreachable
+  for an admitted program: every taint is also a shape conflict, which
+  inference reports first with the `const` binding's name. A comment at the
+  arm says so (`64162beba`). No display name is plumbed into `ReprTable`.
+* **A-9 (§5.3 / plan Review Focus #3, param-dependent elements).**
+  `const f = (n) => [n, n]` was predicted to refuse `ELEMENT` (A-1's original
+  consequence). Measured at `97c008bc5` against node v26.10.0, it is admitted.
+  `g(f(3))`, `f(3)[0]` and `f("a")[0]` print node's value. `f(true)` prints `1`
+  where node prints `true` (exit 0) in the passed-on, direct, bound and IIFE
+  forms. The direct and bound `true` forms refused at `068b29950`, so they are
+  this branch's own silent rows. `f(1.5)` fails at load with `E4201`. The
+  cause is that a called anonymous body joins the candidates with a
+  declaration count of 1, so ruling R15's `call_sites_enumerable` holds, and
+  `edges_to("__kali_fn_N")` is empty. Filed, not fixed, as followups §1 of
+  `docs/superpowers/followups/anon-array-return-discovered-defects.md`, with
+  its cost.
