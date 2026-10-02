@@ -75,8 +75,14 @@ function g(x){return x*2;} console.log(g(1)); const f = (k) => new Array(g(k)).f
 "called_and_passed_as_callback.js" = '''
 const f = () => [1, 2]; console.log(f()[1]); const xs = new Array(2).fill(0); xs.forEach(f); console.log("done");
 '''
-"map_callback_returning_array.js" = '''
+"map_callback_returning_scalar.js" = '''
 const xs = new Array(2).fill(1); const ys = xs.map(x => x + 1); console.log(ys[0]);
+'''
+"map_callback_returning_array.js" = '''
+const xs = new Array(2).fill(1); const ys = xs.map(x => [x]); console.log(ys[1]);
+'''
+"flatmap_callback_returning_array.js" = '''
+const xs = new Array(2).fill(1); const ys = xs.flatMap(x => [x, x * 10]); console.log(ys[1]);
 '''
 
 [[case]]
@@ -151,14 +157,14 @@ stdout = "4\n"
 
 [[case]]
 name = "param_dependent_elements_computes"
-rationale = """Elements computed from a parameter are proven integers by ruling R15, which enumerates the call `f(3)` resolved through the `const` alias to the arrow. At `068b29950` kali printed `0` at exit 0 (measured by hand, followups §1 of docs/superpowers/followups/anon-array-return-discovered-defects.md; no probe row). Kali now prints node v26.10.0's `3`. Spec §2.1."""
+rationale = """Elements computed from a parameter are proven integers by ruling R15, which enumerates the call `f(3)` resolved through the `const` alias to the arrow. At `068b29950` kali printed `0` at exit 0 (measured by hand, followups §2 of docs/superpowers/followups/anon-array-return-discovered-defects.md; no probe row). Kali now prints node v26.10.0's `3`. Spec §2.1."""
 args = ["run", "param_dependent_elements.js"]
 exit = "success"
 stdout = "3\n"
 
 [[case]]
 name = "anon_param_boolean_argument_refuses_at_check"
-rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused at run with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` kali printed `1` at exit 0 (`kali check` exit 0) where node v26.10.0 prints `true`, because ruling R15's param proof had no edge into `__kali_fn_N` and held vacuously, and the concise arrow body recorded no element obligation to refute. The param's only call site passes a boolean, so the element is not a proven integer (spec §3.3)."""
+rationale = """Followups §2 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused at run with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` kali printed `1` at exit 0 (`kali check` exit 0) where node v26.10.0 prints `true`, because ruling R15's param proof had no edge into `__kali_fn_N` and held vacuously, and the concise arrow body recorded no element obligation to refute. The param's only call site passes a boolean, so the element is not a proven integer (spec §3.3)."""
 args = ["check", "param_true_direct.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
@@ -172,7 +178,7 @@ stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an ele
 
 [[case]]
 name = "anon_iife_param_boolean_argument_refuses_at_check"
-rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali printed `0` at exit 0, and at `cb63f9909` `1` at exit 0 (`kali check` exit 0), where node v26.10.0 prints `true`. An IIFE recorded no ruling-R15 edge, so its param proof held vacuously. The IIFE's edge now carries the boolean argument, and the refusal uses the anonymous message (spec §3.3)."""
+rationale = """Followups §2 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali printed `0` at exit 0, and at `cb63f9909` `1` at exit 0 (`kali check` exit 0), where node v26.10.0 prints `true`. An IIFE recorded no ruling-R15 edge, so its param proof held vacuously. The IIFE's edge now carries the boolean argument, and the refusal uses the anonymous message (spec §3.3)."""
 args = ["check", "param_true_iife.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from an immediately-invoked function", "${REFUSED}", "an element is not an integer"]
@@ -186,21 +192,21 @@ stderr_contains = ["E5506", "returning an array from an immediately-invoked func
 
 [[case]]
 name = "anon_param_float_argument_refuses_at_run"
-rationale = """Followups §1 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` it failed at load with `E4201` "failed to load WASM module" while `kali check` exited 0. node v26.10.0 prints `1.5`. A float argument is not a proven integer (spec §3.3)."""
+rationale = """Followups §2 (docs/superpowers/followups/anon-array-return-discovered-defects.md): at `068b29950` kali refused with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` it failed at load with `E4201` "failed to load WASM module" while `kali check` exited 0. node v26.10.0 prints `1.5`. A float argument is not a proven integer (spec §3.3)."""
 args = ["run", "param_float_direct.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
 
 [[case]]
 name = "member_call_with_same_named_declaration_refuses_at_run"
-rationale = """Followups §2 (docs/superpowers/followups/anon-array-return-discovered-defects.md): codegen lowers the member callee `o.f` to the top-level declaration `f`. At `068b29950` kali refused with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` it printed `1` at exit 0 where node v26.10.0 prints `4`, because the caller side resolved the callee as the call is lowered and read `f`'s array. A member callee is not an array-return call (amendment A-10), so the read refuses through backstop 1 again. `kali check` exits 0 on this program (the backstop is codegen's), so there is no `check` twin. The member lowering itself is unfixed: `o.f()` with a scalar return still prints `7` (followups §2)."""
+rationale = """Followups §3 (docs/superpowers/followups/anon-array-return-discovered-defects.md): codegen lowers the member callee `o.f` to the top-level declaration `f`. At `068b29950` kali refused with `E5506` "no lane proves this receiver is an array"; at `cb63f9909` it printed `1` at exit 0 where node v26.10.0 prints `4`, because the caller side resolved the callee as the call is lowered and read `f`'s array. A member callee is not an array-return call (amendment A-10), so the read refuses through backstop 1 again. `kali check` exits 0 on this program (the backstop is codegen's), so there is no `check` twin. The member lowering itself is unfixed: `o.f()` with a scalar return still prints `7` (followups §3)."""
 args = ["run", "member_call_same_named_declaration.js"]
 exit = "failure"
 stderr_contains = ["E5506", "indexed read", "no lane proves this receiver is an array"]
 
 [[case]]
 name = "anon_allocation_length_call_refuses_at_check"
-rationale = """Fix round 1 of Tasks 7+8 (followups §1 of docs/superpowers/followups/anon-array-return-discovered-defects.md). node v26.10.0 prints `2` then `3`. At `068b29950` kali refused at run with `E5506` "`.length` is unavailable … no lane proves its length"; at `cb63f9909` and `b9faa27f2` it failed at load with `E4201` "failed to load WASM module" while `kali check` exited 0. The length `g(k)` was never visited, so it recorded no call edge and `g`'s param proof held vacuously. Visited, the edge carries `k = 1.5`, and the length is not a proven integer (spec §3.3)."""
+rationale = """Fix round 1 of Tasks 7+8 (followups §2 of docs/superpowers/followups/anon-array-return-discovered-defects.md). node v26.10.0 prints `2` then `3`. At `068b29950` kali refused at run with `E5506` "`.length` is unavailable … no lane proves its length"; at `cb63f9909` and `b9faa27f2` it failed at load with `E4201` "failed to load WASM module" while `kali check` exited 0. The length `g(k)` was never visited, so it recorded no call edge and `g`'s param proof held vacuously. Visited, the edge carries `k = 1.5`, and the length is not a proven integer (spec §3.3)."""
 args = ["check", "allocation_length_call.js"]
 exit = "failure"
 stderr_contains = ["E5506", "returning an array from `f`", "${REFUSED}", "an element is not an integer"]
@@ -256,14 +262,28 @@ stderr_contains = ["E5506", "first-class function value"]
 
 [[case]]
 name = "anon_called_and_passed_as_callback_refuses_at_run"
-rationale = """`f` is called and also passed to `forEach`. `kali run` refuses at the callback call (a first-class function value); `kali check` admits the program, so check and run disagree here. Not measured at the baseline `068b29950` (no probe row). node v26.10.0 prints `2` then `done`."""
+rationale = """`f` is called and also passed to `forEach`. `kali run` refuses at the callback call (a first-class function value); `kali check` admits the program, so check and run disagree here. At `068b29950` kali refused it too (measured by hand, followups §11 of docs/superpowers/followups/anon-array-return-discovered-defects.md; no probe row): `E5506` "no lane proves this receiver is an array" for `f()[1]`, then the same `forEach` `E5506`. node v26.10.0 prints `2` then `done`."""
 args = ["run", "called_and_passed_as_callback.js"]
 exit = "failure"
 stderr_contains = ["E5506", "calling 'forEach'"]
 
 [[case]]
-name = "anon_map_callback_control_refuses_at_run"
-rationale = """A control: a callback is never an array-return candidate. `kali run` refuses `xs.map(...)` as a first-class function value, as at `068b29950` (baseline-anon.tsv row `anon_map_callback_control`, REFUSES); node v26.10.0 prints `2`. `kali check` admits it."""
+name = "anon_map_callback_returning_scalar_refuses_at_run"
+rationale = """A control, and a scalar callback: `x => x + 1` returns no array, so it is not an array-return case at all. It pins that a `map` callback is never an array-return candidate and that `kali run` refuses `xs.map(...)` as a first-class function value, as at `068b29950` (baseline-anon.tsv row `anon_map_callback_control`, REFUSES, `E5506` "calling 'map'" then "no lane proves this receiver is an array"); node v26.10.0 prints `2`. `kali check` admits it at both commits. The array-returning callbacks are the two cases below."""
+args = ["run", "map_callback_returning_scalar.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling 'map'"]
+
+[[case]]
+name = "anon_map_callback_returning_array_refuses_at_run"
+rationale = """A callback that returns an array: `x => [x]` is passed to `map`, never called directly, so it is never an array-return candidate (spec §1.1, it produces no fact and is never tainted). Measured at `a9496b001` and at `068b29950`: `kali run` exits 1 with `E5506` "calling 'map' is unavailable" (a first-class function value), then "an indexed read … no lane proves this receiver is an array", identically at both commits; `kali check` exits 0 at both. node v26.10.0 prints `[ 1 ]`. Pinned as a run refusal, so a change that made this silent fails here."""
 args = ["run", "map_callback_returning_array.js"]
 exit = "failure"
 stderr_contains = ["E5506", "calling 'map'"]
+
+[[case]]
+name = "anon_flatmap_callback_returning_array_refuses_at_run"
+rationale = """The `flatMap` twin: `x => [x, x * 10]` returns an array and is passed as a callback, never called directly, so it is never an array-return candidate (spec §1.1). Measured at `a9496b001` and at `068b29950`: `kali run` exits 1 with `E5506` "calling 'flatMap' is unavailable" (a first-class function value), then "an indexed read … no lane proves this receiver is an array", identically at both commits; `kali check` exits 0 at both. node v26.10.0 prints `10`."""
+args = ["run", "flatmap_callback_returning_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling 'flatMap'"]
