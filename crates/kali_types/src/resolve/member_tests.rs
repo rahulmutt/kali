@@ -804,6 +804,10 @@ fn check_stays_quiet_where_it_cannot_know() {
         "class X extends EventTarget{} const x=new X(); x.addEventListener(\"t\", ()=>{});",
         // a class name declared twice has no knowable member set
         "function f(){ class A extends EventTarget{} } class A {} const a=new A(); a.zork();",
+        // `new C()` where C is not the program class at that site
+        "class C { f(){ return 1; } } function main(){ const C = globalThis.Map; const x = new C(); console.log(x.get(1)); } main();",
+        "class C { f(){ return 1; } } function main(C){ const x = new C(); console.log(x.get(1)); } main(Map);",
+        "class C { f(){ return 1; } } function main(){ function C(){} const x = new C(); console.log(x.get(1)); } main();",
         // receivers outside the mirror (run-only, spec §1.1)
         "const s=\"abc\"; console.log(s.zork());",
         "const o={k:1}; const p=o; console.log(p.zork());",

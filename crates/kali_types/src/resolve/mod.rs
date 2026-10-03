@@ -788,6 +788,13 @@ impl TypeContext {
             }
             Statement::ClassDeclaration(ClassDeclaration { name, body, .. }) => {
                 self.bind_current_scope(name.clone());
+                if let Some(id) = self.current_scope_id() {
+                    if let Some(scope) = self.scopes.get_mut(&id) {
+                        scope.class_declaration_bindings.insert(name.clone());
+                    } else if self.global_scope.contains(name) {
+                        self.global_scope.class_declaration_bindings.insert(name.clone());
+                    }
+                }
                 self.resolve_class_body(body);
             }
             Statement::VariableDeclaration(declaration) => {
@@ -956,18 +963,20 @@ impl TypeContext {
                         }
                         // `new C(…)` parses with the call `C(…)` as the callee
                         // (the bare `new C` keeps the identifier).
-                        Expression::NewExpression(new_expr) => match &new_expr.callee {
-                            Expression::Identifier(class_name) => {
-                                Some(MemberReceiver::ClassInstance(class_name.clone()))
-                            }
-                            Expression::CallExpression(call) => match &call.callee {
-                                Expression::Identifier(class_name) => {
-                                    Some(MemberReceiver::ClassInstance(class_name.clone()))
-                                }
+                        Expression::NewExpression(new_expr) => {
+                            let class_name = match &new_expr.callee {
+                                Expression::Identifier(name) => Some(name),
+                                Expression::CallExpression(call) => match &call.callee {
+                                    Expression::Identifier(name) => Some(name),
+                                    _ => None,
+                                },
                                 _ => None,
-                            },
-                            _ => None,
-                        },
+                            };
+                            // Only when the nearest binding is the class declaration.
+                            class_name
+                                .filter(|name| self.nearest_binding_is_class_declaration(name))
+                                .map(|name| MemberReceiver::ClassInstance(name.clone()))
+                        }
                         _ => None,
                     };
                     if let Some(receiver) = receiver {

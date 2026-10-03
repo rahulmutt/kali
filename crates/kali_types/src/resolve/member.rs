@@ -528,6 +528,20 @@ impl TypeContext {
         }
     }
 
+    /// True when the first scope binding `name` (walking outward) bound it by
+    /// a `class name {}` declaration, not a const/let/var/param/function.
+    pub(crate) fn nearest_binding_is_class_declaration(&self, name: &str) -> bool {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if scope.contains(name) {
+                return scope.class_declaration_bindings.contains(name);
+            }
+            current = scope.parent;
+        }
+        self.global_scope.class_declaration_bindings.contains(name)
+    }
+
     /// The nearest binding of `name`, if it is a recorded member receiver.
     /// Stops at the first scope that binds the name (literal-array-mutators
     /// A-10's rule).

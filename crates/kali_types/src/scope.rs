@@ -59,6 +59,9 @@ pub struct Scope {
     /// `const` bindings whose member set the `check` mirror of the
     /// unresolved-member-call gate can know (spec §3.3).
     pub(crate) const_member_receivers: IndexMap<String, MemberReceiver>,
+    /// Names bound by a `class name {}` declaration in this scope, so a
+    /// `new name()` can be tied to the program class (not a shadow of it).
+    pub(crate) class_declaration_bindings: std::collections::BTreeSet<String>,
     /// Names structurally proven to be a codegen RUNTIME linear-memory array
     /// binding — the types-side mirror of `kali_codegen`'s `array_bindings`
     /// set (emitter.rs). Populated at exactly the sites codegen registers:
@@ -121,6 +124,7 @@ impl Scope {
             static_arrays: IndexMap::new(),
             array_literal_bindings: IndexMap::new(),
             const_member_receivers: IndexMap::new(),
+            class_declaration_bindings: Default::default(),
             runtime_array_bindings: IndexMap::new(),
             growable_array_bindings: IndexMap::new(),
             static_objects: IndexMap::new(),
@@ -153,6 +157,7 @@ impl Scope {
         self.static_arrays.shift_remove(name);
         self.array_literal_bindings.shift_remove(name);
         self.const_member_receivers.shift_remove(name);
+        self.class_declaration_bindings.remove(name);
         self.static_objects.shift_remove(name);
         self.static_reference_values.shift_remove(name);
         self.static_object_keys.shift_remove(name);
