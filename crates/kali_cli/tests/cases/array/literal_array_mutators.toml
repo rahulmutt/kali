@@ -92,6 +92,9 @@ const a=[1,2,3]; class Box { sort(){ return 7; } } function main(){ const a=new 
 "ok_shadow_class_push.js" = '''
 const a=[1,2,3]; class Box { push(v){ return v+1; } } function main(){ const a=new Box(); console.log(a.push(4)); } main(); console.log(a[0]);
 '''
+"ok_class_push.js" = '''
+class S { push(v){ return v+1; } } const s=new S(); console.log(s.push(1));
+'''
 
 [[case]]
 name = "a_top_level_literal_push_refuses_under_check"
@@ -306,3 +309,10 @@ rationale = """Final review I2 control: kali at `9dc751cf8` and node v26.10.0 bo
 args = ["run", "ok_shadow_class_push.js"]
 exit = "success"
 stdout = "5\n1\n"
+
+[[case]]
+name = "a_user_class_method_named_push_still_matches_node"
+rationale = """Final review m6 control: a user method named like a mutator resolves before either gate. kali and node v26.10.0 both print `2`. The nameless spelling `new S().push(1)` prints `0` in kali for any method name, at `9dc751cf8` too; filed in the followups doc, not this case."""
+args = ["run", "ok_class_push.js"]
+exit = "success"
+stdout = "2\n"
