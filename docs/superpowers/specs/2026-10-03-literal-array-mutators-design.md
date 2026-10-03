@@ -383,9 +383,49 @@ the `oracle/` cases (R-21's `r21o` stays `silent`) and
   moves, the ranking is regenerated with
   `cargo run -p kali_blast_radius --example rank`.
 * `specs/15-errors.md` changes as §3.5 says.
+* Two defects found while planning (A-1) are filed in the new followups file:
+  warnings are discarded on a successful build, and any unresolved member call
+  evaluates to `0`.
 
 ---
 
 ## 7. Amendments
 
-None yet.
+Added while writing the implementation plan, before any code.
+
+* **A-1. There is one drop route, not two.** §2.3 said the top-level `const`
+  rows are dropped by a warning-free route before the terminal fallback. They
+  are not. A trace with temporary instrumentation (since reverted) showed that
+  every row of §2.1 enters `emit_call` and leaves through the terminal fallback
+  (`call.rs:3937`), which does push the `E3100` warning. The warning is then
+  discarded: `compile_source_file_uncached`
+  (`kali_cli/src/build/compile.rs:431-517`) returns diagnostics only on its
+  `Err` path, so a build with no error drops every warning. `var_push` and
+  `param` showed the warning only because an unrelated error sent the build down
+  that `Err` path. Consequences:
+  * §3.4's backstop at the terminal fallback covers every row. §5.1's trace task
+    is replaced by a pinned case showing the backstop fires on the top-level
+    `const` rows when the type gate is absent (a codegen unit test).
+  * Two wider defects are filed (§6), not fixed: warnings are discarded on a
+    successful build, and *any* unresolved member call (`o.zork(4)` on any
+    receiver) still evaluates to `0` at exit 0.
+* **A-2. The backstop is a sibling arm, not a `deny_placeholder_lowering`
+  entry.** That function returns `bool`, and its caller pushes one fixed
+  "recognized builtin" message. The backstop needs
+  `array_mutator_unresolved_receiver_message`. So it is its own check placed
+  immediately before the `deny_placeholder_lowering` call, with the same
+  drop-arguments-and-push-0 shape.
+* **A-3. One diagnostic for `push` mixed with another mutator.** In a function,
+  `const a=[1,2]; a.push(3); a.pop();` is a growable reject *and* a literal
+  mutator. The resolve pass runs first, and `kali run` / `kali check` return on
+  its errors before `repr_infer`'s shape conflicts are reported
+  (`compile.rs:768-785`). So the user sees the literal-mutator `E5506` alone,
+  where at the baseline they saw the growable-scan `E5506`. Both are refusals.
+  The case that pins `gr_push_rev` asserts `E5506` and the `.pop()` mention,
+  not the old growable wording.
+* **A-4. One case file, not five.** §5.2 named one `.toml` per lane plus one
+  for the backstop and one for the controls. Since `[source]` is file-wide
+  and the programs are short, the plan puts every case in one file,
+  `crates/kali_cli/tests/cases/array/literal_array_mutators.toml`. It is
+  sectioned by case name: literal lane, plain-lane additions, backstop and
+  controls.
