@@ -379,3 +379,17 @@ re-pinned.
   declarator is found by a body walk, and a `let` / `var` counts only when
   no assignment targets it. Codegen unit tests run with an empty
   `ReprTable`, so the `extends EventTarget` path is pinned by CLI cases only.
+* **A-4. The declarator lookup walks enclosing function bodies (ruling R7).**
+  The lookup walks the current function body, then each lexically enclosing
+  function body outward, then the module body. An enclosing parameter stops
+  the lookup as not-host. §3.2 and A-3 described a body-then-module walk,
+  under which a host value captured by a closure
+  (`function main(){ const t=performance; const f=()=>{ t.now(); }; f(); }`)
+  refused. That loss is outside §5.4's two classes and contradicts §1 item 6
+  and §1.1. Found in the Task 4 review; fixed at `45d7dd46c`.
+* **A-5. A class name declared more than once is ambiguous (ruling R6, plus
+  the Task 5 fix).** `check` stays quiet on it, and `run` does not count it as
+  host-derived. The `check` mirror records `new C()` only when the nearest
+  binding of `C` is a class declaration, so a shadowed class name, a
+  `const K = class {}` binding, a parameter, or a local function leaves
+  `check` quiet. Fixed at `e8dca1645`.
