@@ -59,7 +59,7 @@
 
 [[case]]
 name = "malformed_push_call_reports_the_push_not_a_position_object_literal_arg"
-rationale = """Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
+rationale = """SUPERSEDED 2026-10-03 (literal-array-mutators, node v26.10.0): the next sentence is the original claim and no longer holds. These programs now refuse with the generic literal-array `.push()` message, not an argument-specific one; the case still guards that no unsafe-position enumeration is printed. Original: Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
 
 Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push({a:1})` program.
 
@@ -71,7 +71,7 @@ stderr_absent = ["appears in a position"]
 
 [[case]]
 name = "malformed_push_call_reports_the_push_not_a_position_wrong_arity"
-rationale = """Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
+rationale = """SUPERSEDED 2026-10-03 (literal-array-mutators, node v26.10.0): the next sentence is the original claim and no longer holds. These programs now refuse with the generic literal-array `.push()` message, not an argument-specific one; the case still guards that no unsafe-position enumeration is printed. Original: Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
 
 Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push(1,2)` program.
 
