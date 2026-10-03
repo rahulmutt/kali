@@ -42,7 +42,9 @@ rationale = """Soundness pins for R-19/R-20/R-15 (Stream A): String()/Boolean()/
 
 Stage P5 Task 1/5 update: `String` was REMOVED from that deny-set and now routes through the real `emit_as_string` coercion ladder, so `String(x)` coerces (see `string_call_coerces`). `toString`/`JSON.stringify`/`Boolean` remain denied and stay fail-closed.
 
-node: r=42. Pre-fix kali: r=0 at exit 0."""
+node: r=42. Pre-fix kali: r=0 at exit 0.
+
+RATIONALE UPDATED 2026-10-03 by the unresolved-member-call project (assertions unchanged): `n` is a `const` the program binds to a number, so this call is now refused by the unresolved-member-call gate (spec docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md §3.1), which runs before `deny_placeholder_lowering`. At `6f042548f` kali printed the deny-set's `calling 'toString' is unavailable in the current phase: it is a recognized builtin with no implemented lowering, …`; it now prints `calling `.toString()` is unavailable in the current phase: the receiver is a value this program built, …`. Still E5506, still exit 1; the deny-set still covers `toString` on a host-provenance receiver."""
 args = ["run", "to_string_method_fails_closed.ts"]
 exit = "failure"
 stderr_contains = ["E5506", "unavailable"]

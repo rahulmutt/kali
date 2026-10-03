@@ -1752,7 +1752,9 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with EMPTY STDOUT and, on stderr, one `error[E5506]: calling 'toString' is unavailable in the current phase: it is a recognized builtin with no implemented lowering, so evaluating it would silently return 0; use explicit literals or the later compatibility path …` per spelling -- four of them, so no receiver kind slips past the deny-set. node prints `42`, `1.5`, `42`, `hi` at exit 0. `E5506` is inside the documented `E55xx` range, so a documented refusal against a clean node run classifies FAIL_CLOSED.
 
-The diagnostic's own text -- "would silently return 0" -- names the defect this lane used to be, which is why the entry is filed in Tier 2 at all. This case measures the four method-form spellings only; the computed spelling `n["toString"]()` the register also records closed is a different program and is not measured here."""
+The diagnostic's own text -- "would silently return 0" -- names the defect this lane used to be, which is why the entry is filed in Tier 2 at all. This case measures the four method-form spellings only; the computed spelling `n["toString"]()` the register also records closed is a different program and is not measured here.
+
+RATIONALE UPDATED 2026-10-03 by the unresolved-member-call project (verdict unchanged, FAIL_CLOSED): the refusal TEXT quoted above is no longer what kali prints. At `6f042548f` kali printed the deny-set's `calling 'toString' is unavailable in the current phase: it is a recognized builtin with no implemented lowering, …` four times; kali now exits 1 with empty stdout and four `error[E5506]: calling `.toString()` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for a method of that name on it; node would run a method or throw a TypeError, so kali refuses rather than evaluate the call to 0`. All four receivers (two number literals, a `var`-bound number, a `var`-bound string) are values the program built, and the unresolved-member-call gate (spec docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md §3.1) runs before the deny-set, so it is the gate that refuses them now. node v26.10.0 still prints `42`, `1.5`, `42`, `hi` at exit 0."""
 
 [[case]]
 name = "r19t_tostring_method_form_in_function"
@@ -1764,7 +1766,9 @@ rationale = """R-19, `.toString()` LANE, in-function scope. The module-scope pro
 
 Expected verdict set from the register's recorded status: FAIL_CLOSED, as for the module scope, on §2's `Verification: sweep-only (both scopes, both sweeps)`.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and the same `error[E5506]: calling 'toString' is unavailable in the current phase: …` word for word, once per spelling; node prints `42`, `1.5`, `42`, `hi` at exit 0. Identical to the module scope, so the deny-set is not scope-keyed."""
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FAIL_CLOSED, as recorded -- no reconciliation. kali exits 1 with empty stdout and the same `error[E5506]: calling 'toString' is unavailable in the current phase: …` word for word, once per spelling; node prints `42`, `1.5`, `42`, `hi` at exit 0. Identical to the module scope, so the deny-set is not scope-keyed.
+
+RATIONALE UPDATED 2026-10-03 by the unresolved-member-call project (verdict unchanged, FAIL_CLOSED): as in the module-scope case, the text quoted above was `6f042548f`'s deny-set text; kali now prints `error[E5506]: calling `.toString()` is unavailable in the current phase: the receiver is a value this program built, …` once per spelling, from the unresolved-member-call gate (spec docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md §3.1), which runs before the deny-set. Still identical to the module scope, so the gate is not scope-keyed either."""
 
 [[case]]
 name = "r20_json_stringify_module_scope"
