@@ -16,6 +16,12 @@ baseline `9dc751cf8`. Rows that are not probes were run by hand as
 `node P.js` against `kali run P.js` and `kali check P.js`, with the program
 text given in full.
 
+**Final-review update.** §1, §7 and §8 were re-measured, and §12-§14 added,
+at the final-review fixes (`d8988ac76` and later, on top of `cd7a99637`), on
+`target/debug/kali` built from the commit under test. Baseline columns in
+those sections come from a `9dc751cf8` build, run by hand. §7 and §8 are
+closed; see spec amendment A-10.
+
 **Register:** no entry of `kali-silent-miscompile-register.md` moved lane, so
 the register and `blast-radius-ranking.md` are not edited. R-21's `r21o`
 oracle cases (`crates/kali_cli/tests/cases/oracle/tier2.toml`) were re-run
@@ -30,15 +36,34 @@ is left alone.
 
 **Decision A-5, restated.** No human decision was taken on the capability loss
 (§5). Array-bounds decision A-5 (accept fail-closed) therefore stands, and the
-spec's §7 amendment A-5 records it. Every measured loss is in spec §5.4's two
-classes: an effect never observed, or dead code.
+spec's §7 amendment A-5 records it. Every measured loss that remains is in
+spec §5.4's two classes: an effect never observed, or dead code. The final
+review found one loss outside them (§7, shadowing), and it was fixed.
 
 ---
 
-## §1. The alias/param `check` gap (spec §1.1)
+## §1. The `check` / `run` gap (spec §1.1)
 
-`kali check` exits 0 and `kali run` refuses when a literal array's mutator is
-called through an alias or a parameter. The type layer cannot tell which calls
+`kali check` exits 0 and `kali run` refuses when a mutator's receiver is
+anything the type layer does not classify: it gates only a literal-array name,
+an array literal and a plain runtime array. Alias and parameter receivers are
+the two probe rows below. The final review measured more shapes; every row
+here has `kali check` exit 0 and `kali run` exit 1:
+
+| program | node | `kali run` E5506 text | `9dc751cf8` run |
+|---|---|---|---|
+| `const o={xs:[1,2,3]}; o.xs.pop(); console.log(o.xs.length);` | `2` | backstop ("could not prove which array") | `3`, exit 0 |
+| `const m=[[1,2],[3,4]]; m[0].pop(); console.log(m[0].length);` | `1` | literal `.pop()` | `2`, exit 0 |
+| `const o={a:1}; const k=Object.keys(o).sort(); console.log(k[0]);` | `a` | backstop, plus an indexed-read E5506 | exit 1 (E3100 placeholder, indexed-read E5506) |
+| `const r=Array.from([1,2,3]).reverse(); console.log(r[0]);` | `3` | literal `.reverse()`, plus an indexed-read E5506 | exit 1 (same as above) |
+| `const s="a,b"; const r=s.split(",").reverse(); console.log(r[0]);` | `b` | backstop, plus an indexed-read E5506 | exit 1 (same as above) |
+| `const a=[1,2,3]; const p=a.pop; p(); console.log(a.length);` | throws `TypeError` | literal `.pop()` | `3`, exit 0 |
+| `class S { constructor(){ this.length = 0; } } const s = new S(); s.length = 5; console.log(s.length);` | `5` | literal `.length` write (§13) | `1`, exit 0 |
+
+`.call` / `.apply` spellings are not in this table: neither layer refuses
+them (§12).
+
+The type layer cannot tell which calls
 codegen will fail to resolve, so it cannot soundly mirror the backstop. This
 follows the precedent of array-bounds followups §4. The probe row `litmut_alias`
 reads the alias to its literal in codegen, so `run` refuses with the literal
@@ -92,11 +117,11 @@ arguments and pushes `i64.const 0`. The backstop (spec §3.4) covers only the
 nine mutator names (`push`, `pop`, `shift`, `unshift`, `splice`, `reverse`,
 `sort`, `fill`, `copyWithin`). Not fixed.
 
-## §4. The probe diff and the triage table (Task 6)
+## §4. The probe diff and the triage table (at `d46ee0dc7`)
 
-The probe diff, verbatim from the Task 6 report.
+The probe diff, as recorded when the probes were re-run at `d46ee0dc7`.
 
-#### 4.a. The brief's diff, against the four committed baselines
+#### 4.a. The diff against the four committed baselines
 
 `baseline-litmut` (recorded at `9dc751cf8`) moved as follows:
 
@@ -125,16 +150,16 @@ No row moved other than these 37. All four rows that already refused at
 baseline still refuse (`t_var_pop`, `param`, `f_length_compound`, `push_pop`).
 No `litmut_ok_*` row moved.
 
-The brief's diffs against `baseline.tsv`, `baseline-anon.tsv` and
+The diffs against `baseline.tsv`, `baseline-anon.tsv` and
 `baseline-bounds.tsv` show many moves, such as `bound_length REFUSES->CORRECT` and
 `bounds_a1 SILENT->REFUSES`. Those files were recorded before earlier projects
 (array-return, anon, array-bounds), so the moves are history and this project
 did not cause them. The `grep -F` substring match also pulls `anon_*_passed_on`
-rows into the `baseline` diff. Section 2b gives the comparison that decides this.
+rows into the `baseline` diff. §4.b gives the comparison that decides this.
 
 #### 4.b. The comparison that decides it: every probe, `9dc751cf8` binary vs HEAD binary
 
-I ran `run.sh` with `KALI=<9dc751cf8 build>` over the same probe set and
+`run.sh` was run with `KALI=<9dc751cf8 build>` over the same probe set and
 diffed columns 1 and 2 against `final.tsv`. The only rows that moved are the
 37 `litmut_*` rows listed above. No `baseline`, `anon`, `bounds_*` or `r21`
 row moved. Every `CORRECT`/`REFUSES`/`TRAPS` verdict outside `litmut_*` is
@@ -203,7 +228,7 @@ All four pass conditions hold:
 
 On `litmut_w_as`, node's column is a SyntaxError (R5). It is judged on kali alone: run REFUSES, check=1.
 
-The triage table, verbatim from the Task 6 report.
+The triage table for the same re-run.
 
 #### 4.t. Triage table
 
@@ -241,8 +266,8 @@ Re-pin notes:
   | set_iteration | `SyntaxError: missing ) after argument list`, because of nested single quotes. The rationale quotes the isolated push half, which prints `2 1 2`. |
 
 * `misc/growable_array_core.toml` and `misc/set_iteration_runtime.toml` are
-  GENERATED by `tools/migration/gen_task19_batch4.py`. I hand-edited them and
-  added a dated "HAND-EDITED … generator check above is therefore RED" header
+  GENERATED by `tools/migration/gen_task19_batch4.py`. They were hand-edited, with
+  a dated "HAND-EDITED … generator check above is therefore RED" header
   note, following the `runtime/join.toml` precedent. The generator check was
   already red at `d46ee0dc7` (`GenError: set_iteration_runtime…: 'E4000' is NOT
   on stderr`). That check is a developer gate and no CI job runs it.
@@ -269,7 +294,7 @@ Probes that did not move and must stay REFUSES:
 
 No human decision was taken. Array-bounds decision A-5 (accept fail-closed)
 is restated and applies. Every measured loss is in spec §5.4's two classes
-("effect never observed" and "dead code"). Table, from the Task 6 report:
+("effect never observed" and "dead code"). Table, as measured at `d46ee0dc7`:
 
 | program | node | 9dc751cf8 run | 9dc751cf8 check | HEAD run | HEAD check | §5.4 class |
 |---|---|---|---|---|---|---|
@@ -283,7 +308,7 @@ All four losses are in the two §5.4 classes, so A-5 accepts them as fail-closed
 None of the 10 moved tests is a capability loss: every one was a refusal, a
 trap or a silent wrong value at baseline.
 
-**Extra sweep.** Outside the brief, I compared base and HEAD (node in brackets) on
+**Extra sweep.** Beyond the probe set, base and HEAD were compared (node in brackets) on
 shapes most likely to show a non-§5.4 loss:
 
 * No loss:
@@ -294,9 +319,9 @@ shapes most likely to show a non-§5.4 loss:
   * A user class with `push`/`pop`/`fill`, and an object literal with `fill()`/`sort()` methods, refused or errored identically at both, for pre-existing unrelated reasons.
 * Browser and host API tests in the workspace (the browser harness targets) all pass.
 
-The 10 moved tests were not capability losses: every one was a refusal, a trap
-or a silent wrong value at baseline. No row outside §5.4's two classes was
-found.
+The 10 moved tests were not capability losses: every one was a refusal, a
+trap or a silent wrong value at baseline. This sweep found no row outside
+§5.4's two classes. The final review found one (§7), which was fixed.
 
 ## §6. Follow-up feature: real mutators on the growable lane and top-level promotion
 
@@ -307,46 +332,54 @@ promoted to a growable array the way an in-function one already is. It would
 turn the §5 refusals and the array-bounds §5 and §12 refusals into node-correct
 output. Until it is built, the refusals stand as accepted (fail-closed).
 
-## §7. Shadowing: the literal gate walks past a nearer non-literal binding
+## §7. Shadowing: the literal gate walked past a nearer non-literal binding (closed)
 
-`resolve_array_literal_binding_name` walks past a nearer non-literal binding of
-the same name. A user-class instance or a parameter that shadows an outer
-literal array gets the literal-array refusal.
+**Closed** by the final-review fix (spec A-10). `resolve_array_literal_binding_name`
+walked past a nearer binding of the same name to an outer literal array, so an
+inner class instance or parameter named like an outer literal got the
+literal-array refusal. That was a capability loss outside spec §5.4: kali at
+`9dc751cf8` ran these programs as node does. The walk now stops at the first
+scope that binds the name.
 
 ```js
-const s=[1,2];
-class Stack{ constructor(){ this.n=0; } push(x){ this.n=this.n+x; } }
-function main(){ const s=new Stack(); s.push(3); console.log(s.n); }
-main();
+const a=[1,2,3]; class Box { sort(){ return 7; } } function main(){ const a=new Box(); console.log(a.sort()); } main(); console.log(a[0]);
 ```
 
-node prints `3`. HEAD: `check` and `run` both exit 1 with
-`E5506 calling `.push()` on a literal array…`. The same happens when the
-shadow is a parameter: `function g(s){ s.push(3); return s.n; } console.log(g(new Stack()));`
-with the same outer `const s=[1,2]` (node `3`; `check` and `run` exit 1, literal
-message). Today this is only a wrong-lane message on programs that already did
-not work in this lane. It is related to array-bounds followups §11 (the array
-facts are keyed by name). Not fixed.
+node prints `7` then `1`. `9dc751cf8`: the same, exit 0. `cd7a99637`: `check`
+and `run` exit 1 with the literal `.sort()` E5506. Now: `check` exits 0, `run`
+prints `7` then `1`. Pinned by the `an_inner_class_instance_shadowing_*` cases
+in `cases/array/literal_array_mutators.toml` and a unit test in
+`kali_types/src/resolve/member_tests.rs`.
 
-## §8. `(a.pop)?.()` passes `check` and `run` skips the call
+The example this section first gave, a `Stack` whose `push` does
+`this.n=this.n+x`, now passes `check`, and `run` prints `0` (node `3`). That is
+§14's class-field defect, not the gate: kali prints `0` for it at `9dc751cf8`
+too, and for any method name. The parameter spelling
+(`function g(s){ s.push(3); return s.n; } console.log(g(new Stack()));`) is
+refused by the pre-existing "passing an array literal to function" E5506,
+because LIR cannot tell `new Stack()` from `[x]`.
 
-The optional-chain gate does not unwrap transparent wrappers, so a
-parenthesized optional call is not seen.
+## §8. `(a.pop)?.()` passed `check` and `run` skipped the call (closed)
+
+**Closed** by the final-review fix (spec A-10). The optional-chain gate in
+`resolve_optional_chain` matched the member without `unwrap_transparent`.
 
 ```js
 const a=[1,2,3]; (a.pop)?.(); console.log(a.length);
 ```
 
-node prints `2`. HEAD: `kali check` exits 0 and `kali run` prints `3` at exit
-0. This is silent: the call is dropped and nothing refuses. The plain optional
-call `a.push?.(4)` (node `4`) does refuse under both `check` and `run`, because
-the parser drops an optional call's arguments, so `a.push?.(4)` is
-`OptionalChain(a.push)` with no call. The type layer gates it in
-`resolve_optional_chain`, and `kali run` runs the type layer first. Codegen
-cannot tell it from a plain `a.push` read, so codegen has no optional-call gate
-and the backstop cannot see it. A side effect is that `a.push?.name` (no call,
-node `push`) also refuses with the literal `.push()` message under `check` and
-`run`. Not fixed.
+node prints `2`. `9dc751cf8` and `cd7a99637`: `check` exits 0 and `run` prints
+`3` at exit 0. Now: `check` and `run` exit 1 with the literal `.pop()` E5506.
+Pinned by `a_parenthesized_optional_call_on_a_literal_refuses_under_{check,run}`.
+
+Still true, and not fixed: the parser drops an optional call's arguments and
+then continues the postfix chain, so `a.push?.(4).toString()` and
+`a.push?.name` both parse to `Member(OptionalChain(a.push), …)`. The gate cannot
+tell them apart, so `a.push?.name` (no call, node `push`) refuses with the
+literal `.push()` message under `check` and `run`. Narrowing the gate would let
+`a.push?.(4).toString()` through, and codegen has no optional-call gate to
+catch it, so the over-refusal stays. Codegen cannot tell an optional call from
+a plain `a.push` read either, so the backstop cannot see it.
 
 ## §9. Wrong-lane wording
 
@@ -360,7 +393,7 @@ only the wording is off. Related to the Task 4 note that
 
 ## §10. Coverage lost
 
-From the Task 6 report, verbatim:
+As recorded at `d46ee0dc7`:
 
 * **The `&=` refusal for a growable-array RHS.**
   * Uncovered for a named binding, and unreachable on HEAD for every shape tried.
@@ -386,8 +419,65 @@ From the Task 6 report, verbatim:
 `scripts/test-gate.sh --gates-only`, through
 `tools/migration/gen_task19_batch4.py`, is red. It was already red before this
 project (`GenError: set_iteration_runtime…: 'E4000' is NOT on stderr`). After
-the Task 6 re-pins it is red with a new reason: the "used as both strings and
+the §4.ta re-pins it is red with a new reason: the "used as both strings and
 numbers" claim is absent from the re-pinned mixed-push case. `misc/growable_array_core.toml` and
 `misc/set_iteration_runtime.toml` are generated and were hand-edited, with a
 dated HAND-EDITED header note, following the `runtime/join.toml` precedent. This
 gate is not run by `cargo test` or by CI. Not fixed.
+
+## §12. `.call` / `.apply` spellings of a mutator are silent
+
+Neither the type layer nor codegen sees a mutator spelled through `.call` or
+`.apply`: the callee's method name is `call` / `apply`, not the mutator.
+Measured at the final-review fixes, with the `9dc751cf8` result alongside:
+
+| program | node | HEAD `check` | HEAD `run` | `9dc751cf8` run |
+|---|---|---|---|---|
+| `const a=[1,2,3]; a.push.call(a, 4); console.log(a.length);` | `4` | exit 0 | `3`, exit 0 | `3`, exit 0 |
+| `const a=[1,2,3]; Array.prototype.push.apply(a, [4]); console.log(a.length);` | `4` | exit 0 | `3`, exit 0 | `3`, exit 0 |
+| `const a=[1,2,3]; a.pop.call(a); console.log(a.length);` | `2` | exit 0 | `3`, exit 0 | `3`, exit 0 |
+| `const a=[1,2,3]; Array.prototype.pop.call(a); console.log(a.length);` | `2` | exit 0 | `3`, exit 0 | `3`, exit 0 |
+
+Silent wrong output, unchanged from baseline. It falls under the claim of spec
+§1 ("never silently does nothing") but not under its spelled forms (`a.m()`,
+`a["m"]()`, `a.m?.()`). Not fixed.
+
+## §13. A class instance's `.length` write refuses with the literal wording
+
+```js
+class S { constructor(){ this.length = 0; } } const s = new S(); s.length = 5; console.log(s.length);
+```
+
+node prints `5`. `9dc751cf8`: `run` printed `1` at exit 0. HEAD: `check` exits
+0, and `run` exits 1 with `assigning to `.length` of a literal array is
+unavailable…`. The codegen `.length` write gate (`emit/literal.rs`) calls
+`is_literal_array_value`, which cannot tell `new S()` from `[x]` in LIR, and
+it runs before any resolution, unlike the mutator gate, which runs only at the
+placeholder fallback. The program was silently wrong at baseline, so this is
+not a capability loss; the wording names the wrong lane, and `check` misses it
+(§1). The same over-approximation is noted on `is_literal_array_value`. Not
+fixed.
+
+## §14. Pre-existing miscompiles met while verifying the final-review fixes
+
+None of these involves a mutator gate. Each gives the same output at
+`9dc751cf8` and at HEAD, and each is silent (exit 0, wrong output).
+
+* **A method call on a nameless constructed value evaluates to `0`.**
+  `class S { push(v){ return v+1; } } console.log(new S().push(1));` prints `0`
+  (node `2`). `foo` and `sort` give `0` the same way, so the method name does
+  not matter. Binding the instance first (`const s=new S(); s.push(1)`) prints
+  `2`; that spelling is the control case
+  `a_user_class_method_named_push_still_matches_node`.
+* **A field write in a method is lost.**
+  `class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main(){ const s=new Stack(); s.add(3); console.log(s.n); } main();`
+  prints `0` (node `3`).
+* **A block-scoped shadow in the same function clobbers the outer array.**
+  `const a=[1,2,3]; class Box { foo(){ return 7; } } { const a=new Box(); console.log(a.foo()); } console.log(a[0]);`
+  prints `7` then `0` (node `7` then `1`). Codegen's `bindings` map is flat
+  per function, so the inner `a` replaces the outer one. With a mutator name
+  (`sort`) in place of `foo`, `cd7a99637` refused the program through the
+  §7 defect; after the §7 fix it prints `7` then `0` again, as at baseline.
+  Related to array-bounds followups §11.
+
+Not fixed.

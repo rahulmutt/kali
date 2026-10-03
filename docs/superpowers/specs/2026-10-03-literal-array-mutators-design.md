@@ -33,10 +33,12 @@ write either produces node's output or is refused. Concretely:
 
 1. A call to `push`, `pop`, `shift`, `unshift`, `splice`, `reverse`, `sort`,
    `fill` or `copyWithin`, or an assignment to `.length`, refuses with `E5506`
-   under both `kali check` and `kali run`. The receiver is a literal-array
-   binding or an array-literal expression, optionally wrapped in parentheses,
-   `as`, `satisfies` or an optional chain. The call may be spelled `a.m()`,
-   `a["m"]()` or `a.m?.()`.
+   under both `kali check` and `kali run`. The receiver is a name whose
+   nearest binding is an array literal (A-10), or an array-literal
+   expression, optionally wrapped in parentheses, `as`, `satisfies` or an
+   optional chain. The call may be spelled `a.m()`, `a["m"]()`, `a.m?.()` or
+   `(a.m)?.()`; the two optional spellings are refused by the type layer,
+   which `kali run` runs first (A-7).
 2. **The working growable lane is untouched.** An in-function binding that
    `growable_array_candidates` (`kali_types/src/growable.rs:122`) promotes
    keeps compiling: its `push`, `.length`, index read, `for…of` and `.join`
@@ -49,8 +51,8 @@ write either produces node's output or is refused. Concretely:
    alias that codegen traces to its literal gets the literal text (A-8).
 4. **§2 and §13 close with the shared list.** On a plain fixed-length runtime
    array (array-bounds spec §1), `reverse`, `sort` and `copyWithin` now refuse
-   under `check` and `run`, as does an optional call `a.push?.(1)`. `fill`
-   works on that lane and stays allowed.
+   under `check` and `run`, as does an optional call `a.push?.(1)` (refused
+   by the type layer, A-7). `fill` works on that lane and stays allowed.
 5. A program that calls no in-place mutator behaves as it does at the
    baseline.
 
@@ -64,12 +66,27 @@ write either produces node's output or is refused. Concretely:
 * **Out of scope:** array-bounds followups §1 (growable out-of-range read), §3
   (anonymous-lane `check` gap), §6 (float index), §10 (write-trap ordering),
   §11 (shadowing) and §12 (growable returns), and R-21's `undefined`.
-* **One disclosed `check` / `run` gap.** When the receiver is an alias or a
-  parameter of a literal array, `kali check` exits 0 and `kali run` refuses
-  (§3.4, amendment A-8: a parameter gets the backstop text, an alias the
-  literal text). The type layer cannot tell which calls codegen
-  will fail to resolve, so it cannot soundly mirror the backstop. This follows
-  the precedent of array-bounds followups §4.
+* **One disclosed `check` / `run` gap.** The type layer gates a mutator only
+  when the receiver is a literal-array name, an array literal, or a plain
+  runtime array (§3.2). For every other receiver that `kali run` refuses,
+  `kali check` exits 0. Measured (followups §1, A-10):
+  * an alias (`const b = a; b.pop()`) and a parameter of a literal array
+    (§3.4, amendment A-8: a parameter gets the backstop text, an alias the
+    literal text);
+  * a literal array reached through a property or an element (`o.xs.pop()`,
+    `m[0].pop()`);
+  * the result of a call kali folds or cannot classify
+    (`Object.keys(o).sort()`, `Array.from([1,2,3]).reverse()`,
+    `s.split(",").reverse()`);
+  * a mutator read off the array and called bare (`const p = a.pop; p()`);
+  * a `.length` write on a class instance (`s.length = 5`), which codegen
+    takes for a literal array (followups §13).
+
+  The type layer cannot tell which calls codegen will fail to resolve, so it
+  cannot soundly mirror the backstop. This follows the precedent of
+  array-bounds followups §4. `.call` / `.apply` spellings
+  (`a.push.call(a, 4)`) are refused by neither and stay silent (followups
+  §12).
 
 ---
 
@@ -250,8 +267,10 @@ that quote it. That is expected, and the plan lists them.
   growable `push` is still taken first.
 * The literal `.length` write refuses in `emit/literal.rs` next to the plain
   `.length` write refusal (`:662-672`).
-* This mirrors §3.2 shape for shape, so `check` and `run` agree on every row of
-  §2.1 except alias and param.
+* This mirrors §3.2 shape for shape, except the two optional-call spellings,
+  which only the type layer gates (A-7). `kali run` runs the type layer first,
+  so `check` and `run` agree on every row of §2.1 except alias and param. Off
+  §2.1, the shapes `check` misses are listed in §1.1.
 
 ### 3.4 The `run` backstop
 
@@ -436,7 +455,9 @@ Added while writing the implementation plan, before any code.
   No human decision was taken, so array-bounds decision A-5 (accept fail-closed)
   stands. The measured losses are in the followups file §5: a `fill` or `sort`
   whose effect is never observed, and a mutator in dead code or an uncalled
-  function. Every one is in §5.4's two classes. No loss outside them was found.
+  function. Every one is in §5.4's two classes. The final review found one
+  loss outside them, which was fixed rather than accepted: an inner binding
+  that shadows an outer literal array was refused (A-10).
 * **A-6. Probe reads were rewritten, controls were deleted.** Several plan
   probes logged `a[0]`, which a dropped mutator leaves unchanged in node too, so
   they could not show the mutation. Their trailing reads were rewritten so each
@@ -453,8 +474,8 @@ Added while writing the implementation plan, before any code.
   cannot tell it from a plain `a.push` read, so codegen has no optional-call
   gate and the backstop cannot see it. A side effect: `a.push?.name` (no call)
   also refuses. §1 item 1 and §3.3 said codegen mirrors the optional spelling;
-  it does not. A parenthesized `(a.pop)?.()` is not unwrapped by that gate and
-  is silent (followups §8).
+  it does not. The gate unwraps the member like a call's callee, so a
+  parenthesized `(a.pop)?.()` refuses too (A-10, followups §8, closed).
 * **A-8. The codegen literal gate is checked only at the placeholder
   fallback, and an alias gets the literal text.** §3.3 placed
   `literal_array_mutator` beside the plain check. It is checked only at
@@ -473,3 +494,17 @@ Added while writing the implementation plan, before any code.
   "has a `.push` call" message, which looks unreachable from the CLI for these
   shapes (followups §10). The plan's in-function unit-test variant `a.push(4)`
   was dropped, because that binding is on the growable lane.
+* **A-10. Final-review fixes.** Added after the final whole-branch review.
+  * `(a.pop)?.()` passed `check` and `run` printed `3` (node `2`): the
+    optional-chain gate matched the member without `unwrap_transparent`. It
+    now unwraps, so the call refuses under `check` and `run` (followups §8,
+    closed).
+  * `resolve_array_literal_binding_name` walked past a nearer binding to an
+    outer literal, so an inner class instance or parameter named like an outer
+    literal array was refused, though kali at `9dc751cf8` ran it as node
+    does. The walk now stops at the first scope that binds the name, and
+    the literal gate keys on the nearest binding (followups §7, closed). The
+    same function feeds the `join` lane and the element-store gate, which
+    get the same scoping.
+  * §1.1's `check` / `run` gap is wider than alias and parameter receivers;
+    §1.1 now lists the measured shapes.
