@@ -1682,7 +1682,7 @@ impl TypeContext {
         }
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            "mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation".to_string(),
+            kali_common::literal_array_store_unavailable_message().to_string(),
         ));
     }
 
@@ -2834,7 +2834,15 @@ impl TypeContext {
 
     pub(crate) fn resolve_optional_chain(&mut self, expr: &OptionalChainExpression) {
         match expr.inner.as_ref() {
-            OptionalChainInner::NonNull { object, .. } => self.resolve_expression(object),
+            OptionalChainInner::NonNull { object, .. } => {
+                // The parser drops the argument list of an optional call
+                // `a.push?.(4)` and leaves `OptionalChain(a.push)` with no
+                // `CallExpression`, so the mutator gate sees it here.
+                if let Expression::MemberExpression(member) = object.as_ref() {
+                    self.reject_array_mutator_member(member);
+                }
+                self.resolve_expression(object)
+            }
         }
     }
 

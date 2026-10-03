@@ -389,7 +389,7 @@ impl TypeContext {
                 .is_array_return_callee_shadowed(self.current_function_name(), callee)
     }
 
-    /// The receiver is a plain fixed-length runtime array: a registered
+    /// The receiver is a plain runtime array: a registered
     /// structural binding that is not growable, or a direct call to an
     /// array-returning declaration. The resolver's twin of codegen's
     /// `is_runtime_array_value` (array-bounds spec §3.3). An anonymous callee
@@ -423,39 +423,78 @@ impl TypeContext {
         }
     }
 
-    /// `a.push(…)` and the other `RUNTIME_ARRAY_MUTATORS` on a plain runtime
-    /// array (array-bounds spec §3.3).
-    pub(crate) fn reject_runtime_array_mutator_call(&mut self, expr: &CallExpression) {
-        let Expression::MemberExpression(member) = &expr.callee else {
-            return;
-        };
-        let Some(method) = member.property.as_deref() else {
-            return;
-        };
-        if kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method)
-            && self.is_plain_runtime_array_receiver(&member.object)
-        {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                kali_common::runtime_array_mutator_unavailable_message(method),
-            ));
+    /// A literal-array receiver (literal-array-mutators spec §3.2): an array
+    /// literal expression, or a name bound to one in any enclosing scope,
+    /// under any `unwrap_transparent` wrapper. A name a runtime lane owns
+    /// (growable, or a structural `[len][elem…]` array) is that lane's, so
+    /// each call gets exactly one refusal.
+    pub(crate) fn is_literal_array_receiver(&self, object: &Expression) -> bool {
+        match super::expression::unwrap_transparent(object) {
+            Expression::ArrayExpression(_) => true,
+            Expression::Identifier(base) => {
+                self.resolve_array_literal_binding_name(base)
+                    && !self.is_growable_array_binding(base)
+                    && !self.is_structural_runtime_array(base)
+            }
+            _ => false,
         }
     }
 
+    /// An in-place array mutator on a plain runtime array or a literal array
+    /// (array-bounds spec §3.3, literal-array-mutators spec §3.2). The callee
+    /// is unwrapped first, so an optional call `a.push?.()` is seen as
+    /// `a.push`; a string-literal key `a["push"]` carries its name in
+    /// `property`.
+    pub(crate) fn reject_runtime_array_mutator_call(&mut self, expr: &CallExpression) {
+        if let Expression::MemberExpression(member) =
+            super::expression::unwrap_transparent(&expr.callee)
+        {
+            self.reject_array_mutator_member(member);
+        }
+    }
+
+    /// The mutator-name and receiver check shared by a call's callee and an
+    /// optional call's member (`a.push?.(4)` parses to no `CallExpression`).
+    pub(crate) fn reject_array_mutator_member(&mut self, member: &MemberExpression) {
+        let Some(method) = member.property.as_deref() else {
+            return;
+        };
+        let message = if kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method)
+            && self.is_plain_runtime_array_receiver(&member.object)
+        {
+            kali_common::runtime_array_mutator_unavailable_message(method)
+        } else if kali_common::LITERAL_ARRAY_MUTATORS.contains(&method)
+            && self.is_literal_array_receiver(&member.object)
+        {
+            kali_common::literal_array_mutator_unavailable_message(method)
+        } else {
+            return;
+        };
+        self.diagnostics
+            .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+    }
+
     /// `a.length = v`, with any assignment operator, on a plain runtime array
-    /// (array-bounds spec §3.3).
+    /// or a literal array (array-bounds spec §3.3, literal-array-mutators
+    /// spec §3.2).
     pub(crate) fn reject_runtime_array_length_write(&mut self, assign: &AssignmentExpression) {
         let Expression::MemberExpression(member) = &assign.left else {
             return;
         };
-        if member.property.as_deref() == Some("length")
-            && self.is_plain_runtime_array_receiver(&member.object)
-        {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                kali_common::runtime_array_length_write_unavailable_message().to_string(),
-            ));
+        if member.property.as_deref() != Some("length") {
+            return;
         }
+        let message = if self.is_plain_runtime_array_receiver(&member.object) {
+            kali_common::runtime_array_length_write_unavailable_message()
+        } else if self.is_literal_array_receiver(&member.object) {
+            kali_common::literal_array_length_write_unavailable_message()
+        } else {
+            return;
+        };
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            message.to_string(),
+        ));
     }
 
     /// Steps 2–4 of spec §4.4 for a computed member with no static name:
