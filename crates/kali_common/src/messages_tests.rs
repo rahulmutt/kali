@@ -139,7 +139,7 @@ fn runtime_array_refusal_messages_are_stable() {
     );
     assert_eq!(
         runtime_array_mutator_unavailable_message("push"),
-        "calling `.push()` on a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than silently skip the call"
+        "calling `.push()` on a runtime array is unavailable in the current phase: kali has no lowering of it on this array, so kali refuses rather than silently skip the call"
     );
     assert_eq!(
         runtime_array_length_write_unavailable_message(),
@@ -152,9 +152,36 @@ fn runtime_array_refusal_messages_are_stable() {
 }
 
 #[test]
-fn runtime_array_mutators_are_the_five_fixed_length_breakers() {
+fn runtime_array_mutators_are_the_plain_lane_methods_without_a_lowering() {
     assert_eq!(
         RUNTIME_ARRAY_MUTATORS,
-        &["push", "pop", "shift", "unshift", "splice"]
+        &["push", "pop", "shift", "unshift", "splice", "reverse", "sort", "copyWithin"]
+    );
+}
+
+#[test]
+fn literal_array_mutators_are_the_runtime_list_plus_fill() {
+    let mut expected: Vec<&str> = RUNTIME_ARRAY_MUTATORS.to_vec();
+    expected.push("fill");
+    assert_eq!(LITERAL_ARRAY_MUTATORS, expected.as_slice());
+}
+
+#[test]
+fn literal_array_refusal_messages_are_stable() {
+    assert_eq!(
+        literal_array_mutator_unavailable_message("pop"),
+        "calling `.pop()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call"
+    );
+    assert_eq!(
+        literal_array_length_write_unavailable_message(),
+        "assigning to `.length` of a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the write"
+    );
+    assert_eq!(
+        literal_array_store_unavailable_message(),
+        "mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation"
+    );
+    assert_eq!(
+        array_mutator_unresolved_receiver_message("sort"),
+        "calling `.sort()` is unavailable in the current phase: it mutates an array in place and kali could not prove which array the receiver is, so kali refuses rather than silently skip the call"
     );
 }
