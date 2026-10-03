@@ -393,3 +393,24 @@ re-pinned.
   binding of `C` is a class declaration, so a shadowed class name, a
   `const K = class {}` binding, a parameter, or a local function leaves
   `check` quiet. Fixed at `e8dca1645`.
+* **A-6. Final-review fixes (ruling R8, ruling R9).** Found in the final
+  review; each is a §3.2 / §3.3 soundness point.
+  * `this` in a method or constructor of a class in `host_derived_classes`
+    has host provenance (warn+0), because A-1 already counts an instance of
+    that class as host and the refusal was a loss outside §5.4's classes
+    (`this.addEventListener(…)` in an `EventTarget` subclass; node and the
+    baseline print `1`). A nameless `const K = class …` is named by its
+    declarator, as `program_classes` records it.
+  * `const K = class Foo extends X {}` records the class facts under `K` and
+    `Foo`, because the program constructs it as `K`; one class under two
+    names is not R6's ambiguity.
+  * `parse_class_heritage` takes only a depth-0 `extends`, and the identifier
+    only when `{`, `<` or `implements` follows, otherwise `""`, because
+    `extends A.Inner` recorded `A` and `<T extends Foo>` recorded `Foo`.
+  * A host-derived class name counts only when the name resolves to a class
+    (no binding in scope, or a declarator bound to a class expression),
+    because `const C = mk; C()` was taken as the host-derived `class C`.
+  * A class with a computed member name (`["foo"](){}`) has no known member
+    set (`ClassBody::has_computed_members`), for it and its subclasses,
+    because the parser skips that member and `check` refused a method that
+    exists.

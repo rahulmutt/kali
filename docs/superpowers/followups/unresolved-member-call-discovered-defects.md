@@ -16,6 +16,11 @@ enclosing-function-scope lookup (spec A-4). Probe rows come from
 baseline `6f042548f`. The baseline `node` column carries machine-specific
 stack traces, so diffs use `cut -f1,2,5`.
 
+**Final fix wave:** the entries marked "final fix wave" (§5, §6.1, §6.4,
+§6.6, §6.8, §6.9, §6.16 to §6.23) were measured on the branch after the
+final-review fixes (spec A-6), with node v26.10.0, a baseline binary built
+from `6f042548f`, and `679b53cc5` as the head before the fixes.
+
 **Register:** no entry of `kali-silent-miscompile-register.md` moved lane, so
 the register is not edited. `cargo test -p kali_cli --test cases -- oracle/`
 was re-run at `06655cc74`: 177 passed, 0 failed. The two oracle cases whose
@@ -168,13 +173,29 @@ lines, 0 FAILED) and `cargo test -p kali_cli --test cases` at
 
 ## §5. Measured capability loss
 
-Exactly one, in spec §5.4 class 2 (dead code):
+Task 7 measured one loss in spec §5.4 class 2 (dead code):
 `soundness/events::event_unknown_receiver_non_capturing_listener_still_builds`.
 The program declares a function that calls `.addEventListener()` on its
 parameter, and never calls that function. node builds and runs it. kali
 before this project built it too; now `run` refuses, because a parameter is
 not a proven host value (spec §1 item 1) and the call reaches the fallback.
 The case was re-pinned to the refusal and its rationale states the class.
+
+One more loss is accepted as an ambiguity, not counted above: a program that
+declares one class name twice, one of them host-derived (ruling R6, spec A-5,
+§6.14), loses its host-method calls to an E5506 refusal under `run`.
+
+The final review found two more losses, both outside §5.4's classes, and the
+final fix wave fixed them (spec A-6), so neither is a loss at the branch head:
+
+1. `this.<hostMethod>()` in a method or constructor of a host-derived class
+   (`class X extends EventTarget { fire(){ this.addEventListener(…); … } }`)
+   refused; node and the baseline print `1` (ruling R8).
+2. `const K = class Foo extends EventTarget {}`: `K`'s instances refused
+   `k.addEventListener(…)`; node and the baseline print `ok`.
+
+The fix wave left one measured loss of the same family, filed as §6.16 below:
+an arrow function inside such a method.
 
 What was swept. Task 7 ran every `cli` and `oracle` step of every case file
 (6,224 trials, with matrix and constants expanded) with HEAD's binary. For
@@ -193,10 +214,11 @@ fixture or corpus program exercises was not measured.
 1. **`unres_ok_getter` is silent and unchanged.**
    `class G { get f(){ return () => 7; } } const g=new G(); console.log(g.f());`
    prints `0` where node prints `7`, at the baseline and at HEAD (`check`
-   exit 0 both times). The spec expected a refusal (spec §5.1 names a
-   getter-backed control), but the call reaches a route other than the
-   terminal fallback (a getter likely lowers as a method), so the gate never
-   sees it. Not fixed.
+   exit 0 both times). Spec §5.1 lists the getter-backed member as an
+   `unres_ok_*` control, a row that must not move, and it did not move. It
+   is filed because its output is still wrong: the call reaches a route other
+   than the terminal fallback (a getter likely lowers as a method), so the
+   gate never sees it. Not fixed.
 2. **Misleading refusal text for a parameter receiver.** The message says "the
    receiver is a value this program built", but for a parameter (the events
    case in §5) the program never supplies the value in that shape. The wording
@@ -204,25 +226,41 @@ fixture or corpus program exercises was not measured.
 3. **Case name.** `event_unknown_receiver_non_capturing_listener_still_builds`
    no longer builds; the name was kept so the trial id stays stable. The
    rationale explains it.
-4. **Class heritage with type parameters (Task 2).** `parse_class_heritage`
-   takes an `extends` inside type parameters (`class B<T extends Foo> {}`) as
-   the base, so `B` is counted host-derived and its instances keep warn+0.
-   Fail-open, rare. A fix takes `extends` only at angle depth 0.
+4. **Class heritage with type parameters (Task 2). FIXED in the final fix
+   wave (spec A-6).** `parse_class_heritage` took an `extends` inside type
+   parameters (`class B<T extends EventTarget> {}`) as the base, so `B` was
+   counted host-derived and its instances kept warn+0 (`b.zork()` printed `0`;
+   node throws). It now takes `extends` only at angle depth 0, and the
+   identifier only when `{`, `<` or `implements` follows it; any other base
+   (`A.Inner`, `ns.A`, `mixin(A)`) is recorded as `""`, a base that leaves the
+   program.
 5. **Field collector (Task 2).** `previous_kind` is stale after a parsed
    method, and the collector over-collects names from union and function
    types. Over-collecting only makes `check` quieter.
-6. **`const K = class Foo extends X {}` (Task 3).** It is recorded as `Foo`
-   only, not as `K`. After the Task 5 fix, instances of a `const K = class {}`
-   binding are outside the `check` mirror, so `check` is quieter there.
+6. **`const K = class Foo extends X {}` (Task 3). FIXED in the final fix wave
+   (spec A-6).** It was recorded as `Foo` only, so `K` was not host-derived
+   and `run` refused `k.addEventListener(…)` (§5 item 2). It is now recorded
+   under `K` and `Foo`. After the Task 5 fix, instances of a
+   `const K = class {}` binding are outside the `check` mirror, so `check` is
+   quieter there.
 7. **Cycle test (Task 3).** The `host_derived` cycle test asserts only `A`.
 8. **Array or object literal root with a host element (Task 4).**
    `[performance,1].zork()` (a 2-element literal) is walked as a computed
    member, counts as host, and stays silent; this is baseline behaviour and a
    gap in §3.1 rule 2. `[performance].zork()` (1 element) is also silent,
-   because a 1-element array unwraps to its element in LIR.
-9. **Block scope (Task 4).** The declarator walk ignores block scope:
-   `{ const o={k:1}; o.zork(); } const o=globalThis.performance;` stays silent
-   at the baseline's `0`, because the module-level `o` is found as host.
+   because a 1-element array unwraps to its element in LIR. Measured in the
+   final fix wave: `const a=[globalThis.performance]; console.log(a.zork());`
+   prints `0` at exit 0 at the baseline and at HEAD (`check` exit 0); node
+   throws `TypeError: a.zork is not a function`.
+9. **Block scope (Task 4), re-measured in the final fix wave.** The
+   declarator walk ignores block scope, but the example filed here does not
+   reproduce: `{ const o={k:1}; o.zork(); } const o=globalThis.performance;`
+   is refused by both `run` and `check` (E5506) at HEAD, and so is the
+   reverse order. One measured effect remains:
+   `const t=globalThis.performance; { const t={k:1}; } console.log(typeof t.now());`
+   is refused by `run` at HEAD, where node prints `number` and the baseline
+   printed `0` (wrong too, so not a capability loss). No fail-open example
+   was found.
 10. **`scope.rs` doc comment (Task 5).** The `MemberReceiver` enum sits
     between `/// A lexical scope.` and `pub struct Scope`, so the doc comment
     reads as attached to the enum. Cosmetic.
@@ -238,3 +276,49 @@ fixture or corpus program exercises was not measured.
     E5506 refusal on `run` (fail-closed), and `check` stays quiet.
 15. **Task 3 and Task 4 test discipline.** Task 3's tests were written with
     the code and no RED run was captured; they pass and pin the behaviour.
+16. **An arrow function inside a host-derived class's method (final fix
+    wave).** `class X extends EventTarget { fire(){ const f = () => { this.addEventListener("t", () => {}); }; f(); return 1; } } const x = new X(); console.log(x.fire());`
+    node prints `1`; the baseline printed `1`; HEAD `run` refuses (E5506),
+    `check` exit 0. Ruling R8 covers `this` in a method or constructor only.
+    LIR does not tell an arrow (lexical `this`) from a `function` expression
+    (its own `this`), so the arrow case was left refusing. A capability loss
+    outside §5.4's classes; brought to the human partner.
+17. **R8 also covers `{}` / `[]` and static methods (final fix wave).** LIR
+    spells `this`, `{}` and `[]` the same way (a text-less childless value),
+    so `({}).zork()` in a method of a host-derived class keeps warn+0:
+    `class X extends EventTarget { fire(){ return ({}).zork(); } } const x = new X(); console.log(x.fire());`
+    prints `0` at the baseline and at HEAD; node throws
+    `TypeError: {}.zork is not a function`. The parser keeps no `static` flag,
+    so `class X extends EventTarget { static make(){ this.zork(); return 1; } } console.log(X.make());`
+    prints `1` at the baseline and at HEAD; node throws
+    `TypeError: this.zork is not a function`.
+18. **`super.zork()` in a program-only class stays silent `0`.**
+    `class P { f(){ return super.zork(); } } const p = new P(); console.log(p.f());`
+    prints `0` at exit 0 at the baseline and at HEAD (`check` exit 0); node
+    throws `TypeError: (intermediate value).zork is not a function`. `super`
+    reaches codegen as a name nothing binds, so it counts as a free global
+    (spec §3.2's first rule).
+19. **A function-valued class field.**
+    `class C { cb = () => 5 } const c = new C(); console.log(c.cb());`
+    node prints `5`. The baseline printed `0` at exit 0. HEAD `run` refuses
+    (E5506); `check` exits 0 at both, because `cb` is in the member set. A
+    `check` / `run` gap (§1). Not a capability loss: the baseline's output was
+    already wrong.
+20. **The gate fires under `kali build` too.** `run` and `build` share
+    codegen, so `kali build` of `const o={k:1}; console.log(o.zork(4));`
+    exits 1 with the same E5506 and writes no `.wasm`; the baseline built it
+    at exit 0. Spec §1 names `run` only.
+21. **The message for a computed spelling.** `o["zork"](4)` is refused with
+    "calling `.zork()` is unavailable …", the dot spelling of a call the
+    program wrote with brackets.
+22. **A computed class member name, under `run`.**
+    `class C { ["foo"](){ return 1; } } const c = new C(); console.log(c.foo());`
+    node prints `1`. The final fix wave made `check` quiet on it (spec A-6),
+    but `run` still refuses `c.foo()` with E5506; the baseline printed `0`.
+    The parser skips a computed member, so codegen has no method `foo`. Not a
+    capability loss (the baseline was wrong), and fail-closed.
+23. **`class B extends A.Inner` under `run`.**
+    `class A {} A.Inner = class { g(){ return 7; } }; class B extends A.Inner {} const b = new B(); console.log(b.g());`
+    node prints `7`. `check` is quiet after the final fix wave (it refused at
+    `679b53cc5`). `run` fails with `E4201: failed to load WASM module` at the
+    baseline and at HEAD, a separate codegen defect.
