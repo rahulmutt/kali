@@ -79,7 +79,8 @@ program binds, unless that binding has proven host provenance (§3.2).
   * an alias, a parameter, a reassigned `let` / `var`, or a program call
     result;
   * an `Object.prototype` name such as `hasOwnProperty`;
-  * an object literal with a spread or a computed key.
+  * a name some assignment in the program writes (`X.name = …`), even on
+    another receiver.
 
   The type layer cannot tell which of these codegen lowers, so it cannot
   soundly mirror them. This follows array-bounds followups §4 and
@@ -177,43 +178,60 @@ It refuses through `deny_e5506` with
 A chain whose root is neither a name nor a literal (a call result, `new X()`)
 keeps today's behaviour.
 
-### 3.2 Host provenance
+### 3.2 Host provenance (amended, A-1 to A-3)
 
-`receiver_root(id)` is the root walk now inside
+**Class facts travel through `ReprTable` (A-1).** The parser keeps what it
+used to drop: `ClassDeclaration` and `ClassExpression` gain
+`super_class: Option<String>`, and `ClassBody` gains `field_names:
+Vec<String>` (each `#[serde(default)]`). A new
+`kali_types/src/program_classes.rs` collects every program class (name,
+base, method and field names) from the AST. `infer_reprs` records each class
+whose `extends` chain reaches a name that is not a program class in a new
+`ReprTable` set, `host_derived_classes`. Codegen never reads classes out of
+LIR, where `new C()` and `[C()]` have the same shape.
+
+`receiver_chain_root(id)` is the root walk now inside
 `receiver_root_is_url_provenance` (`emit/url.rs:417-446`), factored out to
-return the root `LirNodeId` (or `None`). `receiver_root_is_url_provenance`
-calls it, so there is one walk.
+return the node the walk stops at (or `None`). `receiver_root_is_url_provenance`
+calls it, so there is one walk. The walk stops at a call, so `mk().zork()`
+and `new S().zork()` give a call node and keep today's behaviour.
 
 `root_has_host_provenance(name)` is true when any of these holds:
 
-* the name is free: `!name_is_program_bound(name)` (`call.rs`);
-* the name is an import binding;
-* the name is a `const` binding whose initializer is a call, `new` or member
-  chain whose own root has host provenance, recursively, with a visited set;
-* the name is a `const` binding to `new C()`, where `C` is a free name or a
-  program class whose `extends` chain reaches a class that is not a program
-  class (`class X extends EventTarget`).
+* the name is a free global: not program-bound (`name_is_program_bound`) and
+  not a compiled function or class (`self.functions`). An import binding is
+  free by this rule, because codegen records no import names (A-2);
+* the name is a `const`, or a `let` / `var` that no assignment in the program
+  targets (`lower::program_reassigned_names`), whose initializer reaches a
+  root with host provenance through member reads, calls and `new`,
+  recursively, with a visited set;
+* the initializer is `new C(…)` (or any call of `C`), where `C` is in
+  `ReprTable::host_derived_classes` (`class X extends EventTarget`).
 
-Everything else answers false: a literal, a program-class instance whose
-chain stays in the program, a parameter, a reassigned `let` / `var`, and a
-program function's result. Anything the predicate cannot prove is not host.
+The declarator is found by a walk of the current function body and then the
+module body, which `binding_is_placeholder_construct`
+(`intrinsics/host.rs:1821`) is the template for (A-3). Everything else
+answers false: a literal, a program-class instance whose chain stays in the
+program, a parameter, a reassigned binding, and a program function's result.
+Anything the predicate cannot prove is not host.
 
-### 3.3 The `check` mirror (type layer)
+### 3.3 The `check` mirror (type layer, amended)
 
-One new check in `kali_types/src/resolve/member.rs`, called next to
-`reject_array_mutator_member` at both of its call sites (the call callee and
-the optional-call member). It does not fire when that function already
-pushed a diagnostic for the same member.
+One new check in `kali_types/src/resolve/member.rs`, run from the same two
+sites as `reject_array_mutator_member` (`resolve/call.rs:6` through
+`reject_runtime_array_mutator_call`, and `resolve/expression.rs:2844`). It
+returns early when that function already pushed a diagnostic for the same
+member.
 
 `known_member_set(object)` returns `Some(names)` only for:
 
-* a `const` identifier (after `unwrap_transparent`, resolved to its nearest
-  binding as `resolve_array_literal_binding_name` does after A-10) bound to
-  an object literal with no spread and no computed key: the set is its keys;
-* a `const` identifier bound to `new C()`, where `C` is a program class and
-  every class on its `extends` chain is a program class: the set is the
-  methods, fields and accessors of every class on the chain, plus every
-  `this.x =` write in their bodies.
+* an identifier whose nearest binding is a `const` bound to an object
+  literal: the set is its keys (the parser already refuses spreads, methods
+  and unreadable computed keys in an object literal);
+* an identifier whose nearest binding is a `const` bound to `new C()`, where
+  `C` is a program class and every class on its `extends` chain is a
+  program class: the set is the method and field names of every class on
+  the chain (a getter `get x(){}` arrives as a method named `x`).
 
 The check refuses with the §3.1 message when the method name is:
 
@@ -223,12 +241,12 @@ The check refuses with the §3.1 message when the method name is:
   `toLocaleString`, `toString`, `valueOf`, `__defineGetter__`,
   `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`);
 * not in the program-wide set of assigned property names (`X.name = …` on
-  any receiver, any scope).
+  any receiver, any scope, so `this.x = …` in a method counts).
 
 Every name it refuses also refuses under `run`: the method is not defined, so
 no recognizer resolves it, and the receiver is a literal or program-class
-binding, which §3.2 does not count as host. Plan Task 1 checks this against
-the recognizer list and records any recognizer keyed on the method name alone.
+binding, which §3.2 does not count as host. Plan Task 6 checks this with a
+probe for each mirror row, run under both commands.
 
 ### 3.4 Shared text
 
@@ -343,4 +361,21 @@ re-pinned.
 
 ## 6. Amendments
 
-None yet.
+* **A-1. The parser kept no base class; class facts now travel through
+  `ReprTable`.** Found while planning: `parse_class_body`
+  (`kali_parser/src/declaration.rs:280-339`) skips every token that is not a
+  method, so `extends Base` and every field were dropped, and LIR cannot
+  tell `new C()` from `[C()]`. The human partner chose to keep the base
+  name and the field names in the AST and to hand codegen a
+  `host_derived_classes` set through `ReprTable` (option 1 of three; the
+  others were "every class instance is host" and "every class instance is
+  program-owned"). §3.2 and §3.3 are amended to match.
+* **A-2. Imports need no clause of their own.** Codegen records no import
+  names, so `name_is_program_bound` is false for them and they are free
+  globals under §3.2's first rule. This is the local-import gap §1.1 already
+  discloses.
+* **A-3. `bindings` holds only `const` initializers.** Codegen's `bindings`
+  map is filled only for a `const` (`emit/control_flow.rs:1910-1915`), so the
+  declarator is found by a body walk, and a `let` / `var` counts only when
+  no assignment targets it. Codegen unit tests run with an empty
+  `ReprTable`, so the `extends EventTarget` path is pinned by CLI cases only.
