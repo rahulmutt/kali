@@ -771,7 +771,10 @@ fn an_inner_binding_shadowing_an_outer_literal_is_not_a_literal_receiver() {
 const UNRES: &str = "the receiver is a value this program built";
 
 fn unres_count(source: &str) -> usize {
-    e5506_messages(source).iter().filter(|m| m.contains(UNRES)).count()
+    e5506_messages(source)
+        .iter()
+        .filter(|m| m.contains(UNRES))
+        .count()
 }
 
 #[test]

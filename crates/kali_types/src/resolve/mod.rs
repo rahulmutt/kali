@@ -792,7 +792,9 @@ impl TypeContext {
                     if let Some(scope) = self.scopes.get_mut(&id) {
                         scope.class_declaration_bindings.insert(name.clone());
                     } else if self.global_scope.contains(name) {
-                        self.global_scope.class_declaration_bindings.insert(name.clone());
+                        self.global_scope
+                            .class_declaration_bindings
+                            .insert(name.clone());
                     }
                 }
                 self.resolve_class_body(body);
@@ -955,7 +957,9 @@ impl TypeContext {
                                     .map(|p| match &p.key {
                                         PropertyName::Identifier(name)
                                         | PropertyName::String(name) => name.clone(),
-                                        PropertyName::Number(n) => kali_common::js_number::format_js_number(*n),
+                                        PropertyName::Number(n) => {
+                                            kali_common::js_number::format_js_number(*n)
+                                        }
                                         PropertyName::BigInt(digits) => digits.clone(),
                                     })
                                     .collect(),
