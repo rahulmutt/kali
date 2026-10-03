@@ -424,8 +424,8 @@ impl TypeContext {
     }
 
     /// A literal-array receiver (literal-array-mutators spec §3.2): an array
-    /// literal expression, or a name bound to one in any enclosing scope,
-    /// under any `unwrap_transparent` wrapper. A name a runtime lane owns
+    /// literal expression, or a name whose nearest binding is one, under any
+    /// `unwrap_transparent` wrapper. A name a runtime lane owns
     /// (growable, or a structural `[len][elem…]` array) is that lane's, so
     /// each call gets exactly one refusal.
     pub(crate) fn is_literal_array_receiver(&self, object: &Expression) -> bool {
@@ -442,9 +442,11 @@ impl TypeContext {
 
     /// An in-place array mutator on a plain runtime array or a literal array
     /// (array-bounds spec §3.3, literal-array-mutators spec §3.2). The callee
-    /// is unwrapped first, so an optional call `a.push?.()` is seen as
-    /// `a.push`; a string-literal key `a["push"]` carries its name in
-    /// `property`.
+    /// is unwrapped first, so a wrapped callee `(a.pop)()` is seen as
+    /// `a.pop`; a string-literal key `a["push"]` carries its name in
+    /// `property`. An optional call `a.push?.()` never reaches here: the
+    /// parser drops its argument list and leaves no `CallExpression`, so
+    /// `resolve_optional_chain` calls [`Self::reject_array_mutator_member`].
     pub(crate) fn reject_runtime_array_mutator_call(&mut self, expr: &CallExpression) {
         if let Expression::MemberExpression(member) =
             super::expression::unwrap_transparent(&expr.callee)
