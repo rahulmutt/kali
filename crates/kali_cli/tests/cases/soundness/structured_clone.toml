@@ -743,10 +743,13 @@ I-3 named-side alias: DELIBERATE TRIPWIRE (known fail-open, pre-existing, OUT OF
 
 kali: `1,2,3` (alias `b` snapshots pre-push storage); node: `1,2,3,4`.
 
-Run `kali run`, assert it succeeded, and return stdout (caller trims)."""
+Run `kali run`, assert it succeeded, and return stdout (caller trims).
+
+Re-pinned 2026-10-03 by the literal-array-mutators project (docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md, Task 6 triage). What moved: the tripwire fired as designed. The known-wrong `1,2,3` came from the top-level `a.push(4)` on a literal being silently dropped (a top-level literal is never growable, so `a` and its alias `b` both fold to `[1, 2, 3]`). That push now refuses with E5506 (literal `.push()` message), so the silent wrong output is gone; the alias class itself is not fixed. node v26.10.0 prints `1,2,3,4`."""
 args = ["run", "named_growable_alias_is_broken_tripwire.js"]
-exit = "success"
-stdout = "1,2,3\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "calling `.push()` on a literal array"]
 
 [[case]]
 name = "structured_clone_member_on_call_fails_closed"
