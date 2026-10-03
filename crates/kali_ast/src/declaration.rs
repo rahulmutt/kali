@@ -20,6 +20,10 @@ pub struct FunctionDeclaration {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClassDeclaration {
     pub name: String,
+    /// The first token after `extends`, if any (unresolved-member-call spec
+    /// A-1). An identifier gives its text; any other token gives `""`.
+    #[serde(default)]
+    pub super_class: Option<String>,
     pub body: Box<ClassBody>,
 }
 
@@ -27,6 +31,10 @@ pub struct ClassDeclaration {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClassBody {
     pub methods: Vec<MethodDefinition>,
+    /// Names of the class-field declarations the parser skipped
+    /// (`n = 0;`, `label: string;`). Kept so a member set can include them.
+    #[serde(default)]
+    pub field_names: Vec<String>,
 }
 
 /// Method definition

@@ -113,8 +113,10 @@ fn every_anonymous_function_shaped_position_gets_a_distinct_id() {
     );
     // 6: class-method body
     let s6 = Statement::ClassDeclaration(ClassDeclaration {
+        super_class: None,
         name: "C".to_string(),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
             methods: vec![MethodDefinition {
                 name: "m".to_string(),
                 params: vec![],

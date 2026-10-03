@@ -192,6 +192,8 @@ pub struct ArrowFunctionExpression {
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClassExpression {
     pub id: Option<String>,
+    #[serde(default)]
+    pub super_class: Option<String>,
     pub body: Box<ClassBody>,
 }
 

@@ -19,8 +19,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         generator: true,
     };
     let class = ClassExpression {
+        super_class: None,
         id: Some("Example".to_string()),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
             methods: vec![
                 MethodDefinition {
                     name: "outer".to_string(),
@@ -40,8 +42,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         }),
     };
     let class_decl = ClassDeclaration {
+        super_class: None,
         name: "DeclExample".to_string(),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
             methods: vec![
                 MethodDefinition {
                     name: "outer".to_string(),
@@ -62,8 +66,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
     };
     let default_export_class = Statement::ExportDefault(ExportDefaultDeclaration::Expression(
         Expression::ClassExpression(Box::new(ClassExpression {
+            super_class: None,
             id: Some("DefaultExample".to_string()),
             body: Box::new(ClassBody {
+                field_names: Vec::new(),
                 methods: vec![
                     MethodDefinition {
                         name: "outer".to_string(),
@@ -85,8 +91,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
     ));
     let default_export_class_decl = Statement::ExportDefault(
         ExportDefaultDeclaration::ClassDeclaration(ClassDeclaration {
+            super_class: None,
             name: "DefaultDeclExample".to_string(),
             body: Box::new(ClassBody {
+                field_names: Vec::new(),
                 methods: vec![
                     MethodDefinition {
                         name: "outer".to_string(),

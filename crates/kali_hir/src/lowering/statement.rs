@@ -308,7 +308,7 @@ impl HirLowerer {
                 self.record_function_flavor(id, FunctionFlavor::from_flags(*is_async, *generator));
                 id
             }
-            Statement::ClassDeclaration(ClassDeclaration { name, body }) => {
+            Statement::ClassDeclaration(ClassDeclaration { name, body, .. }) => {
                 let id = self
                     .builder
                     .alloc_text(HirNodeKind::ClassDecl, None, name.clone());

@@ -239,3 +239,85 @@ fn test_parse_default_export_class_declaration_preserves_method_modifiers() {
         other => panic!("Expected ExportDefaultDeclaration, got {other:?}"),
     }
 }
+
+fn parse_single_class(source: &str) -> kali_ast::ClassDeclaration {
+    let tokens = lex(source);
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    match output.statements.into_iter().next() {
+        Some(Statement::ClassDeclaration(class_decl)) => class_decl,
+        other => panic!("expected a class declaration, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_class_keeps_its_base_name() {
+    assert_eq!(
+        parse_single_class("class B extends A { f(){} }")
+            .super_class
+            .as_deref(),
+        Some("A")
+    );
+    assert_eq!(
+        parse_single_class("class B extends ns.A {}")
+            .super_class
+            .as_deref(),
+        Some("ns")
+    );
+    assert_eq!(
+        parse_single_class("class B extends mixin(A) {}")
+            .super_class
+            .as_deref(),
+        Some("mixin")
+    );
+    assert_eq!(
+        parse_single_class("class B<T> extends A<T> {}")
+            .super_class
+            .as_deref(),
+        Some("A")
+    );
+    assert_eq!(parse_single_class("class B { f(){} }").super_class, None);
+    assert_eq!(
+        parse_single_class("class B implements I { f(){} }").super_class,
+        None
+    );
+}
+
+#[test]
+fn a_class_with_a_base_keeps_its_methods() {
+    let class_decl = parse_single_class("class B extends A { f(){ return 1; } g(){} }");
+    let names: Vec<_> = class_decl
+        .body
+        .methods
+        .iter()
+        .map(|m| m.name.as_str())
+        .collect();
+    assert_eq!(names, ["f", "g"]);
+}
+
+#[test]
+fn a_class_keeps_its_field_names() {
+    let class_decl = parse_single_class(
+        "class S { n = 0; cb = () => 1; label: string; maybe?: number; done!: boolean; f(){} }",
+    );
+    assert_eq!(
+        class_decl.body.field_names,
+        ["n", "cb", "label", "maybe", "done"]
+    );
+    assert_eq!(class_decl.body.methods.len(), 1);
+}
+
+#[test]
+fn a_class_expression_keeps_its_base_name() {
+    let tokens = lex("const K = class extends EventTarget {};");
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    let Some(Statement::VariableDeclaration(decl)) = output.statements.first() else {
+        panic!("expected a declaration, got {:?}", output.statements);
+    };
+    let Some(Expression::ClassExpression(class_expr)) = &decl.declarations[0].init else {
+        panic!("expected a class expression");
+    };
+    assert_eq!(class_expr.super_class.as_deref(), Some("EventTarget"));
+    assert_eq!(class_expr.id, None);
+}

@@ -277,10 +277,38 @@ impl Parser {
         }))
     }
 
+    /// Consume an optional heritage clause up to (not including) the class
+    /// body's `{`, returning the first token after `extends`. Type
+    /// parameters and `implements` lists are skipped, as before.
+    fn parse_class_heritage(&mut self) -> Option<String> {
+        let mut super_class = None;
+        while !matches!(
+            self.stream.current_kind(),
+            Some(TokenType::LeftBrace) | None
+        ) {
+            if self.stream.current_kind() == Some(&TokenType::Extends) {
+                let _ = self.stream.advance();
+                super_class = Some(match self.stream.current_kind() {
+                    Some(TokenType::Identifier) => self
+                        .stream
+                        .current()
+                        .map(|token| token.value.clone())
+                        .unwrap_or_default(),
+                    _ => String::new(),
+                });
+                continue;
+            }
+            let _ = self.stream.advance();
+        }
+        super_class
+    }
+
     pub(crate) fn parse_class_body(&mut self) -> ClassBody {
         let _ = self.stream.accept(TokenType::LeftBrace);
 
         let mut methods = Vec::new();
+        let mut field_names = Vec::new();
+        let mut previous_kind: Option<TokenType> = None;
         loop {
             if self.stream.eof() || self.stream.current_kind() == Some(&TokenType::RightBrace) {
                 let _ = self.stream.accept(TokenType::RightBrace);
@@ -331,21 +359,45 @@ impl Parser {
                     generator,
                 });
             } else {
+                // A type annotation's name (`label: string;`) follows a `:`.
+                if self.stream.current_kind() == Some(&TokenType::Identifier)
+                    && previous_kind != Some(TokenType::Colon)
+                    && matches!(
+                        self.stream.peek_next_kind(),
+                        Some(
+                            TokenType::Eq
+                                | TokenType::Semicolon
+                                | TokenType::Colon
+                                | TokenType::Question
+                                | TokenType::Not
+                        )
+                    )
+                {
+                    if let Some(token) = self.stream.current() {
+                        field_names.push(token.value.clone());
+                    }
+                }
+                previous_kind = self.stream.current_kind().copied();
                 let _ = self.stream.advance();
             }
         }
 
-        ClassBody { methods }
+        ClassBody {
+            methods,
+            field_names,
+        }
     }
 
     pub(crate) fn parse_class_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let name_token = self.stream.advance()?;
         let name = name_token.value;
+        let super_class = self.parse_class_heritage();
         let body = self.parse_class_body();
 
         Some(Statement::ClassDeclaration(ClassDeclaration {
             name,
+            super_class,
             body: Box::new(body),
         }))
     }
@@ -357,10 +409,12 @@ impl Parser {
         } else {
             None
         };
+        let super_class = self.parse_class_heritage();
         let body = self.parse_class_body();
 
         Expression::ClassExpression(Box::new(ClassExpression {
             id,
+            super_class,
             body: Box::new(body),
         }))
     }

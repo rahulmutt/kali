@@ -783,7 +783,7 @@ impl TypeContext {
                 self.current_function.pop();
                 self.pop_scope();
             }
-            Statement::ClassDeclaration(ClassDeclaration { name, body }) => {
+            Statement::ClassDeclaration(ClassDeclaration { name, body, .. }) => {
                 self.bind_current_scope(name.clone());
                 self.resolve_class_body(body);
             }
