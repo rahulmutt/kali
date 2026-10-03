@@ -1,0 +1,47 @@
+litmut_alias	SILENT	2	3	0
+litmut_closure	SILENT	2	3	0
+litmut_f_copywithin	SILENT	3	1	0
+litmut_f_fill	SILENT	9	1	0
+litmut_f_length_compound	REFUSES	2	error[E5506]: compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path	1
+litmut_f_length	SILENT	1	3	0
+litmut_f_obj_pop	SILENT	1	2	0
+litmut_f_pop	SILENT	2|3	3|0	0
+litmut_f_reverse	SILENT	3	1	0
+litmut_f_shift	SILENT	2	1	0
+litmut_f_sort	SILENT	1	3	0
+litmut_f_splice	SILENT	2	1	0
+litmut_f_str_reverse	SILENT	y	x	0
+litmut_f_unshift	SILENT	0	1	0
+litmut_nameless	SILENT	3	0	0
+litmut_ok_class_sort	CORRECT	7	7	0
+litmut_ok_empty_push	CORRECT	1|5	1|5	0
+litmut_ok_growable_join	CORRECT	1-2-3	1-2-3	0
+litmut_ok_growable_push	CORRECT	4|4	4|4	0
+litmut_ok_indexof	CORRECT	2	2	0
+litmut_ok_plain_fill	CORRECT	5	5	0
+litmut_ok_push_loop	CORRECT	3	3	0
+litmut_ok_read	CORRECT	2|3	2|3	0
+litmut_param	REFUSES	2	warning[E3100]: undefined call target 'pop' reached codegen and was lowered through a zero placeholder compatibility fallback	0
+litmut_plain_copywithin	SILENT	7	4	0
+litmut_plain_optcall	SILENT	4	3	0
+litmut_plain_reverse	SILENT	4	1	0
+litmut_plain_sort	SILENT	4	9	0
+litmut_push_pop	REFUSES	1	error[E5506]: growable array `a` in `main` uses `.push` but also appears in a position the growable-array lane does not support (escaping via `return` or an alias, a computed `["push"]` or optional-chain `?.push` call, capture by a nested function, or a non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, `for..of`, and `.join` are available	1
+litmut_t_copywithin	SILENT	3	1	0
+litmut_t_empty_push	SILENT	1	0	0
+litmut_t_fill	SILENT	9	1	0
+litmut_t_length	SILENT	1	3	0
+litmut_t_let_push	SILENT	3	0	0
+litmut_t_pop	SILENT	2|3	3|0	0
+litmut_t_push	SILENT	4	3	0
+litmut_t_reverse	SILENT	3	1	0
+litmut_t_shift	SILENT	2	1	0
+litmut_t_sort	SILENT	1	3	0
+litmut_t_splice	SILENT	2	1	0
+litmut_t_unshift	SILENT	0	1	0
+litmut_t_var_pop	REFUSES	undefined	warning[E3100]: undefined call target 'pop' reached codegen and was lowered through a zero placeholder compatibility fallback	0
+litmut_w_as	SILENT	/workspace/tools/array-return-probes/probes/litmut_w_as.js:1|const a=[1,2,3]; (a as number[]).pop(); console.log(a.length);|                    ^^||SyntaxError: Unexpected identifier 'as'|    at wrapSafe (node:internal/modules/cjs/loader:1888:18)|    at Module._compile (node:internal/modules/cjs/loader:1930:20)|    at Object..js (node:internal/modules/cjs/loader:2096:10)|    at Module.load (node:internal/modules/cjs/loader:1678:32)|    at Module._load (node:internal/modules/cjs/loader:1470:12)|    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)|    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)|    at node:internal/main/run_main_module:33:47||Node.js v26.10.0	3	0
+litmut_w_optcall	SILENT	4	3	0
+litmut_w_optmember	SILENT	2	3	0
+litmut_w_paren	SILENT	2	3	0
+litmut_w_strkey	SILENT	2	3	0
