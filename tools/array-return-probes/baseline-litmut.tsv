@@ -26,7 +26,7 @@ litmut_plain_copywithin	SILENT	7	4	0
 litmut_plain_optcall	SILENT	4	3	0
 litmut_plain_reverse	SILENT	4	1	0
 litmut_plain_sort	SILENT	4	9	0
-litmut_push_pop	REFUSES	1	error[E5506]: growable array `a` in `main` uses `.push` but also appears in a position the growable-array lane does not support (escaping via `return` or an alias, a computed `["push"]` or optional-chain `?.push` call, capture by a nested function, or a non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, `for..of`, and `.join` are available	1
+litmut_push_pop	REFUSES	3	error[E5506]: growable array `a` in `main` uses `.push` but also appears in a position the growable-array lane does not support (escaping via `return` or an alias, a computed `["push"]` or optional-chain `?.push` call, capture by a nested function, or a non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, `for..of`, and `.join` are available	1
 litmut_t_copywithin	SILENT	3	1	0
 litmut_t_empty_push	SILENT	1	0	0
 litmut_t_fill	SILENT	9	1	0
