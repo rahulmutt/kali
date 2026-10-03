@@ -73,15 +73,13 @@ baseline (probe diff, §3 below).
 | `unres_ok_host_alias` | `const t=globalThis.performance; console.log(typeof t.now());` | `number` | `0`, exit 0 | 0 |
 | `unres_ok_import` | `import {m} from "./unres_lib/m.js"; console.log(m.zork());` (`m` is `export const m={k:1}` in `unres_lib/m.js`) | `TypeError: m.zork is not a function` | `0`, exit 0 | 0 |
 
-`unres_ok_host_alias`: the initializer is `globalThis.performance`, which is a
-member expression rooted at a name the program does not bind, so the
-provenance walk could in principle prove it host, but the call is still
-lowered to the fallback and the control keeps the escape hatch the spec chose
-(§1.1): a host-rooted chain is not refused. `unres_ok_import`: codegen records
-no import names, so an imported binding is a free global under §3.2's first
-rule (A-2). The import case is wrong in the other direction: the imported
-object is program-owned, and node throws. That is the local-import gap §1.1
-discloses. Neither is fixed.
+`unres_ok_host_alias`: a `const` bound from a free-global chain
+(`globalThis.performance`) has host provenance, so its calls keep warn+0
+(spec §1.1); node prints `number` for the `typeof`. `unres_ok_import`: codegen
+records no import names, so an imported binding is a free global under §3.2's
+first rule (A-2). Node throws, because `m` is a program module's object; kali
+cannot tell a program module from an unresolved package without linker work
+(spec §1.1). Neither is fixed.
 
 ## §3. The probe diff
 
