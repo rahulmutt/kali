@@ -1,0 +1,393 @@
+# Defects the literal-array-mutators project measured and did NOT fix
+
+**Filed** 2026-10-03 by the **literal-array-mutators** project
+(`docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md`), on the
+convention `array-bounds-discovered-defects.md` and its predecessors use: a
+project that measures more than it fixes writes down what it left, so the
+silence is not read as absence.
+
+**Oracle:** `node v26.10.0`.
+**Measured at:** `6e31db3b1` (branch `literal-array-mutators`), on
+`target/debug/kali` built from that commit (`cargo build -p kali_cli`, the
+`dev` profile). The backstop and the gates landed at `d46ee0dc7`. Probe rows
+come from `tools/array-return-probes/run.sh`; a probe's baseline column is
+`tools/array-return-probes/baseline-litmut.tsv`, measured at the spec's
+baseline `9dc751cf8`. Rows that are not probes were run by hand as
+`node P.js` against `kali run P.js` and `kali check P.js`, with the program
+text given in full.
+
+**Register:** no entry of `kali-silent-miscompile-register.md` moved lane, so
+the register and `blast-radius-ranking.md` are not edited. R-21's `r21o`
+oracle cases (`crates/kali_cli/tests/cases/oracle/tier2.toml`) were re-run
+(`cargo test -p kali_cli --test cases -- oracle/`, 177 passed) and both are
+still `silent`: they read a literal array out of range, which no mutator
+gate touches. The register's mutator-on-literal entries are prose rows without
+a §0.2 lane or an oracle case: R-39 (`.pop()` returns `0`) and R-40 (`.push` on
+a const array literal is ignored). Their repros, `console.log([1,2,3].pop());`
+and `const a=[1,2]; a.push(3); console.log(a.length);`, now refuse with
+`E5506` on HEAD. They are not §0.2 lanes, so no lane moved, and the register
+is left alone.
+
+**Decision A-5, restated.** No human decision was taken on the capability loss
+(§5). Array-bounds decision A-5 (accept fail-closed) therefore stands, and the
+spec's §7 amendment A-5 records it. Every measured loss is in spec §5.4's two
+classes: an effect never observed, or dead code.
+
+---
+
+## §1. The alias/param `check` gap (spec §1.1)
+
+`kali check` exits 0 and `kali run` refuses when a literal array's mutator is
+called through an alias or a parameter. The type layer cannot tell which calls
+codegen will fail to resolve, so it cannot soundly mirror the backstop. This
+follows the precedent of array-bounds followups §4. The probe row `litmut_alias`
+reads the alias to its literal in codegen, so `run` refuses with the literal
+message. `litmut_param` reaches the backstop text.
+
+`litmut_alias`:
+
+```js
+function main(){ const a=[1,2,3]; const b=a; b.pop(); console.log(a.length); } main();
+```
+
+node prints `2`. At `9dc751cf8` `run` printed `3` at exit 0. At HEAD `check`
+exits 0 and `run` exits 1 with `E5506 calling `.pop()` on a literal array…`,
+because codegen traces `b` back to the literal. It does not get the backstop
+text.
+
+`litmut_param`:
+
+```js
+function g(x){ x.pop(); } function main(){ const a=[1,2,3]; g(a); console.log(a.length); } main();
+```
+
+node prints `2`. At `9dc751cf8` `run` exited 1 already, with an `E3100`
+placeholder warning for `pop`. At HEAD `check` exits 0 and `run` exits 1 with
+`E5506 calling `.pop()` is unavailable in the current phase: kali could not
+prove which array the receiver is…` (the backstop text), plus the pre-existing
+literal-argument `E5506`.
+
+Not fixed. The gap holds: `run` refuses, and node's output is not produced.
+
+## §2. Warnings are discarded on a successful build
+
+`compile_source_file_uncached` (`kali_cli/src/build/compile.rs:431-517`)
+returns diagnostics only on its `Err` path. A build with no error drops every
+warning.
+
+```js
+var o={k:1}; console.log(o.zork(4));
+```
+
+`kali build --output json` reports `"warnings":[]` and `"success":true`, and the
+built program prints `0`. node throws `TypeError: o.zork is not a function`.
+Measured at HEAD. Not fixed.
+
+## §3. Any unresolved member call evaluates to `0` at exit 0
+
+`var o={k:1}; console.log(o.zork(4));` and `const o={k:1}; console.log(o.zork(4));`
+both print `0` at exit 0 under `kali run`, and `kali check` exits 0 (node
+throws `TypeError`). The terminal placeholder fallback of `emit_call` drops the
+arguments and pushes `i64.const 0`. The backstop (spec §3.4) covers only the
+nine mutator names (`push`, `pop`, `shift`, `unshift`, `splice`, `reverse`,
+`sort`, `fill`, `copyWithin`). Not fixed.
+
+## §4. The probe diff and the triage table (Task 6)
+
+The probe diff, verbatim from the Task 6 report.
+
+#### 4.a. The brief's diff, against the four committed baselines
+
+`baseline-litmut` (recorded at `9dc751cf8`) moved as follows:
+
+```
+litmut_alias SILENT -> REFUSES          litmut_t_copywithin SILENT -> REFUSES
+litmut_closure SILENT -> REFUSES        litmut_t_empty_push SILENT -> REFUSES
+litmut_f_copywithin SILENT -> REFUSES   litmut_t_fill SILENT -> REFUSES
+litmut_f_fill SILENT -> REFUSES         litmut_t_length SILENT -> REFUSES
+litmut_f_length SILENT -> REFUSES       litmut_t_let_push SILENT -> REFUSES
+litmut_f_obj_pop SILENT -> REFUSES      litmut_t_pop SILENT -> REFUSES
+litmut_f_pop SILENT -> REFUSES          litmut_t_push SILENT -> REFUSES
+litmut_f_reverse SILENT -> REFUSES      litmut_t_reverse SILENT -> REFUSES
+litmut_f_shift SILENT -> REFUSES        litmut_t_shift SILENT -> REFUSES
+litmut_f_sort SILENT -> REFUSES         litmut_t_sort SILENT -> REFUSES
+litmut_f_splice SILENT -> REFUSES       litmut_t_splice SILENT -> REFUSES
+litmut_f_str_reverse SILENT -> REFUSES  litmut_t_unshift SILENT -> REFUSES
+litmut_f_unshift SILENT -> REFUSES      litmut_w_as SILENT -> REFUSES
+litmut_nameless SILENT -> REFUSES       litmut_w_optcall SILENT -> REFUSES
+litmut_plain_copywithin SILENT -> REFUSES  litmut_w_optmember SILENT -> REFUSES
+litmut_plain_optcall SILENT -> REFUSES  litmut_w_paren SILENT -> REFUSES
+litmut_plain_reverse SILENT -> REFUSES  litmut_w_strkey SILENT -> REFUSES
+litmut_plain_sort SILENT -> REFUSES
+```
+
+No row moved other than these 37. All four rows that already refused at
+baseline still refuse (`t_var_pop`, `param`, `f_length_compound`, `push_pop`).
+No `litmut_ok_*` row moved.
+
+The brief's diffs against `baseline.tsv`, `baseline-anon.tsv` and
+`baseline-bounds.tsv` show many moves, such as `bound_length REFUSES->CORRECT` and
+`bounds_a1 SILENT->REFUSES`. Those files were recorded before earlier projects
+(array-return, anon, array-bounds), so the moves are history and this project
+did not cause them. The `grep -F` substring match also pulls `anon_*_passed_on`
+rows into the `baseline` diff. Section 2b gives the comparison that decides this.
+
+#### 4.b. The comparison that decides it: every probe, `9dc751cf8` binary vs HEAD binary
+
+I ran `run.sh` with `KALI=<9dc751cf8 build>` over the same probe set and
+diffed columns 1 and 2 against `final.tsv`. The only rows that moved are the
+37 `litmut_*` rows listed above. No `baseline`, `anon`, `bounds_*` or `r21`
+row moved. Every `CORRECT`/`REFUSES`/`TRAPS` verdict outside `litmut_*` is
+identical. The check-column (col 5) diff has no non-`litmut_` line either.
+Re-running `baseline-litmut` on the `9dc751cf8` binary reproduces the committed
+`baseline-litmut.tsv` verdicts exactly.
+
+#### 4.c. Check-column listing (litmut rows, HEAD)
+
+```
+litmut_alias REFUSES check=0
+litmut_closure REFUSES check=1
+litmut_f_copywithin REFUSES check=1
+litmut_f_fill REFUSES check=1
+litmut_f_length_compound REFUSES check=1
+litmut_f_length REFUSES check=1
+litmut_f_obj_pop REFUSES check=1
+litmut_f_pop REFUSES check=1
+litmut_f_reverse REFUSES check=1
+litmut_f_shift REFUSES check=1
+litmut_f_sort REFUSES check=1
+litmut_f_splice REFUSES check=1
+litmut_f_str_reverse REFUSES check=1
+litmut_f_unshift REFUSES check=1
+litmut_nameless REFUSES check=1
+litmut_ok_class_sort CORRECT check=0
+litmut_ok_empty_push CORRECT check=0
+litmut_ok_growable_join CORRECT check=0
+litmut_ok_growable_push CORRECT check=0
+litmut_ok_indexof CORRECT check=0
+litmut_ok_plain_fill CORRECT check=0
+litmut_ok_push_loop CORRECT check=0
+litmut_ok_read CORRECT check=0
+litmut_param REFUSES check=0
+litmut_plain_copywithin REFUSES check=1
+litmut_plain_optcall REFUSES check=1
+litmut_plain_reverse REFUSES check=1
+litmut_plain_sort REFUSES check=1
+litmut_push_pop REFUSES check=1
+litmut_t_copywithin REFUSES check=1
+litmut_t_empty_push REFUSES check=1
+litmut_t_fill REFUSES check=1
+litmut_t_length REFUSES check=1
+litmut_t_let_push REFUSES check=1
+litmut_t_pop REFUSES check=1
+litmut_t_push REFUSES check=1
+litmut_t_reverse REFUSES check=1
+litmut_t_shift REFUSES check=1
+litmut_t_sort REFUSES check=1
+litmut_t_splice REFUSES check=1
+litmut_t_unshift REFUSES check=1
+litmut_t_var_pop REFUSES check=1
+litmut_w_as REFUSES check=1
+litmut_w_optcall REFUSES check=1
+litmut_w_optmember REFUSES check=1
+litmut_w_paren REFUSES check=1
+litmut_w_strkey REFUSES check=1
+```
+
+All four pass conditions hold:
+
+* Every non-ok `litmut_*` row is REFUSES.
+* `check` is non-zero on every one of them except `alias` and `param`, the disclosed §1.1 gap.
+* No `litmut_ok_*` row moved.
+* No row of the older baselines moved between `9dc751cf8` and HEAD.
+
+On `litmut_w_as`, node's column is a SyntaxError (R5). It is judged on kali alone: run REFUSES, check=1.
+
+The triage table, verbatim from the Task 6 report.
+
+#### 4.t. Triage table
+
+The "before" column is the `9dc751cf8` binary, and "after" is HEAD `d46ee0dc7`.
+
+#### 4.ta. Moved tests
+
+| name | before | after | class |
+|---|---|---|---|
+| growable_array_core[js,ts]::run_rejects_growable_array_mixed_i64_and_string_push… | exit 1, `E5506 elements of `o` in `main` are used as both strings and numbers` | exit 1, `E5506 calling `.push()` on a literal array…` (printed twice) | wanted (refusal kept, message moved per spec A-3); re-pinned |
+| growable_array_fail_closed_push_diagnostics::malformed_push_…_object_literal_arg | exit 1, `E5506 growable array `o` in `m` has a `.push` call the growable-array lane does not support…` | exit 1, `E5506 calling `.push()` on a literal array…` | wanted (message move, A-3); re-pinned |
+| growable_array_fail_closed_push_diagnostics::malformed_push_…_wrong_arity | same as above | same as above | wanted (message move, A-3); re-pinned |
+| set_iteration_runtime::run_supports_set_constructor_iteration_in_{js,ts,jsx,tsx} (4) | exit 1, the self-check throws because the top-level `nullishValues.push` was dropped, giving an `E4000` trap (stdout `1 2 1 …`) | exit 1 at compile time, `E5506 calling `.push()` on a literal array…` | wanted (dropped mutator); re-pinned |
+| bitwise_compound::bitwise_compound_fails_closed_on_growable_array_rhs | exit 1, `warning E3100 'push' … zero placeholder` then `E5506 '&=' on a non-integer binding 'n'` | exit 1, `E5506 calling `.push()` on a literal array…` | wanted (dropped mutator); re-pinned |
+| structured_clone::named_growable_alias_is_broken_tripwire | exit 0, stdout `1,2,3` (silently wrong) | exit 1, `E5506 calling `.push()` on a literal array…` | wanted (silent wrong value); re-pinned |
+
+Re-pin notes:
+
+* Every re-pin keeps the original rationale. Each appends a dated "Re-pinned
+  2026-10-03 by the literal-array-mutators project…" paragraph that says what
+  moved and quotes node v26.10.0's output.
+* New assertions:
+  * Every case now has `exit = "failure"` and `stderr_contains = [<E5506 form already used by the case>, "calling `.push()` on a literal array"]`.
+  * `structured_clone` also gains `stdout = ""`.
+  * The `stderr_absent = ["appears in a position"]` in the malformed-push cases is kept, and it still holds.
+* Node output quoted in each rationale:
+
+  | case | node v26.10.0 output |
+  |---|---|
+  | mixed push | `2` |
+  | `o.push({a:1})` | `1` |
+  | `o.push(1,2)` | `2` |
+  | bitwise | `1` |
+  | structured_clone | `1,2,3,4` |
+  | set_iteration | `SyntaxError: missing ) after argument list`, because of nested single quotes. The rationale quotes the isolated push half, which prints `2 1 2`. |
+
+* `misc/growable_array_core.toml` and `misc/set_iteration_runtime.toml` are
+  GENERATED by `tools/migration/gen_task19_batch4.py`. I hand-edited them and
+  added a dated "HAND-EDITED … generator check above is therefore RED" header
+  note, following the `runtime/join.toml` precedent. The generator check was
+  already red at `d46ee0dc7` (`GenError: set_iteration_runtime…: 'E4000' is NOT
+  on stderr`). That check is a developer gate and no CI job runs it.
+
+#### 4.tb. Moved probes
+
+| name | before (9dc751cf8: verdict, kali out) | after (HEAD) | class |
+|---|---|---|---|
+| litmut_t_push / t_pop / t_length / t_shift / t_unshift / t_splice / t_reverse / t_sort / t_fill / t_copywithin / t_empty_push / t_let_push | SILENT (wrong value; e.g. t_push `3` vs node `4`) | REFUSES, check=1 | wanted (probe; measurement only, nothing to re-pin) |
+| litmut_f_pop / f_length / f_shift / f_unshift / f_splice / f_reverse / f_sort / f_fill / f_copywithin / f_str_reverse / f_obj_pop | SILENT | REFUSES, check=1 | wanted (probe) |
+| litmut_w_paren / w_strkey / w_optcall / w_optmember / w_as | SILENT | REFUSES, check=1 | wanted (probe; w_as judged on kali only) |
+| litmut_nameless / closure | SILENT | REFUSES, check=1 | wanted (probe) |
+| litmut_alias | SILENT `3` vs node `2` | REFUSES (literal message, R9), check=0 | wanted (probe; disclosed §1.1 check gap) |
+| litmut_plain_reverse / plain_sort / plain_copywithin / plain_optcall | SILENT | REFUSES, check=1 | wanted (probe; followups §2/§13) |
+
+Probes that did not move and must stay REFUSES:
+
+* `litmut_t_var_pop` still refuses. HEAD shows the literal `.pop()` message.
+* `litmut_param` still refuses. HEAD shows the backstop "could not prove which array" message plus the pre-existing literal-argument E5506, with check=0.
+* `litmut_f_length_compound` still refuses. HEAD shows the literal `.length` write message.
+* `litmut_push_pop` still refuses. HEAD shows the literal `.push()` message, where baseline showed the growable-scan message (A-3).
+
+## §5. Measured capability loss, and decision A-5
+
+No human decision was taken. Array-bounds decision A-5 (accept fail-closed)
+is restated and applies. Every measured loss is in spec §5.4's two classes
+("effect never observed" and "dead code"). Table, from the Task 6 report:
+
+| program | node | 9dc751cf8 run | 9dc751cf8 check | HEAD run | HEAD check | §5.4 class |
+|---|---|---|---|---|---|---|
+| `const a=[1,2,3]; a.fill(9); console.log("done");` | `done` | `done`, exit 0 | 0 | exit 1, `E5506 calling `.fill()` on a literal array…` | 1 | effect never observed |
+| `const a=[3,1,2]; a.sort(); console.log("done");` | `done` | `done`, exit 0 | 0 | exit 1, `E5506 calling `.sort()` on a literal array…` | 1 | effect never observed |
+| `function main(){ const a=[1,2,3]; if (a.length > 5) { a.pop(); } console.log(a[0]); } main();` | `1` | `1`, exit 0 | 0 | exit 1, `E5506 calling `.pop()` on a literal array…` | 1 | dead code |
+| `function f(){ const a=[1,2,3]; a.reverse(); } console.log(1);` | `1` | `1`, exit 0 | 0 | exit 1, `E5506 calling `.reverse()` on a literal array…` | 1 | dead code (uncalled function) |
+
+All four losses are in the two §5.4 classes, so A-5 accepts them as fail-closed.
+
+None of the 10 moved tests is a capability loss: every one was a refusal, a
+trap or a silent wrong value at baseline.
+
+**Extra sweep.** Outside the brief, I compared base and HEAD (node in brackets) on
+shapes most likely to show a non-§5.4 loss:
+
+* No loss:
+  * `"abc".split("").reverse().join("")` [`cba`] refused at both base and HEAD (pre-existing join refusal).
+  * `Object.keys(o).sort()` [`a`], `[...a].sort()` [`1`] and `Array.from([1,2,3]).reverse()` [`3`] refused at both base and HEAD. Base: E3100 placeholder plus an indexed-read E5506. HEAD: literal-mutator E5506.
+  * A user class with its own `sort`/`reverse` [`4`/`9`] printed node's output at both.
+  * An object property `api.sortIt(1)` [`2`] printed node's output at both.
+  * A user class with `push`/`pop`/`fill`, and an object literal with `fill()`/`sort()` methods, refused or errored identically at both, for pre-existing unrelated reasons.
+* Browser and host API tests in the workspace (the browser harness targets) all pass.
+
+The 10 moved tests were not capability losses: every one was a refusal, a trap
+or a silent wrong value at baseline. No row outside §5.4's two classes was
+found.
+
+## §6. Follow-up feature: real mutators on the growable lane and top-level promotion
+
+Not started. This is the real fix for every refusal in this file: let the
+growable lane implement `pop`, `shift`, `unshift`, `splice`, `reverse`, `sort`,
+`fill`, `copyWithin` and `.length` writes, and let a top-level literal be
+promoted to a growable array the way an in-function one already is. It would
+turn the §5 refusals and the array-bounds §5 and §12 refusals into node-correct
+output. Until it is built, the refusals stand as accepted (fail-closed).
+
+## §7. Shadowing: the literal gate walks past a nearer non-literal binding
+
+`resolve_array_literal_binding_name` walks past a nearer non-literal binding of
+the same name. A user-class instance or a parameter that shadows an outer
+literal array gets the literal-array refusal.
+
+```js
+const s=[1,2];
+class Stack{ constructor(){ this.n=0; } push(x){ this.n=this.n+x; } }
+function main(){ const s=new Stack(); s.push(3); console.log(s.n); }
+main();
+```
+
+node prints `3`. HEAD: `check` and `run` both exit 1 with
+`E5506 calling `.push()` on a literal array…`. The same happens when the
+shadow is a parameter: `function g(s){ s.push(3); return s.n; } console.log(g(new Stack()));`
+with the same outer `const s=[1,2]` (node `3`; `check` and `run` exit 1, literal
+message). Today this is only a wrong-lane message on programs that already did
+not work in this lane. It is related to array-bounds followups §11 (the array
+facts are keyed by name). Not fixed.
+
+## §8. `(a.pop)?.()` passes `check` and `run` skips the call
+
+The optional-chain gate does not unwrap transparent wrappers, so a
+parenthesized optional call is not seen.
+
+```js
+const a=[1,2,3]; (a.pop)?.(); console.log(a.length);
+```
+
+node prints `2`. HEAD: `kali check` exits 0 and `kali run` prints `3` at exit
+0. This is silent: the call is dropped and nothing refuses. The plain optional
+call `a.push?.(4)` (node `4`) does refuse under both `check` and `run`, because
+the parser drops an optional call's arguments, so `a.push?.(4)` is
+`OptionalChain(a.push)` with no call. The type layer gates it in
+`resolve_optional_chain`, and `kali run` runs the type layer first. Codegen
+cannot tell it from a plain `a.push` read, so codegen has no optional-call gate
+and the backstop cannot see it. A side effect is that `a.push?.name` (no call,
+node `push`) also refuses with the literal `.push()` message under `check` and
+`run`. Not fixed.
+
+## §9. Wrong-lane wording
+
+`const o={a:1}; console.log(Object.keys(o).sort());` (node `[ 'a' ]`) and
+`Array.from([1,2,3]).reverse()` (node `3` for element 0) refuse at HEAD. The
+`Object.keys(o).sort()` case reaches the backstop ("could not prove which array
+the receiver is"). `Array.from([1,2,3]).reverse()` says "on a literal array",
+though the receiver is the result of a call. Both refused at baseline too, so
+only the wording is off. Related to the Task 4 note that
+`resolve_literal_aggregate` follows `Array.from` and other folds. Not fixed.
+
+## §10. Coverage lost
+
+From the Task 6 report, verbatim:
+
+* **The `&=` refusal for a growable-array RHS.**
+  * Uncovered for a named binding, and unreachable on HEAD for every shape tried.
+  * A push-built named array cannot reach the `&=` check. At top level, the push refuses at the literal gate. In a function, the `&=` use is a non-growable use, so the push refuses at the literal gate too.
+  * Shapes tried, all refused at the `.push()` literal gate:
+    * `function f(){ const a=[]; a.push(1); let n=-1; n &= a; } f();`
+    * the same with a `for` loop of pushes
+    * the same with extra `.length` / `a[0]` reads
+    * `n = n & a`
+  * Still covered for a growable object-field handle by the new case `soundness/bitwise_compound::bitwise_compound_fails_closed_on_growable_object_field_rhs`: `n &= o.xs` refuses with `E5506 bitwise compound assignment '&=' …`.
+* **Set-constructor iteration under `run`.**
+  * The `set_iteration_runtime` `run_supports_*` cases (4) now pin only the literal `.push()` refusal.
+  * The fixture never reaches the Set-iteration code at `run`, so `run` coverage of `new (null ?? Set)(…)`, `new (false || Set)(…)` and the frozen-alias constructors is gone.
+  * The `test_supports_*` siblings in the same file still pass.
+* **repr_infer's argument-specific diagnostic "has a `.push` call the growable-array lane does not support".**
+  * Unreachable from the CLI on HEAD for every in-function shape tried. A malformed push leaves the binding unpromoted, so the literal gate fires first, and resolve errors return before `repr_infer`'s shape conflicts are reported (A-3).
+  * Tried, all giving the literal `.push()` E5506: `o.push(1,2)`, `o.push({a:1})` on `[1]`, `o.push([1])`, `o.push()`, `o.push(...[1])`.
+  * The routing is still unit-tested in `crates/kali_types/src/growable_tests.rs` (`reject_kind_routes_position_vs_malformed_push`). No CLI case shows the message.
+  * The same applies to the growable scan's "used as both strings and numbers" message for a mixed i64/string push.
+
+## §11. The developer-only migration gate is red, with a new reason
+
+`scripts/test-gate.sh --gates-only`, through
+`tools/migration/gen_task19_batch4.py`, is red. It was already red before this
+project (`GenError: set_iteration_runtime…: 'E4000' is NOT on stderr`). After
+the Task 6 re-pins it is red with a new reason: the "used as both strings and
+numbers" claim is absent from the re-pinned mixed-push case. `misc/growable_array_core.toml` and
+`misc/set_iteration_runtime.toml` are generated and were hand-edited, with a
+dated HAND-EDITED header note, following the `runtime/join.toml` precedent. This
+gate is not run by `cargo test` or by CI. Not fixed.

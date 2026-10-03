@@ -44,8 +44,9 @@ write either produces node's output or is refused. Concretely:
    with another mutator is unchanged.
 3. **The `run` backstop.** No mutator call is dropped and replaced by `0` at
    `kali run`, whatever its receiver is: an alias (`const b = a; b.pop()`), a
-   parameter, or anything else kali cannot classify. The backstop refuses with
-   `E5506`.
+   parameter, or anything else kali cannot classify. `run` refuses with
+   `E5506`: a parameter or unclassified receiver gets the backstop text, and an
+   alias that codegen traces to its literal gets the literal text (A-8).
 4. **§2 and §13 close with the shared list.** On a plain fixed-length runtime
    array (array-bounds spec §1), `reverse`, `sort` and `copyWithin` now refuse
    under `check` and `run`, as does an optional call `a.push?.(1)`. `fill`
@@ -65,7 +66,8 @@ write either produces node's output or is refused. Concretely:
   §11 (shadowing) and §12 (growable returns), and R-21's `undefined`.
 * **One disclosed `check` / `run` gap.** When the receiver is an alias or a
   parameter of a literal array, `kali check` exits 0 and `kali run` refuses
-  through the backstop (§3.4). The type layer cannot tell which calls codegen
+  (§3.4, amendment A-8: a parameter gets the backstop text, an alias the
+  literal text). The type layer cannot tell which calls codegen
   will fail to resolve, so it cannot soundly mirror the backstop. This follows
   the precedent of array-bounds followups §4.
 
@@ -263,7 +265,8 @@ that quote it. That is expected, and the plan lists them.
   by the same rule at its own site. That includes the warning-free top-level
   `const` route of §2.3. Plan Task 1 finds these routes, and the probes fail
   if one is missed.
-* There is no `check` mirror (§1.1).
+* There is no `check` mirror (§1.1). An alias receiver is usually refused by
+  the literal gate in codegen before it reaches this arm (A-8).
 
 ### 3.5 Diagnostics
 
@@ -429,3 +432,44 @@ Added while writing the implementation plan, before any code.
   `crates/kali_cli/tests/cases/array/literal_array_mutators.toml`. It is
   sectioned by case name: literal lane, plain-lane additions, backstop and
   controls.
+* **A-5. The §5.4 capability loss is accepted.** Added after implementation.
+  No human decision was taken, so array-bounds decision A-5 (accept fail-closed)
+  stands. The measured losses are in the followups file §5: a `fill` or `sort`
+  whose effect is never observed, and a mutator in dead code or an uncalled
+  function. Every one is in §5.4's two classes. No loss outside them was found.
+* **A-6. Probe reads were rewritten, controls were deleted.** Several plan
+  probes logged `a[0]`, which a dropped mutator leaves unchanged in node too, so
+  they could not show the mutation. Their trailing reads were rewritten so each
+  probe observes its mutation (for example `a.length`, `a.indexOf(4)`, `a[2]`);
+  `litmut_push_pop` now logs `a.pop()`. The controls `litmut_ok_slice` and
+  `litmut_ok_user_push` were deleted because they were not CORRECT at baseline.
+  Four probes refuse at baseline for unrelated pre-existing reasons, so they
+  show no SILENT to REFUSES move: `t_var_pop`, `param`, `f_length_compound` and
+  `push_pop`.
+* **A-7. The optional call `a.push?.()` is gated by the type layer only.** The
+  parser drops an optional call's arguments, so `a.push?.(4)` is
+  `OptionalChain(a.push)` with no call. The type layer gates it in
+  `resolve_optional_chain`, and `kali run` runs the type layer first. Codegen
+  cannot tell it from a plain `a.push` read, so codegen has no optional-call
+  gate and the backstop cannot see it. A side effect: `a.push?.name` (no call)
+  also refuses. §1 item 1 and §3.3 said codegen mirrors the optional spelling;
+  it does not. A parenthesized `(a.pop)?.()` is not unwrapped by that gate and
+  is silent (followups §8).
+* **A-8. The codegen literal gate is checked only at the placeholder
+  fallback, and an alias gets the literal text.** §3.3 placed
+  `literal_array_mutator` beside the plain check. It is checked only at
+  `emit_call`'s terminal placeholder fallback, immediately before the backstop,
+  because LIR cannot tell `new C` / `new C()` from `[x]`, and the early
+  placement refused user-class methods named like mutators. Consequence for
+  §1.1 and §3.4: for `const b = a; b.pop()`, codegen traces `b` back to the
+  literal, so `run` refuses with the literal message, not the backstop text.
+  `check` still exits 0, so the gap holds. A parameter receiver gets the
+  backstop text. "`run` refuses" is the accurate claim for both.
+* **A-9. A-3 is wider.** A-3 said `push` mixed with another mutator shows the
+  literal-mutator message. The same holds for in-function pushes that
+  repr_infer would have rejected on their own: a malformed push
+  (`o.push({a:1})`, `o.push(1,2)`) and a mixed-type push (`i64` then string).
+  The literal-mutator `E5506` is shown instead of repr_infer's argument-specific
+  "has a `.push` call" message, which looks unreachable from the CLI for these
+  shapes (followups §10). The plan's in-function unit-test variant `a.push(4)`
+  was dropped, because that binding is on the growable lane.
