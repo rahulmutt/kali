@@ -374,6 +374,9 @@ pub(crate) struct FunctionEmitter<'a> {
     /// emitter and reused across every denial decision in this function body.
     /// See `call_target_keeps_placeholder_lowering` in `emit/call.rs`.
     pub(crate) program_bound_names_cache: std::cell::OnceCell<HashSet<String>>,
+    /// Unresolved-member-call spec §3.2: `lower::program_reassigned_names`,
+    /// computed once per emitter for the host-provenance walk.
+    pub(crate) program_reassigned_names_cache: std::cell::OnceCell<HashSet<String>>,
     pub(crate) program_fn_valued_property_names_cache: std::cell::OnceCell<HashSet<String>>,
     pub(crate) program_stores_function_in_aggregate_cache: std::cell::OnceCell<bool>,
     /// Names of locals that hold a linear-memory array handle (`new Array(n)`).
@@ -732,6 +735,7 @@ impl<'a> FunctionEmitter<'a> {
             fn_valued_locals: BTreeMap::new(),
             unstable_provenance_names,
             program_bound_names_cache: std::cell::OnceCell::new(),
+            program_reassigned_names_cache: std::cell::OnceCell::new(),
             program_fn_valued_property_names_cache: std::cell::OnceCell::new(),
             program_stores_function_in_aggregate_cache: std::cell::OnceCell::new(),
             array_bindings,

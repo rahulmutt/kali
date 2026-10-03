@@ -413,35 +413,18 @@ impl<'a> FunctionEmitter<'a> {
     /// a 1-child `Value` with non-empty text = dot member; a 2-child `Value`
     /// whose text is not a binary operator = computed member `a[expr]`. Any
     /// other shape terminates the walk with no root (`false` — the deny stays
-    /// scoped to provable URL/USP roots).
+    /// scoped to provable URL/USP roots). The walk itself is the shared
+    /// `receiver_chain_root` (`emit/member_provenance.rs`).
     pub(crate) fn receiver_root_is_url_provenance(&self, receiver: LirNodeId) -> bool {
-        let mut current = self.unwrap_transparent(receiver);
-        loop {
-            let node = self.node(current);
-            if node.kind != LirNodeKind::Value {
-                return false;
-            }
-            match node.children.len() {
-                0 => {
-                    return node.text.as_deref().is_some_and(|name| {
-                        self.is_url(name)
-                            || self.is_url_search_params(name)
-                            || self.is_module_scope_url_handle(name)
-                            || self.is_captured_url_handle(name)
-                    });
-                }
-                1 if node.text.as_deref().is_some_and(|text| !text.is_empty()) => {
-                    current = self.unwrap_transparent(node.children[0]);
-                }
-                2 if !crate::lower::is_binary_operator_text(
-                    node.text.as_deref().unwrap_or_default(),
-                ) =>
-                {
-                    current = self.unwrap_transparent(node.children[0]);
-                }
-                _ => return false,
-            }
-        }
+        let root = self.node(self.receiver_chain_root(receiver));
+        root.kind == LirNodeKind::Value
+            && root.children.is_empty()
+            && root.text.as_deref().is_some_and(|name| {
+                self.is_url(name)
+                    || self.is_url_search_params(name)
+                    || self.is_module_scope_url_handle(name)
+                    || self.is_captured_url_handle(name)
+            })
     }
 
     /// The five-namespace shadow guard for a URL/USP builtin constructor name

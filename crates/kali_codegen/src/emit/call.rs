@@ -3961,6 +3961,19 @@ impl<'a> FunctionEmitter<'a> {
             let message = kali_common::array_mutator_unresolved_receiver_message(callee_name);
             return self.deny_e5506(function, &message);
         }
+        // Unresolved-member-call spec §3.1: a member call on a value this
+        // program built reaches here only when nothing lowered it. Evaluating
+        // it to 0 is silently wrong, so refuse; a host-rooted chain keeps the
+        // warn+0 escape hatch below.
+        if self.unresolved_member_call_refuses(&callee_node, callee_name) {
+            let method = if callee_name.is_empty() {
+                "[computed]"
+            } else {
+                callee_name
+            };
+            let message = kali_common::unresolved_member_call_unavailable_message(method);
+            return self.deny_e5506(function, &message);
+        }
         // Positive DENY-SET: a small set of recognized value-builtins that have
         // no implemented lowering and, when their result is consumed, silently
         // evaluate to 0 (R-19/R-20/R-15). Only these fail closed; everything
