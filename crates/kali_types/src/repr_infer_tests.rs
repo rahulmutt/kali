@@ -2301,3 +2301,11 @@ fn array_return_subscripted_param_returned_beside_a_scalar_taints_mixed() {
         Some(kali_common::ARRAY_RETURN_MIXED)
     );
 }
+
+#[test]
+fn infer_reprs_records_host_derived_classes() {
+    let t = reprs("class X extends EventTarget {} class A {} class B extends A {}");
+    assert!(t.is_host_derived_class("X"));
+    assert!(!t.is_host_derived_class("A"));
+    assert!(!t.is_host_derived_class("B"));
+}

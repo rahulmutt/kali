@@ -11,6 +11,7 @@ mod growable;
 mod late_host;
 pub mod monomorphize;
 mod package;
+mod program_classes;
 mod repr_infer;
 mod resolve;
 mod scope;
@@ -61,6 +62,10 @@ use std::{
 #[cfg(test)]
 #[path = "test_support.rs"]
 mod test_support;
+
+#[cfg(test)]
+#[path = "program_classes_tests.rs"]
+mod program_classes_tests;
 
 #[cfg(test)]
 #[path = "repr_infer_tests.rs"]

@@ -1514,7 +1514,11 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     infer.resolve_objects();
 
     // Phase D: solve → table.
-    infer.emit_table()
+    let mut table = infer.emit_table();
+    for name in crate::program_classes::ProgramClasses::collect(statements).host_derived() {
+        table.set_host_derived_class(&name);
+    }
+    table
 }
 
 /// F-AB-2 lockstep test hook: run Phase A (walks 1-3 registration) and Phase B

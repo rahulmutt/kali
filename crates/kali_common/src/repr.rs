@@ -106,6 +106,10 @@ pub struct ReprTable {
     /// docs/superpowers/specs/2026-10-02-array-return-design.md §3.1).
     /// `return_repr` stays `I64` for them: the handle IS an i64.
     array_returns: HashMap<String, Repr>,
+    /// Program classes whose `extends` chain reaches a name that is not a
+    /// program class (unresolved-member-call spec A-1). Codegen counts an
+    /// instance of one as host provenance.
+    host_derived_classes: HashSet<String>,
     /// Functions with at least one array-shaped return that are NOT
     /// array-returning, with the refusal reason. Every entry is also a
     /// shape conflict, so a program with one never reaches codegen.
@@ -626,6 +630,14 @@ impl ReprTable {
 
     pub fn array_return(&self, func: &str) -> Option<Repr> {
         self.array_returns.get(func).copied()
+    }
+
+    pub fn set_host_derived_class(&mut self, name: &str) {
+        self.host_derived_classes.insert(name.to_string());
+    }
+
+    pub fn is_host_derived_class(&self, name: &str) -> bool {
+        self.host_derived_classes.contains(name)
     }
 
     pub fn set_array_return_taint(&mut self, func: &str, reason: &'static str) {
