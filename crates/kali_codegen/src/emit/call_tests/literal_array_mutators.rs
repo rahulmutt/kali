@@ -83,3 +83,31 @@ fn codegen_leaves_growable_push_and_plain_fill_alone() {
         assert!(errors.is_empty(), "{source}: {errors:?}");
     }
 }
+
+#[test]
+fn codegen_does_not_take_a_class_instance_for_a_literal_array() {
+    // `new C(..)` lowers to a text-less one-child `Value` wrapping a `Call`,
+    // the same LIR shape as the array literal `[C(..)]`.
+    for source in [
+        "class S { push(v:number){return v;} } const s = new S(); console.log(s.push(1));",
+        "class B { sort(){ return 7; } } const b = new B(); console.log(b.sort());",
+        "class S { push(v:number){return v;} } console.log(new S().push(1));",
+        "class S { constructor(n:number){} pop(){ return 1; } } const s = new S(2); console.log(s.pop());",
+    ] {
+        let refusals: Vec<_> = diagnostics_for(source)
+            .into_iter()
+            .filter(|d| d.is_error() && d.message.contains(LIT))
+            .collect();
+        assert!(refusals.is_empty(), "{source}: {refusals:?}");
+    }
+}
+
+#[test]
+fn codegen_still_refuses_a_one_element_literal() {
+    for source in [
+        "const a = [7]; a.pop(); console.log(a[0]);",
+        "function f(){ const a = [7]; a.sort(); return a[0]; } f();",
+    ] {
+        assert_e5506(&diagnostics_for(source), LIT, source);
+    }
+}

@@ -59,8 +59,19 @@ impl<'a> FunctionEmitter<'a> {
                 return false;
             }
         }
-        self.resolve_literal_aggregate(id)
-            .is_some_and(|aggregate| self.is_array_literal(self.node(aggregate)))
+        self.resolve_literal_aggregate(id).is_some_and(|aggregate| {
+            let node = self.node(aggregate);
+            self.is_array_literal(node) && !self.is_ambiguous_with_new_expression(node)
+        })
+    }
+
+    /// LIR erases the difference between `new C(..)` and an array literal:
+    /// both are a text-less `Value`, and `new C(..)` has exactly one child,
+    /// the `Call`. So the one-element literal `[f(..)]` shares that shape and
+    /// is not taken for a literal here (the type layer still gates it). A
+    /// false positive would refuse a working class method such as `s.push(1)`.
+    fn is_ambiguous_with_new_expression(&self, node: &LirNode) -> bool {
+        matches!(node.children.as_slice(), [only] if self.node(*only).kind == LirNodeKind::Call)
     }
 
     /// A [`kali_common::LITERAL_ARRAY_MUTATORS`] call on a literal array value.
