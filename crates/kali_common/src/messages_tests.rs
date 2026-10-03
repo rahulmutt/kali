@@ -194,3 +194,31 @@ fn literal_array_refusal_messages_are_stable() {
         "calling `.sort()` is unavailable in the current phase: it mutates an array in place and kali could not prove which array the receiver is, so kali refuses rather than silently skip the call"
     );
 }
+
+#[test]
+fn unresolved_member_call_message_is_stable() {
+    assert_eq!(
+        unresolved_member_call_unavailable_message("zork"),
+        "calling `.zork()` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for a method of that name on it; node would run a method or throw a TypeError, so kali refuses rather than evaluate the call to 0"
+    );
+}
+
+#[test]
+fn object_prototype_names_are_the_eleven_inherited_methods() {
+    assert_eq!(
+        OBJECT_PROTOTYPE_NAMES,
+        &[
+            "constructor",
+            "hasOwnProperty",
+            "isPrototypeOf",
+            "propertyIsEnumerable",
+            "toLocaleString",
+            "toString",
+            "valueOf",
+            "__defineGetter__",
+            "__defineSetter__",
+            "__lookupGetter__",
+            "__lookupSetter__",
+        ]
+    );
+}
