@@ -37,21 +37,53 @@ impl<'a> FunctionEmitter<'a> {
     /// `Some(method)` iff `node` is `<receiver>.<method>(…)` with `method` in
     /// `kali_common::RUNTIME_ARRAY_MUTATORS` and the receiver a plain runtime
     /// array (`is_runtime_array_value`). A plain array has a fixed length, so
-    /// each of these refuses (array-bounds spec §3.2). A growable receiver's
-    /// `push` is taken earlier, by `growable_push_call_parts`.
+    /// the length-changing ones refuse (array-bounds spec §3.2), and the
+    /// reorderers (`reverse`, `sort`, `copyWithin`) refuse because the lane
+    /// has no in-place implementation. A growable receiver's `push` is taken
+    /// earlier, by `growable_push_call_parts`.
     pub(crate) fn plain_runtime_array_mutator(&self, node: &LirNode) -> Option<String> {
+        let (method, receiver) = self.array_mutator_call_parts(node)?;
+        (kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method.as_str())
+            && self.is_runtime_array_value(receiver))
+        .then_some(method)
+    }
+
+    /// A literal array value (literal-array-mutators spec §3.3): a bare name
+    /// bound to an array literal, or an array literal node, under transparent
+    /// wrappers. A name a runtime lane owns (`array_bindings`, growable) is
+    /// that lane's.
+    pub(crate) fn is_literal_array_value(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        if let Some(name) = self.bare_identifier_name(id) {
+            if self.array_bindings.contains(&name) || self.is_growable_array(&name) {
+                return false;
+            }
+        }
+        self.resolve_literal_aggregate(id)
+            .is_some_and(|aggregate| self.is_array_literal(self.node(aggregate)))
+    }
+
+    /// A [`kali_common::LITERAL_ARRAY_MUTATORS`] call on a literal array value.
+    /// It is checked after the plain gate, and after `growable_push_call_parts`,
+    /// which takes a growable `push` first.
+    pub(crate) fn literal_array_mutator(&self, node: &LirNode) -> Option<String> {
+        let (method, receiver) = self.array_mutator_call_parts(node)?;
+        (kali_common::LITERAL_ARRAY_MUTATORS.contains(&method.as_str())
+            && self.is_literal_array_value(receiver))
+        .then_some(method)
+    }
+
+    /// `(method, receiver)` of a `<receiver>.<method>(…)` call, seen through
+    /// transparent callee wrappers such as `(a.pop)()`.
+    fn array_mutator_call_parts(&self, node: &LirNode) -> Option<(String, LirNodeId)> {
         if node.kind != LirNodeKind::Call || node.children.is_empty() {
             return None;
         }
         let callee = self.resolve_transparent_callable_node(node.children[0])?;
         let callee_node = self.node(callee);
-        let method = callee_node.text.as_deref()?;
-        if !kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method) {
-            return None;
-        }
+        let method = callee_node.text.clone()?;
         let receiver = self.unwrap_transparent(*callee_node.children.first()?);
-        self.is_runtime_array_value(receiver)
-            .then(|| method.to_string())
+        Some((method, receiver))
     }
 
     /// A value that is a whole runtime `[len][elem…]` array: a bare
@@ -1668,6 +1700,10 @@ impl<'a> FunctionEmitter<'a> {
         // fallback, which never emits the receiver: a silent no-op.
         if let Some(method) = self.plain_runtime_array_mutator(node) {
             let message = kali_common::runtime_array_mutator_unavailable_message(&method);
+            return self.deny_e5506(function, &message);
+        }
+        if let Some(method) = self.literal_array_mutator(node) {
+            let message = kali_common::literal_array_mutator_unavailable_message(&method);
             return self.deny_e5506(function, &message);
         }
 

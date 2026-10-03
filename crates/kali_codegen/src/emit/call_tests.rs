@@ -23,3 +23,6 @@ mod alloc_helper;
 
 #[path = "call_tests/allocation_ctor_shadow.rs"]
 mod allocation_ctor_shadow;
+
+#[path = "call_tests/literal_array_mutators.rs"]
+mod literal_array_mutators;

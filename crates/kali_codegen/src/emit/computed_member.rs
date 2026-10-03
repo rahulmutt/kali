@@ -146,4 +146,4 @@ impl FunctionEmitter<'_> {
 
 #[cfg(test)]
 #[path = "computed_member_tests.rs"]
-mod computed_member_tests;
+pub(crate) mod computed_member_tests;
