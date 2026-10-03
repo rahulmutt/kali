@@ -262,16 +262,22 @@ fn a_class_keeps_its_base_name() {
         parse_single_class("class B extends ns.A {}")
             .super_class
             .as_deref(),
-        Some("ns")
+        Some("")
     );
     assert_eq!(
         parse_single_class("class B extends mixin(A) {}")
             .super_class
             .as_deref(),
-        Some("mixin")
+        Some("")
     );
     assert_eq!(
         parse_single_class("class B<T> extends A<T> {}")
+            .super_class
+            .as_deref(),
+        Some("A")
+    );
+    assert_eq!(
+        parse_single_class("class B extends A implements I {}")
             .super_class
             .as_deref(),
         Some("A")
@@ -280,6 +286,44 @@ fn a_class_keeps_its_base_name() {
     assert_eq!(
         parse_single_class("class B implements I { f(){} }").super_class,
         None
+    );
+}
+
+#[test]
+fn a_member_expression_base_leaves_the_program() {
+    // `A.Inner` is not the class `A`: recording `A` made `B` look like a
+    // program class whose chain stays in the program.
+    assert_eq!(
+        parse_single_class("class B extends A.Inner {}")
+            .super_class
+            .as_deref(),
+        Some("")
+    );
+    assert_eq!(
+        parse_single_class("class B extends (A) {}")
+            .super_class
+            .as_deref(),
+        Some("")
+    );
+}
+
+#[test]
+fn an_extends_inside_type_parameters_is_not_the_base() {
+    assert_eq!(
+        parse_single_class("class B<T extends Foo> {}").super_class,
+        None
+    );
+    assert_eq!(
+        parse_single_class("class B<T extends Foo<U>, U> extends A<T> {}")
+            .super_class
+            .as_deref(),
+        Some("A")
+    );
+    assert_eq!(
+        parse_single_class("class B<T extends Map<string, Set<U>>> extends A {}")
+            .super_class
+            .as_deref(),
+        Some("A")
     );
 }
 
@@ -320,4 +364,30 @@ fn a_class_expression_keeps_its_base_name() {
     };
     assert_eq!(class_expr.super_class.as_deref(), Some("EventTarget"));
     assert_eq!(class_expr.id, None);
+}
+
+#[test]
+fn a_computed_member_key_marks_the_member_set_unknown() {
+    for source in [
+        "class C { [\"foo\"](){ return 1; } }",
+        "class C { static [k] = 1; f(){} }",
+        "class C { f(){} get [k](){ return 1; } }",
+        "class C { *[Symbol.iterator](){} }",
+        "class C { n = 0; [k] = 1; }",
+    ] {
+        assert!(
+            parse_single_class(source).body.has_computed_members,
+            "{source}"
+        );
+    }
+    for source in [
+        "class C { f(){ return [1]; } }",
+        "class C { xs: number[] = []; f(){} }",
+        "class C { n = 0; }",
+    ] {
+        assert!(
+            !parse_single_class(source).body.has_computed_members,
+            "{source}"
+        );
+    }
 }

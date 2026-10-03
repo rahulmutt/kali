@@ -35,6 +35,10 @@ pub struct ClassBody {
     /// (`n = 0;`, `label: string;`). Kept so a member set can include them.
     #[serde(default)]
     pub field_names: Vec<String>,
+    /// The body has a member with a computed key (`["foo"](){}`), which the
+    /// parser skips, so `methods` and `field_names` do not name every member.
+    #[serde(default)]
+    pub has_computed_members: bool,
 }
 
 /// Method definition

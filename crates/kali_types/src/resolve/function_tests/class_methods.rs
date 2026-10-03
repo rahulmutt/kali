@@ -10,6 +10,7 @@ fn test_resolution_rejects_class_method_generator_lowering() {
         name: "Example".to_string(),
         body: Box::new(ClassBody {
             field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![MethodDefinition {
                 name: "main".to_string(),
                 params: vec![],
@@ -58,6 +59,7 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
         name: "Example".to_string(),
         body: Box::new(ClassBody {
             field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![MethodDefinition {
                 name: "main".to_string(),
                 params: vec![],
@@ -106,6 +108,7 @@ fn test_resolution_collapses_mixed_generator_class_method_lowering() {
         name: "Example".to_string(),
         body: Box::new(ClassBody {
             field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![
                 MethodDefinition {
                     name: "syncGen".to_string(),
@@ -187,6 +190,7 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                         id: Some("NamedExample".to_string()),
                         body: Box::new(ClassBody {
                             field_names: Vec::new(),
+                            has_computed_members: false,
                             methods: vec![MethodDefinition {
                                 name: "main".to_string(),
                                 params: vec![],
@@ -225,6 +229,7 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                         id: Some("NamedExample".to_string()),
                         body: Box::new(ClassBody {
                             field_names: Vec::new(),
+                            has_computed_members: false,
                             methods: vec![MethodDefinition {
                                 name: "main".to_string(),
                                 params: vec![],
@@ -261,6 +266,7 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                     id: Some("NamedExample".to_string()),
                     body: Box::new(ClassBody {
                         field_names: Vec::new(),
+                        has_computed_members: false,
                         methods: vec![MethodDefinition {
                             name: "main".to_string(),
                             params: vec![],
@@ -291,6 +297,7 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                     id: Some("NamedExample".to_string()),
                     body: Box::new(ClassBody {
                         field_names: Vec::new(),
+                        has_computed_members: false,
                         methods: vec![MethodDefinition {
                             name: "main".to_string(),
                             params: vec![],
@@ -349,6 +356,7 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
                 id: Some("NamedExample".to_string()),
                 body: Box::new(ClassBody {
                     field_names: Vec::new(),
+                    has_computed_members: false,
                     methods: vec![
                         MethodDefinition {
                             name: "syncGen".to_string(),
@@ -423,6 +431,7 @@ fn test_resolution_supports_async_class_method_lowering() {
         name: "Example".to_string(),
         body: Box::new(ClassBody {
             field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![MethodDefinition {
                 name: "main".to_string(),
                 params: vec![],

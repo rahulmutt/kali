@@ -23,6 +23,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         id: Some("Example".to_string()),
         body: Box::new(ClassBody {
             field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![
                 MethodDefinition {
                     name: "outer".to_string(),
@@ -46,6 +47,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         name: "DeclExample".to_string(),
         body: Box::new(ClassBody {
             field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![
                 MethodDefinition {
                     name: "outer".to_string(),
@@ -70,6 +72,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
             id: Some("DefaultExample".to_string()),
             body: Box::new(ClassBody {
                 field_names: Vec::new(),
+                has_computed_members: false,
                 methods: vec![
                     MethodDefinition {
                         name: "outer".to_string(),
@@ -95,6 +98,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
             name: "DefaultDeclExample".to_string(),
             body: Box::new(ClassBody {
                 field_names: Vec::new(),
+                has_computed_members: false,
                 methods: vec![
                     MethodDefinition {
                         name: "outer".to_string(),

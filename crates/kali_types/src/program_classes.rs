@@ -10,6 +10,9 @@ use serde_json::Value;
 struct ClassFacts {
     super_class: Option<String>,
     members: BTreeSet<String>,
+    /// A computed key (`["foo"](){}`) the parser skipped: `members` is not
+    /// every member, so no member set is known (spec A-6).
+    has_computed_members: bool,
 }
 
 pub(crate) struct ProgramClasses {
@@ -76,6 +79,9 @@ impl ProgramClasses {
         let Chain::Known(chain) = self.chain(name) else {
             return None;
         };
+        if chain.iter().any(|facts| facts.has_computed_members) {
+            return None;
+        }
         Some(
             chain
                 .iter()
@@ -91,6 +97,11 @@ fn class_facts(class: &Value) -> ClassFacts {
         .and_then(Value::as_str)
         .map(str::to_string);
     let mut members = BTreeSet::new();
+    let has_computed_members = class
+        .get("body")
+        .and_then(|body| body.get("has_computed_members"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     if let Some(body) = class.get("body") {
         for method in body
             .get("methods")
@@ -116,11 +127,12 @@ fn class_facts(class: &Value) -> ClassFacts {
     ClassFacts {
         super_class,
         members,
+        has_computed_members,
     }
 }
 
-/// `binding` is the declarator name when `value` is a declarator's init, so a
-/// nameless `const K = class …` is recorded as `K`.
+/// `binding` is the declarator name when `value` is a declarator's init, so
+/// `const K = class …` is recorded as `K` (and under its own id, if any).
 fn collect_from(
     value: &Value,
     binding: Option<&str>,
@@ -140,8 +152,13 @@ fn collect_from(
                 }
             }
             if let Some(class) = map.get("ClassExpression") {
-                let name = class.get("id").and_then(Value::as_str).or(binding);
-                if let Some(name) = name {
+                // `const K = class Foo …`: the program constructs it as `K`,
+                // and `Foo` names it inside its own body. One class under two
+                // names is not a duplicate (ruling R6 is about two classes).
+                let id = class.get("id").and_then(Value::as_str);
+                let mut names: Vec<&str> = id.into_iter().chain(binding).collect();
+                names.dedup();
+                for name in names {
                     insert(name, class_facts(class));
                 }
             }
