@@ -169,6 +169,7 @@ forin_key_and_assign_body = "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &
 "bitwise_compound_fails_closed_on_rhs_from_computed_string_object_field.ts" = "let o = {a: \"3\"}; let k = \"a\"; let s = o[k]; let n = 6; n &= s; console.log(n);\n"
 "bitwise_compound_fails_closed_on_unary_minus_over_string_field_rhs.ts" = "let o = {a: \"3\"}; let s = o.a; let n = 6; n &= -s; console.log(n);\n"
 "bitwise_compound_fails_closed_on_growable_array_rhs.ts" = "let a = []; a.push(1); let n = -1; n &= a; console.log(n);\n"
+"bitwise_compound_fails_closed_on_growable_object_field_rhs.ts" = "function f(){ const o = { xs: [] }; o.xs.push(1); let n = -1; n &= o.xs; console.log(n); } f();\n"
 "bitwise_compound_fails_closed_on_target_from_string_object_field.ts" = "let o = {a: \"3\"}; let n = o.a; n |= 1; console.log(n);\n"
 "bitwise_compound_over_denies_write_values_outside_the_numeric_proof_arithmetic_locals.ts" = "let a = 3; let b = 3; let n = a * b; n |= 0; console.log(n);\n"
 "bitwise_compound_over_denies_write_values_outside_the_numeric_proof_call_return.ts" = "function f() { return 6; }\nlet n = f(); n <<= 2; console.log(n);\n"
@@ -1301,7 +1302,7 @@ exit = "failure"
 stderr_contains = ["E5506", "&="]
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_growable_array_rhs"
+name = "bitwise_compound_growable_rhs_push_now_refuses_at_the_push"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1310,9 +1311,19 @@ Every expected value here was captured from node v26.5.0.
 
 Task 2 review round 2: Critical 1 was still open on the RHS-IDENTIFIER axis — `bitwise_compound_rhs_is_provably_i64`'s identifier branch admitted via `scalar_repr(name) == Repr::I64`, which is `ReprTable::scalar`'s `#[default]`, indistinguishable from "repr_infer recorded nothing at all." Fixed by requiring an EXPLICIT `ReprTable::scalar_entry` record instead. Five of the six round-2 reproductions are RHS-axis and were closed in that round; the sixth is TARGET-axis and was closed in round 3 by a different mechanism (`binding_is_proven_numeric`) — see `bitwise_compound_fails_closed_on_target_from_string_object_field` below. (An earlier revision of this comment named a `..._is_a_tracked_residual` test that recorded the then-open leak with no assertions; round 3 replaced it with that real pin.)
 
-node: 1. `a` is a growable-array HANDLE, not an integer — its own `scalar_entry` is also unset (never explicitly I64), so the same fix closes this leak too, incidentally."""
+SUPERSEDED 2026-10-03 (literal-array-mutators, node v26.10.0): the next paragraph is the original claim and no longer describes what this case guards. The case was named `bitwise_compound_fails_closed_on_growable_array_rhs`; it now guards only that the top-level `a.push(1)` refuses at the literal-array mutator gate. Original: node: 1. `a` is a growable-array HANDLE, not an integer — its own `scalar_entry` is also unset (never explicitly I64), so the same fix closes this leak too, incidentally.
+
+Re-pinned 2026-10-03 by the literal-array-mutators project (docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md, Task 6 triage). What moved: at top level `let a = []` is never promoted to a growable array, so at the baseline `a.push(1)` was silently dropped through the zero-placeholder fallback (E3100 warning) and the `&=` refusal fired on what was left. The literal-array mutator gate now refuses `a.push(1)` first (E5506, literal `.push()` message), so the program never reaches the `&=` check and this case no longer exercises the `&=`-on-growable-RHS refusal. Still fail-closed. node v26.10.0 prints `1`. The `&=` growable-RHS refusal is no longer reachable through a push-built named array: at top level the push refuses at the literal gate, and in a function (`function f(){ let a=[]; a.push(1); let n=-1; n &= a; console.log(n); } f();`, node `1`) the `&=` use makes `a` non-growable, so the push refuses at the literal gate too. That refusal is covered for a growable OBJECT-FIELD handle by `bitwise_compound_fails_closed_on_growable_object_field_rhs` below; the named-binding form is uncovered."""
 args = ["run", "bitwise_compound_fails_closed_on_growable_array_rhs.ts"]
 exit = "failure"
+stderr_contains = ["E5506", "calling `.push()` on a literal array"]
+
+[[case]]
+name = "bitwise_compound_fails_closed_on_growable_object_field_rhs"
+rationale = """Soundness pin for R-11 `&=` with a growable-array-handle RHS, added 2026-10-03 by the literal-array-mutators project (Task 6 fix round 1) to recover the coverage `bitwise_compound_growable_rhs_push_now_refuses_at_the_push` (formerly `bitwise_compound_fails_closed_on_growable_array_rhs`) lost. A push-built named array can no longer reach the `&=` check (its push refuses at the literal-array mutator gate first), but an object field holding a growable array still does: `o.xs.push(1)` lowers on the growable field lane (`function f(){ const o = { xs: [] }; o.xs.push(1); o.xs.push(2); console.log(o.xs.length); console.log(o.xs.join(",")); } f();` prints `2` and `1,2` under both node and kali), and `n &= o.xs` then fails closed at the bitwise-compound gate because the RHS is a growable-array HANDLE, not a proven integer. Same refusal at 9dc751cf8 and at HEAD. node v26.10.0 prints `1`."""
+args = ["run", "bitwise_compound_fails_closed_on_growable_object_field_rhs.ts"]
+exit = "failure"
+stdout = ""
 stderr_contains = ["E5506", "&="]
 
 [[case]]

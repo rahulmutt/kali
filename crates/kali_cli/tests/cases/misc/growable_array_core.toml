@@ -2,6 +2,14 @@
 # Edit the generator and re-run it with --write; its default mode re-renders every
 # file it owns and fails on any byte difference.
 #
+# HAND-EDITED 2026-10-03 AT `d46ee0dc7`, DELIBERATELY, AND THE GENERATOR CHECK
+# ABOVE IS THEREFORE RED for this file. The literal-array-mutators project
+# (docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md, Task 6
+# triage) re-pinned `run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input` to the measured E5506 refusal; each case's
+# rationale carries the old and new readings. `gen_task19_batch4.py` has no
+# re-pin channel, so `--write` WOULD SILENTLY REVERT the re-pin -- see
+# cases/runtime/join.toml's header for what a regenerating fix would need.
+#
 # Migrated from tests/growable_array_core.rs.
 #   SOURCE REF: 7f57e0ed87ac9eaa0d05de88816f1fb1fdf6ef15
 #
@@ -328,11 +336,11 @@ stderr = ""
 
 [[case]]
 name = "run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input"
-rationale = "Migrated 1:1 from `growable_array_core.rs`'s `#[test] fn run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input`. The source asserts the command fails closed. It asserts that stdout is exactly empty, which mirrors the source's own exact assertion (ruling 3, clause 1). It asserts that stderr CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). It asserts that stderr CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). Task 3 fail-closed: a MIXED i64+String push set is a shape conflict (E5506) at compile time — never a silent fall-back to the pre-promotion no-op lane (which would print `undefined`/`0` and exit 0)."
+rationale = "Migrated 1:1 from `growable_array_core.rs`'s `#[test] fn run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input`. The source asserts the command fails closed. It asserts that stdout is exactly empty, which mirrors the source's own exact assertion (ruling 3, clause 1). It asserts that stderr CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). It asserts that stderr CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). Task 3 fail-closed: a MIXED i64+String push set is a shape conflict (E5506) at compile time — never a silent fall-back to the pre-promotion no-op lane (which would print `undefined`/`0` and exit 0). Re-pinned 2026-10-03 by the literal-array-mutators project (docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md, Task 6 triage). What moved: the type layer's literal-array mutator gate now refuses the `o.push(...)` calls (E5506, literal `.push()` message) before repr_infer reports its mixed-element shape conflict, so the old `used as both strings and numbers` needle no longer appears (spec A-3: both are refusals; only the message moved). Still fail-closed. node v26.10.0 prints `2`."
 args = ["run", "run_rejects_growable_array_mixed_i64_and_string_push_in_js_and_ts_input.test.${ext}"]
 exit = "failure"
 stdout = ""
-stderr_contains = ["E5506", "used as both strings and numbers"]
+stderr_contains = ["E5506", "calling `.push()` on a literal array"]
 
 [[case]]
 name = "run_supports_join_over_enumeration_key_pushes_in_js_and_ts_input"

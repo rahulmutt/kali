@@ -59,20 +59,24 @@
 
 [[case]]
 name = "malformed_push_call_reports_the_push_not_a_position_object_literal_arg"
-rationale = """Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
+rationale = """SUPERSEDED 2026-10-03 (literal-array-mutators, node v26.10.0): the next sentence is the original claim and no longer holds. These programs now refuse with the generic literal-array `.push()` message, not an argument-specific one; the case still guards that no unsafe-position enumeration is printed. Original: Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
 
-Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push({a:1})` program."""
+Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push({a:1})` program.
+
+Re-pinned 2026-10-03 by the literal-array-mutators project (docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md, Task 6 triage). What moved: `o.push({a:1})` is not a push the growable lane admits, so `o` is not promoted and stays a literal binding; the literal-array mutator gate in the type layer now refuses it first with the generic literal `.push()` message, so the growable scan's argument-specific "has a `.push` call" text no longer appears (spec A-3; the refusal is unchanged, only its wording). The `appears in a position` absence still holds. node v26.10.0 prints `1`."""
 args = ["run", "malformed_push_object_literal_arg.test.js"]
 exit = "failure"
-stderr_contains = ["error[E5506]", "has a `.push` call"]
+stderr_contains = ["error[E5506]", "calling `.push()` on a literal array"]
 stderr_absent = ["appears in a position"]
 
 [[case]]
 name = "malformed_push_call_reports_the_push_not_a_position_wrong_arity"
-rationale = """Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
+rationale = """SUPERSEDED 2026-10-03 (literal-array-mutators, node v26.10.0): the next sentence is the original claim and no longer holds. These programs now refuse with the generic literal-array `.push()` message, not an argument-specific one; the case still guards that no unsafe-position enumeration is printed. Original: Migrated from growable_array_fail_closed.rs. Review fix (accurate diagnostics): a malformed `.push` CALL (object-literal argument / wrong arity) rejects with the argument-specific message, not the unsafe-position enumeration (no position applies to `o.push({a:1})`).
 
-Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push(1,2)` program."""
+Rule 5 split: this source fn loops over two independent programs, kept as two named sibling cases rather than folded into one. This is the `o.push(1,2)` program.
+
+Re-pinned 2026-10-03 by the literal-array-mutators project (docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md, Task 6 triage). What moved: `o.push(1,2)` is not a push the growable lane admits, so `o` is not promoted and stays a literal binding; the literal-array mutator gate in the type layer now refuses it first with the generic literal `.push()` message, so the growable scan's argument-specific "has a `.push` call" text no longer appears (spec A-3; the refusal is unchanged, only its wording). The `appears in a position` absence still holds. node v26.10.0 prints `2`."""
 args = ["run", "malformed_push_wrong_arity.test.js"]
 exit = "failure"
-stderr_contains = ["error[E5506]", "has a `.push` call"]
+stderr_contains = ["error[E5506]", "calling `.push()` on a literal array"]
 stderr_absent = ["appears in a position"]

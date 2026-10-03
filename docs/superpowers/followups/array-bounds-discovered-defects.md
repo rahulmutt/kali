@@ -69,6 +69,11 @@ kali: 5
 exit 0
 ```
 
+**FIXED (fail-closed)** at `d46ee0dc7a2819b49347fc557f5fbc468226f344` by the literal-array-mutators
+project (`docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md`):
+the call now refuses with `E5506` under `check` and `run`. It does not run;
+node's output is still not produced. (`reverse`, `sort` and `copyWithin` on a plain runtime array refuse; `fill` stays allowed.)
+
 ## §3. The anonymous lane: `kali check` exits 0 where `kali run` refuses (amendment A-3)
 
 For rows a1 and a3-a5 (`const f = () => [1,2,3]; …`) `kali check` exits 0
@@ -269,6 +274,11 @@ both builds):
 
 `kali check` exits 0 on all three. Not fixed.
 
+**FIXED (fail-closed)** at `d46ee0dc7a2819b49347fc557f5fbc468226f344` by the literal-array-mutators
+project (`docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md`):
+the call now refuses with `E5506` under `check` and `run`. It does not run;
+node's output is still not produced. (An alias or parameter receiver is refused by `run` only; see `literal-array-mutators-discovered-defects.md` §1.)
+
 ## §10. Write-trap ordering: `a[5] = v()` traps before `v` runs
 
 `function v(){ console.log("side"); return 9; } function main(){ const a = new Array(3).fill(4); a[5] = v(); console.log(a[0]); } main();`
@@ -314,3 +324,8 @@ prints `3` at exit 0. A re-reviewer measured the same at baseline `016557d60`,
 so this is not a regression. Neither gate sees an optional call, so the
 `push` is neither refused by `check` nor by `run`, and the length change is
 silently skipped. Not fixed.
+
+**FIXED (fail-closed)** at `d46ee0dc7a2819b49347fc557f5fbc468226f344` by the literal-array-mutators
+project (`docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md`):
+the call now refuses with `E5506` under `check` and `run`. It does not run;
+node's output is still not produced. (This holds for the call `a.push?.(1)`; `(a.pop)?.()` is not covered, see `literal-array-mutators-discovered-defects.md` §8.)

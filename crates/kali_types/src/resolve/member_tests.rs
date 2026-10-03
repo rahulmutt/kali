@@ -590,3 +590,180 @@ fn a_wrapped_growable_receiver_does_not_refuse() {
         assert!(!any_contains(&messages, MUT), "{shape}: {messages:?}");
     }
 }
+
+const LIT: &str = "on a literal array is unavailable in the current phase";
+const LIT_LEN: &str = "assigning to `.length` of a literal array is unavailable";
+
+#[test]
+fn each_in_place_mutator_on_a_literal_array_refuses_at_top_level_and_in_a_function() {
+    for call in [
+        "a.push(4)",
+        "a.pop()",
+        "a.shift()",
+        "a.unshift(0)",
+        "a.splice(0, 1)",
+        "a.reverse()",
+        "a.sort()",
+        "a.fill(9)",
+        "a.copyWithin(0, 2)",
+    ] {
+        for source in [
+            format!("const a = [1,2,3]; {call}; console.log(a[0]);"),
+            format!("let a = [1,2,3]; {call}; console.log(a[0]);"),
+            format!("var a = [1,2,3]; {call}; console.log(a[0]);"),
+        ] {
+            let messages = e5506_messages(&source);
+            assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+        }
+        // An in-function `push` promotes the literal to the growable lane,
+        // which keeps node's output (guarded by the do-not-refuse test).
+        if call != "a.push(4)" {
+            let source = format!(
+                "function main(){{ const a = [1,2,3]; {call}; console.log(a[0]); }} main();"
+            );
+            let messages = e5506_messages(&source);
+            assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+        }
+    }
+}
+
+#[test]
+fn a_length_write_on_a_literal_array_refuses_for_every_operator() {
+    for write in ["a.length = 1", "a.length -= 1"] {
+        for source in [
+            format!("const a = [1,2,3]; {write};"),
+            format!("function main(){{ const a = [1,2,3]; {write}; }} main();"),
+        ] {
+            let messages = e5506_messages(&source);
+            assert!(any_contains(&messages, LIT_LEN), "{source}: {messages:?}");
+        }
+    }
+}
+
+#[test]
+fn wrapped_nameless_and_captured_literal_receivers_refuse() {
+    for source in [
+        "const a = [1,2,3]; (a).pop();",
+        "const a = [1,2,3]; (a as number[]).pop();",
+        "const a = [1,2,3]; a[\"pop\"]();",
+        "const a = [1,2,3]; a?.pop();",
+        "const a = [1,2,3]; a.push?.(4);",
+        "console.log([1,2].push(3));",
+        "function main(){ const a = [\"x\",\"y\"]; a.reverse(); } main();",
+        "function main(){ const a = [1,2,3]; const f = () => a.pop(); f(); } main();",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+    }
+}
+
+#[test]
+fn the_plain_lane_refuses_the_reorderers_and_an_optional_call_but_not_fill() {
+    for call in [
+        "a.reverse()",
+        "a.sort()",
+        "a.copyWithin(0, 2)",
+        "a.push?.(1)",
+    ] {
+        let source =
+            format!("function main(){{ const a = new Array(3).fill(4); {call}; }} main();");
+        let messages = e5506_messages(&source);
+        assert!(any_contains(&messages, MUT), "{call}: {messages:?}");
+        assert!(!any_contains(&messages, LIT), "{call}: {messages:?}");
+    }
+    let messages =
+        e5506_messages("function main(){ const a = new Array(3).fill(4); a.fill(5); } main();");
+    assert!(
+        !any_contains(&messages, MUT) && !any_contains(&messages, LIT),
+        "{messages:?}"
+    );
+}
+
+#[test]
+fn an_object_element_literal_gets_exactly_one_mutator_refusal() {
+    let messages = e5506_messages("function main(){ const a = [{v:1},{v:2}]; a.pop(); } main();");
+    let count = messages
+        .iter()
+        .filter(|m| m.contains(MUT) || m.contains(LIT))
+        .count();
+    assert_eq!(count, 1, "{messages:?}");
+}
+
+#[test]
+fn growable_push_reads_and_non_mutators_on_a_literal_do_not_refuse() {
+    for source in [
+        "function main(){ const a = [1,2,3]; a.push(4); console.log(a.length); } main();",
+        "function main(){ const a = []; for (let i = 0; i < 3; i++) a.push(i); } main();",
+        "function main(){ const a = [1,2]; a.push(3); console.log(a.join(\"-\")); } main();",
+        "function main(){ const a = [1,2,3]; (a).push(4); } main();",
+        "const a = [3,1,2]; const b = a.slice(1); console.log(b[0]);",
+        "const a = [3,1,2]; console.log(a.indexOf(2));",
+        "const a = [1,2,3]; console.log(a[1]);",
+        "const s = { n: 0, push(v){ this.n += v; } }; s.push(2);",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            !any_contains(&messages, LIT) && !any_contains(&messages, LIT_LEN),
+            "{source}: {messages:?}"
+        );
+    }
+}
+
+#[test]
+fn a_push_mixed_with_pop_in_a_function_refuses_the_pop_in_the_resolve_pass() {
+    // Spec A-3: the resolve pass reports this before repr_infer's growable reject.
+    let messages =
+        e5506_messages("function main(){ const a = [1,2]; a.push(3); a.pop(); } main();");
+    assert!(
+        messages
+            .iter()
+            .any(|m| m.contains(LIT) && m.contains("`.pop()`")),
+        "{messages:?}"
+    );
+}
+
+#[test]
+fn a_parenthesized_optional_call_callee_on_a_literal_refuses() {
+    // Final review C1: `(a.pop)?.()` wraps the optional-call member in a
+    // `ParenthesizedExpression`, which the optional-chain gate must see through.
+    for source in [
+        "const a = [1,2,3]; (a.pop)?.(); console.log(a.length);",
+        "const a = [1,2,3]; ((a.push))?.(4);",
+        "function main(){ const a = [1,2,3]; (a.sort)?.(); } main();",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+    }
+    let messages =
+        e5506_messages("function main(){ const a = new Array(3).fill(4); (a.pop)?.(); } main();");
+    assert!(any_contains(&messages, MUT), "{messages:?}");
+}
+
+#[test]
+fn an_inner_binding_shadowing_an_outer_literal_is_not_a_literal_receiver() {
+    // Final review I2: the NEAREST binding of the name decides, so an inner
+    // class instance, object, or parameter named like an outer literal array
+    // keeps its own method call. (An object literal with a method is not a
+    // shape kali lowers inside a function at all, so it is not listed.)
+    for source in [
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function main(){ const a = new Box(); console.log(a.sort()); } main();",
+        "const a = [1,2,3]; class Box { push(v){ return v + 1; } } function main(){ const a = new Box(); console.log(a.push(4)); } main();",
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function f(a){ return a.sort(); } console.log(f(new Box()));",
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } { const a = new Box(); a.sort(); }",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            !any_contains(&messages, LIT) && !any_contains(&messages, LIT_LEN),
+            "{source}: {messages:?}"
+        );
+    }
+    // The outer literal itself still refuses, and so does an inner literal
+    // that shadows an outer non-literal.
+    for source in [
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function main(){ const a = new Box(); a.sort(); } main(); a.pop();",
+        "const a = 1; function main(){ const a = [1,2,3]; a.pop(); } main();",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+    }
+}

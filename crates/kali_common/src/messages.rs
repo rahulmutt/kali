@@ -143,9 +143,35 @@ pub fn array_return_refused_message_anonymous(reason: &str) -> String {
     )
 }
 
-/// Methods that change a runtime array's length. A plain `[len][elem…]`
-/// array has a fixed length, so each refuses on one (array-bounds spec §3.2).
-pub const RUNTIME_ARRAY_MUTATORS: &[&str] = &["push", "pop", "shift", "unshift", "splice"];
+/// Methods with no lowering on a plain `[len][elem…]` runtime array: the
+/// length changers (the array has a fixed length) and the in-place reorderers.
+/// Each refuses on one (array-bounds spec §3.2, literal-array-mutators spec §3.1).
+/// `fill` is absent: the plain lane lowers it.
+pub const RUNTIME_ARRAY_MUTATORS: &[&str] = &[
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "reverse",
+    "sort",
+    "copyWithin",
+];
+
+/// In-place mutators refused on a literal array, which kali folds to its
+/// initial elements (literal-array-mutators spec §3.1). The runtime list plus
+/// `fill`, which the literal lane does not lower either.
+pub const LITERAL_ARRAY_MUTATORS: &[&str] = &[
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "reverse",
+    "sort",
+    "copyWithin",
+    "fill",
+];
 
 /// Canonical wording for a negative integer-literal index on a plain runtime array.
 pub const fn runtime_array_negative_index_unavailable_message() -> &'static str {
@@ -155,7 +181,32 @@ pub const fn runtime_array_negative_index_unavailable_message() -> &'static str 
 /// Canonical wording for a [`RUNTIME_ARRAY_MUTATORS`] call on a plain runtime array.
 pub fn runtime_array_mutator_unavailable_message(method: &str) -> String {
     format!(
-        "calling `.{method}()` on a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than silently skip the call"
+        "calling `.{method}()` on a runtime array is unavailable in the current phase: kali has no lowering of it on this array, so kali refuses rather than silently skip the call"
+    )
+}
+
+/// Canonical wording for a [`LITERAL_ARRAY_MUTATORS`] call on a literal array.
+pub fn literal_array_mutator_unavailable_message(method: &str) -> String {
+    format!(
+        "calling `.{method}()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call"
+    )
+}
+
+/// Canonical wording for an assignment to a literal array's `.length`.
+pub const fn literal_array_length_write_unavailable_message() -> &'static str {
+    "assigning to `.length` of a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the write"
+}
+
+/// Canonical wording for an element store into a literal array (`a[0] = 7`).
+pub const fn literal_array_store_unavailable_message() -> &'static str {
+    "mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation"
+}
+
+/// The `run` backstop's wording: a [`LITERAL_ARRAY_MUTATORS`] name reached the
+/// placeholder fallback, so kali cannot tell which array, if any, it mutates.
+pub fn array_mutator_unresolved_receiver_message(method: &str) -> String {
+    format!(
+        "calling `.{method}()` is unavailable in the current phase: it mutates an array in place and kali could not prove which array the receiver is, so kali refuses rather than silently skip the call"
     )
 }
 

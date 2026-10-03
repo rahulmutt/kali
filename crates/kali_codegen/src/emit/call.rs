@@ -37,21 +37,66 @@ impl<'a> FunctionEmitter<'a> {
     /// `Some(method)` iff `node` is `<receiver>.<method>(…)` with `method` in
     /// `kali_common::RUNTIME_ARRAY_MUTATORS` and the receiver a plain runtime
     /// array (`is_runtime_array_value`). A plain array has a fixed length, so
-    /// each of these refuses (array-bounds spec §3.2). A growable receiver's
-    /// `push` is taken earlier, by `growable_push_call_parts`.
+    /// the length-changing ones refuse (array-bounds spec §3.2), and the
+    /// reorderers (`reverse`, `sort`, `copyWithin`) refuse because the lane
+    /// has no in-place implementation. A growable receiver's `push` is taken
+    /// earlier, by `growable_push_call_parts`.
     pub(crate) fn plain_runtime_array_mutator(&self, node: &LirNode) -> Option<String> {
+        let (method, receiver) = self.array_mutator_call_parts(node)?;
+        (kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method.as_str())
+            && self.is_runtime_array_value(receiver))
+        .then_some(method)
+    }
+
+    /// A literal array value (literal-array-mutators spec §3.3): a bare name
+    /// bound to an array literal, or an array literal node, under transparent
+    /// wrappers. A name a runtime lane owns (`array_bindings`, growable) is
+    /// that lane's.
+    ///
+    /// Over-approximate: LIR cannot tell `new C` / `new C()` from the array
+    /// literal `[x]` (both are a text-less `Value`), so this is also true for
+    /// a name bound to a constructed value. It has two callers.
+    /// [`Self::literal_array_mutator`] runs only at the placeholder fallback,
+    /// where a class method has already resolved. The `.length` write gate in
+    /// `emit/literal.rs` runs before any resolution, so `s.length = 5` on a
+    /// class instance refuses with the literal wording (followups doc §13).
+    pub(crate) fn is_literal_array_value(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        if let Some(name) = self.bare_identifier_name(id) {
+            if self.array_bindings.contains(&name) || self.is_growable_array(&name) {
+                return false;
+            }
+        }
+        self.resolve_literal_aggregate(id)
+            .is_some_and(|aggregate| self.is_array_literal(self.node(aggregate)))
+    }
+
+    /// A [`kali_common::LITERAL_ARRAY_MUTATORS`] call on a literal array value.
+    ///
+    /// Checked ONLY at `emit_call`'s terminal placeholder fallback, after every
+    /// resolved lowering (a growable `push`, a user class or object method, a
+    /// plain-lane call), so a call that resolved never gets here. It cannot be
+    /// checked earlier: LIR cannot tell `new C` / `new C()` from the array
+    /// literal `[x]` (both are a text-less `Value`), so an earlier check would
+    /// refuse a working class method named `push`/`sort`/etc.
+    pub(crate) fn literal_array_mutator(&self, node: &LirNode) -> Option<String> {
+        let (method, receiver) = self.array_mutator_call_parts(node)?;
+        (kali_common::LITERAL_ARRAY_MUTATORS.contains(&method.as_str())
+            && self.is_literal_array_value(receiver))
+        .then_some(method)
+    }
+
+    /// `(method, receiver)` of a `<receiver>.<method>(…)` call, seen through
+    /// transparent callee wrappers such as `(a.pop)()`.
+    fn array_mutator_call_parts(&self, node: &LirNode) -> Option<(String, LirNodeId)> {
         if node.kind != LirNodeKind::Call || node.children.is_empty() {
             return None;
         }
         let callee = self.resolve_transparent_callable_node(node.children[0])?;
         let callee_node = self.node(callee);
-        let method = callee_node.text.as_deref()?;
-        if !kali_common::RUNTIME_ARRAY_MUTATORS.contains(&method) {
-            return None;
-        }
+        let method = callee_node.text.clone()?;
         let receiver = self.unwrap_transparent(*callee_node.children.first()?);
-        self.is_runtime_array_value(receiver)
-            .then(|| method.to_string())
+        Some((method, receiver))
     }
 
     /// A value that is a whole runtime `[len][elem…]` array: a bare
@@ -3899,6 +3944,23 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Literal-array-mutators spec §3.3: a mutator on a literal array.
+        if let Some(method) = self.literal_array_mutator(node) {
+            let message = kali_common::literal_array_mutator_unavailable_message(&method);
+            return self.deny_e5506(function, &message);
+        }
+        // Literal-array-mutators spec §3.4 (amendment A-2): at `9dc751cf8` an
+        // in-place array mutator that reached this fallback was skipped at
+        // exit 0, receiver and all. Whatever the receiver is (an alias, a
+        // parameter), push E5506 and emit `unreachable` (`deny_e5506`) rather
+        // than skip the call. A user object's own `push`/`sort` resolved far
+        // above and never gets here.
+        if !callee_node.children.is_empty()
+            && kali_common::LITERAL_ARRAY_MUTATORS.contains(&callee_name)
+        {
+            let message = kali_common::array_mutator_unresolved_receiver_message(callee_name);
+            return self.deny_e5506(function, &message);
+        }
         // Positive DENY-SET: a small set of recognized value-builtins that have
         // no implemented lowering and, when their result is consumed, silently
         // evaluate to 0 (R-19/R-20/R-15). Only these fail closed; everything

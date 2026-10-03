@@ -1,0 +1,318 @@
+# Cases for the literal-array-mutators project (spec
+# docs/superpowers/specs/2026-10-03-literal-array-mutators-design.md).
+#
+# An in-place mutator on a literal array refuses with E5506 under `check` and
+# `run` alike, instead of being silently skipped at exit 0; the plain runtime-
+# array lane refuses `reverse`/`sort`/`copyWithin` and an optional call too.
+# Growable `push` and every non-mutating use keep node's output. Each
+# rationale gives kali's `run` output at the baseline `9dc751cf8`
+# (tools/array-return-probes/baseline-litmut.tsv) and node v26.10.0's.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide.
+
+[constants]
+LIT = "on a literal array is unavailable in the current phase"
+LIT_LEN = "assigning to `.length` of a literal array is unavailable"
+MUT = "on a runtime array is unavailable in the current phase"
+UNRESOLVED = "kali could not prove which array the receiver is"
+
+[source]
+"alias.js" = '''
+function main(){ const a=[1,2,3]; const b=a; b.pop(); console.log(a[0]); } main();
+'''
+"param.js" = '''
+function g(x){ x.pop(); } function main(){ const a=[1,2,3]; g(a); console.log(a[0]); } main();
+'''
+"t_push.js" = '''
+const a=[1,2,3]; a.push(4); console.log(a.length);
+'''
+"t_pop.js" = '''
+const a=[1,2,3]; const x=a.pop(); console.log(a.length); console.log(x);
+'''
+"t_sort.js" = '''
+const a=[3,1,2]; a.sort(); console.log(a[0]);
+'''
+"t_fill.js" = '''
+const a=[1,2,3]; a.fill(9); console.log(a[0]);
+'''
+"t_length.js" = '''
+const a=[1,2,3]; a.length = 1; console.log(a.length);
+'''
+"t_let_push.js" = '''
+let a=[1,2,3]; a.push(4); console.log(a[0]);
+'''
+"f_shift.js" = '''
+function main(){ const a=[1,2,3]; a.shift(); console.log(a[0]); } main();
+'''
+"f_reverse.js" = '''
+function main(){ const a=[1,2,3]; a.reverse(); console.log(a[0]); } main();
+'''
+"f_length_compound.js" = '''
+function main(){ const a=[1,2,3]; a.length -= 1; console.log(a.length); } main();
+'''
+"w_optcall.js" = '''
+const a=[1,2,3]; a.push?.(4); console.log(a[0]);
+'''
+"w_strkey.js" = '''
+const a=[1,2,3]; a["pop"](); console.log(a[0]);
+'''
+"nameless.js" = '''
+console.log([1,2].push(3));
+'''
+"closure.js" = '''
+function main(){ const a=[1,2,3]; const f=()=>a.pop(); f(); console.log(a[0]); } main();
+'''
+"push_pop.js" = '''
+function main(){ const a=[1,2]; a.push(3); a.pop(); console.log(a[0]); } main();
+'''
+"plain_reverse.js" = '''
+function main(){ const a=new Array(3).fill(4); a[0]=1; a.reverse(); console.log(a[0]); } main();
+'''
+"plain_optcall.js" = '''
+function main(){ const a=new Array(3).fill(4); a.push?.(1); console.log(a[0]); } main();
+'''
+"ok_growable_push.js" = '''
+function main(){ const a=[1,2,3]; a.push(4); console.log(a.length); console.log(a[3]); } main();
+'''
+"ok_push_loop.js" = '''
+function main(){ const a=[]; for (let i=0;i<3;i++) a.push(i); let s=0; for (const x of a) s+=x; console.log(s); } main();
+'''
+"ok_plain_fill.js" = '''
+function main(){ const a=new Array(3).fill(4); a.fill(5); console.log(a[1]); } main();
+'''
+"ok_read.js" = '''
+const a=[1,2,3]; console.log(a[1]); console.log(a.length);
+'''
+"w_paren_optcall.js" = '''
+const a=[1,2,3]; (a.pop)?.(); console.log(a.length);
+'''
+"ok_shadow_class_sort.js" = '''
+const a=[1,2,3]; class Box { sort(){ return 7; } } function main(){ const a=new Box(); console.log(a.sort()); } main(); console.log(a[0]);
+'''
+"ok_shadow_class_push.js" = '''
+const a=[1,2,3]; class Box { push(v){ return v+1; } } function main(){ const a=new Box(); console.log(a.push(4)); } main(); console.log(a[0]);
+'''
+"ok_class_push.js" = '''
+class S { push(v){ return v+1; } } const s=new S(); console.log(s.push(1));
+'''
+
+[[case]]
+name = "a_top_level_literal_push_refuses_under_check"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `4`."""
+args = ["check", "t_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${LIT}"]
+
+[[case]]
+name = "a_top_level_literal_push_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `4`."""
+args = ["run", "t_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${LIT}"]
+
+[[case]]
+name = "a_top_level_literal_pop_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `3` then `0` at exit 0 where node v26.10.0 prints `2` then `3`."""
+args = ["run", "t_pop.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_top_level_literal_sort_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "t_sort.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.sort()`", "${LIT}"]
+
+[[case]]
+name = "a_top_level_literal_fill_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 where node v26.10.0 prints `9`. `fill` is refused on the literal lane only."""
+args = ["run", "t_fill.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.fill()`", "${LIT}"]
+
+[[case]]
+name = "a_top_level_literal_length_write_refuses_under_check"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `1`."""
+args = ["check", "t_length.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LIT_LEN}"]
+
+[[case]]
+name = "a_top_level_literal_length_write_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "t_length.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LIT_LEN}"]
+
+[[case]]
+name = "a_let_bound_literal_push_refuses_under_check"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 (the push dropped) and `check` exited 0; node v26.10.0 prints `1` too, but the array is `[1,2,3,4]`. Refused because the call is dropped."""
+args = ["check", "t_let_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${LIT}"]
+
+[[case]]
+name = "an_in_function_literal_shift_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 where node v26.10.0 prints `2`. A literal with no `push` is never promoted to growable."""
+args = ["run", "f_shift.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.shift()`", "${LIT}"]
+
+[[case]]
+name = "an_in_function_literal_reverse_refuses_under_check"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 where node v26.10.0 prints `3`."""
+args = ["check", "f_reverse.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.reverse()`", "${LIT}"]
+
+[[case]]
+name = "a_compound_length_write_on_a_literal_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `2`."""
+args = ["run", "f_length_compound.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${LIT_LEN}"]
+
+[[case]]
+name = "an_optional_call_on_a_literal_refuses_under_check"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the push dropped; node v26.10.0 prints `1` with the array grown. Neither gate saw an optional call."""
+args = ["check", "w_optcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${LIT}"]
+
+[[case]]
+name = "a_string_key_mutator_on_a_literal_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 (pop dropped); node v26.10.0 prints `1` with the array shortened."""
+args = ["run", "w_strkey.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_mutator_on_a_nameless_literal_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `0` at exit 0 where node v26.10.0 prints `3`."""
+args = ["run", "nameless.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${LIT}"]
+
+[[case]]
+name = "a_mutator_on_a_captured_literal_refuses_under_check"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 (pop dropped); node v26.10.0 prints `1` with the array shortened. Scope resolution reaches the outer binding."""
+args = ["check", "closure.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_push_mixed_with_pop_refuses_the_pop"
+rationale = """At `9dc751cf8` the growable scan refused this with its own E5506. The resolve pass now reports first (spec A-3); still a refusal."""
+args = ["run", "push_pop.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "reverse_on_a_plain_runtime_array_refuses_under_run"
+rationale = """array-bounds followups §2: at `9dc751cf8` kali printed `1` at exit 0 where node v26.10.0 prints `4`."""
+args = ["run", "plain_reverse.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.reverse()`", "${MUT}"]
+
+[[case]]
+name = "an_optional_push_on_a_plain_runtime_array_refuses_under_check"
+rationale = """array-bounds followups §13: at `9dc751cf8` `check` exited 0 and `run` skipped the push at exit 0."""
+args = ["check", "plain_optcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.push()`", "${MUT}"]
+
+[[case]]
+name = "a_growable_push_still_matches_node"
+rationale = """Control: kali and node v26.10.0 both print `4` then `4` at `9dc751cf8`."""
+args = ["run", "ok_growable_push.js"]
+exit = "success"
+stdout = "4\n4\n"
+
+[[case]]
+name = "a_growable_push_loop_still_matches_node"
+rationale = """Control: kali and node v26.10.0 both print `3` at `9dc751cf8`."""
+args = ["run", "ok_push_loop.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "fill_on_a_plain_runtime_array_still_matches_node"
+rationale = """Control: `fill` is lowered on the plain lane and stays allowed; kali and node v26.10.0 both print `5`."""
+args = ["run", "ok_plain_fill.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "reading_a_literal_still_matches_node"
+rationale = """Control: kali and node v26.10.0 both print `2` then `3`."""
+args = ["run", "ok_read.js"]
+exit = "success"
+stdout = "2\n3\n"
+
+[[case]]
+name = "a_mutator_through_an_alias_passes_check"
+rationale = """The disclosed gap (spec §1.1): the type layer cannot tell which calls codegen will fail to resolve. node v26.10.0 prints `1` with the array shortened."""
+args = ["check", "alias.js"]
+exit = "success"
+
+[[case]]
+name = "a_mutator_through_an_alias_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. Refused with the literal wording, not the backstop's: codegen traces `b` back to the literal `a`, so the literal gate (spec §3.3) fires before the backstop (spec §3.4). The call is refused either way."""
+args = ["run", "alias.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_mutator_through_a_parameter_passes_check"
+rationale = """The disclosed gap (spec §1.1)."""
+args = ["check", "param.js"]
+exit = "success"
+
+[[case]]
+name = "a_mutator_through_a_parameter_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. The backstop refuses (spec §3.4)."""
+args = ["run", "param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${UNRESOLVED}"]
+
+[[case]]
+name = "a_parenthesized_optional_call_on_a_literal_refuses_under_check"
+rationale = """Final review C1: at `9dc751cf8` and at `cd7a99637` `check` exited 0 and `run` printed `3` where node v26.10.0 prints `2`. The optional-chain gate now unwraps the parenthesized member."""
+args = ["check", "w_paren_optcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_parenthesized_optional_call_on_a_literal_refuses_under_run"
+rationale = """Final review C1: at `9dc751cf8` and at `cd7a99637` kali printed `3` at exit 0 where node v26.10.0 prints `2`."""
+args = ["run", "w_paren_optcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "an_inner_class_instance_shadowing_an_outer_literal_sorts_under_check"
+rationale = """Final review I2 control: the inner `a` is a `Box`, and the nearest binding decides. At `cd7a99637` `check` refused it with the literal wording; at `9dc751cf8` it ran."""
+args = ["check", "ok_shadow_class_sort.js"]
+exit = "success"
+
+[[case]]
+name = "an_inner_class_instance_shadowing_an_outer_literal_sorts_under_run"
+rationale = """Final review I2 control: kali at `9dc751cf8` and node v26.10.0 both print `7` then `1`; `cd7a99637` refused it."""
+args = ["run", "ok_shadow_class_sort.js"]
+exit = "success"
+stdout = "7\n1\n"
+
+[[case]]
+name = "an_inner_class_instance_shadowing_an_outer_literal_pushes_under_run"
+rationale = """Final review I2 control: kali at `9dc751cf8` and node v26.10.0 both print `5` then `1`; `cd7a99637` refused it."""
+args = ["run", "ok_shadow_class_push.js"]
+exit = "success"
+stdout = "5\n1\n"
+
+[[case]]
+name = "a_user_class_method_named_push_still_matches_node"
+rationale = """Final review m6 control: a user method named like a mutator resolves before either gate. kali and node v26.10.0 both print `2`. The nameless spelling `new S().push(1)` prints `0` in kali for any method name, at `9dc751cf8` too; filed in the followups doc, not this case."""
+args = ["run", "ok_class_push.js"]
+exit = "success"
+stdout = "2\n"

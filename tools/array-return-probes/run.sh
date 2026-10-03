@@ -13,6 +13,8 @@ for p in "$here"/probes/*.js; do
   kali_out="$("$kali" run "$p" 2>/tmp/array-return-probe.err)"
   kali_exit=$?
   kali_err="$(cat /tmp/array-return-probe.err)"
+  "$kali" check "$p" >/dev/null 2>&1
+  check_exit=$?
   if [ $kali_exit -eq 0 ] && [ "$kali_out" = "$node_out" ]; then
     verdict=CORRECT
   elif [ $kali_exit -ne 0 ] && grep -q E5506 /tmp/array-return-probe.err; then
@@ -26,7 +28,7 @@ for p in "$here"/probes/*.js; do
   fi
   shown="$kali_out"
   [ $kali_exit -ne 0 ] && shown="$(printf '%s' "$kali_err" | head -1)"
-  printf '%s\t%s\t%s\t%s\n' "$name" "$verdict" \
+  printf '%s\t%s\t%s\t%s\t%s\n' "$name" "$verdict" \
     "$(printf '%s' "$node_out" | tr '\n' '|')" \
-    "$(printf '%s' "$shown" | tr '\n' '|')" >> "$out"
+    "$(printf '%s' "$shown" | tr '\n' '|')" "$check_exit" >> "$out"
 done

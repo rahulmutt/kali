@@ -659,6 +659,19 @@ impl<'a> FunctionEmitter<'a> {
 
                 if let Some((base_id, index)) = target {
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
+                        // Literal-array-mutators spec §3.3: a literal's
+                        // `.length` write was silently skipped.
+                        if matches!(&index, ArrayWriteIndex::Text(text) if text == "length")
+                            && self.is_literal_array_value(base_id)
+                        {
+                            self.diagnostics.push(Diagnostic::error(
+                                e5::FEATURE_UNAVAILABLE as u32,
+                                kali_common::literal_array_length_write_unavailable_message()
+                                    .to_string(),
+                            ));
+                            function.instruction(&Instruction::I64Const(0));
+                            return true;
+                        }
                         if self.array_bindings.contains(&base_name) {
                             // Array-bounds spec §3.2: `a.length = v` reaches
                             // this arm as the text index `length`, which used
