@@ -113,3 +113,36 @@ fn codegen_still_refuses_a_one_element_literal() {
         assert_e5506(&diagnostics_for(source), LIT, source);
     }
 }
+
+const UNRESOLVED: &str = "kali could not prove which array the receiver is";
+
+#[test]
+fn the_backstop_refuses_a_mutator_on_an_alias_or_a_parameter() {
+    for source in [
+        "function main(){ const a = [1,2,3]; const b = a; b.pop(); console.log(a[0]); } main();",
+        "function g(x){ x.pop(); } function main(){ const a = [1,2,3]; g(a); console.log(a[0]); } main();",
+        "var a = [1,2,3]; a.push(4); console.log(a[0]);",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert!(
+            diagnostics.iter().any(|d| d.is_error()
+                && d.code == Some(5506)
+                && (d.message.contains(UNRESOLVED) || d.message.contains(LIT))),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}
+
+#[test]
+fn the_backstop_leaves_a_non_mutator_placeholder_and_a_user_method_alone() {
+    for source in [
+        "class Box { sort(){ return 7; } } const b = new Box(); console.log(b.sort());",
+        "class S { push(v:number){return v;} } const s = new S; console.log(s.push(1));",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert!(
+            !diagnostics.iter().any(|d| d.message.contains(UNRESOLVED)),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}

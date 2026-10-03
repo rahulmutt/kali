@@ -14,8 +14,15 @@
 LIT = "on a literal array is unavailable in the current phase"
 LIT_LEN = "assigning to `.length` of a literal array is unavailable"
 MUT = "on a runtime array is unavailable in the current phase"
+UNRESOLVED = "kali could not prove which array the receiver is"
 
 [source]
+"alias.js" = '''
+function main(){ const a=[1,2,3]; const b=a; b.pop(); console.log(a[0]); } main();
+'''
+"param.js" = '''
+function g(x){ x.pop(); } function main(){ const a=[1,2,3]; g(a); console.log(a[0]); } main();
+'''
 "t_push.js" = '''
 const a=[1,2,3]; a.push(4); console.log(a.length);
 '''
@@ -230,3 +237,29 @@ rationale = """Control: kali and node v26.10.0 both print `2` then `3`."""
 args = ["run", "ok_read.js"]
 exit = "success"
 stdout = "2\n3\n"
+
+[[case]]
+name = "a_mutator_through_an_alias_passes_check"
+rationale = """The disclosed gap (spec §1.1): the type layer cannot tell which calls codegen will fail to resolve. node v26.10.0 prints `1` with the array shortened."""
+args = ["check", "alias.js"]
+exit = "success"
+
+[[case]]
+name = "a_mutator_through_an_alias_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. Refused with the literal wording, not the backstop's: codegen traces `b` back to the literal `a`, so the literal gate (spec §3.3) fires before the backstop (spec §3.4). The call is refused either way."""
+args = ["run", "alias.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_mutator_through_a_parameter_passes_check"
+rationale = """The disclosed gap (spec §1.1)."""
+args = ["check", "param.js"]
+exit = "success"
+
+[[case]]
+name = "a_mutator_through_a_parameter_refuses_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. The backstop refuses (spec §3.4)."""
+args = ["run", "param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${UNRESOLVED}"]

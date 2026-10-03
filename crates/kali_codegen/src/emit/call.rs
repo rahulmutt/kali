@@ -3948,6 +3948,17 @@ impl<'a> FunctionEmitter<'a> {
             let message = kali_common::literal_array_mutator_unavailable_message(&method);
             return self.deny_e5506(function, &message);
         }
+        // Literal-array-mutators spec §3.4 (amendment A-2): an in-place array
+        // mutator that reaches the placeholder fallback was dropped at exit 0
+        // (the receiver is never emitted). Whatever the receiver is (an
+        // alias, a parameter), refuse rather than skip the call. A user
+        // object's own `push`/`sort` resolved far above and never gets here.
+        if !callee_node.children.is_empty()
+            && kali_common::LITERAL_ARRAY_MUTATORS.contains(&callee_name)
+        {
+            let message = kali_common::array_mutator_unresolved_receiver_message(callee_name);
+            return self.deny_e5506(function, &message);
+        }
         if self.deny_placeholder_lowering(&callee_node, callee_name) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
