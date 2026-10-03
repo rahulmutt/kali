@@ -92,6 +92,8 @@ fn codegen_does_not_take_a_class_instance_for_a_literal_array() {
         "class S { push(v:number){return v;} } const s = new S(); console.log(s.push(1));",
         "class B { sort(){ return 7; } } const b = new B(); console.log(b.sort());",
         "class S { push(v:number){return v;} } console.log(new S().push(1));",
+        "class S { push(v:number){return v;} } const s = new S; console.log(s.push(1));",
+        "class S { sort(){return 1;} } const s = new S; console.log(s.sort());",
         "class S { constructor(n:number){} pop(){ return 1; } } const s = new S(2); console.log(s.pop());",
     ] {
         let refusals: Vec<_> = diagnostics_for(source)

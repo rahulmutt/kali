@@ -59,24 +59,18 @@ impl<'a> FunctionEmitter<'a> {
                 return false;
             }
         }
-        self.resolve_literal_aggregate(id).is_some_and(|aggregate| {
-            let node = self.node(aggregate);
-            self.is_array_literal(node) && !self.is_ambiguous_with_new_expression(node)
-        })
-    }
-
-    /// LIR erases the difference between `new C(..)` and an array literal:
-    /// both are a text-less `Value`, and `new C(..)` has exactly one child,
-    /// the `Call`. So the one-element literal `[f(..)]` shares that shape and
-    /// is not taken for a literal here (the type layer still gates it). A
-    /// false positive would refuse a working class method such as `s.push(1)`.
-    fn is_ambiguous_with_new_expression(&self, node: &LirNode) -> bool {
-        matches!(node.children.as_slice(), [only] if self.node(*only).kind == LirNodeKind::Call)
+        self.resolve_literal_aggregate(id)
+            .is_some_and(|aggregate| self.is_array_literal(self.node(aggregate)))
     }
 
     /// A [`kali_common::LITERAL_ARRAY_MUTATORS`] call on a literal array value.
-    /// It is checked after the plain gate, and after `growable_push_call_parts`,
-    /// which takes a growable `push` first.
+    ///
+    /// Checked ONLY at `emit_call`'s terminal placeholder fallback, after every
+    /// resolved lowering (a growable `push`, a user class or object method, a
+    /// plain-lane call), so a call that resolved never gets here. It cannot be
+    /// checked earlier: LIR cannot tell `new C` / `new C()` from the array
+    /// literal `[x]` (both are a text-less `Value`), so an earlier check would
+    /// refuse a working class method named `push`/`sort`/etc.
     pub(crate) fn literal_array_mutator(&self, node: &LirNode) -> Option<String> {
         let (method, receiver) = self.array_mutator_call_parts(node)?;
         (kali_common::LITERAL_ARRAY_MUTATORS.contains(&method.as_str())
@@ -1711,10 +1705,6 @@ impl<'a> FunctionEmitter<'a> {
         // fallback, which never emits the receiver: a silent no-op.
         if let Some(method) = self.plain_runtime_array_mutator(node) {
             let message = kali_common::runtime_array_mutator_unavailable_message(&method);
-            return self.deny_e5506(function, &message);
-        }
-        if let Some(method) = self.literal_array_mutator(node) {
-            let message = kali_common::literal_array_mutator_unavailable_message(&method);
             return self.deny_e5506(function, &message);
         }
 
@@ -3954,6 +3944,10 @@ impl<'a> FunctionEmitter<'a> {
         // surfaces are unaffected (Group 3 owns their surface-aware policy).
         // A2's deny-by-default at this terminal had a 361-test blast radius;
         // this narrows it back to the value-builtins actually pinned fail-closed.
+        if let Some(method) = self.literal_array_mutator(node) {
+            let message = kali_common::literal_array_mutator_unavailable_message(&method);
+            return self.deny_e5506(function, &message);
+        }
         if self.deny_placeholder_lowering(&callee_node, callee_name) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
