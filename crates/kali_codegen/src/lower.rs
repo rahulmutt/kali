@@ -2878,6 +2878,16 @@ fn function_shape(
     Some((name, flavor, body_id, params))
 }
 
+/// A function-like node's body and declared parameter names (the structural
+/// half of `function_shape`), or `None` when `id` is not function-like.
+pub(crate) fn function_body_and_params(
+    nodes: &[LirNode],
+    id: LirNodeId,
+) -> Option<(LirNodeId, Vec<String>)> {
+    let (_, _, body, params) = function_shape(nodes, id)?;
+    Some((body, params))
+}
+
 pub(crate) fn function_plan(
     nodes: &[LirNode],
     id: LirNodeId,

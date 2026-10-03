@@ -67,8 +67,25 @@ fn a_host_root_keeps_its_lowering() {
         "globalThis[\"process\"][\"kill\"](0);",
         "class S { f(){ return 6; } } const s=new S(); console.log(s.f());",
         "class A{ f(){return 4;} } class B extends A{} const b=new B(); console.log(b.f());",
+        // Ruling R7: a host binding of an ENCLOSING function, read in a closure.
+        "function main(){ const t = performance; const f = () => { t.now(); }; f(); console.log(\"ok\"); } main();",
+        "function main(){ const t = globalThis.performance; function inner(){ t.now(); console.log(\"ok\"); } inner(); } main();",
     ] {
         assert_not_refused(source);
+    }
+}
+
+#[test]
+fn an_enclosing_program_binding_refuses_in_a_closure() {
+    // Ruling R7: the enclosing-scope walk finds a program value as well.
+    for source in [
+        "function main(){ const o={k:1}; const f = () => { console.log(o.zork()); }; f(); } main();",
+        "function main(p){ const f = () => { console.log(p.zork()); }; f(); } main({k:1});",
+        // `t` is declared in `main`, so its initializer's `o` resolves from `main`,
+        // not from the arrow that shadows `o` with a host value.
+        "function main(){ const o={k:1}; const t=o; const f = () => { const o=performance; console.log(t.zork()); }; f(); } main();",
+    ] {
+        assert_e5506(&diagnostics_for(source), UNRES, source);
     }
 }
 

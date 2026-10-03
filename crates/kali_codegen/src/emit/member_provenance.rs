@@ -6,6 +6,20 @@ use std::collections::HashSet;
 
 use crate::*;
 
+/// One lexical scope of the host-provenance lookup (ruling R7).
+struct LexicalScope {
+    /// The body walked for declarators (nested function-like nodes skipped).
+    body: LirNodeId,
+    params: ScopeParams,
+}
+
+enum ScopeParams {
+    /// The function being emitted: `name_is_declared_parameter`.
+    Current,
+    /// An enclosing function's parameters (empty for the module body).
+    Names(Vec<String>),
+}
+
 impl<'a> FunctionEmitter<'a> {
     /// Walk a member chain (dot and computed, any depth, through transparent
     /// wrappers) down to the node it stops at: a root identifier, a literal,
@@ -52,7 +66,12 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Value if root_node.children.is_empty() => {
                 match root_node.text.as_deref() {
                     Some(name) if !name.is_empty() => {
-                        !self.root_has_host_provenance(name, &mut HashSet::new())
+                        // No lexical scope chain (the current body is not
+                        // reachable from the module root): not proven, refuse.
+                        let Some(scopes) = self.lexical_scopes() else {
+                            return true;
+                        };
+                        !self.root_has_host_provenance(name, &scopes, 0, &mut HashSet::new())
                     }
                     // `{}` / `[]`: a text-less childless Value.
                     _ => true,
@@ -92,28 +111,55 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// §3.2. `seen` stops an alias cycle; a name seen twice is not proven.
-    fn root_has_host_provenance(&self, name: &str, seen: &mut HashSet<String>) -> bool {
+    /// The lookup starts at `scopes[from]` and moves outward (ruling R7): the
+    /// nearest scope that binds `name` decides. A parameter binding is not
+    /// host; a declarator is followed through its initializer, resolved from
+    /// the scope that declared it.
+    fn root_has_host_provenance(
+        &self,
+        name: &str,
+        scopes: &[LexicalScope],
+        from: usize,
+        seen: &mut HashSet<String>,
+    ) -> bool {
         if !seen.insert(name.to_string()) {
             return false;
         }
         if self.is_free_global(name) {
             return true;
         }
-        if self.name_is_declared_parameter(name) {
-            return false;
+        for (index, scope) in scopes.iter().enumerate().skip(from) {
+            let is_param = match &scope.params {
+                ScopeParams::Current => self.name_is_declared_parameter(name),
+                ScopeParams::Names(params) => params.iter().any(|param| param == name),
+            };
+            if is_param {
+                return false;
+            }
+            let Some((kind, init)) = self.declarator_in(scope.body, name) else {
+                continue;
+            };
+            let Some(init) = init else {
+                return false;
+            };
+            if kind != "const" && self.program_reassigned_names().contains(name) {
+                return false;
+            }
+            return self.init_has_host_provenance(init, scopes, index, seen);
         }
-        let Some((kind, Some(init))) = self.declarator_of(name) else {
-            return false;
-        };
-        if kind != "const" && self.program_reassigned_names().contains(name) {
-            return false;
-        }
-        self.init_has_host_provenance(init, seen)
+        false
     }
 
     /// An initializer has host provenance when its member/call/`new` chain
-    /// reaches a host root, or calls a host-derived program class.
-    fn init_has_host_provenance(&self, init: LirNodeId, seen: &mut HashSet<String>) -> bool {
+    /// reaches a host root, or calls a host-derived program class. Names in it
+    /// are resolved from `scopes[from]`, the scope that declared the binding.
+    fn init_has_host_provenance(
+        &self,
+        init: LirNodeId,
+        scopes: &[LexicalScope],
+        from: usize,
+        seen: &mut HashSet<String>,
+    ) -> bool {
         let mut current = self.unwrap_transparent(init);
         loop {
             let node = self.node(current);
@@ -129,7 +175,7 @@ impl<'a> FunctionEmitter<'a> {
                     if self.repr_table.is_host_derived_class(name) {
                         return true;
                     }
-                    return self.root_has_host_provenance(name, seen);
+                    return self.root_has_host_provenance(name, scopes, from, seen);
                 }
                 LirNodeKind::Value
                     if node.children.len() == 1
@@ -150,13 +196,58 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// The nearest declarator of `name`: the current function body first,
-    /// then the module body. Does not descend into nested function-like
-    /// nodes (template: `binding_is_placeholder_construct`,
-    /// `intrinsics/host.rs:1821`). Returns `(kind, init)`.
-    fn declarator_of(&self, name: &str) -> Option<(&str, Option<LirNodeId>)> {
-        self.declarator_in(self.body, name)
-            .or_else(|| self.declarator_in(self.program.root, name))
+    /// The lexical scopes visible from the function being emitted, nearest
+    /// first: its own body, each enclosing function's body (outward), then the
+    /// module body (ruling R7). Enclosing functions are the function-like LIR
+    /// ancestors of `self.body`, found by a walk from the module root; their
+    /// bodies and parameters come from `lower::function_body_and_params`, the
+    /// shape `collect_functions` compiles them by. `None` when `self.body` is
+    /// not reachable from the root, so the caller answers "not proven".
+    fn lexical_scopes(&self) -> Option<Vec<LexicalScope>> {
+        let nodes = &self.program.nodes;
+        let root = self.program.root;
+        let mut scopes = vec![LexicalScope {
+            body: self.body,
+            params: ScopeParams::Current,
+        }];
+        if self.body != root {
+            let mut parent: HashMap<LirNodeId, LirNodeId> = HashMap::new();
+            let mut stack = vec![root];
+            let mut found = false;
+            while let Some(id) = stack.pop() {
+                if id == self.body {
+                    found = true;
+                    break;
+                }
+                for &child in &self.node(id).children {
+                    if child != root && !parent.contains_key(&child) {
+                        parent.insert(child, id);
+                        stack.push(child);
+                    }
+                }
+            }
+            if !found {
+                return None;
+            }
+            let mut current = self.body;
+            while let Some(&up) = parent.get(&current) {
+                if let Some((body, params)) = crate::lower::function_body_and_params(nodes, up) {
+                    // The current function's own node is scope 0 already.
+                    if body != self.body {
+                        scopes.push(LexicalScope {
+                            body,
+                            params: ScopeParams::Names(params),
+                        });
+                    }
+                }
+                current = up;
+            }
+        }
+        scopes.push(LexicalScope {
+            body: root,
+            params: ScopeParams::Names(Vec::new()),
+        });
+        Some(scopes)
     }
 
     fn declarator_in(&self, root: LirNodeId, name: &str) -> Option<(&str, Option<LirNodeId>)> {
