@@ -155,7 +155,16 @@ fn runtime_array_refusal_messages_are_stable() {
 fn runtime_array_mutators_are_the_plain_lane_methods_without_a_lowering() {
     assert_eq!(
         RUNTIME_ARRAY_MUTATORS,
-        &["push", "pop", "shift", "unshift", "splice", "reverse", "sort", "copyWithin"]
+        &[
+            "push",
+            "pop",
+            "shift",
+            "unshift",
+            "splice",
+            "reverse",
+            "sort",
+            "copyWithin"
+        ]
     );
 }
 

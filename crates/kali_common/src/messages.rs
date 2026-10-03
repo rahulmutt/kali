@@ -148,14 +148,29 @@ pub fn array_return_refused_message_anonymous(reason: &str) -> String {
 /// Each refuses on one (array-bounds spec §3.2, literal-array-mutators spec §3.1).
 /// `fill` is absent: the plain lane lowers it.
 pub const RUNTIME_ARRAY_MUTATORS: &[&str] = &[
-    "push", "pop", "shift", "unshift", "splice", "reverse", "sort", "copyWithin",
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "reverse",
+    "sort",
+    "copyWithin",
 ];
 
 /// In-place mutators refused on a literal array, which kali folds to its
 /// initial elements (literal-array-mutators spec §3.1). The runtime list plus
 /// `fill`, which the literal lane does not lower either.
 pub const LITERAL_ARRAY_MUTATORS: &[&str] = &[
-    "push", "pop", "shift", "unshift", "splice", "reverse", "sort", "copyWithin", "fill",
+    "push",
+    "pop",
+    "shift",
+    "unshift",
+    "splice",
+    "reverse",
+    "sort",
+    "copyWithin",
+    "fill",
 ];
 
 /// Canonical wording for a negative integer-literal index on a plain runtime array.

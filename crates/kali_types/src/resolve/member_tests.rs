@@ -734,9 +734,8 @@ fn a_parenthesized_optional_call_callee_on_a_literal_refuses() {
         let messages = e5506_messages(source);
         assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
     }
-    let messages = e5506_messages(
-        "function main(){ const a = new Array(3).fill(4); (a.pop)?.(); } main();",
-    );
+    let messages =
+        e5506_messages("function main(){ const a = new Array(3).fill(4); (a.pop)?.(); } main();");
     assert!(any_contains(&messages, MUT), "{messages:?}");
 }
 
