@@ -739,3 +739,32 @@ fn a_parenthesized_optional_call_callee_on_a_literal_refuses() {
     );
     assert!(any_contains(&messages, MUT), "{messages:?}");
 }
+
+#[test]
+fn an_inner_binding_shadowing_an_outer_literal_is_not_a_literal_receiver() {
+    // Final review I2: the NEAREST binding of the name decides, so an inner
+    // class instance, object, or parameter named like an outer literal array
+    // keeps its own method call. (An object literal with a method is not a
+    // shape kali lowers inside a function at all, so it is not listed.)
+    for source in [
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function main(){ const a = new Box(); console.log(a.sort()); } main();",
+        "const a = [1,2,3]; class Box { push(v){ return v + 1; } } function main(){ const a = new Box(); console.log(a.push(4)); } main();",
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function f(a){ return a.sort(); } console.log(f(new Box()));",
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } { const a = new Box(); a.sort(); }",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(
+            !any_contains(&messages, LIT) && !any_contains(&messages, LIT_LEN),
+            "{source}: {messages:?}"
+        );
+    }
+    // The outer literal itself still refuses, and so does an inner literal
+    // that shadows an outer non-literal.
+    for source in [
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function main(){ const a = new Box(); a.sort(); } main(); a.pop();",
+        "const a = 1; function main(){ const a = [1,2,3]; a.pop(); } main();",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+    }
+}

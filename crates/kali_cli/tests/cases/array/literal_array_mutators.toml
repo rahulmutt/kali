@@ -86,6 +86,12 @@ const a=[1,2,3]; console.log(a[1]); console.log(a.length);
 "w_paren_optcall.js" = '''
 const a=[1,2,3]; (a.pop)?.(); console.log(a.length);
 '''
+"ok_shadow_class_sort.js" = '''
+const a=[1,2,3]; class Box { sort(){ return 7; } } function main(){ const a=new Box(); console.log(a.sort()); } main(); console.log(a[0]);
+'''
+"ok_shadow_class_push.js" = '''
+const a=[1,2,3]; class Box { push(v){ return v+1; } } function main(){ const a=new Box(); console.log(a.push(4)); } main(); console.log(a[0]);
+'''
 
 [[case]]
 name = "a_top_level_literal_push_refuses_under_check"
@@ -280,3 +286,23 @@ rationale = """Final review C1: at `9dc751cf8` and at `cd7a99637` kali printed `
 args = ["run", "w_paren_optcall.js"]
 exit = "failure"
 stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "an_inner_class_instance_shadowing_an_outer_literal_sorts_under_check"
+rationale = """Final review I2 control: the inner `a` is a `Box`, and the nearest binding decides. At `cd7a99637` `check` refused it with the literal wording; at `9dc751cf8` it ran."""
+args = ["check", "ok_shadow_class_sort.js"]
+exit = "success"
+
+[[case]]
+name = "an_inner_class_instance_shadowing_an_outer_literal_sorts_under_run"
+rationale = """Final review I2 control: kali at `9dc751cf8` and node v26.10.0 both print `7` then `1`; `cd7a99637` refused it."""
+args = ["run", "ok_shadow_class_sort.js"]
+exit = "success"
+stdout = "7\n1\n"
+
+[[case]]
+name = "an_inner_class_instance_shadowing_an_outer_literal_pushes_under_run"
+rationale = """Final review I2 control: kali at `9dc751cf8` and node v26.10.0 both print `5` then `1`; `cd7a99637` refused it."""
+args = ["run", "ok_shadow_class_push.js"]
+exit = "success"
+stdout = "5\n1\n"

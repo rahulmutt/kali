@@ -422,17 +422,23 @@ impl TypeContext {
 
         self.global_scope.static_arrays.contains_key(name)
     }
-    /// True iff `name` is bound to an array *literal* (`x = ["a", "b"]`), in any
-    /// enclosing scope. Scope-walk twin of `resolve_static_array_binding_name`
-    /// over `array_literal_bindings` (which tracks every kind, incl. `var`). The
-    /// runtime `join` lane rejects such receivers — codegen never linearizes a
-    /// literal array, so a `__join` call over one would silently emit `0`.
+    /// True iff the NEAREST binding of `name` is bound to an array *literal*
+    /// (`x = ["a", "b"]`), tracked in `array_literal_bindings` (every kind,
+    /// incl. `var`). The walk stops at the first scope that binds `name` at
+    /// all, so an inner class instance, object, or parameter that shadows an
+    /// outer literal is not taken for it (literal-array-mutators final review
+    /// I2). The runtime `join` lane rejects such receivers — codegen never
+    /// linearizes a literal array, so a `__join` call over one would silently
+    /// emit `0`.
     pub(crate) fn resolve_array_literal_binding_name(&self, name: &str) -> bool {
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
             if scope.array_literal_bindings.contains_key(name) {
                 return true;
+            }
+            if scope.contains(name) {
+                return false;
             }
             current = scope.parent;
         }
