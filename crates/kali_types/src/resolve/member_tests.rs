@@ -721,3 +721,21 @@ fn a_push_mixed_with_pop_in_a_function_refuses_the_pop_in_the_resolve_pass() {
         "{messages:?}"
     );
 }
+
+#[test]
+fn a_parenthesized_optional_call_callee_on_a_literal_refuses() {
+    // Final review C1: `(a.pop)?.()` wraps the optional-call member in a
+    // `ParenthesizedExpression`, which the optional-chain gate must see through.
+    for source in [
+        "const a = [1,2,3]; (a.pop)?.(); console.log(a.length);",
+        "const a = [1,2,3]; ((a.push))?.(4);",
+        "function main(){ const a = [1,2,3]; (a.sort)?.(); } main();",
+    ] {
+        let messages = e5506_messages(source);
+        assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
+    }
+    let messages = e5506_messages(
+        "function main(){ const a = new Array(3).fill(4); (a.pop)?.(); } main();",
+    );
+    assert!(any_contains(&messages, MUT), "{messages:?}");
+}

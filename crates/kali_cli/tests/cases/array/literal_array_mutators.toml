@@ -83,6 +83,9 @@ function main(){ const a=new Array(3).fill(4); a.fill(5); console.log(a[1]); } m
 "ok_read.js" = '''
 const a=[1,2,3]; console.log(a[1]); console.log(a.length);
 '''
+"w_paren_optcall.js" = '''
+const a=[1,2,3]; (a.pop)?.(); console.log(a.length);
+'''
 
 [[case]]
 name = "a_top_level_literal_push_refuses_under_check"
@@ -263,3 +266,17 @@ rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. T
 args = ["run", "param.js"]
 exit = "failure"
 stderr_contains = ["E5506", "calling `.pop()`", "${UNRESOLVED}"]
+
+[[case]]
+name = "a_parenthesized_optional_call_on_a_literal_refuses_under_check"
+rationale = """Final review C1: at `9dc751cf8` and at `cd7a99637` `check` exited 0 and `run` printed `3` where node v26.10.0 prints `2`. The optional-chain gate now unwraps the parenthesized member."""
+args = ["check", "w_paren_optcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]
+
+[[case]]
+name = "a_parenthesized_optional_call_on_a_literal_refuses_under_run"
+rationale = """Final review C1: at `9dc751cf8` and at `cd7a99637` kali printed `3` at exit 0 where node v26.10.0 prints `2`."""
+args = ["run", "w_paren_optcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "calling `.pop()`", "${LIT}"]

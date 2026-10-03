@@ -2837,8 +2837,10 @@ impl TypeContext {
             OptionalChainInner::NonNull { object, .. } => {
                 // The parser drops the argument list of an optional call
                 // `a.push?.(4)` and leaves `OptionalChain(a.push)` with no
-                // `CallExpression`, so the mutator gate sees it here.
-                if let Expression::MemberExpression(member) = object.as_ref() {
+                // `CallExpression`, so the mutator gate sees it here. The
+                // member is unwrapped like a call's callee, so a parenthesized
+                // `(a.pop)?.()` is gated too.
+                if let Expression::MemberExpression(member) = unwrap_transparent(object) {
                     self.reject_array_mutator_member(member);
                 }
                 self.resolve_expression(object)
