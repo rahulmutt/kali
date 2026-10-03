@@ -1,4 +1,7 @@
 use crate::emit::computed_member::computed_member_tests::{assert_e5506, diagnostics_for};
+use crate::test_support::parse_and_lower_lir_with_env_plans;
+use crate::{lower_lir_to_wasm, CodegenCtx, TargetConfig};
+use kali_error::diagnostic::Diagnostic;
 
 const UNRES: &str =
     "is unavailable in the current phase: the receiver is a value this program built";
@@ -106,4 +109,86 @@ fn an_alias_cycle_terminates() {
     // Not valid JS at run time (TDZ), but the provenance walk must stop.
     let source = "function main(){ const a=b; const b=a; console.log(a.zork()); } main();";
     assert_e5506(&diagnostics_for(source), UNRES, source);
+}
+
+/// `diagnostics_for` with `host_classes` in `ReprTable::host_derived_classes`,
+/// the set `infer_reprs` fills from `kali_types::program_classes` (A-3: the
+/// plain helper leaves it empty).
+fn diagnostics_with_host_classes(source: &str, host_classes: &[&str]) -> Vec<Diagnostic> {
+    let (program, env_plans) = parse_and_lower_lir_with_env_plans(source);
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.env_plans = env_plans;
+    for name in host_classes {
+        ctx.repr_table.set_host_derived_class(name);
+    }
+    lower_lir_to_wasm(&mut ctx, &program).diagnostics
+}
+
+fn assert_not_refused_in(source: &str, diagnostics: &[Diagnostic]) {
+    assert!(
+        !diagnostics.iter().any(|d| d.message.contains(UNRES)),
+        "{source}: expected no unresolved-member-call refusal, got {diagnostics:?}"
+    );
+}
+
+#[test]
+fn this_in_a_method_of_a_host_derived_class_is_host() {
+    // Ruling R8: node prints `1` / `ok`; the baseline printed the same.
+    for source in [
+        "class X extends EventTarget { fire(){ this.addEventListener(\"t\", () => {}); return 1; } } const x = new X(); console.log(x.fire());",
+        "class X extends EventTarget { constructor(){ super(); this.addEventListener(\"t\", () => {}); } } const x = new X(); console.log(\"ok\");",
+        // A nameless class expression is named by its declarator.
+        "const K = class extends EventTarget { fire(){ this.addEventListener(\"t\", () => {}); return 1; } }; const k = new K(); console.log(k.fire());",
+        // R8's stated cost: a missing method on such a `this` stays warn+0.
+        "class X extends EventTarget { fire(){ this.zork(); return 1; } } const x = new X(); console.log(x.fire());",
+    ] {
+        assert_not_refused_in(source, &diagnostics_with_host_classes(source, &["X", "K"]));
+    }
+}
+
+#[test]
+fn this_in_a_method_of_a_program_only_class_still_refuses() {
+    for (source, host) in [
+        // No host-derived class at all.
+        ("class P { fire(){ this.zork(); return 1; } } const p = new P(); console.log(p.fire());", &[][..]),
+        // A host-derived class elsewhere does not make `P`'s `this` host.
+        ("class X extends EventTarget {} class P { fire(){ this.zork(); return 1; } } const p = new P(); console.log(p.fire());", &["X"][..]),
+        // A plain function nested in a module-level function is not a method.
+        ("function X(){ function g(){ return this.zork(); } return g(); } console.log(X());", &["X"][..]),
+    ] {
+        assert_e5506(&diagnostics_with_host_classes(source, host), UNRES, source);
+    }
+}
+
+#[test]
+fn a_host_derived_class_name_rebound_in_scope_is_not_the_class() {
+    // Item 4 of the final fix wave: `const C = mk` shadows `class C`, so
+    // `C()` is the program function's result. node: `TypeError: o.zork is not
+    // a function`; HEAD before the fix printed `0`.
+    let source = "class C extends EventTarget {} function main(){ const mk = () => ({k:1}); const C = mk; const o = C(); console.log(o.zork()); } main();";
+    assert_e5506(
+        &diagnostics_with_host_classes(source, &["C"]),
+        UNRES,
+        source,
+    );
+    // The class itself, unshadowed, stays host (A-1), and so does a binding
+    // to a host-derived class expression (`const K = class … extends …`).
+    for source in [
+        "class C extends EventTarget {} function main(){ const o = new C(); o.addEventListener(\"t\", () => {}); console.log(\"ok\"); } main();",
+        "const K = class extends EventTarget {}; const k = new K(); k.addEventListener(\"t\", () => {}); console.log(\"ok\");",
+    ] {
+        let host = if source.contains("const K") { "K" } else { "C" };
+        assert_not_refused_in(source, &diagnostics_with_host_classes(source, &[host]));
+    }
+    // A parameter named like the class is not the class.
+    let source = "class C extends EventTarget {} function main(C){ const o = C(); console.log(o.zork()); } main(() => ({k:1}));";
+    assert_e5506(
+        &diagnostics_with_host_classes(source, &["C"]),
+        UNRES,
+        source,
+    );
 }

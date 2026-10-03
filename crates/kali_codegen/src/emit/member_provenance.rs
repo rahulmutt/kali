@@ -73,8 +73,12 @@ impl<'a> FunctionEmitter<'a> {
                         };
                         !self.root_has_host_provenance(name, &scopes, 0, &mut HashSet::new())
                     }
-                    // `{}` / `[]`: a text-less childless Value.
-                    _ => true,
+                    // `this`, `{}` or `[]`: a text-less childless Value.
+                    // `this` in a method or constructor of a host-derived
+                    // class is that class's instance (ruling R8). LIR spells
+                    // `this` like `{}` / `[]`, so an empty literal start in
+                    // such a method keeps warn+0 too.
+                    _ => !self.emitting_method_of_host_derived_class(),
                 }
             }
             // An array or object literal with two or more children.
@@ -172,7 +176,13 @@ impl<'a> FunctionEmitter<'a> {
                     let Some(name) = node.text.as_deref().filter(|name| !name.is_empty()) else {
                         return false;
                     };
-                    if self.repr_table.is_host_derived_class(name) {
+                    // A host-derived class only when `name` resolves to a
+                    // class: no binding in scope (the class declaration), or a
+                    // declarator bound to a class expression. `const C = mk`
+                    // shadows a host-derived `class C`.
+                    if self.repr_table.is_host_derived_class(name)
+                        && self.name_resolves_to_a_class(name, scopes, from)
+                    {
                         return true;
                     }
                     return self.root_has_host_provenance(name, scopes, from, seen);
@@ -196,6 +206,79 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// The ancestors of `self.body`, nearest first, ending at the module
+    /// root (empty when `self.body` is the root). `None` when `self.body` is
+    /// not reachable from the root.
+    fn body_ancestors(&self) -> Option<Vec<LirNodeId>> {
+        let root = self.program.root;
+        if self.body == root {
+            return Some(Vec::new());
+        }
+        let mut parent: HashMap<LirNodeId, LirNodeId> = HashMap::new();
+        let mut stack = vec![root];
+        let mut found = false;
+        while let Some(id) = stack.pop() {
+            if id == self.body {
+                found = true;
+                break;
+            }
+            for &child in &self.node(id).children {
+                if child != root && !parent.contains_key(&child) {
+                    parent.insert(child, id);
+                    stack.push(child);
+                }
+            }
+        }
+        if !found {
+            return None;
+        }
+        let mut ancestors = Vec::new();
+        let mut current = self.body;
+        while let Some(&up) = parent.get(&current) {
+            ancestors.push(up);
+            current = up;
+        }
+        Some(ancestors)
+    }
+
+    /// Ruling R8: the function being emitted is a method (or the
+    /// constructor) of a class in `ReprTable::host_derived_classes`. A class
+    /// lowers to a function-like node with no `function_flavor` whose body
+    /// block holds its methods, each a function-like node with a flavor. A
+    /// nameless `const K = class …` is named by its declarator, as
+    /// `program_classes` records it.
+    fn emitting_method_of_host_derived_class(&self) -> bool {
+        let nodes = &self.program.nodes;
+        let Some(ancestors) = self.body_ancestors() else {
+            return false;
+        };
+        let [method, class_body, class, ..] = ancestors[..] else {
+            return false;
+        };
+        let declarator_name = ancestors.get(3).and_then(|&up| {
+            let declarator = self.node(up);
+            (declarator.children.get(1) == Some(&class))
+                .then_some(declarator.text.as_deref())
+                .flatten()
+        });
+        let is_method = self.node(method).function_flavor.is_some()
+            && crate::lower::function_body_and_params(nodes, method)
+                .is_some_and(|(body, _)| body == self.body);
+        let class_node = self.node(class);
+        let is_class = class_node.function_flavor.is_none()
+            && self.node(class_body).kind == LirNodeKind::Block
+            && crate::lower::function_body_and_params(nodes, class)
+                .is_some_and(|(body, _)| body == class_body);
+        let class_name = class_node
+            .text
+            .as_deref()
+            .filter(|name| !name.is_empty())
+            .or(declarator_name);
+        is_method
+            && is_class
+            && class_name.is_some_and(|name| self.repr_table.is_host_derived_class(name))
+    }
+
     /// The lexical scopes visible from the function being emitted, nearest
     /// first: its own body, each enclosing function's body (outward), then the
     /// module body (ruling R7). Enclosing functions are the function-like LIR
@@ -205,49 +288,50 @@ impl<'a> FunctionEmitter<'a> {
     /// not reachable from the root, so the caller answers "not proven".
     fn lexical_scopes(&self) -> Option<Vec<LexicalScope>> {
         let nodes = &self.program.nodes;
-        let root = self.program.root;
         let mut scopes = vec![LexicalScope {
             body: self.body,
             params: ScopeParams::Current,
         }];
-        if self.body != root {
-            let mut parent: HashMap<LirNodeId, LirNodeId> = HashMap::new();
-            let mut stack = vec![root];
-            let mut found = false;
-            while let Some(id) = stack.pop() {
-                if id == self.body {
-                    found = true;
-                    break;
+        for up in self.body_ancestors()? {
+            if let Some((body, params)) = crate::lower::function_body_and_params(nodes, up) {
+                // The current function's own node is scope 0 already.
+                if body != self.body {
+                    scopes.push(LexicalScope {
+                        body,
+                        params: ScopeParams::Names(params),
+                    });
                 }
-                for &child in &self.node(id).children {
-                    if child != root && !parent.contains_key(&child) {
-                        parent.insert(child, id);
-                        stack.push(child);
-                    }
-                }
-            }
-            if !found {
-                return None;
-            }
-            let mut current = self.body;
-            while let Some(&up) = parent.get(&current) {
-                if let Some((body, params)) = crate::lower::function_body_and_params(nodes, up) {
-                    // The current function's own node is scope 0 already.
-                    if body != self.body {
-                        scopes.push(LexicalScope {
-                            body,
-                            params: ScopeParams::Names(params),
-                        });
-                    }
-                }
-                current = up;
             }
         }
         scopes.push(LexicalScope {
-            body: root,
+            body: self.program.root,
             params: ScopeParams::Names(Vec::new()),
         });
         Some(scopes)
+    }
+
+    /// Whether the nearest binding of `name` from `scopes[from]` outward is a
+    /// class: no parameter or `const` / `let` / `var` declarator binds it (so
+    /// it is the class declaration), or the declarator's initializer is a
+    /// class expression (a function-like node with no `function_flavor`).
+    fn name_resolves_to_a_class(&self, name: &str, scopes: &[LexicalScope], from: usize) -> bool {
+        for scope in scopes.iter().skip(from) {
+            let is_param = match &scope.params {
+                ScopeParams::Current => self.name_is_declared_parameter(name),
+                ScopeParams::Names(params) => params.iter().any(|param| param == name),
+            };
+            if is_param {
+                return false;
+            }
+            if let Some((_, init)) = self.declarator_in(scope.body, name) {
+                return init.is_some_and(|init| {
+                    let init = self.unwrap_transparent(init);
+                    self.node(init).function_flavor.is_none()
+                        && crate::lower::is_function_like(&self.program.nodes, init)
+                });
+            }
+        }
+        true
     }
 
     fn declarator_in(&self, root: LirNodeId, name: &str) -> Option<(&str, Option<LirNodeId>)> {
