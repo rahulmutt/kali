@@ -54,3 +54,15 @@ fn assigned_property_names_cover_every_receiver_and_this() {
     let names: Vec<_> = names.into_iter().collect();
     assert_eq!(names, ["cb", "f", "h"]);
 }
+
+#[test]
+fn a_duplicated_class_name_is_ambiguous_not_host() {
+    let classes = ProgramClasses::collect(&parse_statements(
+        "function f(){ class A extends EventTarget {} } class A {} class B extends A {}",
+    ));
+    assert!(classes.is_program_class("A"));
+    assert_eq!(classes.member_names("A"), None);
+    assert_eq!(classes.member_names("B"), None);
+    assert!(!classes.host_derived().contains("A"));
+    assert!(!classes.host_derived().contains("B"));
+}

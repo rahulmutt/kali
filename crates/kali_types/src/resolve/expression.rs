@@ -2841,7 +2841,7 @@ impl TypeContext {
                 // member is unwrapped like a call's callee, so a parenthesized
                 // `(a.pop)?.()` is gated too.
                 if let Expression::MemberExpression(member) = unwrap_transparent(object) {
-                    self.reject_array_mutator_member(member);
+                    self.reject_member_call_gates(member);
                 }
                 self.resolve_expression(object)
             }

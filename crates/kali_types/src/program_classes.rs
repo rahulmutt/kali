@@ -14,35 +14,51 @@ struct ClassFacts {
 
 pub(crate) struct ProgramClasses {
     classes: BTreeMap<String, ClassFacts>,
+    /// Names declared more than once (different scopes). Facts are keyed by
+    /// bare name, so these are unknowable: no member set, and not provably host.
+    ambiguous: BTreeSet<String>,
+}
+
+enum Chain<'a> {
+    Known(Vec<&'a ClassFacts>),
+    /// Leaves the program (a non-program base, or a cycle).
+    Host,
+    /// Passes through a duplicated class name.
+    Ambiguous,
 }
 
 impl ProgramClasses {
     pub(crate) fn collect(statements: &[Statement]) -> ProgramClasses {
         let mut classes = BTreeMap::new();
+        let mut ambiguous = BTreeSet::new();
         if let Ok(tree) = serde_json::to_value(statements) {
-            collect_from(&tree, None, &mut classes);
+            collect_from(&tree, None, &mut classes, &mut ambiguous);
         }
-        ProgramClasses { classes }
+        ProgramClasses { classes, ambiguous }
     }
 
     pub(crate) fn is_program_class(&self, name: &str) -> bool {
         self.classes.contains_key(name)
     }
 
-    /// The chain from `name` upward, or `None` when it leaves the program
-    /// (a base that is no program class, or a cycle).
-    fn chain(&self, name: &str) -> Option<Vec<&ClassFacts>> {
+    /// The chain from `name` upward.
+    fn chain(&self, name: &str) -> Chain<'_> {
         let mut chain = Vec::new();
         let mut seen = BTreeSet::new();
         let mut current = name;
         loop {
-            if !seen.insert(current) {
-                return None;
+            if self.ambiguous.contains(current) {
+                return Chain::Ambiguous;
             }
-            let facts = self.classes.get(current)?;
+            if !seen.insert(current) {
+                return Chain::Host;
+            }
+            let Some(facts) = self.classes.get(current) else {
+                return Chain::Host;
+            };
             chain.push(facts);
             match facts.super_class.as_deref() {
-                None => return Some(chain),
+                None => return Chain::Known(chain),
                 Some(base) => current = base,
             }
         }
@@ -51,13 +67,15 @@ impl ProgramClasses {
     pub(crate) fn host_derived(&self) -> BTreeSet<String> {
         self.classes
             .keys()
-            .filter(|name| self.chain(name).is_none())
+            .filter(|name| matches!(self.chain(name), Chain::Host))
             .cloned()
             .collect()
     }
 
     pub(crate) fn member_names(&self, name: &str) -> Option<BTreeSet<String>> {
-        let chain = self.chain(name)?;
+        let Chain::Known(chain) = self.chain(name) else {
+            return None;
+        };
         Some(
             chain
                 .iter()
@@ -103,18 +121,28 @@ fn class_facts(class: &Value) -> ClassFacts {
 
 /// `binding` is the declarator name when `value` is a declarator's init, so a
 /// nameless `const K = class …` is recorded as `K`.
-fn collect_from(value: &Value, binding: Option<&str>, out: &mut BTreeMap<String, ClassFacts>) {
+fn collect_from(
+    value: &Value,
+    binding: Option<&str>,
+    out: &mut BTreeMap<String, ClassFacts>,
+    ambiguous: &mut BTreeSet<String>,
+) {
+    let mut insert = |name: &str, facts: ClassFacts| {
+        if out.insert(name.to_string(), facts).is_some() {
+            ambiguous.insert(name.to_string());
+        }
+    };
     match value {
         Value::Object(map) => {
             if let Some(class) = map.get("ClassDeclaration") {
                 if let Some(name) = class.get("name").and_then(Value::as_str) {
-                    out.insert(name.to_string(), class_facts(class));
+                    insert(name, class_facts(class));
                 }
             }
             if let Some(class) = map.get("ClassExpression") {
                 let name = class.get("id").and_then(Value::as_str).or(binding);
                 if let Some(name) = name {
-                    out.insert(name.to_string(), class_facts(class));
+                    insert(name, class_facts(class));
                 }
             }
             // A declarator: `{ "id": "K", "init": … }`.
@@ -124,12 +152,12 @@ fn collect_from(value: &Value, binding: Option<&str>, out: &mut BTreeMap<String,
             };
             for (key, child) in map {
                 let child_binding = if key == "init" { declarator_name } else { None };
-                collect_from(child, child_binding, out);
+                collect_from(child, child_binding, out, ambiguous);
             }
         }
         Value::Array(items) => {
             for item in items {
-                collect_from(item, binding, out);
+                collect_from(item, binding, out, ambiguous);
             }
         }
         _ => {}

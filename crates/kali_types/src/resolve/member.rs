@@ -1,4 +1,5 @@
 //! Member-expression resolution.
+use crate::scope::MemberReceiver;
 use crate::*;
 use kali_common::js_number::format_js_number;
 
@@ -451,7 +452,17 @@ impl TypeContext {
         if let Expression::MemberExpression(member) =
             super::expression::unwrap_transparent(&expr.callee)
         {
-            self.reject_array_mutator_member(member);
+            self.reject_member_call_gates(member);
+        }
+    }
+
+    /// The array-mutator gate, then (only if it stayed quiet) the
+    /// unresolved-member-call gate: one diagnostic per member.
+    pub(crate) fn reject_member_call_gates(&mut self, member: &MemberExpression) {
+        let before = self.diagnostics.len();
+        self.reject_array_mutator_member(member);
+        if self.diagnostics.len() == before {
+            self.reject_unresolved_member_call(member);
         }
     }
 
@@ -474,6 +485,65 @@ impl TypeContext {
         };
         self.diagnostics
             .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+    }
+
+    /// The `check` mirror of the unresolved-member-call gate (spec §3.3):
+    /// a method name missing from a `const` object literal's keys or a
+    /// program class chain's members. Silent wherever the member set is
+    /// unknown; `kali run` refuses those (spec §1.1).
+    pub(crate) fn reject_unresolved_member_call(&mut self, member: &MemberExpression) {
+        let Some(method) = member.property.as_deref() else {
+            return;
+        };
+        if kali_common::OBJECT_PROTOTYPE_NAMES.contains(&method)
+            || self.assigned_property_names.contains(method)
+        {
+            return;
+        }
+        let Some(members) = self.known_member_set(&member.object) else {
+            return;
+        };
+        if members.contains(method) {
+            return;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            kali_common::unresolved_member_call_unavailable_message(method),
+        ));
+    }
+
+    fn known_member_set(&self, object: &Expression) -> Option<std::collections::BTreeSet<String>> {
+        let Expression::Identifier(name) = super::expression::unwrap_transparent(object) else {
+            return None;
+        };
+        match self.nearest_const_member_receiver(name)? {
+            MemberReceiver::ObjectLiteral(keys) => Some(keys.clone()),
+            MemberReceiver::ClassInstance(class_name) => {
+                let classes = self.program_classes.as_ref()?;
+                if !classes.is_program_class(class_name) {
+                    return None;
+                }
+                classes.member_names(class_name)
+            }
+        }
+    }
+
+    /// The nearest binding of `name`, if it is a recorded member receiver.
+    /// Stops at the first scope that binds the name (literal-array-mutators
+    /// A-10's rule).
+    fn nearest_const_member_receiver(&self, name: &str) -> Option<&MemberReceiver> {
+        let mut current = self.current_scope_id();
+        while let Some(scope_id) = current {
+            let scope = self.scopes.get(&scope_id).expect("scope exists");
+            if let Some(receiver) = scope.const_member_receivers.get(name) {
+                return Some(receiver);
+            }
+            if scope.contains(name) {
+                return None;
+            }
+            current = scope.parent;
+        }
+        self.global_scope.const_member_receivers.get(name)
     }
 
     /// `a.length = v`, with any assignment operator, on a plain runtime array

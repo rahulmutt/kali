@@ -18,6 +18,14 @@ pub enum ScopeType {
 
 /// A lexical scope.
 #[derive(Debug, Clone, PartialEq)]
+pub(crate) enum MemberReceiver {
+    /// An object literal; the set is its keys.
+    ObjectLiteral(std::collections::BTreeSet<String>),
+    /// `new C(…)`; the class name, resolved through `ProgramClasses`.
+    ClassInstance(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Scope {
     pub scope_type: ScopeType,
     pub parent: Option<NodeId>,
@@ -48,6 +56,9 @@ pub struct Scope {
     /// `array_bindings`), so the runtime `join` lane must REJECT a
     /// literal-array receiver (it would silently emit `0`). Fail-closed.
     pub array_literal_bindings: IndexMap<String, bool>,
+    /// `const` bindings whose member set the `check` mirror of the
+    /// unresolved-member-call gate can know (spec §3.3).
+    pub(crate) const_member_receivers: IndexMap<String, MemberReceiver>,
     /// Names structurally proven to be a codegen RUNTIME linear-memory array
     /// binding — the types-side mirror of `kali_codegen`'s `array_bindings`
     /// set (emitter.rs). Populated at exactly the sites codegen registers:
@@ -109,6 +120,7 @@ impl Scope {
             static_identity_values: IndexMap::new(),
             static_arrays: IndexMap::new(),
             array_literal_bindings: IndexMap::new(),
+            const_member_receivers: IndexMap::new(),
             runtime_array_bindings: IndexMap::new(),
             growable_array_bindings: IndexMap::new(),
             static_objects: IndexMap::new(),
@@ -140,6 +152,7 @@ impl Scope {
         self.static_identity_values.shift_remove(name);
         self.static_arrays.shift_remove(name);
         self.array_literal_bindings.shift_remove(name);
+        self.const_member_receivers.shift_remove(name);
         self.static_objects.shift_remove(name);
         self.static_reference_values.shift_remove(name);
         self.static_object_keys.shift_remove(name);

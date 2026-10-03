@@ -1,4 +1,5 @@
 //! Statement and expression resolution.
+use crate::scope::MemberReceiver;
 use crate::*;
 
 mod call;
@@ -348,6 +349,8 @@ impl TypeContext {
 
         self.push_scope(ScopeType::Module);
         self.repr_table = crate::repr_infer::infer_reprs(statements);
+        self.program_classes = Some(crate::program_classes::ProgramClasses::collect(statements));
+        self.assigned_property_names = crate::program_classes::assigned_property_names(statements);
         self.resolve_statement_list(statements);
         self.emit_pending_generator_function_lowering_diagnostic();
         self.scope_stack.clear();
@@ -932,6 +935,50 @@ impl TypeContext {
                             self.global_scope
                                 .for_in_key_value_bindings
                                 .insert(declarator.id.clone(), true);
+                        }
+                    }
+                }
+                if declaration.kind == "const" {
+                    let receiver = match expression::unwrap_transparent(init) {
+                        Expression::ObjectExpression(object) => {
+                            Some(MemberReceiver::ObjectLiteral(
+                                object
+                                    .properties
+                                    .iter()
+                                    .map(|p| match &p.key {
+                                        PropertyName::Identifier(name)
+                                        | PropertyName::String(name) => name.clone(),
+                                        PropertyName::Number(n) => kali_common::js_number::format_js_number(*n),
+                                        PropertyName::BigInt(digits) => digits.clone(),
+                                    })
+                                    .collect(),
+                            ))
+                        }
+                        // `new C(…)` parses with the call `C(…)` as the callee
+                        // (the bare `new C` keeps the identifier).
+                        Expression::NewExpression(new_expr) => match &new_expr.callee {
+                            Expression::Identifier(class_name) => {
+                                Some(MemberReceiver::ClassInstance(class_name.clone()))
+                            }
+                            Expression::CallExpression(call) => match &call.callee {
+                                Expression::Identifier(class_name) => {
+                                    Some(MemberReceiver::ClassInstance(class_name.clone()))
+                                }
+                                _ => None,
+                            },
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    if let Some(receiver) = receiver {
+                        if let Some(scope) = self.scopes.get_mut(&target_scope) {
+                            scope
+                                .const_member_receivers
+                                .insert(declarator.id.clone(), receiver);
+                        } else if self.global_scope.contains(&declarator.id) {
+                            self.global_scope
+                                .const_member_receivers
+                                .insert(declarator.id.clone(), receiver);
                         }
                     }
                 }
