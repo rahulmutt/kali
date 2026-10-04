@@ -74,6 +74,10 @@ impl Visitor for Uses<'_, '_> {
                     class,
                     "a value inside an arrow function or function expression",
                 )),
+                Val::Inst(class) if self.captured(expr, cx) => self.refuse(class_instance_position_message(
+                    class,
+                    "a value captured from an enclosing function",
+                )),
                 Val::Inst(class) => self.position(class, pos, expr, cx),
                 _ => {}
             }
@@ -222,6 +226,14 @@ impl Uses<'_, '_> {
                 "the `arguments` object",
             ));
         }
+    }
+
+    /// R-16b: an identifier bound in a frame other than the innermost one.
+    fn captured(&self, expr: &Expression, cx: &Cx) -> bool {
+        let Expression::Identifier(name) = expr else {
+            return false;
+        };
+        matches!(self.env.scopes.resolve(name, cx), Resolved::Binding(id) if id.frame != cx.key())
     }
 
     /// Step 2: an instance of `class` at `pos`.

@@ -157,18 +157,16 @@ fn a_class_named_as_a_jsx_element_refuses() {
 #[test]
 fn an_instance_returned_from_an_untracked_frame_refuses() {
     const CLASS: &str = "class C { constructor(){ this.n=0; } m(){} } ";
-    let anon = kali_common::class_instance_mixed_message("C", "the return value of `mk`");
+    let mk_return = kali_common::class_instance_mixed_message("C", "the return value of `mk`");
     for program in [
-        "const c=new C(); function mk(){ return c; } const xs=[0].map(mk); xs[0].m(); xs[0].zz = 5; console.log(xs[0]);",
-        "const c=new C(); function mk(){ return c; } const o={ f: mk }; o.f().m(); o.f().zz = 1;",
-        "const c=new C(); function mk(){ return c; } for (const x of [0].map(mk)) { x.m(); }",
+        "function mk(){ return new C(); } const xs=[0].map(mk); xs[0].m(); xs[0].zz = 5; console.log(xs[0]);",
+        "function mk(){ return new C(); } const o={ f: mk }; o.f().m(); o.f().zz = 1;",
+        "function mk(){ return new C(); } for (const x of [0].map(mk)) { x.m(); }",
+        "function mk(){ return new C(); } function ap(g){ return g(); } const y=ap(mk); y.n; y.zz = 1;",
     ] {
         let (_, d) = run(&format!("{CLASS}{program}"));
-        assert!(d.contains(&anon), "{program}: {d:?}");
+        assert!(d.contains(&mk_return), "{program}: {d:?}");
     }
-    let program = "const c=new C(); function mk(){ return c; } function ap(g){ return g(); } const y=ap(mk); y.n; y.zz = 1;";
-    let (_, d) = run(&format!("{CLASS}{program}"));
-    assert!(d.contains(&kali_common::class_instance_mixed_message("C", "the return value of `mk`")), "{d:?}");
 }
 
 #[test]
@@ -212,6 +210,23 @@ fn an_instance_inside_an_arrow_or_function_expression_refuses() {
         let (_, d) = run(&format!("{CLASS}{program}"));
         assert!(d.iter().any(|m| m.contains("a value inside an arrow function or function expression")), "{program}: {d:?}");
     }
-    let (_, d) = run(&format!("{CLASS}function main(){{ const s=new C(); function g(){{ s.add(1); }} g(); }} main();"));
+}
+
+// Ruling R-16b: an instance captured from an enclosing function refuses.
+#[test]
+fn an_instance_captured_from_an_enclosing_function_refuses() {
+    const CLASS: &str = "class C { constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } ";
+    let want = kali_common::class_instance_position_message("C", "a value captured from an enclosing function");
+    for program in [
+        "function main(){ const s=new C(); function g(){ s.add(1); } g(); } main();",
+        "function main(){ const s=new C(); function g(){ return s; } const t=g(); t.add(4); } main();",
+        "function main(){ const s=new C(); const f=()=>{ function g(){ s.add(4); } g(); }; f(); } main();",
+        "const s=new C(); function g(){ s.add(1); } g();",
+    ] {
+        let (_, d) = run(&format!("{CLASS}{program}"));
+        assert!(d.contains(&want), "{program}: {d:?}");
+    }
+    // A parameter used in its own function, and a local in its own frame, are not captures.
+    let (_, d) = run(&format!("{CLASS}function f(p){{ p.add(1); return p.n; }} function main(){{ const s=new C(); f(s); s.add(2); }} main();"));
     assert!(d.is_empty(), "{d:?}");
 }
