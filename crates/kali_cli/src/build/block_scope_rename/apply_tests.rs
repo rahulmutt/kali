@@ -94,8 +94,9 @@ fn an_empty_extends_name_is_never_renamed() {
 
 /// Spec §5.3: a block-shadowed binding `zq` is referenced from every parsable
 /// expression and statement position; each must be rewritten, the outer one not.
-/// The parser cannot produce JSX, `try`/`catch`, rest parameters or object spread today, so those
-/// positions are covered by the walk's exhaustive match alone.
+/// The parser cannot produce try/catch/finally (E5506), rest params (E5506), object spread
+/// (E5506), `export let` (parses as garbage) or JSX (not parsed at all), so those positions are
+/// covered by the walk's exhaustive match alone.
 #[test]
 fn every_reference_position_is_rewritten_and_the_outer_binding_is_not() {
     let body = r#"
@@ -128,6 +129,11 @@ fn every_reference_position_is_rewritten_and_the_outer_binding_is_not() {
             const r24 = zq satisfies number;
             const r26 = await zq;
             const r27 = zq ?? zq;
+            const r28 = [...zq];
+            const r29 = import(zq);
+            class D extends zq {}
+            if (zq) { throw zq; }
+            function* genZq() { yield zq; }
             if (zq) { zq; } else { zq; }
             while (zq) { break; }
             do { zq; } while (zq);
