@@ -127,3 +127,9 @@ fn a_shadowed_class_name_is_not_an_instance() {
     );
     assert_eq!(p.binding(&b("f", "x")), Val::Unknown);
 }
+
+#[test]
+fn an_export_default_function_escapes() {
+    let (p, _) = solve("class C{constructor(){this.n=0;} m(){}} export default function f(x){ x.m(); } f(new C());");
+    assert_eq!(p.binding(&b("f", "x")), Val::Unknown);
+}

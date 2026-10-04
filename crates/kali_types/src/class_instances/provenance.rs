@@ -2,12 +2,17 @@
 //! which rewritten class, by a whole-program fixpoint over bindings,
 //! parameters and returns. Anything not proven is `Unknown`; a wrong
 //! `Inst(C)` would be a silent miscompile downstream.
+//!
+//! `Bottom` can survive the fixpoint for code nothing reaches (e.g. the
+//! parameters of a function never called); consumers must treat `Bottom`
+//! like `Unknown` when deciding refusals.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use kali_ast::{
-    AssignmentOperator, ClassBody, ClassDeclaration, ClassExpression, Expression,
-    ExpressionOrSpread, FunctionDeclaration, NewExpression, Statement, VariableDeclarator,
+    AssignmentOperator, ClassBody, ClassDeclaration, ClassExpression, ExportDefaultDeclaration,
+    Expression, ExpressionOrSpread, FunctionDeclaration, NewExpression, Statement,
+    VariableDeclarator,
 };
 
 use super::classes::{new_target, ClassPlans};
@@ -597,6 +602,16 @@ impl Visitor for Facts<'_, '_> {
     fn stmts(&mut self, list: &mut Vec<Statement>, cx: &Cx) {
         if list.iter().any(bare_return) {
             self.add_return(cx.key().to_string(), Src::NotInst);
+        }
+        // `export default function f` uses `f` as a value (rule 4).
+        for statement in list.iter() {
+            if let Statement::ExportDefault(ExportDefaultDeclaration::FunctionDeclaration(f)) =
+                statement
+            {
+                if let Some(info) = self.env.function(&f.name, cx) {
+                    self.escaped.insert(info.key.clone());
+                }
+            }
         }
     }
     fn enter_frame(&mut self, cx: &Cx, params: &[String]) {
