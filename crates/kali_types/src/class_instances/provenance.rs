@@ -75,29 +75,47 @@ impl Env<'_> {
     }
 
     /// The function binding `name` resolves to at `cx`, if it is one.
-    fn function(&self, name: &str, cx: &Cx) -> Option<&FnInfo> {
+    pub(crate) fn function(&self, name: &str, cx: &Cx) -> Option<&FnInfo> {
         match self.scopes.resolve(name, cx) {
             Resolved::Binding(id) => self.functions.get(&id),
             Resolved::Ambiguous | Resolved::Free => None,
         }
     }
 
+    /// Whether `name` at `cx` is the binding a rewritten class's declaration introduces.
+    pub(crate) fn is_class_declaration(&self, name: &str, cx: &Cx) -> bool {
+        let Some(Some(declared)) = self.classes.get(name) else {
+            return false;
+        };
+        matches!(self.scopes.resolve(name, cx), Resolved::Binding(id) if &id == declared)
+    }
+
+    /// Whether `name` at `cx` may be a rewritten class itself: only a binding
+    /// proven to be some other declaration is not (R-12 relies on this).
+    pub(crate) fn may_be_class(&self, name: &str, cx: &Cx) -> bool {
+        match self.classes.get(name) {
+            None => false,
+            Some(None) => true,
+            Some(Some(declared)) => !matches!(
+                self.scopes.resolve(name, cx),
+                Resolved::Binding(id) if &id != declared
+            ),
+        }
+    }
+
     /// `Some(C)` for a canonical `new C(..)` whose `C` is the rewritten
     /// class's own declaration at `cx`.
-    fn constructed_class<'n>(&self, new: &'n NewExpression, cx: &Cx) -> Option<&'n str> {
+    pub(crate) fn constructed_class<'n>(&self, new: &'n NewExpression, cx: &Cx) -> Option<&'n str> {
         let Expression::Identifier(class) = &new.callee else {
             return None;
         };
-        let declared = self.classes.get(class)?.as_ref()?;
-        match self.scopes.resolve(class, cx) {
-            Resolved::Binding(id) if &id == declared => Some(class),
-            _ => None,
-        }
+        self.is_class_declaration(class, cx)
+            .then_some(class.as_str())
     }
 }
 
 /// Strips the wrappers that do not change a value.
-fn strip(mut e: &Expression) -> &Expression {
+pub(crate) fn strip(mut e: &Expression) -> &Expression {
     loop {
         e = match e {
             Expression::ParenthesizedExpression(p) => &p.expression,
@@ -109,7 +127,7 @@ fn strip(mut e: &Expression) -> &Expression {
     }
 }
 
-fn is_wrapper(e: &Expression) -> bool {
+pub(crate) fn is_wrapper(e: &Expression) -> bool {
     !std::ptr::eq(strip(e), e)
 }
 

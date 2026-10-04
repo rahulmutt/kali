@@ -10,6 +10,8 @@ pub(crate) mod provenance;
 #[allow(dead_code)]
 pub(crate) mod scopes;
 #[allow(dead_code)]
+pub(crate) mod uses;
+#[allow(dead_code)]
 pub(crate) mod walk;
 
 #[cfg(test)]
@@ -24,3 +26,6 @@ mod walk_tests;
 #[cfg(test)]
 #[path = "scopes_tests.rs"]
 mod scopes_tests;
+#[cfg(test)]
+#[path = "uses_tests.rs"]
+mod uses_tests;
