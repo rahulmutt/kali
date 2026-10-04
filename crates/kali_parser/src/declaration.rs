@@ -455,10 +455,11 @@ impl Parser {
         // A field: `name`, `name?`, `name!`, `name: Type`, each with an
         // optional `= initializer`.
         let _ = self.stream.accept(TokenType::Question) || self.stream.accept(TokenType::Not);
+        let mut initializer_follows = false;
         if self.stream.current_kind() == Some(&TokenType::Colon) {
-            self.skip_field_type_annotation();
+            initializer_follows = self.skip_field_type_annotation();
         }
-        let value = if self.stream.accept(TokenType::Eq) {
+        let value = if initializer_follows || self.stream.accept(TokenType::Eq) {
             Some(self.parse_assignment_expression())
         } else {
             None
@@ -476,7 +477,12 @@ impl Parser {
     /// next member's key. Tokens carry no line breaks, so an annotation
     /// without `;` ends where two words meet that no type spells together
     /// (`string m`).
-    fn skip_field_type_annotation(&mut self) {
+    ///
+    /// The lexer fuses closing angles with what follows (`>>`, `>>>`, `>=`,
+    /// `>>=`, `>>>=`), so each closes as many `<` as it has `>` (R-22). When
+    /// such a token closes the last one and ends in `=`, that `=` starts the
+    /// initializer: it is consumed here and `true` is returned.
+    fn skip_field_type_annotation(&mut self) -> bool {
         const TYPE_WORDS: &[&str] = &[
             "keyof", "typeof", "readonly", "infer", "unique", "asserts", "is", "extends", "new",
         ];
@@ -495,6 +501,16 @@ impl Parser {
                 | TokenType::RightBracket
                 | TokenType::RightBrace
                 | TokenType::Gt => depth = depth.saturating_sub(1),
+                // `>>` and `>>>` share `GtGt`; the lexeme tells them apart.
+                TokenType::GtGt => depth = depth.saturating_sub(token.value.len()),
+                TokenType::GtEq | TokenType::GtGtEq | TokenType::GtGtGtEq if depth > 0 => {
+                    let closes = token.value.len() - 1;
+                    depth = depth.saturating_sub(closes);
+                    if depth == 0 {
+                        let _ = self.stream.advance();
+                        return true;
+                    }
+                }
                 TokenType::Identifier if depth == 0 => {
                     if let Some(previous) = &previous_word {
                         if !TYPE_WORDS.contains(&previous.as_str()) {
@@ -507,6 +523,7 @@ impl Parser {
             previous_word = (token.kind == TokenType::Identifier).then(|| token.value.clone());
             let _ = self.stream.advance();
         }
+        false
     }
 
     /// Skips one member the AST does not model: through a `;` at depth 0,

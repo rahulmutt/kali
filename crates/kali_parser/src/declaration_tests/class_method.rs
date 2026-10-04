@@ -503,3 +503,56 @@ fn a_block_arrow_is_marked_and_a_function_expression_is_not() {
         .collect();
     assert_eq!(flags, [true, false]);
 }
+
+fn parse_program(source: &str) -> Vec<Statement> {
+    let tokens = lex(source);
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    output.statements
+}
+
+#[test]
+fn a_nested_generic_field_type_closed_by_shift_keeps_the_rest_of_the_program() {
+    // R-22: `>>` closes two `<`; counting it as one swallowed the program.
+    let statements = parse_program(
+        "class C { a: Array<Array<number>>; static k(){ return 3; } } console.log(C.k()); console.log(\"after\");",
+    );
+    assert_eq!(statements.len(), 3);
+    let Statement::ClassDeclaration(class) = &statements[0] else {
+        panic!("expected a class, got {:?}", statements[0]);
+    };
+    assert_eq!(class.body.fields[0].name, "a");
+    assert_eq!(class.body.methods[0].name, "k");
+}
+
+#[test]
+fn a_triple_nested_generic_field_type_closed_by_unsigned_shift_is_skipped() {
+    let body = parse_class("class C { a: Array<Array<Array<number>>>; n = 2; f(){ return 1; } }");
+    let names: Vec<_> = body.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, ["a", "n"]);
+    assert_eq!(body.methods[0].name, "f");
+}
+
+#[test]
+fn a_generic_field_type_fused_with_its_initializer_keeps_the_initializer() {
+    // `>=`, `>>=` and `>>>=` close the type and start the initializer.
+    for source in [
+        "class C { a: Array<number>= [1]; n = 2; }",
+        "class C { a: Array<Array<number>>= [[1]]; n = 2; }",
+        "class C { a: Array<Array<Array<number>>>= [[[1]]]; n = 2; }",
+    ] {
+        let body = parse_class(source);
+        let names: Vec<_> = body.fields.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(names, ["a", "n"], "{source}");
+        assert!(
+            matches!(body.fields[0].value, Some(Expression::ArrayExpression(_))),
+            "{source}: {:?}",
+            body.fields[0].value
+        );
+    }
+}

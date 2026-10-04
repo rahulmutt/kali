@@ -194,6 +194,10 @@ class C{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } const s=new C()
 class C{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main(){ const s=new C(); function g(){ s.add(4); } g(); console.log(s.n); } main();
 '''
 
+"r22_shift.ts" = '''
+class C { a: Array<Array<number>>; static k(){ return 3; } } console.log(C.k()); console.log("after");
+'''
+
 [[case]]
 name = "a_field_write_in_a_method_is_kept"
 rationale = """literal-array-mutators followups §14b. node v26.10.0 prints `3`. At `7c4daa9f7` kali printed `0` at exit 0: the constructor never ran and the store in `add` was dropped."""
@@ -718,3 +722,10 @@ rationale = """Not a baseline probe (added in the Task 11 fix round to pin the m
 args = ["run", "init_then_ctor.js"]
 exit = "success"
 stdout = "2 6\n"
+
+[[case]]
+name = "r22_a_nested_generic_field_type_keeps_the_rest_of_the_program"
+rationale = """Ruling R-22 (final review, repro pt1). node v26.10.0 prints `3` / `after`. At HEAD d75a10075 kali printed nothing at exit 0: the field-type skipper counted the `>>` closing `Array<Array<number>>` as one `>`, so it swallowed the rest of the program. The skipper now closes one `<` per `>` of `>>`, `>>>`, `>=`, `>>=` and `>>>=`."""
+args = ["run", "r22_shift.ts"]
+exit = "success"
+stdout = "3\nafter\n"
