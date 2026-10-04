@@ -477,4 +477,91 @@ output, which the sweep finds.
 
 ## 6. Amendments
 
-None yet.
+Found while planning, at the baseline `6345f082b`. Each overrides the section
+it names.
+
+* **A-1. The AST has no patterns and `catch` is unreachable (§3.2).** Every
+  binding in `kali_ast` is a plain `String`: declarators, parameters
+  (`Vec<String>` / `Vec<FunctionParam { name }>`), `catch` params and import
+  locals. The parser refuses destructuring, default and rest parameters
+  (`kali_parser/src/declaration.rs:82-104`, `statement.rs:139-170`), and it
+  refuses `try` (`statement.rs:640-655`). So §3.2's destructuring rule has
+  nothing to act on. Shorthand `{x}` is parsed as
+  `{ key: PropertyName::Identifier("x"), value: Expression::Identifier("x") }`
+  (`kali_parser/src/expression/object.rs:35-40`), so renaming the value alone
+  gives `{x: x{b1}}`. The walk still handles `catch` params and `switch`
+  scopes.
+* **A-2. "Escapes the iteration" means "a deferred registration is in the
+  loop" (§3.3).** `escape_flow` gives no verdict per closure
+  (`kali_mir/src/analysis/escape_flow.rs`: a may-heap fixpoint over
+  bindings, params and returns only). The only way a closure made in an
+  iteration can run after that iteration is a deferred registration, because
+  a stored or returned closure called later is refused at the baseline by the
+  first-class-call refusal (`loopc1`, `loopc2`, `loopc4`, `loopc5`). A loop
+  is therefore an iteration owner when (a) a `let` / `const` declared
+  directly in it (not in a nested loop or function) is captured by a closure
+  created in it, and (b) the loop contains a call to a deferred-registration
+  callee (`queueMicrotask`, `setTimeout`, `setInterval`, or a member
+  `addEventListener`). That callee list moves from
+  `kali_codegen/src/env_safety.rs:158-179` into one
+  `kali_common::is_deferred_registration_callee`, which both MIR and
+  `env_safety` call. `Kali.test` is not on the list, and a loop registering
+  only `Kali.test` callbacks keeps the baseline lowering.
+* **A-3. No `await` / `yield` refusal (§1.1, §3.4).** `await` is lowered as a
+  synchronous pass-through (`kali_codegen/src/emit/control_flow.rs:2341`), so
+  nothing suspends inside a loop and `g8` cannot be observed mid-iteration.
+  Generators are refused at the baseline (`kali_codegen/src/lower.rs:31`).
+  The refusal is dropped, and `asyncloop` is claimed node-correct (`0 1`).
+  With it goes the only AST-side refusal besides `eval`.
+* **A-4. A capture of depth 2 or more through an iteration record gets its
+  own refusal (§1.1, §3.4).** At the baseline, a capture of depth 2 or more is
+  not always refused. `env_walk_depth_for` (`emit/closure_access.rs:172`)
+  returns `None` and the access falls back to the older behaviour, which is
+  refused only on the deferred path (`intrinsics/host.rs:1733`). In an
+  iteration owner, a closure called synchronously that captures a binding of
+  the enclosing function would reach that fallback. So `derive_env_plans`
+  marks every `CapturedRef` whose hop path crosses an iteration record, and
+  codegen refuses any such reference of depth 2 or more with E5506
+  (`a closure in a loop that captures `a` through a per-iteration record is
+  unavailable …`). It is run-only, like every MIR-derived refusal. The same
+  rule refuses **nested owner loops** whose closure reads the outer loop's
+  binding (`nested_loops`: node `0 0` / `0 1` / `1 0` / `1 1`). That binding
+  is two records away, through the inner one, so §1 item 5 does not claim
+  this shape. Lowering walks of depth 2 or more is a future item.
+* **A-5. Two more run-only refusals (§3.4).**
+  - **An iteration-owner `for` whose body contains a `continue`** (not one in a
+    nested loop or function). The copy into the next iteration's record sits
+    at the end of the body, where the baseline's update also sits. `continue`
+    branches to the loop top past both (register R-09 for the update), so the
+    next iteration would reuse the record its closures share.
+  - **An iteration-owner `for…of` lowered by compile-time unrolling.** That is
+    every `for…of` except the growable-array runtime loop
+    (`intrinsics/array.rs:~1405-1505`). The unrolled loop variable is
+    substituted, not stored, so it has no cell to copy.
+  
+  `defer4` (`for (const x of [5,6])`) therefore stays refused, with the new
+  message, and is not claimed. The growable-array runtime `for…of`,
+  `for…in`, `while`, `do` and `for` are claimed.
+* **A-6. Owner loops are matched by cell name, with a backstop (§3.3).** MIR
+  and LIR share no loop id, and the existing pre-order loop ordinal excludes
+  `for…in` (`kali_mir/src/analysis/walk.rs:324`). After the rename, the
+  `let` / `const` names declared directly in a loop are unique within their
+  function, so codegen finds an iteration plan's loop as the loop that
+  directly declares that plan's cells. Both sides walk declarations "directly
+  in this loop": MIR from HIR `VarDecl`, LIR from `Instruction` nodes whose
+  text is `let` / `const` (`kali_codegen/src/lower.rs:6378`). They are kept in
+  step by a backstop: an iteration plan that codegen never emitted refuses
+  the program with E5506. Silently dropping it is not an option.
+* **A-7. Nothing at run time shows a binding's name, and the cache needs no
+  work (§3.5, §5.3).** No code path turns a function or class name into a
+  runtime string. There is no `.name`, no `[Function: f]` and no `[class C]`;
+  logging an instance is refused. `display_name` therefore applies to
+  diagnostics only (`message`, `suggestion`, `notes`). A renamed nested
+  function's wasm export name keeps the `{b<N>}` spelling. The host never
+  looks a function up by its source name, and the spelling cannot collide.
+  The incremental cache's compiler identity is a fingerprint of the
+  executable (`kali_cli/src/build/fingerprint.rs:28`), so any rebuild changes
+  it. Determinism is pinned by the pass's idempotence unit test and by the
+  existing
+  `runtime_smoke::build::build_artifacts_are_deterministic_across_repeated_invocations`,
+  whose fixture gains a shadowed binding.
