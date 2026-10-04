@@ -511,3 +511,18 @@ Found while planning, at the baseline `7c4daa9f7`.
   other repr-driven checks (`resolve/mod.rs:615`, `:777`) ran on the program
   as written, before the rewrite. A method body moves into `C__m` unchanged
   but for `this`, so those checks have already seen its code.
+* **A-7. A block-bodied arrow is marked.** At the baseline
+  `try_parse_block_arrow_function_expression`
+  (`kali_parser/src/declaration.rs:602-640`) returns a plain
+  `FunctionExpression`, so the AST cannot tell `() => { this.n = 1; }` from
+  `function(){ this.n = 1; }`. §3.2's "into arrow functions, not into nested
+  `function` expressions" needs the difference. `FunctionExpression` gains
+  `#[serde(default)] pub is_arrow: bool`, set by that parser path only.
+* **A-8. Class expressions and exported classes are out of slice.**
+  §3.2 rewrites a class *declaration*. A `ClassExpression`
+  (`const K = class {…}`), an `export default class`, a class named in an
+  `export { … }` specifier, and a class whose name `ProgramClasses` marks
+  ambiguous (declared twice) are out of slice under A-1. Each escapes the
+  rewrite's whole-program view, the way a function used as a value escapes
+  §3.3 rule 4. So each refuses at `new` when stateful, and is untouched when
+  stateless.
