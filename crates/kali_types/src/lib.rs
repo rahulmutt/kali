@@ -9,6 +9,7 @@ mod builtins;
 mod context;
 mod growable;
 mod late_host;
+pub mod class_instances;
 pub mod monomorphize;
 mod package;
 mod program_classes;
