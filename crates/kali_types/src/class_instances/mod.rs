@@ -6,6 +6,8 @@
 #[allow(dead_code)]
 pub(crate) mod classes;
 #[allow(dead_code)]
+pub(crate) mod provenance;
+#[allow(dead_code)]
 pub(crate) mod scopes;
 #[allow(dead_code)]
 pub(crate) mod walk;
@@ -13,6 +15,9 @@ pub(crate) mod walk;
 #[cfg(test)]
 #[path = "classes_tests.rs"]
 mod classes_tests;
+#[cfg(test)]
+#[path = "provenance_tests.rs"]
+mod provenance_tests;
 #[cfg(test)]
 #[path = "walk_tests.rs"]
 mod walk_tests;

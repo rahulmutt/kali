@@ -107,7 +107,7 @@ pub(crate) fn walk(statements: &mut Vec<Statement>, visitor: &mut dyn Visitor) {
     walker.list(statements);
 }
 
-const ANON: &str = "<anon>";
+pub(crate) const ANON: &str = "<anon>";
 
 struct Walker<'v> {
     visitor: &'v mut dyn Visitor,
