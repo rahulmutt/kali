@@ -73,9 +73,9 @@ impl<'a> FunctionEmitter<'a> {
         if self.env_plan.cell_for(name).is_some() {
             return Some(self.function_name.clone());
         }
-        self.env_plan
-            .captured_for(name)
-            .map(|reference| reference.owner.clone())
+        self.env_plan.captured_for(name).map(|reference| {
+            crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner).to_string()
+        })
     }
 
     /// R-11 T4 review round 4: the shadow guard, now backed by the SHARED
@@ -203,7 +203,8 @@ impl<'a> FunctionEmitter<'a> {
             // covers both the single-level capture from a non-owning function
             // (depth 0) and the genuine one-hop walk from an env-owning capturer
             // (depth 1); deeper chains fall through to baseline unchanged.
-            if promotable(&reference.owner, reference.is_scalar) {
+            let owner = crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner);
+            if promotable(owner, reference.is_scalar) {
                 if let Some(walk) = self.env_walk_depth_for(reference.depth) {
                     return Some((walk, reference.offset));
                 }

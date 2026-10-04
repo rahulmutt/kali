@@ -573,6 +573,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// (`!captured.is_empty()`) when it is passed to an un-emittable scheduling
     /// surface (Stage C Concern 2 fail-closed guard, `emit_call`).
     pub(crate) env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+    /// This function's per-iteration plans (spec §3.3), from `iteration_plans_of`.
+    // Read by the per-iteration record emission (block-scoping Task 8).
+    #[allow(dead_code)]
+    pub(crate) iteration_plans: Vec<(String, kali_mir::EnvPlan)>,
+    /// Owner loops currently being emitted, outermost first.
+    #[allow(dead_code)]
+    pub(crate) active_iterations: Vec<crate::iteration::ActiveIteration>,
+    /// Iteration labels whose loop was emitted (the A-6 backstop).
+    #[allow(dead_code)]
+    pub(crate) emitted_iterations: BTreeSet<String>,
 }
 
 impl<'a> FunctionEmitter<'a> {
@@ -763,6 +773,15 @@ impl<'a> FunctionEmitter<'a> {
             shape_field_bigint_targets,
             env_plan,
             env_plans,
+            iteration_plans: crate::iteration::iteration_plans_of(
+                env_plans,
+                crate::iteration::plan_key(function_name),
+            )
+            .into_iter()
+            .map(|(label, plan)| (label.to_string(), plan.clone()))
+            .collect(),
+            active_iterations: Vec::new(),
+            emitted_iterations: BTreeSet::new(),
         }
     }
 
@@ -926,8 +945,10 @@ impl<'a> FunctionEmitter<'a> {
             reference.name == name
                 && reference.depth == 1
                 && reference.owner != "_start"
-                && self.repr_table.scalar(&reference.owner, &reference.name)
-                    == kali_common::Repr::AbortHandle
+                && self.repr_table.scalar(
+                    crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner),
+                    &reference.name,
+                ) == kali_common::Repr::AbortHandle
         })
     }
 
@@ -1103,8 +1124,10 @@ impl<'a> FunctionEmitter<'a> {
             && !self.locals.contains_key(name)
             && self.env_plan.captured.iter().any(|reference| {
                 reference.name == name
-                    && self.repr_table.scalar(&reference.owner, &reference.name)
-                        == kali_common::Repr::Event
+                    && self.repr_table.scalar(
+                        crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner),
+                        &reference.name,
+                    ) == kali_common::Repr::Event
             })
     }
 
@@ -1146,7 +1169,13 @@ impl<'a> FunctionEmitter<'a> {
             && self.env_plan.captured.iter().any(|reference| {
                 reference.name == name
                     && matches!(
-                        self.repr_table.scalar(&reference.owner, &reference.name),
+                        self.repr_table.scalar(
+                            crate::iteration::owner_repr_namespace(
+                                self.env_plans,
+                                &reference.owner
+                            ),
+                            &reference.name,
+                        ),
                         kali_common::Repr::Url | kali_common::Repr::UrlSearchParams
                     )
             })

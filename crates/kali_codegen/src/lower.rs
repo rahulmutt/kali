@@ -133,8 +133,19 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // stays a `_start` local (byte-identical); heap types (object/array/string)
     // are NEVER promoted — a mutable global heap root is a persistent GC root
     // the region reclamation does not model, so those stay fail-closed (E5506).
-    let (module_global_slots, module_global_bigint_targets) =
-        collect_module_scalar_globals(lir, &ctx.repr_table, &function_plans);
+    // Block-scoping §3.3: a module loop's per-iteration bindings live in the
+    // iteration record, never in module storage.
+    let module_iteration_cells: BTreeSet<String> =
+        crate::iteration::iteration_plans_of(&ctx.env_plans, "")
+            .into_iter()
+            .flat_map(|(_, plan)| plan.cells.iter().map(|cell| cell.name.clone()))
+            .collect();
+    let (module_global_slots, module_global_bigint_targets) = collect_module_scalar_globals(
+        lir,
+        &ctx.repr_table,
+        &function_plans,
+        &module_iteration_cells,
+    );
     // R-11 T4: the captured-cell twin of the BigInt-taint scan just above —
     // see `collect_bigint_tainted_captured_cells`'s own doc. `ctx.env_plans`
     // is already populated by the caller (`kali_cli`'s build driver sets it
@@ -1383,6 +1394,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                             let Some(name) = declarator.text.clone() else {
                                 continue;
                             };
+                            if module_iteration_cells.contains(&name) {
+                                continue;
+                            }
                             module_binding_names.insert(name.clone());
                             if is_const && declarator.children.len() >= 2 {
                                 module_const_inits.insert(name, declarator.children[1]);
@@ -1436,6 +1450,49 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             }
         }
     }
+    // Block-scoping §3.3: a promotable cell of an iteration plan lives in the
+    // per-iteration record, not a local, so it is dropped from its function's
+    // locals (`_start` included, keyed `""`). Each iteration plan with >=1
+    // promotable cell reserves its `g8` save local, and the function reserves
+    // one copy scratch. No iteration plans → no change.
+    for function in all_functions.iter_mut() {
+        let plans = crate::iteration::iteration_plans_of(
+            &ctx.env_plans,
+            crate::iteration::plan_key(&function.name),
+        );
+        let mut reserved_any = false;
+        for (label, plan) in plans {
+            let namespace = crate::iteration::owner_repr_namespace(&ctx.env_plans, label);
+            let promoted: HashSet<&str> = plan
+                .cells
+                .iter()
+                .filter(|cell| {
+                    crate::closure::cell_is_promotable(
+                        &ctx.repr_table,
+                        namespace,
+                        &cell.name,
+                        cell.is_scalar,
+                    )
+                })
+                .map(|cell| cell.name.as_str())
+                .collect();
+            if promoted.is_empty() {
+                continue;
+            }
+            function
+                .locals
+                .retain(|name| !promoted.contains(name.as_str()));
+            function
+                .locals
+                .push(crate::iteration::iteration_save_local_name(label));
+            reserved_any = true;
+        }
+        if reserved_any {
+            function
+                .locals
+                .push(crate::iteration::iteration_prev_local_name());
+        }
+    }
 
     // Stage C stage-review CRITICAL fix: the dynamic-env safety gate. Capture
     // lowering resolves cells against the DYNAMIC `current_env`, but the
@@ -1451,6 +1508,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         &all_functions,
         &ctx.env_plans,
         &ctx.repr_table,
+    ));
+    // Block-scoping A-4: a capture of depth >= 2 through a per-iteration
+    // record is refused (lowering such walks is a future item).
+    diagnostics.extend(crate::iteration::iteration_capture_diagnostics(
+        &ctx.env_plans,
     ));
 
     // Stage P5 T-new-A (review finding I-1): the per-function deny domain of the
@@ -1655,7 +1717,10 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                     .iter()
                     .filter(|captured| {
                         crypto_random_result_deny
-                            .get(&captured.owner)
+                            .get(crate::iteration::owner_repr_namespace(
+                                &ctx.env_plans,
+                                &captured.owner,
+                            ))
                             .is_some_and(|names| names.contains(&captured.name))
                     })
                     .map(|captured| captured.name.clone())
@@ -4129,7 +4194,8 @@ pub(crate) const RESERVED_GLOBAL_COUNT: u32 = 9;
 /// GC-less region reclamation does not model — those stay fail-closed (E5506).
 /// A `const` is excluded (it stays on the compile-time inline path). A scalar
 /// referenced only at module scope is NOT promoted (it keeps its byte-identical
-/// `_start`-local lowering).
+/// `_start`-local lowering). Names in `excluded` (a module loop's
+/// per-iteration cells, block-scoping §3.3) are never promoted.
 ///
 /// The second return value is the R-11 T3 review Important-1 BigInt-taint set
 /// (`collect_bigint_tainted_module_scalars`), filtered to promoted names only
@@ -4139,6 +4205,7 @@ pub(crate) fn collect_module_scalar_globals(
     lir: &LirProgram,
     repr_table: &kali_common::ReprTable,
     function_plans: &[FunctionPlan],
+    excluded: &BTreeSet<String>,
 ) -> (BTreeMap<String, (u32, kali_common::Repr)>, HashSet<String>) {
     // Top-level `var`/`let` numeric scalar declarators (never `const`).
     let mut candidates: BTreeMap<String, kali_common::Repr> = BTreeMap::new();
@@ -4159,6 +4226,11 @@ pub(crate) fn collect_module_scalar_globals(
                     let Some(name) = declarator.text.clone() else {
                         continue;
                     };
+                    // A per-iteration binding (block-scoping §3.3) is not
+                    // module storage.
+                    if excluded.contains(&name) {
+                        continue;
+                    }
                     // Heap types stay fail-closed: never promote an array/object
                     // module binding to a mutable global root.
                     if repr_table.is_array_binding("_start", &name) {

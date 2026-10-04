@@ -6,6 +6,7 @@ mod emit;
 mod emitter;
 mod env_safety;
 mod intrinsics;
+mod iteration;
 mod lower;
 pub use ctx::{CodegenCtx, CodegenResult, TargetConfig};
 use ctx::{

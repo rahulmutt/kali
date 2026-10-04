@@ -1734,6 +1734,9 @@ impl<'a> FunctionEmitter<'a> {
     fn unlowered_capture_denied(&self, plan_key: &str) -> Option<&'static str> {
         let plan = self.env_plans.get(plan_key)?;
         plan.captured.iter().find_map(|reference| {
+            // The repr namespace of the cell's owner (an iteration record's
+            // bindings are recorded under its function, block-scoping A-6).
+            let owner = crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner);
             // ALLOWLIST 1: a by-value promoted scalar cell (depth-1 i64 stored
             // inline in the env record) — the only class the deferred lane
             // restores soundly.
@@ -1741,7 +1744,7 @@ impl<'a> FunctionEmitter<'a> {
                 && reference.depth == 1
                 && crate::closure::cell_is_promotable(
                     self.repr_table,
-                    &reference.owner,
+                    owner,
                     &reference.name,
                     reference.is_scalar,
                 );
@@ -1778,13 +1781,12 @@ impl<'a> FunctionEmitter<'a> {
             // and the read side (`emit/control_flow.rs` identifier + abort
             // member-read arms). This entry is intentionally owner-agnostic.
             if reference.depth == 1
-                && self.repr_table.scalar(&reference.owner, &reference.name)
-                    == kali_common::Repr::AbortHandle
+                && self.repr_table.scalar(owner, &reference.name) == kali_common::Repr::AbortHandle
             {
                 return None;
             }
             // DENIED. Label the class for the diagnostic.
-            let repr = self.repr_table.scalar(&reference.owner, &reference.name);
+            let repr = self.repr_table.scalar(owner, &reference.name);
             Some(if reference.is_scalar {
                 match repr {
                     kali_common::Repr::String => "string",
