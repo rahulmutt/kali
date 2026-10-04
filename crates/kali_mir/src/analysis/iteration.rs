@@ -7,6 +7,10 @@
 //! function. That includes declarations in plain blocks inside the loop head or
 //! body, and excludes anything inside nested loops (they have their own frame)
 //! and nested functions (they have their own scope).
+//!
+//! Rule for "registers a callback": a deferred-registration call textually
+//! inside the loop flags that loop, including when the call sits in a function
+//! nested in the loop (and so on up through enclosing functions' loops).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -82,8 +86,11 @@ impl IterationCollector {
         }
     }
 
-    fn note_registration(&mut self, depth: usize) {
-        for frame in self.stack.iter_mut().filter(|f| f.depth == depth) {
+    /// A registration call flags every open loop frame, including frames of
+    /// enclosing functions: the call is textually inside each of those loops
+    /// (spec A-2(b) does not exclude nested functions).
+    fn note_registration(&mut self) {
+        for frame in &mut self.stack {
             frame.has_registration = true;
         }
     }
@@ -225,8 +232,7 @@ impl OwnershipAnalyzer<'_> {
             return;
         };
         if kali_common::is_deferred_registration_callee(name, !callee.children.is_empty()) {
-            let depth = self.current_scope_index();
-            self.iteration.note_registration(depth);
+            self.iteration.note_registration();
         }
     }
 }

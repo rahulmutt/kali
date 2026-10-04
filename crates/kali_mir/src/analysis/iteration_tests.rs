@@ -95,3 +95,28 @@ fn for_of_and_for_in_loops_are_candidates_too() {
         .collect();
     assert_eq!(labels, vec!["m{iter0}", "m{iter1}"]);
 }
+
+#[test]
+fn a_registration_inside_a_nested_function_marks_the_enclosing_loop() {
+    let p = analyze("function m(){ for(let i=0;i<3;i++){ const r=()=>{ setTimeout(()=>console.log(i),0); }; r(); } } m();");
+    assert_eq!(p.iteration_scopes.len(), 1);
+    assert_eq!(p.iteration_scopes[0].label, "m{iter0}");
+    assert_eq!(p.iteration_scopes[0].cells, vec!["i".to_string()]);
+}
+
+#[test]
+fn a_nested_function_registration_flags_both_nested_loop_frames() {
+    let p = analyze("function m(){ for(let i=0;i<2;i++){ for(let j=0;j<2;j++){ const r=()=>{ setTimeout(()=>console.log(i,j),0); }; r(); } } } m();");
+    let labels: Vec<&str> = p
+        .iteration_scopes
+        .iter()
+        .map(|s| s.label.as_str())
+        .collect();
+    assert_eq!(labels, vec!["m{iter1}", "m{iter0}"]);
+}
+
+#[test]
+fn a_registration_in_a_function_outside_any_loop_flags_nothing() {
+    let p = analyze("function reg(){ setTimeout(()=>{},0); } reg(); function m(){ for(let i=0;i<2;i++){ const g=()=>i; g(); } } m();");
+    assert!(p.iteration_scopes.is_empty());
+}
