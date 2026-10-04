@@ -537,3 +537,15 @@ Found while planning, at the baseline `7c4daa9f7`.
   `new (C(a).m(b))` becomes `(new C(a)).m(b)` and then `C__m(C__new(a), b)`.
   `new (C(a).f)` becomes `(new C(a)).f`. A stateful out-of-slice class refuses
   in either shape. Every other `new` is left as parsed.
+* **A-10. The backstop is a sweep in the rewrite, not in codegen
+  (supersedes §3.6).** After A-1, the class-body functions codegen still sees
+  are those of host-derived classes, stateless out-of-slice classes (correct
+  at the baseline) and classes never constructed, so §3.6's codegen refusal
+  would refuse exactly the classes A-1 keeps. A rewritten class no longer
+  exists at codegen: its declaration is replaced by `C__new` and `C__m`. A
+  `new` form the rewrite missed would therefore reach codegen as a call to an
+  unbound name, not to a class body. The backstop is a final sweep over the
+  rewritten program. Any remaining `Identifier` that names a rewritten class,
+  and any `this` left inside a generated `C__new` / `C__m`, refuses with
+  `E5506` (`constructing class C is unavailable in the current phase: it
+  reached code generation without being lowered`). Codegen is not changed.
