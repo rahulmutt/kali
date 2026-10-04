@@ -468,12 +468,20 @@ None of these involves a mutator gate. Each gives the same output at
 `9dc751cf8` and at HEAD, and each is silent (exit 0, wrong output).
 
 * **A method call on a nameless constructed value evaluates to `0`.**
+  **Fixed** by the class-instances project
+  (`docs/superpowers/specs/2026-10-04-class-instances-design.md`), at `b5dc0c095` (the rewrite),
+  case `object/class_instances::14a_matches_node` (prints `2`). `S` is a stateless in-slice
+  class, so `new S()` is a factory call before IR and `.push(1)` is a method call on it. A
+  different shape, `new C().v` (a field read off a nameless instance), is refused with E5506 (R-15).
   `class S { push(v){ return v+1; } } console.log(new S().push(1));` prints `0`
   (node `2`). `foo` and `sort` give `0` the same way, so the method name does
   not matter. Binding the instance first (`const s=new S(); s.push(1)`) prints
   `2`; that spelling is the control case
   `a_user_class_method_named_push_still_matches_node`.
 * **A field write in a method is lost.**
+  **Fixed** by the class-instances project, at `b5dc0c095`, cases
+  `object/class_instances::a_field_write_in_a_method_is_kept` (js) and
+  `object/class_instances::ts_14b_matches_node` (ts); both print `3`.
   `class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main(){ const s=new Stack(); s.add(3); console.log(s.n); } main();`
   prints `0` (node `3`).
 * **A block-scoped shadow in the same function clobbers the outer array.**

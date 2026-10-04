@@ -14,21 +14,72 @@ worktree. Probe rows come from `tools/array-return-probes/probes/cls_*.js`
 (runner `tools/array-return-probes/run.sh`); a probe's baseline column is
 `tools/array-return-probes/baseline-cls.tsv`, measured at `7c4daa9f7`.
 
-§1 to §3 and the rest of §6 are completed by Task 11.
+**What ships.** The spec's §1 slice was narrowed during implementation by
+controller rulings R-13 to R-20, so the list below is the contract, not the
+spec's original §1. An in-slice class has no `extends` link to another
+program class and no accessor, `static`, `#private` or computed member, and is
+a class declaration, not exported, not declared twice, and constructed. For
+one, `new C(a)` runs field initializers then the constructor; `this.f` /
+`s.f` read and write; `s.m(a)` binds `this`; instances flow through the
+parameters and returns of program function declarations and methods (tracked
+call sites only); same-named methods in different classes dispatch per class.
+Refused with E5506, each because the plain-object lane computes a silent
+wrong value in that shape: R-13 (an instance returned from a function whose
+callers are not all tracked), R-14 (`arguments` in a function taking an
+instance), R-15 (a field access whose receiver is not a variable), R-16 (an
+instance, including `this`, inside an arrow or function expression, so the
+spec's "`this` in an arrow inside a method" does not work), R-16b (an
+instance captured from an enclosing function), R-6 (`recv["m"](…)`), and
+`typeof` / `instanceof` / `===` on an instance or the class as a value
+(§3.3). R-17: compound assignment and `++` / `--` on an instance field stay
+refused by the resolver, so spec §3.5 is not reachable. Stateless out-of-slice
+classes keep the baseline lowering.
 
 ---
 
 ## §1. The R-30 boolean field
 
-*Task 11.*
+`class F{ constructor(){ this.ok=false; } set(){ this.ok=true; } }
+const f=new F(); f.set(); console.log(f.ok);` prints `1` (node `true`).
+Probe `cls_known_r30`; at `7c4daa9f7` it printed `0` (SILENT), now `1`. A
+boolean instance field is a number in the object-literal lane after a write,
+so it renders `1` / `0`. The class rewrite does not change that. Pinned as the
+known-wrong control `object/class_instances::known_r30_the_bool_field_still_prints_one`,
+so a fix shows up as a diff. Not fixed.
 
 ## §2. Out-of-slice refusals (future items)
 
-*Task 11.*
+Each is refused with E5506 at `new` when the class keeps state (a stateless
+one keeps the baseline lowering). Each is a candidate future slice, not a
+defect.
+
+- **Program-class `extends` with state.** The class is in an `extends` chain
+  with another program class (`is in an `extends` chain with another program
+  class and keeps state`). Needs field layout across the chain and `super`.
+- **Accessors.** `get` / `set` members.
+- **Statics with state.** `static` fields and methods on a class that keeps state.
+- **`#private` members.**
+- **Computed members.** `[expr]() {}` and computed field names.
+- **Class expressions.** `const C = class { … }`.
+- **Exported classes.** A class that is exported and keeps state. Ruling R-11 (§6) means the exported escape cannot even be seen today.
+- **Duplicate-named classes.** A class declared more than once.
 
 ## §3. Containers, rendering, `instanceof` / `===`, mixed-class parameters, `new` of a plain function
 
-*Task 11.*
+Refused with E5506; future items.
+
+- **Containers of instances.** An instance as an array element (or an object
+  value) refuses; an element read would be a zero placeholder.
+- **Rendering an instance.** `console.log(c)` and string conversion of an
+  instance refuse; the object-literal lane prints no node-shaped output for it.
+- **`instanceof` / `===` on instances, `typeof c`, and the class as a value.**
+  Refused (spec §3.3). The same refusal pins the five `runtime_smoke`
+  fixtures (§4).
+- **Mixed-class parameters.** A parameter or binding that may hold instances
+  of two classes, or an instance and another value, refuses
+  (`may hold an instance of class `C` and other values`).
+- **`new` of a plain `function`.** Refused (`constructing an object with the
+  plain function `f``), including a function that returns an object (§6.3).
 
 ## §4. The triage table
 
@@ -134,4 +185,48 @@ loss that no case, fixture or corpus program exercises was not measured.
    refused by the plain-function rule. node uses the returned object. It was
    refused at the baseline too (§4), so this is not a loss.
 
-*Task 11 adds the rest of §6.*
+4. **R-13, R-15, R-16 and R-16b refuse because of plain-object-lane defects.**
+   The controller measured these at HEAD with no classes involved. The class
+   rewrite refuses rather than reach them; none is fixed.
+   - `function mk(){ return {n:3}; } console.log(mk().n);` prints `0` (node `3`).
+   - An object captured in an arrow reads `0` and loses its writes.
+   - An object captured in a function expression loses its writes.
+   - An object passed as a parameter to an arrow and written there loses the write.
+   - An object captured by a nested function declaration and passed on to
+     another function loses the write.
+   Fixing the lane would let the matching refusal be lifted.
+5. **R-17: member compound assignment and update are refused.** The resolver
+   refuses `o.n += x` and `o.n++` on any object member
+   (`resolve/expression.rs` about lines 2104 and 2267), before the rewrite
+   runs. Spec §3.5 (compound and update on instance fields) is unreachable,
+   and no document may claim it.
+6. **R-11: the parser drops `export`.** `kali_parser/src/module.rs` about
+   lines 131-142 drops `export` from `export function` and `export class`.
+   Spec rule 4's "exported" escape and A-8's "exported class" therefore
+   cannot be seen. A library-mode export proven to take an instance could be
+   miscompiled if the host calls it.
+7. **`eval` compatibility.** With the opt-in `eval` flag,
+   `const y = eval('c')` gives an Unknown binding, and field access on it is
+   not refused.
+8. **TS overload signatures parse as bodiless `MethodDefinition`s.**
+   Constructor overloads make the factory take the empty first `constructor`;
+   the real body's field writes then refuse as outside the field set, which
+   is fail-closed. Method overloads produce duplicate `function C__m`
+   declarations.
+9. **Duplicate field initializers.** `n = 0; n = 1;` emits two `let __f_n`.
+10. **`C__new` is hoisted.** Where the class is in its temporal dead zone,
+    `new C()` before `class C` runs, where node throws.
+11. **Scopes are per function frame, not per block.** Two same-named
+    functions in one frame share a frame key. Both choices are conservative
+    at most sites, but a block-shadowed name can resolve to the wrong binding.
+12. **R-6: `recv["m"](…)` on an instance refuses** (computed access) rather
+    than dispatching; a literal-key bracket call is not rewritten.
+13. **The Task 2 annotation heuristic's limit.** Tokens carry no line
+    breaks, so `skip_field_type_annotation` (`kali_parser/src/declaration.rs`)
+    ends a field's `: Type` where two identifiers meet at depth 0, unless the
+    first is one of `TYPE_WORDS` (`keyof`, `typeof`, `readonly`, `infer`,
+    `unique`, `asserts`, `is`, `extends`, `new`). A field type that ends in
+    one of those words, followed by a newline and the next member's key,
+    swallows that key into the type, so the next member is lost. The heuristic
+    is not a type parser.
+(The A-10 backstop line repeating after a use refusal is item 2.)
