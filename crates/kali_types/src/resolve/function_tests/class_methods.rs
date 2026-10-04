@@ -6,8 +6,11 @@ fn test_resolution_rejects_class_method_generator_lowering() {
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
+        super_class: None,
         name: "Example".to_string(),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![MethodDefinition {
                 name: "main".to_string(),
                 params: vec![],
@@ -52,8 +55,11 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
+        super_class: None,
         name: "Example".to_string(),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![MethodDefinition {
                 name: "main".to_string(),
                 params: vec![],
@@ -98,8 +104,11 @@ fn test_resolution_collapses_mixed_generator_class_method_lowering() {
     let source_path = dir.path().join("main.ts");
 
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
+        super_class: None,
         name: "Example".to_string(),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![
                 MethodDefinition {
                     name: "syncGen".to_string(),
@@ -177,8 +186,11 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                 declarations: vec![VariableDeclarator {
                     id: "Example".to_string(),
                     init: Some(Expression::ClassExpression(Box::new(ClassExpression {
+                        super_class: None,
                         id: Some("NamedExample".to_string()),
                         body: Box::new(ClassBody {
+                            field_names: Vec::new(),
+                            has_computed_members: false,
                             methods: vec![MethodDefinition {
                                 name: "main".to_string(),
                                 params: vec![],
@@ -213,8 +225,11 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                 declarations: vec![VariableDeclarator {
                     id: "Example".to_string(),
                     init: Some(Expression::ClassExpression(Box::new(ClassExpression {
+                        super_class: None,
                         id: Some("NamedExample".to_string()),
                         body: Box::new(ClassBody {
+                            field_names: Vec::new(),
+                            has_computed_members: false,
                             methods: vec![MethodDefinition {
                                 name: "main".to_string(),
                                 params: vec![],
@@ -247,8 +262,11 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
         (
             Statement::ExportDefault(ExportDefaultDeclaration::Expression(
                 Expression::ClassExpression(Box::new(ClassExpression {
+                    super_class: None,
                     id: Some("NamedExample".to_string()),
                     body: Box::new(ClassBody {
+                        field_names: Vec::new(),
+                        has_computed_members: false,
                         methods: vec![MethodDefinition {
                             name: "main".to_string(),
                             params: vec![],
@@ -275,8 +293,11 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
         (
             Statement::ExportDefault(ExportDefaultDeclaration::Expression(
                 Expression::ClassExpression(Box::new(ClassExpression {
+                    super_class: None,
                     id: Some("NamedExample".to_string()),
                     body: Box::new(ClassBody {
+                        field_names: Vec::new(),
+                        has_computed_members: false,
                         methods: vec![MethodDefinition {
                             name: "main".to_string(),
                             params: vec![],
@@ -331,8 +352,11 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
         declarations: vec![VariableDeclarator {
             id: "Example".to_string(),
             init: Some(Expression::ClassExpression(Box::new(ClassExpression {
+                super_class: None,
                 id: Some("NamedExample".to_string()),
                 body: Box::new(ClassBody {
+                    field_names: Vec::new(),
+                    has_computed_members: false,
                     methods: vec![
                         MethodDefinition {
                             name: "syncGen".to_string(),
@@ -403,8 +427,11 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
 #[test]
 fn test_resolution_supports_async_class_method_lowering() {
     let statements = vec![Statement::ClassDeclaration(ClassDeclaration {
+        super_class: None,
         name: "Example".to_string(),
         body: Box::new(ClassBody {
+            field_names: Vec::new(),
+            has_computed_members: false,
             methods: vec![MethodDefinition {
                 name: "main".to_string(),
                 params: vec![],

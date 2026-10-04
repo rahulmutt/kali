@@ -42,6 +42,10 @@ pub struct TypeContext {
     /// value read of a non-materialized for-in-key value rejects by default.
     pub(crate) suppress_forin_key_value_reject: bool,
     pub(crate) repr_table: kali_common::ReprTable,
+    /// Program classes of the module being resolved (unresolved-member-call §3.3).
+    pub(crate) program_classes: Option<crate::program_classes::ProgramClasses>,
+    /// Every property name some assignment writes (unresolved-member-call §3.3).
+    pub(crate) assigned_property_names: std::collections::BTreeSet<String>,
     /// Stack of enclosing function names; module scope is `_start`.
     pub(crate) current_function: Vec<String>,
     /// Stack of scope ids parallel to `current_function`: the `ScopeType::Function`
@@ -105,6 +109,8 @@ impl TypeContext {
             suppress_string_addition_rejection: false,
             suppress_forin_key_value_reject: false,
             repr_table: kali_common::ReprTable::default(),
+            program_classes: None,
+            assigned_property_names: std::collections::BTreeSet::new(),
             current_function: vec!["_start".to_string()],
             current_function_scopes: Vec::new(),
             declared_binding_names: HashSet::new(),

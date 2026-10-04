@@ -59,6 +59,21 @@ enum ArrowParams {
     No,
 }
 
+/// Words that may precede a class member's key.
+const CLASS_MEMBER_MODIFIERS: &[&str] = &[
+    "static",
+    "get",
+    "set",
+    "readonly",
+    "public",
+    "private",
+    "protected",
+    "abstract",
+    "override",
+    "declare",
+    "accessor",
+];
+
 impl Parser {
     /// Classifies one comma-separated parameter-list segment.
     ///
@@ -277,10 +292,62 @@ impl Parser {
         }))
     }
 
+    /// Consume an optional heritage clause up to (not including) the class
+    /// body's `{`, returning the class's base. Only an `extends` at
+    /// angle-bracket depth 0 is the class's own (`class B<T extends Foo>`
+    /// constrains a type parameter). The base is the identifier after it when
+    /// the next token is `{`, `<` or `implements`; any other base expression
+    /// (`ns.A`, `mixin(A)`, `(A)`) gives `Some("")`, a base that leaves the
+    /// program. Type parameters and `implements` lists are skipped, as before.
+    fn parse_class_heritage(&mut self) -> Option<String> {
+        let mut super_class = None;
+        let mut angle_depth: usize = 0;
+        while !matches!(
+            self.stream.current_kind(),
+            Some(TokenType::LeftBrace) | None
+        ) {
+            match self.stream.current_kind() {
+                Some(TokenType::Lt) => angle_depth += 1,
+                Some(TokenType::Gt) => angle_depth = angle_depth.saturating_sub(1),
+                // `>>` and `>>>` both lex as `GtGt`; the text gives the count.
+                Some(TokenType::GtGt) => {
+                    let closes = self.stream.current().map_or(2, |token| token.value.len());
+                    angle_depth = angle_depth.saturating_sub(closes);
+                }
+                Some(TokenType::Extends) if angle_depth == 0 => {
+                    let _ = self.stream.advance();
+                    let simple_base = self.stream.current_kind() == Some(&TokenType::Identifier)
+                        && matches!(
+                            self.stream.peek_next_kind(),
+                            Some(TokenType::LeftBrace | TokenType::Lt | TokenType::Implements)
+                        );
+                    super_class = Some(if simple_base {
+                        self.stream
+                            .current()
+                            .map(|token| token.value.clone())
+                            .unwrap_or_default()
+                    } else {
+                        String::new()
+                    });
+                    continue;
+                }
+                _ => {}
+            }
+            let _ = self.stream.advance();
+        }
+        super_class
+    }
+
     pub(crate) fn parse_class_body(&mut self) -> ClassBody {
         let _ = self.stream.accept(TokenType::LeftBrace);
 
         let mut methods = Vec::new();
+        let mut field_names = Vec::new();
+        let mut has_computed_members = false;
+        let mut previous_kind: Option<TokenType> = None;
+        // Whether the current token can start a member's key (after `;`, `}`,
+        // a parsed method, or a modifier such as `static` / `get`).
+        let mut at_member_start = true;
         loop {
             if self.stream.eof() || self.stream.current_kind() == Some(&TokenType::RightBrace) {
                 let _ = self.stream.accept(TokenType::RightBrace);
@@ -330,22 +397,63 @@ impl Parser {
                     is_async,
                     generator,
                 });
+                at_member_start = true;
             } else {
+                // A computed key (`["foo"](){}`, `static [k] = 1`) is skipped,
+                // so the class's member set is not known.
+                if at_member_start && self.stream.current_kind() == Some(&TokenType::LeftBracket) {
+                    has_computed_members = true;
+                }
+                // A type annotation's name (`label: string;`) follows a `:`.
+                if self.stream.current_kind() == Some(&TokenType::Identifier)
+                    && previous_kind != Some(TokenType::Colon)
+                    && matches!(
+                        self.stream.peek_next_kind(),
+                        Some(
+                            TokenType::Eq
+                                | TokenType::Semicolon
+                                | TokenType::Colon
+                                | TokenType::Question
+                                | TokenType::Not
+                        )
+                    )
+                {
+                    if let Some(token) = self.stream.current() {
+                        field_names.push(token.value.clone());
+                    }
+                }
+                at_member_start = match self.stream.current() {
+                    Some(token) => match token.kind {
+                        TokenType::Semicolon | TokenType::RightBrace | TokenType::Async => true,
+                        TokenType::Identifier => {
+                            CLASS_MEMBER_MODIFIERS.contains(&token.value.as_str())
+                        }
+                        _ => false,
+                    },
+                    None => false,
+                };
+                previous_kind = self.stream.current_kind().copied();
                 let _ = self.stream.advance();
             }
         }
 
-        ClassBody { methods }
+        ClassBody {
+            methods,
+            field_names,
+            has_computed_members,
+        }
     }
 
     pub(crate) fn parse_class_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
         let name_token = self.stream.advance()?;
         let name = name_token.value;
+        let super_class = self.parse_class_heritage();
         let body = self.parse_class_body();
 
         Some(Statement::ClassDeclaration(ClassDeclaration {
             name,
+            super_class,
             body: Box::new(body),
         }))
     }
@@ -357,10 +465,12 @@ impl Parser {
         } else {
             None
         };
+        let super_class = self.parse_class_heritage();
         let body = self.parse_class_body();
 
         Expression::ClassExpression(Box::new(ClassExpression {
             id,
+            super_class,
             body: Box::new(body),
         }))
     }

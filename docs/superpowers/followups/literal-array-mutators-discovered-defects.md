@@ -110,6 +110,8 @@ Measured at HEAD. Not fixed.
 
 ## §3. Any unresolved member call evaluates to `0` at exit 0
 
+**Fixed** by the unresolved-member-call project (`docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md`), at `e1920c32c` (the gate; `45d7dd46c` added the enclosing-function-scope lookup, spec A-4): `kali run` refuses with E5506, and `kali check` mirrors the refusal for a `const` object-literal or program-class receiver.
+
 `var o={k:1}; console.log(o.zork(4));` and `const o={k:1}; console.log(o.zork(4));`
 both print `0` at exit 0 under `kali run`, and `kali check` exits 0 (node
 throws `TypeError`). The terminal placeholder fallback of `emit_call` drops the
@@ -426,6 +428,8 @@ dated HAND-EDITED header note, following the `runtime/join.toml` precedent. This
 gate is not run by `cargo test` or by CI. Not fixed.
 
 ## §12. `.call` / `.apply` spellings of a mutator are silent
+
+**Fixed** by the unresolved-member-call project (`docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md`), at `e1920c32c` (the gate; `45d7dd46c` added the enclosing-function-scope lookup, spec A-4): `kali run` refuses with E5506, and `kali check` mirrors the refusal for a `const` object-literal or program-class receiver.
 
 Neither the type layer nor codegen sees a mutator spelled through `.call` or
 `.apply`: the callee's method name is `call` / `apply`, not the mutator.

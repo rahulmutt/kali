@@ -227,3 +227,12 @@ fn array_return_callee_shadow_fact_round_trips() {
     assert!(t.is_array_return_callee_shadowed("main", "f"));
     assert!(!t.is_array_return_callee_shadowed("other", "f"));
 }
+
+#[test]
+fn host_derived_classes_round_trip() {
+    let mut table = ReprTable::default();
+    assert!(!table.is_host_derived_class("X"));
+    table.set_host_derived_class("X");
+    assert!(table.is_host_derived_class("X"));
+    assert!(!table.is_host_derived_class("Y"));
+}

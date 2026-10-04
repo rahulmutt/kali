@@ -210,6 +210,31 @@ pub fn array_mutator_unresolved_receiver_message(method: &str) -> String {
     )
 }
 
+/// The methods every object inherits from `Object.prototype`. The `check`
+/// mirror of the unresolved-member-call gate never calls one of these
+/// missing (unresolved-member-call spec §3.3).
+pub const OBJECT_PROTOTYPE_NAMES: &[&str] = &[
+    "constructor",
+    "hasOwnProperty",
+    "isPrototypeOf",
+    "propertyIsEnumerable",
+    "toLocaleString",
+    "toString",
+    "valueOf",
+    "__defineGetter__",
+    "__defineSetter__",
+    "__lookupGetter__",
+    "__lookupSetter__",
+];
+
+/// Canonical wording for a member call on a program-owned receiver that kali
+/// cannot lower (unresolved-member-call spec §3.1). Shared by `check` and `run`.
+pub fn unresolved_member_call_unavailable_message(method: &str) -> String {
+    format!(
+        "calling `.{method}()` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for a method of that name on it; node would run a method or throw a TypeError, so kali refuses rather than evaluate the call to 0"
+    )
+}
+
 /// Canonical wording for an assignment to a plain runtime array's `.length`.
 pub const fn runtime_array_length_write_unavailable_message() -> &'static str {
     "assigning to `.length` of a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than store into an element"

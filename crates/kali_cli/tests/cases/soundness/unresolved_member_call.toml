@@ -1,0 +1,388 @@
+# Cases for the unresolved-member-call project (spec
+# docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md).
+#
+# A member call whose receiver is a value this program built (an object
+# literal, a string constant, an instance of a program class, or an alias,
+# parameter or function result of one) and whose method resolves to nothing
+# refuses with E5506 under `run`, and under `check` for the const
+# object-literal and program-class receivers, instead of lowering to a silent
+# `0`. Host receivers and inherited program methods keep node's output. Each
+# rationale gives kali's `run` output at the baseline `6f042548f`
+# (tools/array-return-probes/baseline-unres.tsv) and node v26.10.0's.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide.
+
+[constants]
+UNRES = "the receiver is a value this program built"
+
+[source]
+"objlit.js" = '''
+const o={k:1}; console.log(o.zork(4));
+'''
+"strkey.js" = '''
+const o={k:1}; console.log(o["zork"](4));
+'''
+"inmain.js" = '''
+function main(){ const o={k:1}; console.log(o.zork()); } main();
+'''
+"inst.js" = '''
+class C{ f(){return 1;} } const c=new C(); console.log(c.g());
+'''
+"inst_extends.js" = '''
+class A{ f(){return 1;} } class B extends A{} const b=new B(); console.log(b.g());
+'''
+"deep.js" = '''
+const o={a:{b:{}}}; console.log(o.a.b.zork());
+'''
+"str.js" = '''
+const s="abc"; console.log(s.zork());
+'''
+"alias.js" = '''
+const o={k:1}; const p=o; console.log(p.zork());
+'''
+"param.js" = '''
+function g(x){ return x.zork(); } const o={k:1}; console.log(g(o));
+'''
+"fnres.js" = '''
+function mk(){ return {k:1}; } const o=mk(); console.log(o.zork());
+'''
+"hasown.js" = '''
+const o={k:1}; console.log(o.hasOwnProperty("k"));
+'''
+"call_push.js" = '''
+const a=[1,2,3]; a.push.call(a, 4); console.log(a.length);
+'''
+"proto_pop.js" = '''
+const a=[1,2,3]; Array.prototype.pop.call(a); console.log(a.length);
+'''
+"ok_extends.js" = '''
+class A{ f(){return 4;} } class B extends A{} const b=new B(); console.log(b.f());
+'''
+"ok_et.js" = '''
+class X extends EventTarget{} const x=new X(); x.addEventListener("t", ()=>{}); console.log("ok");
+'''
+"ok_usp.js" = '''
+const u=new URLSearchParams("a=1"); u.append("b","2"); console.log(u.toString());
+'''
+"ok_host_let.js" = '''
+let t=globalThis.performance; t.now(); console.log("ok");
+'''
+"ok_free_unused.js" = '''
+performance.now(); console.log("ok");
+'''
+"ok_inst_method.js" = '''
+class S { push(v){ return v+1; } } const s=new S(); console.log(s.push(1));
+'''
+"ok_this_host.js" = '''
+class X extends EventTarget { fire(){ this.addEventListener("t", () => {}); return 1; } } const x = new X(); console.log(x.fire());
+'''
+"ok_this_host_ctor.js" = '''
+class X extends EventTarget { constructor(){ super(); this.addEventListener("t", () => {}); } } const x = new X(); console.log("ok");
+'''
+"ok_this_host_classexpr.js" = '''
+const K = class extends EventTarget { fire(){ this.addEventListener("t", () => {}); return 1; } }; const k = new K(); console.log(k.fire());
+'''
+"this_prog.js" = '''
+class P { fire(){ this.zork(); return 1; } } const p = new P(); console.log(p.fire());
+'''
+"ok_classexpr_named.js" = '''
+const K = class Foo extends EventTarget {}; const k = new K(); k.addEventListener("t", () => {}); console.log("ok");
+'''
+"ok_extends_member.js" = '''
+class A {} A.Inner = class { g(){ return 7; } }; class B extends A.Inner {} const b = new B(); console.log(b.g());
+'''
+"generic_constraint.ts" = '''
+class B<T extends EventTarget> { g(){ return 2; } }
+const b = new B(); console.log(b.zork());
+'''
+"shadowed_host_class.js" = '''
+class C extends EventTarget {} function main(){ const mk = () => ({k:1}); const C = mk; const o = C(); console.log(o.zork()); } main();
+'''
+"ok_computed_member.js" = '''
+class C { ["foo"](){ return 1; } } const c = new C(); console.log(c.foo());
+'''
+
+[[case]]
+name = "a_missing_method_on_a_const_object_literal_refuses_under_check"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["check", "objlit.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_const_object_literal_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["run", "objlit.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_called_through_a_string_key_refuses_under_check"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["check", "strkey.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_called_through_a_string_key_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["run", "strkey.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_an_object_literal_inside_main_refuses_under_check"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["check", "inmain.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_an_object_literal_inside_main_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["run", "inmain.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_program_class_instance_refuses_under_check"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: c.g is not a function`."""
+args = ["check", "inst.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_program_class_instance_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: c.g is not a function`."""
+args = ["run", "inst.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_an_instance_of_a_program_subclass_refuses_under_check"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: b.g is not a function`."""
+args = ["check", "inst_extends.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_an_instance_of_a_program_subclass_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: b.g is not a function`."""
+args = ["run", "inst_extends.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_nested_object_literal_member_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.a.b.zork is not a function`."""
+args = ["run", "deep.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_string_constant_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: s.zork is not a function`."""
+args = ["run", "str.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_through_an_alias_of_an_object_literal_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: p.zork is not a function`."""
+args = ["run", "alias.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_parameter_bound_to_an_object_literal_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: x.zork is not a function`."""
+args = ["run", "param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_missing_method_on_a_function_result_object_literal_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 throws `TypeError: o.zork is not a function`."""
+args = ["run", "fnres.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "an_inherited_object_method_on_an_object_literal_refuses_under_run"
+rationale = """At `6f042548f` kali printed `0` at exit 0 where node v26.10.0 prints `true`."""
+args = ["run", "hasown.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_call_on_a_borrowed_array_push_refuses_under_run"
+rationale = """At `6f042548f` kali printed `3` at exit 0 where node v26.10.0 prints `4`."""
+args = ["run", "call_push.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_call_on_a_borrowed_array_prototype_pop_refuses_under_run"
+rationale = """At `6f042548f` kali printed `3` at exit 0 where node v26.10.0 prints `2`."""
+args = ["run", "proto_pop.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_method_inherited_from_a_program_base_still_matches_node_under_check"
+rationale = """At `6f042548f` kali printed `4` at exit 0 where node v26.10.0 prints `4`; unchanged after the gate."""
+args = ["check", "ok_extends.js"]
+exit = "success"
+
+[[case]]
+name = "a_method_inherited_from_a_program_base_still_matches_node_under_run"
+rationale = """At `6f042548f` kali printed `4` at exit 0 where node v26.10.0 prints `4`; unchanged after the gate."""
+args = ["run", "ok_extends.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "a_subclass_of_a_host_class_keeps_its_host_methods_under_check"
+rationale = """At `6f042548f` kali printed `ok` at exit 0 where node v26.10.0 prints `ok`; unchanged after the gate."""
+args = ["check", "ok_et.js"]
+exit = "success"
+
+[[case]]
+name = "a_subclass_of_a_host_class_keeps_its_host_methods_under_run"
+rationale = """At `6f042548f` kali printed `ok` at exit 0 where node v26.10.0 prints `ok`; unchanged after the gate."""
+args = ["run", "ok_et.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_host_class_instance_keeps_its_host_methods_under_run"
+rationale = """At `6f042548f` kali printed `a=1&b=2` at exit 0 where node v26.10.0 prints `a=1&b=2`; unchanged after the gate."""
+args = ["run", "ok_usp.js"]
+exit = "success"
+stdout = "a=1&b=2\n"
+
+[[case]]
+name = "a_let_bound_host_global_keeps_its_method_call_under_run"
+rationale = """At `6f042548f` kali printed `ok` at exit 0 where node v26.10.0 prints `ok`; unchanged after the gate."""
+args = ["run", "ok_host_let.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_free_host_global_call_keeps_working_under_run"
+rationale = """At `6f042548f` kali printed `ok` at exit 0 where node v26.10.0 prints `ok`; unchanged after the gate."""
+args = ["run", "ok_free_unused.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_program_class_method_named_like_an_array_method_still_matches_node_under_check"
+rationale = """At `6f042548f` kali printed `2` at exit 0 where node v26.10.0 prints `2`; unchanged after the gate."""
+args = ["check", "ok_inst_method.js"]
+exit = "success"
+
+[[case]]
+name = "a_program_class_method_named_like_an_array_method_still_matches_node_under_run"
+rationale = """At `6f042548f` kali printed `2` at exit 0 where node v26.10.0 prints `2`; unchanged after the gate."""
+args = ["run", "ok_inst_method.js"]
+exit = "success"
+stdout = "2\n"
+
+# Final-review fix wave (spec A-6). Measured with node v26.10.0, the baseline
+# `6f042548f` and `679b53cc5` (the branch head before the fix).
+
+[[case]]
+name = "this_in_a_method_of_a_host_class_subclass_keeps_its_host_methods_under_run"
+rationale = """Ruling R8. node v26.10.0 prints `1`. At `6f042548f` kali printed `1` at exit 0. At `679b53cc5` `run` refused `this.addEventListener()` with E5506, because a `this` root counted as a value the program built. `this` in a method of a class whose `extends` chain leaves the program (`ReprTable::host_derived_classes`) now has host provenance."""
+args = ["run", "ok_this_host.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "this_in_a_method_of_a_host_class_subclass_keeps_its_host_methods_under_check"
+rationale = """Ruling R8. node v26.10.0 prints `1`. `check` exited 0 at `6f042548f` and at `679b53cc5` (`this` is outside the check mirror); pinned so the check and run controls agree."""
+args = ["check", "ok_this_host.js"]
+exit = "success"
+
+[[case]]
+name = "this_in_the_constructor_of_a_host_class_subclass_keeps_its_host_methods_under_run"
+rationale = """Ruling R8. node v26.10.0 prints `ok`. At `6f042548f` kali printed `ok` at exit 0; at `679b53cc5` `run` refused `this.addEventListener()` with E5506."""
+args = ["run", "ok_this_host_ctor.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "this_in_a_method_of_a_nameless_host_class_expression_keeps_its_host_methods_under_run"
+rationale = """Ruling R8, for `const K = class extends EventTarget {…}`. node v26.10.0 prints `1`. At `6f042548f` kali printed `1` at exit 0; at `679b53cc5` `run` refused `this.addEventListener()` with E5506. The nameless class is named by its declarator `K`, as `program_classes` records it."""
+args = ["run", "ok_this_host_classexpr.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "this_in_a_method_of_a_program_only_class_still_refuses_under_run"
+rationale = """Ruling R8's counterpart. node v26.10.0 throws `TypeError: this.zork is not a function`. At `6f042548f` kali printed `1` at exit 0 (the call evaluated to a silent `0` and was dropped). `P`'s chain stays in the program, so its `this` is not host and `run` refuses, as at `679b53cc5`."""
+args = ["run", "this_prog.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_named_class_expression_bound_to_a_const_keeps_its_host_methods_under_run"
+rationale = """node v26.10.0 prints `ok`. At `6f042548f` kali printed `ok` at exit 0. At `679b53cc5` `run` refused `k.addEventListener()` with E5506: the class facts were recorded only under `Foo`, so `K` was not host-derived. They are now recorded under `K` too."""
+args = ["run", "ok_classexpr_named.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_class_extending_a_member_of_a_program_class_is_quiet_under_check"
+rationale = """node v26.10.0 prints `7`. At `6f042548f` `check` exited 0. At `679b53cc5` `check` refused `b.g()` with E5506, because the parser recorded `extends A.Inner` as `A`, a program class without `g`. A base that is not a plain identifier now leaves the program. `run` is not pinned: it fails with `E4201: failed to load WASM module` at the baseline and now, a separate defect."""
+args = ["check", "ok_extends_member.js"]
+exit = "success"
+
+[[case]]
+name = "an_extends_inside_type_parameters_is_not_the_base_under_check"
+rationale = """node v26.10.0 throws `TypeError: b.zork is not a function`. At `6f042548f` and at `679b53cc5` `check` exited 0 and `run` printed `0`: the parser took `T extends EventTarget` as the class's base, so `B` counted as host-derived. Only a depth-0 `extends` is the base now, so `B`'s chain stays in the program."""
+args = ["check", "generic_constraint.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "an_extends_inside_type_parameters_is_not_the_base_under_run"
+rationale = """node v26.10.0 throws `TypeError: b.zork is not a function`. At `6f042548f` and at `679b53cc5` kali printed `0` at exit 0. `B` is no longer host-derived, so `run` refuses."""
+args = ["run", "generic_constraint.ts"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_local_binding_shadowing_a_host_class_name_refuses_under_run"
+rationale = """node v26.10.0 throws `TypeError: o.zork is not a function`. At `6f042548f` and at `679b53cc5` kali printed `0` at exit 0: `C()` was taken as a call of the host-derived `class C` by bare name, although `const C = mk` shadows it. The host-derived set is consulted only when `C` resolves to a class."""
+args = ["run", "shadowed_host_class.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNRES}"]
+stdout = ""
+
+[[case]]
+name = "a_class_with_a_computed_member_name_is_quiet_under_check"
+rationale = """node v26.10.0 prints `1`. At `6f042548f` `check` exited 0. At `679b53cc5` `check` refused `c.foo()` with E5506, because the parser skips a computed member and `foo` was missing from the member set. A computed member now makes the class's member set unknown. `run` is not pinned: it refuses `c.foo()` with E5506 at `679b53cc5` and now (the baseline printed `0`); filed in the followups."""
+args = ["check", "ok_computed_member.js"]
+exit = "success"

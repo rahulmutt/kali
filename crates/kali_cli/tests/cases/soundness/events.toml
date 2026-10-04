@@ -368,11 +368,12 @@ The construction lane emits an opaque i64 host handle for a declarator-bound `ne
 
 Task 4: addEventListener + dispatchEvent emit arms — end-to-end runs and the fail-closed envelope. Every expected stdout below was verified against node v26.5.0 before being asserted.
 
-Out-of-lane preservation (spec §2 out-of-lane): a member `addEventListener` on a NON-EventTarget receiver with a non-capturing listener keeps its pre-lane behavior — an E3100 warning + zero-placeholder fallback, build SUCCEEDS (a pre-existing residual inventoried for Stage P3; do NOT convert to a deny here). Mirrors the browser package corpus `signal.addEventListener` shape (an AbortSignal-like unknown receiver) minus its object-shape read. The load-bearing property: the backstop lane did not widen."""
+Out-of-lane preservation (spec §2 out-of-lane): a member `addEventListener` on a NON-EventTarget receiver with a non-capturing listener keeps its pre-lane behavior — an E3100 warning + zero-placeholder fallback, build SUCCEEDS (a pre-existing residual inventoried for Stage P3; do NOT convert to a deny here). Mirrors the browser package corpus `signal.addEventListener` shape (an AbortSignal-like unknown receiver) minus its object-shape read. The load-bearing property: the backstop lane did not widen.
+
+Re-pinned 2026-10-03 by the unresolved-member-call project: at `6f042548f` this printed `built` at exit 0; node v26.10.0 prints `built` at exit 0; kali now refuses with E5506 (spec docs/superpowers/specs/2026-10-03-unresolved-member-call-design.md §3.1). This is an ACCEPTED CAPABILITY LOSS, spec §5.4 class 2 (dead code), not a silent `0` being closed: `attach` is never called, so `signal.addEventListener(…)` never runs in node. The receiver `signal` is a parameter, which spec §1 item 1 refuses because kali cannot prove it is a host value; the codegen gate fires at compile time whether or not the function is reachable. The "do NOT convert to a deny here" note above was Stage D's scope; the unresolved-member-call project is the later, deliberate decision that converts it. The EventTarget backstop lane itself is unchanged: the refusal is the unresolved-member-call text, not an EventTarget-lane deny."""
 args = ["run", "event_unknown_receiver_non_capturing_listener_still_builds.js"]
-exit = "success"
-stdout = """built
-"""
+exit = "failure"
+stderr_contains = ["E5506", "the receiver is a value this program built"]
 
 [[case]]
 name = "stale_clear_before_setinterval_does_not_poison_first_interval"

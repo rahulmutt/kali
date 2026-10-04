@@ -767,3 +767,73 @@ fn an_inner_binding_shadowing_an_outer_literal_is_not_a_literal_receiver() {
         assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
     }
 }
+
+const UNRES: &str = "the receiver is a value this program built";
+
+fn unres_count(source: &str) -> usize {
+    e5506_messages(source)
+        .iter()
+        .filter(|m| m.contains(UNRES))
+        .count()
+}
+
+#[test]
+fn check_refuses_a_missing_method_on_a_const_object_literal_or_program_instance() {
+    for source in [
+        "const o={k:1}; console.log(o.zork(4));",
+        "const o={k:1}; console.log(o[\"zork\"](4));",
+        "function main(){ const o={k:1}; console.log(o.zork()); } main();",
+        "class C{ f(){return 1;} } const c=new C(); console.log(c.g());",
+        "class A{ f(){return 1;} } class B extends A{} const b=new B(); console.log(b.g());",
+        "const o={k:1}; o.zork?.();",
+    ] {
+        assert_eq!(unres_count(source), 1, "{source}");
+    }
+}
+
+#[test]
+fn check_stays_quiet_where_it_cannot_know() {
+    for source in [
+        // members that exist, on the class or its program base
+        "class S { push(v){ return v+1; } } const s=new S(); console.log(s.push(1));",
+        "class A{ f(){return 4;} } class B extends A{} const b=new B(); console.log(b.f());",
+        "class S { n = 0; cb = () => 1; } const s=new S(); console.log(s.cb());",
+        // Object.prototype names
+        "const o={k:1}; console.log(o.hasOwnProperty(\"k\"));",
+        // a name some assignment writes
+        "const o={k:1}; o.f = 5; console.log(o.f());",
+        "class S { constructor(){ this.cb = 1; } } const s=new S(); console.log(s.cb());",
+        // the base leaves the program
+        "class X extends EventTarget{} const x=new X(); x.addEventListener(\"t\", ()=>{});",
+        // a class name declared twice has no knowable member set
+        "function f(){ class A extends EventTarget{} } class A {} const a=new A(); a.zork();",
+        // `new C()` where C is not the program class at that site
+        "class C { f(){ return 1; } } function main(){ const C = globalThis.Map; const x = new C(); console.log(x.get(1)); } main();",
+        "class C { f(){ return 1; } } function main(C){ const x = new C(); console.log(x.get(1)); } main(Map);",
+        "class C { f(){ return 1; } } function main(){ function C(){} const x = new C(); console.log(x.get(1)); } main();",
+        // receivers outside the mirror (run-only, spec §1.1)
+        "const s=\"abc\"; console.log(s.zork());",
+        "const o={k:1}; const p=o; console.log(p.zork());",
+        "let o={k:1}; console.log(o.zork());",
+        "function g(x){ return x.zork(); }",
+    ] {
+        assert_eq!(unres_count(source), 0, "{source}");
+    }
+}
+
+#[test]
+fn the_nearest_binding_wins() {
+    // Outer: a class instance that has `zork`. Inner: an object literal that does not.
+    let inner_lacks = "class S { zork(){ return 1; } } const o=new S(); function main(){ const o={k:1}; console.log(o.zork()); } main();";
+    assert_eq!(unres_count(inner_lacks), 1);
+    // Outer: an object literal without `zork`. Inner: a class instance that has it.
+    let inner_has = "const o={k:1}; class T { zork(){ return 1; } } function main(){ const o=new T(); console.log(o.zork()); } main();";
+    assert_eq!(unres_count(inner_has), 0);
+}
+
+#[test]
+fn a_literal_array_mutator_gets_one_diagnostic_not_two() {
+    let messages = e5506_messages("const a=[1,2,3]; a.pop(); console.log(a.length);");
+    assert_eq!(messages.len(), 1, "{messages:?}");
+    assert!(!messages[0].contains(UNRES));
+}

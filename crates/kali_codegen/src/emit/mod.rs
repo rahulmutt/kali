@@ -9,6 +9,7 @@ mod control_flow;
 pub(crate) mod equality;
 pub(crate) mod growable;
 mod literal;
+mod member_provenance;
 mod object;
 mod operators;
 mod switch;
