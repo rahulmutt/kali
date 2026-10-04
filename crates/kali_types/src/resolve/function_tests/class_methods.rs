@@ -28,7 +28,9 @@ fn test_resolution_rejects_class_method_generator_lowering() {
                 })),
                 is_async: false,
                 generator: true,
+                ..Default::default()
             }],
+            ..Default::default()
         }),
     })];
 
@@ -77,7 +79,9 @@ fn test_resolution_rejects_async_class_method_generator_lowering() {
                 })),
                 is_async: true,
                 generator: true,
+                ..Default::default()
             }],
+            ..Default::default()
         }),
     })];
 
@@ -127,6 +131,7 @@ fn test_resolution_collapses_mixed_generator_class_method_lowering() {
                     })),
                     is_async: false,
                     generator: true,
+                    ..Default::default()
                 },
                 MethodDefinition {
                     name: "asyncGen".to_string(),
@@ -145,6 +150,7 @@ fn test_resolution_collapses_mixed_generator_class_method_lowering() {
                     })),
                     is_async: true,
                     generator: true,
+                    ..Default::default()
                 },
                 MethodDefinition {
                     name: "plain".to_string(),
@@ -156,8 +162,10 @@ fn test_resolution_collapses_mixed_generator_class_method_lowering() {
                     })),
                     is_async: false,
                     generator: false,
+                    ..Default::default()
                 },
             ],
+            ..Default::default()
         }),
     })];
 
@@ -212,7 +220,9 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                                 })),
                                 is_async: false,
                                 generator: true,
+                                ..Default::default()
                             }],
+                            ..Default::default()
                         }),
                     }))),
                 }],
@@ -251,7 +261,9 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                                 })),
                                 is_async: true,
                                 generator: true,
+                                ..Default::default()
                             }],
+                            ..Default::default()
                         }),
                     }))),
                 }],
@@ -284,7 +296,9 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                             })),
                             is_async: false,
                             generator: true,
+                            ..Default::default()
                         }],
+                        ..Default::default()
                     }),
                 })),
             )),
@@ -315,7 +329,9 @@ fn test_resolution_rejects_generator_class_expression_lowering() {
                             })),
                             is_async: true,
                             generator: true,
+                            ..Default::default()
                         }],
+                        ..Default::default()
                     }),
                 })),
             )),
@@ -375,6 +391,7 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
                             })),
                             is_async: false,
                             generator: true,
+                            ..Default::default()
                         },
                         MethodDefinition {
                             name: "asyncGen".to_string(),
@@ -393,8 +410,10 @@ fn test_resolution_collapses_mixed_generator_class_expression_lowering() {
                             })),
                             is_async: true,
                             generator: true,
+                            ..Default::default()
                         },
                     ],
+                    ..Default::default()
                 }),
             }))),
         }],
@@ -442,7 +461,9 @@ fn test_resolution_supports_async_class_method_lowering() {
                 })),
                 is_async: true,
                 generator: false,
+                ..Default::default()
             }],
+            ..Default::default()
         }),
     })];
 

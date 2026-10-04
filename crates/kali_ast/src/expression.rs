@@ -155,13 +155,17 @@ impl MemberExpression {
 // ============== MISSING TYPES TO ADD ==============
 
 /// Function expression
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionExpression {
     pub id: Option<String>,
     pub params: Vec<FunctionParam>,
     pub body: Option<Box<BlockStatement>>,
     pub is_async: bool,
     pub generator: bool,
+    /// Parsed from block-bodied arrow syntax (`(a) => { … }`), whose `this`
+    /// is lexical (class-instances spec A-7). `false` for `function` syntax.
+    #[serde(default)]
+    pub is_arrow: bool,
 }
 
 /// Function param

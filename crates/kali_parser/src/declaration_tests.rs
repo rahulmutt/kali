@@ -1,6 +1,6 @@
 use crate::test_support::lex;
 use crate::*;
-use kali_ast::{Expression, Statement};
+use kali_ast::{Expression, MethodKind, Statement};
 
 fn assert_parse_class_method_modifiers_are_preserved(
     source: &str,

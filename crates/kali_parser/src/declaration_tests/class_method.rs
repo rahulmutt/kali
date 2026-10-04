@@ -391,3 +391,115 @@ fn a_computed_member_key_marks_the_member_set_unknown() {
         );
     }
 }
+
+fn parse_class(source: &str) -> kali_ast::ClassBody {
+    let tokens = lex(source);
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert!(
+        output.diagnostics.is_empty(),
+        "unexpected diagnostics: {:?}",
+        output.diagnostics
+    );
+    match &output.statements[0] {
+        Statement::ClassDeclaration(class_decl) => (*class_decl.body).clone(),
+        other => panic!("expected a class, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_field_keeps_its_initializer() {
+    let body = parse_class("class C { n = 1 + 2; label: string = \"x\"; m; }");
+    let names: Vec<_> = body.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, ["n", "label", "m"]);
+    assert!(matches!(
+        body.fields[0].value,
+        Some(Expression::BinaryExpression(_))
+    ));
+    assert!(matches!(body.fields[1].value, Some(Expression::Literal(_))));
+    assert_eq!(body.fields[2].value, None);
+    assert_eq!(body.field_names, ["n", "label", "m"]);
+}
+
+#[test]
+fn fields_without_semicolons_end_where_the_expression_ends() {
+    let body = parse_class("class C { n = 0\n m = 1\n f(){ return 2; } }");
+    let names: Vec<_> = body.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(names, ["n", "m"]);
+    assert_eq!(body.methods.len(), 1);
+    assert_eq!(body.methods[0].name, "f");
+}
+
+#[test]
+fn an_annotated_field_without_semicolon_stops_before_the_next_member() {
+    let body = parse_class("class C { label: string\n m = 1 }");
+    assert_eq!(body.fields[0].name, "label");
+    assert_eq!(body.fields[0].value, None);
+    assert_eq!(body.fields[1].name, "m");
+}
+
+#[test]
+fn accessors_and_statics_are_marked() {
+    let body = parse_class("class C { get v(){ return 1; } set v(x){} static make(){ return 2; } static k = 3; f(){} }");
+    let kinds: Vec<_> = body
+        .methods
+        .iter()
+        .map(|m| (m.name.as_str(), m.kind.clone(), m.is_static))
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            ("v", MethodKind::Get, false),
+            ("v", MethodKind::Set, false),
+            ("make", MethodKind::Method, true),
+            ("f", MethodKind::Method, false),
+        ]
+    );
+    assert_eq!(body.fields[0].name, "k");
+    assert!(body.fields[0].is_static);
+}
+
+#[test]
+fn a_method_named_like_a_modifier_is_a_plain_method() {
+    let body = parse_class("class C { get(){ return 1; } static(){ return 2; } }");
+    let names: Vec<_> = body
+        .methods
+        .iter()
+        .map(|m| (m.name.as_str(), m.kind.clone(), m.is_static))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            ("get", MethodKind::Method, false),
+            ("static", MethodKind::Method, false)
+        ]
+    );
+}
+
+#[test]
+fn private_members_and_static_blocks_are_flagged() {
+    let body = parse_class("class C { #x = 1; #m(){} static { init(); } f(){} }");
+    assert!(body.has_private_members);
+    assert!(body.has_static_block);
+    assert_eq!(body.methods.len(), 1);
+    assert_eq!(body.methods[0].name, "f");
+}
+
+#[test]
+fn a_block_arrow_is_marked_and_a_function_expression_is_not() {
+    let tokens = lex("const f = () => { return 1; }; const g = function(){ return 2; };");
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    let flags: Vec<bool> = output
+        .statements
+        .iter()
+        .map(|s| match s {
+            Statement::VariableDeclaration(d) => match &d.declarations[0].init {
+                Some(Expression::FunctionExpression(f)) => f.is_arrow,
+                other => panic!("expected a function expression, got {other:?}"),
+            },
+            other => panic!("{other:?}"),
+        })
+        .collect();
+    assert_eq!(flags, [true, false]);
+}

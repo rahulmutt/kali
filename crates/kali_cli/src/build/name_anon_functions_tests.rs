@@ -35,6 +35,7 @@ fn func_expr(id: Option<&str>, body: Vec<Statement>) -> Expression {
         body: Some(Box::new(BlockStatement { body })),
         is_async: false,
         generator: false,
+        ..Default::default()
     }))
 }
 
@@ -124,7 +125,9 @@ fn every_anonymous_function_shaped_position_gets_a_distinct_id() {
                 body: Some(Box::new(block(vec![const_decl("x", arrow(lit(6.0)))]))),
                 is_async: false,
                 generator: false,
+                ..Default::default()
             }],
+            ..Default::default()
         }),
     });
     // 7: IIFE — call callee is a parenthesized anonymous function expression

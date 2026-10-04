@@ -33,6 +33,7 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
                     body: Some(Box::new(BlockStatement { body: vec![] })),
                     is_async: false,
                     generator: true,
+                    ..Default::default()
                 },
             ))),
         }),
@@ -51,6 +52,7 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
                     body: Some(Box::new(BlockStatement { body: vec![] })),
                     is_async: true,
                     generator: true,
+                    ..Default::default()
                 },
             ))),
         }),
