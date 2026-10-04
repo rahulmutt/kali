@@ -158,10 +158,10 @@ fn is_kali_test_callee(nodes: &[LirNode], callee_id: LirNodeId) -> bool {
 fn is_scheduling_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bool {
     nodes.get(callee.0 as usize).is_some_and(|node| {
         node.children.is_empty()
-            && matches!(
-                node.text.as_deref(),
-                Some("queueMicrotask") | Some("setTimeout") | Some("setInterval")
-            )
+            && node
+                .text
+                .as_deref()
+                .is_some_and(|name| kali_common::is_deferred_registration_callee(name, false))
     })
 }
 
@@ -174,7 +174,11 @@ fn is_scheduling_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bo
 /// over-approximation (this analysis only ever REJECTS more).
 fn is_event_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bool {
     nodes.get(callee.0 as usize).is_some_and(|node| {
-        !node.children.is_empty() && node.text.as_deref() == Some("addEventListener")
+        !node.children.is_empty()
+            && node
+                .text
+                .as_deref()
+                .is_some_and(|name| kali_common::is_deferred_registration_callee(name, true))
     })
 }
 
