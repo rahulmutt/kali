@@ -247,6 +247,13 @@ loss that no case, fixture or corpus program exercises was not measured.
 11. **Scopes are per function frame, not per block.** Two same-named
     functions in one frame share a frame key. Both choices are conservative
     at most sites, but a block-shadowed name can resolve to the wrong binding.
+    **Fixed for block scopes** by the block-scoping project
+    (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`), at
+    `16dc1cf9c` (the rename wired in): a block-scoped declaration is renamed
+    to a binding of its own before analysis, so same-named functions in
+    sibling blocks keep separate frame keys. Cases
+    `scope/block_shadowing::same_named_functions_in_sibling_blocks_stay_separate`
+    and `same_named_inner_functions_in_different_functions_stay_separate`.
 12. **R-6: `recv["m"](…)` on an instance refuses** (computed access) rather
     than dispatching; a literal-key bracket call is not rewritten.
 13. **The Task 2 annotation heuristic's limit.** (R-22 fixed a separate bug
@@ -275,7 +282,12 @@ loss that no case, fixture or corpus program exercises was not measured.
     console.log(f(2));` prints `7` / `7` (r12; node `7` / `2`). The same with
     an instance parameter shadowed by an object literal (r8; node `7` / `2`,
     kali `7` / `7`). Codegen's bindings are flat per function (see item 11 and
-    literal-array-mutators followups §14). Silent, pre-existing, not fixed.
+    literal-array-mutators followups §14). Silent, pre-existing.
+    **Fixed** by the block-scoping project, at `16dc1cf9c`: the first repro
+    prints `7` / `2` (case
+    `scope/block_shadowing::a_block_const_shadows_a_parameter_only_inside_the_block`),
+    and an instance-parameter variant (an object literal shadows the instance, `return c.n`) prints `7` / `1` where node does
+    (measured at HEAD; no case pins the variant).
 16. **R-31: `--compat eval` aliasing.** With the opt-in `eval` flag,
     `const y = eval('c'); y.n = 7; console.log(c.n);` is not refused for an
     instance (ev1; node `7`), nor for a plain object (ev2). Without the flag

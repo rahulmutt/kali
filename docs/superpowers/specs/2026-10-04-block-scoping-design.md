@@ -565,3 +565,30 @@ it names.
   existing
   `runtime_smoke::build::build_artifacts_are_deterministic_across_repeated_invocations`,
   whose fixture gains a shadowed binding.
+* **A-8. Two loop-head bindings stay refused (§1 item 5, A-5).** Per-iteration
+  records cover the **body** bindings (`let` / `const` declared directly in
+  the loop body) of the growable-array runtime `for…of` and of `for…in`. They
+  do not cover the loop's own head binding. This overrides A-5's "the
+  growable-array runtime `for…of`, `for…in`, `while`, `do` and `for` are
+  claimed" and §1 item 5, for these two head bindings only. Both stay refused
+  with E5506, exactly as at the baseline `6345f082b`:
+  - **A closure capturing the `for…of` loop variable itself.** MIR gives the
+    binding a `TaggedVal` layout (it has no initializer to infer from), and
+    `closure::cell_is_promotable` (`kali_codegen/src/closure.rs:67-84`)
+    admits a non-scalar cell only with an `Object` repr, so the cell stays a
+    local and the deferred-capture choke point refuses it. Pinned by
+    `scope/per_iteration::a_growable_for_of_loop_variable_capture_stays_refused`
+    (`for_of_growable.js`: node `5 6`).
+  - **A closure capturing a `for…in` key.** The `kali_types` for..in
+    key-value gate refuses the key's use inside the callback before codegen,
+    for `run` and `check` alike. Pinned by
+    `scope/per_iteration::a_for_in_key_capture_stays_refused` (`for_in.js`:
+    node `a b`).
+
+  The body-binding successes are pinned by
+  `scope/per_iteration::a_growable_for_of_is_per_iteration`
+  (`for_of_growable_body.js`: node `5 6`) and
+  `scope/per_iteration::a_for_in_is_per_iteration` (`for_in_let.js`: node
+  `10 20`). Widening promotion to non-scalar (`TaggedVal`) loop-head cells
+  would lift both refusals; it is a future item
+  (`block-scoping-discovered-defects.md` §7.5).

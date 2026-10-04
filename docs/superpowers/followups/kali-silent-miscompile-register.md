@@ -108,7 +108,7 @@ That would be a confident wrong answer, so it is not given here. Measured at
   - **R-31** — `console.log(o)` → kali `0`, node `{ a: 1 }`; `console.log(a)` → kali `0`,
     node `[ 1, 2, 3 ]`, exit 0. (Note the array lane printed `0`, not the length §0.2's row
     records — one more reason the table below needs re-measuring, not re-reading.)
-  - **R-10** — `var x=1; { let x=2; } x` → kali `outer=2`, node `outer=1`, exit 0.
+  - **R-10** — `var x=1; { let x=2; } x` → kali `outer=2`, node `outer=1`, exit 0. *(Fixed 2026-10-04 by the block-scoping project, `16dc1cf9c`: kali now prints `outer=1`. Historical at this re-derivation.)*
   - **R-14** — `function f(){return [1,2,3];} f()[0]` → kali `e0=0`, node `e0=1`, exit 0.
 
   A computed property read, `console.log` of an object, a block-scoped `let`, and indexing a
@@ -268,7 +268,7 @@ a defect.
 | R-08 `===`/`!==`/`==`/`!=` half | **FAIL_CLOSED** (`r08eq`, both scopes) | ~~FIXED — conflation cases all correct; null-guard now fail-closed~~ **CHANGED at this regeneration: FIXED → FAIL_CLOSED.** The move is narrower than the class name suggests and must not be read as a regression: the repro's first three comparisons still agree with node, and the whole program now exits 1 only because its **fourth** comparison (a `let`-bound `0` against `null`) is refused with `E5506 operator '===' cannot be decided here`. One refused comparison takes the program's verdict; the three conflation cases are unaffected. |
 | R-08 `??` half | **SILENT** (`r08nc`, both scopes) | `let a=0; a??9`→9, and the `var`, parameter and call-return operands all →9/10 against node's `0`. All four operand kinds reproduce digit for digit. Unchanged — this half is untouched by the `===` half's move. |
 | R-09 `continue` skips for-update | **SILENT** (skip-ahead form `r09s`) / **FL_INTERNAL** (hang form `r09h`, `E4003` fuel trap) | two lanes of one entry, not a contradiction: the skip-ahead form is silent-wrong (kali `s=13`, node `s=10`, exit 0 both) and the `i%2` form runs away to `E4003`. `E4003` is documented as *internal*, so it is FL_INTERNAL and not an honest denial. The evidence-widening recorded on this row in 2026-07 stands and is not re-measured here: as of `61c2d48ea9` the register records the hang as independent of `let`/`var`, of `%`, and of nesting, reproducing under `do`/`while` and `for…in`, with `while`, `for…of` and a C-style `for` with no update clause the only faithful forms. **R-09 is the owning ID for the switch-clause `continue` hang**; it is *not* an R-35 defect and no `switch` allowlist can fix it. See §2's R-09 entry and `r35-switch-boundary-rederived.md`. |
-| R-10 block-scope shadowing | **FIXED** (both scopes) | the inner declaration still aliases the outer binding: kali `r=2`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`. |
+| R-10 block-scope shadowing | **FIXED** (both scopes) | **FIXED 2026-10-04 by the block-scoping project (`16dc1cf9c`, the rename wired in)**: the inner declaration is now a binding of its own, and kali prints `r=1`, as node does, exit 0, in both scopes (`oracle/tier2::r10_*` assert `fixed`). ~~the inner declaration still aliases the outer binding: kali `r=2`, node `r=1`, exit 0. One of the three frontier candidates, and still silent at `4cfa218814`.~~ The classifier's SILENT specimen moved to R-26. |
 | R-11 bitwise compound assign | **FIXED** (local-scalar lane, both scopes) | ~~CLOSED 2026-07-25 (`28f18b3ff`)~~ — the class is now stated in the classifier's vocabulary rather than as a project event: **FIXED**. All six operators match (`and=2 or=14 xor=7 shl=24 shr=3 ushr=3`). **This case measures the local-scalar lane only** — the entry's own repro. R-11's guard-bypass shapes (object field, array element, parameter) are different programs with no case here, and as of `61c2d48ea9` §2 records some of them refusing with `E5506`; this row does not speak for them. The `&=`/`+=` relation is **INVERTED** on the object-field lane — as of `61c2d48ea9`, `o.a &= 3` lowers to `2` while `o.a += 1` refuses with `E5506`; see §3's G3 edit. |
 | R-12 alias defeats array-store guard | **FAIL_CLOSED** (both scopes) | **RE-DERIVED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project, and NOT RETIRED.** The two `r12` cases now assert `fail_closed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named this row alongside R-13's and R-59's, and it is re-derived here rather than left to ride along. Measured at `71b5f42f6c` against `node v26.8.1`, both scopes: `const a=[1,2]; const b=a; b[0]=7; console.log("b0="+b[0]);` exits 1 with empty stdout and the shared `E5506: computed member access …` under `kali run`, where node prints `b0=7` at exit 0. **node's `b0=7` is still not produced, so the behaviour this entry names is NOT fixed** — what moved is the class, from a store that vanished silently to one that refuses loudly, which is the R-32 precedent this file already records (an entry can leave the SILENT filter without being fixed). Two readings this row must not be given: the un-aliased spelling `const a=[1,2]; a[0]=7;` refuses too, with the neighbouring `mutating a literal array` message, so the alias is no longer the discriminator between refusal and silence; and **`kali check` still exits 0 on the aliased program** while `run` refuses — a spec §8 twin disagreement the oracle harness cannot see, because it observes `run` only. **Consequence for the ranking**: with no SILENT lane left R-12 leaves the SILENT filter and `tools/blast-radius/clusters.json`, and because R-13 leaves in the same regeneration **G3 loses both of its members, so G3's cluster definition goes with them** — forced by `crates/kali_blast_radius/src/ranking.rs:326`, not chosen. ~~the store vanishes and the read-back through the alias reports the pre-store value (kali `b0=1`, node `b0=7`). The discriminator is **SCOPE, not declarator kind**, per the 2026-07-25 correction on `372a3f440`; both scopes measure SILENT here because both cases carry the alias.~~ |
 | R-13 computed var-key get/set | **FIXED** (read `r13r`; write `r13w`), both scopes | **RETIRED 2026-09-09 at `71b5f42f6c` by the computed-member-static-name project — every lane of this entry moved, which is the rule §3.4 of the ranking states.** Re-derived from the four `r13r`/`r13w` cases, which now assert `fixed`; the gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named the mismatch first and the row followed it. ~~SILENT (read `r13r`) / SILENT (write `r13w`), both scopes: read →`v=0` where node reads `2`; write vanishes (kali `dot=2`, node `dot=8`). Two repros, two lanes, one class. A third case in `classifier_ground_truth.toml` pins the SILENT class on the read repro. One of the three frontier candidates, and still silent at `4cfa218814`.~~ **WHAT IS PINNED BY A LIVE CASE**: the `const` key, read and store, both scopes. **WHAT IS NOT PINNED HERE AND IS PINNED ELSEWHERE**: the `var`-key spelling this entry's ground-truth fixture used is now FAIL_CLOSED (`object/computed_member_static_name.toml`, `check_refuses_a_var_key` and `run_refuses_a_var_key`), so the classifier's SILENT fixture moved to R-10. |
@@ -2165,6 +2165,7 @@ tier, ordering is by blast radius.
 
 ### R-10: Block-scoped `let`/`const` shadowing is unmodeled — the inner declaration aliases the outer binding
 
+- **Status (2026-10-04): FIXED** by the block-scoping project at `16dc1cf9c`; cases `scope/block_shadowing::*`, `oracle/tier2::r10_*`. Everything below is the account as of the 2026-07-25 re-measurement, kept as history. The shape `let x=1; { let x=2; } console.log("r="+x)` now prints `r=1`, as node does. The per-iteration companion defect is R-69.
 - **Folds in**: D-C-5.
 - **Verification**: `sweep-only` (both scopes) for the full shape inventory, **upgraded to
   `CONFIRMED-BY-CONTROLLER` for the core repro**: the Repro line below was directly re-measured
@@ -6674,6 +6675,51 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   directly); high on mechanism (the same `specialize.rs:120-127` chain R-61
   traces, independently corroborated by the LIR dump the parent followup's §2
   cites).
+
+### R-69: Per-iteration loop bindings are shared by registered callbacks — **CLOSED 2026-10-04 (FIXED) for the shapes below**
+
+- **Added**: 2026-10-04, by the **block-scoping** project
+  (`docs/superpowers/specs/2026-10-04-block-scoping-design.md` §2.2), and
+  retired in the same edit for the lanes named under **Status**.
+- **Numbering note**: filed in **§7**, not §2, for the same reason R-62 is.
+  `parse_register` treats a `### R-` header after a non-tier `## ` heading as
+  outside §2's tier table, so this entry is not in the ranking, needs no
+  catalogue record and is not counted in §1's severity table. It is a silent
+  miscompile (exit 0, a wrong value) all the same; filing it in §7 only
+  avoids moving the blast-radius pins in a docs-only change.
+- **Verification**: `CONFIRMED-BY-CONTROLLER`. Baseline columns from
+  `tools/array-return-probes/baseline-bs.tsv`, measured at `6345f082b`;
+  node v26.10.0.
+- **Root-cause group**: **unclustered**. Sibling of R-10 (both are
+  binding-storage defects: a binding that JavaScript creates once per scope
+  entry has one storage cell in kali), but it needs a different fix
+  (per-iteration env records, not a rename), so it is its own entry.
+- **Repro** (`defer1` / `defer2` / `defer5`, probes `bs_defer1`, `bs_defer2`,
+  `bs_defer5`, cases `scope/per_iteration::a_module_loop_owner_prints_each_iteration`,
+  `a_function_loop_owner_prints_each_iteration`, `a_body_const_is_per_iteration`):
+
+  | probe | source | node | kali at `6345f082b` (exit 0) |
+  |---|---|---|---|
+  | `defer1` | `for(let i=0;i<3;i++){ queueMicrotask(()=>console.log(i)); }` | `0 1 2` | `0 0 0` |
+  | `defer2` | `function m(){ for(let i=0;i<3;i++){ setTimeout(()=>console.log(i), 0); } } m();` | `0 1 2` | `3 3 3` |
+  | `defer5` | `function m(){ for(let i=0;i<2;i++){ const k=i*3; queueMicrotask(()=>console.log(k)); } } m();` | `0 3` | `3 3` |
+
+  Every callback registered in an iteration reads the loop binding's single
+  cell after the loop has finished.
+- **Severity**: silent-wrong-value.
+- **Status (2026-10-04): FIXED** by the block-scoping project at `de662a327`
+  (per-iteration env records), for the shapes the maturity row claims
+  (`specs/19-feature-maturity.md`: a closure registered with `queueMicrotask`
+  or `setTimeout` inside a `for`, `while`, `do`, `for…in` or growable-array
+  `for…of` loop sees that iteration's body bindings, and a `for` loop's head
+  bindings); cases `scope/per_iteration::*`. **Not fixed, and each stays
+  refused with E5506 rather than silent**: a closure that also captures a
+  binding of the enclosing function or of an outer loop (run only), a
+  `continue` in an owner `for`, an owner `for…of` over a compile-time
+  iterable, and a closure capturing a growable `for…of` loop variable or a
+  `for…in` key (spec A-8). Registrations through `setInterval` and
+  `addEventListener` use the same predicate but have no end-to-end case, so
+  they are not claimed. See `block-scoping-discovered-defects.md` §3-§7.
 
 ---
 

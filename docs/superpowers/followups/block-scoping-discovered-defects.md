@@ -4,14 +4,40 @@
 (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`), on the
 convention `class-instances-discovered-defects.md` uses: a project that
 measures more than it fixes writes down what it left, so the silence is not
-read as absence. Task 9 wrote the triage (§1) and the items found while
-implementing (§2); Task 10 completes the header and the remaining sections.
+read as absence. Task 9 wrote the triage (§1) and the first items of §7;
+Task 10 wrote the rest.
 
 **Oracle:** `node v26.10.0`.
 **Measured at:** HEAD `de662a327` (branch `block-scoping`), on
-`target/debug/kali` built from that commit (the `dev` profile). The baseline
-binary was built from `6345f082b` in a separate worktree
-(`/home/dev/kali-bs-baseline`).
+`target/debug/kali` built from that commit (the `dev` profile). The two
+commits after it (`730c5f8d6`, `af393e40b`) change test files only. Items
+that Task 10 measured by hand (§3, §6, §7.6-§7.10) were run on the same
+binary. The baseline binary was built from `6345f082b` in a separate
+worktree (`/home/dev/kali-bs-baseline`). Probe rows come from
+`tools/array-return-probes/probes/bs_*.js` (runner
+`tools/array-return-probes/run.sh`); a probe's baseline column is
+`tools/array-return-probes/baseline-bs.tsv`.
+
+**What ships.** Two things, and nothing else.
+
+* **Block scoping by renaming.** A `let` / `const` / function declaration in
+  a block, `if` arm, loop body or `for` head is renamed to a binding of its
+  own before analysis, so it no longer changes a same-named module binding,
+  function local or parameter (register R-10, FIXED). `--compat eval` with a
+  renamed binding is refused under `run` and `check`.
+* **Per-iteration env records.** A loop that registers a callback
+  (`queueMicrotask` or `setTimeout` are the end-to-end-tested callees) over
+  its own bindings gets one record per iteration, so each callback sees its
+  iteration's bindings (register R-69, FIXED for those shapes). The loop is
+  an owner when the registration is textually anywhere inside it, including
+  inside a function or arrow function defined in the loop (ruling R8). The
+  records cover a loop's body bindings and a `for` loop's head bindings. They
+  do not cover the head binding of a growable `for…of` or a `for…in` key
+  (spec A-8, §2 and §7.5).
+
+The maturity row is `specs/19-feature-maturity.md`, "Block-scoped bindings
+and per-iteration loop bindings for registered callbacks". Nothing in this
+file changes it; each section below is something that row does not claim.
 
 ---
 
@@ -39,7 +65,7 @@ is new to this triage because Task 4 triaged the `cases` target only.
 |---|---|
 | wanted (a silent wrong value or a refusal became node-correct) | 45 (42 re-pinned to node's output, 2 `tier2::r10_*` flipped to FIXED, 1 classifier ground truth re-pinned to a new SILENT specimen) |
 | rationale only / stderr only | 9 |
-| NEW SILENT WRONG: the shadow now resolves correctly, but the read hits a pre-existing defect (§2.1, §2.2); fixture rewritten under ruling H2 | 6 (the 5 Task 4 found, plus the runtime_smoke trial) |
+| NEW SILENT WRONG: the shadow now resolves correctly, but the read hits a pre-existing defect (§7.1, §7.2); fixture rewritten under ruling H2 | 6 (the 5 Task 4 found, plus the runtime_smoke trial) |
 | capability loss, class 1 / 2 / 3 | 0 / 0 / 0 |
 | **total** | **60** |
 
@@ -96,7 +122,7 @@ text is Task 10's.
 | `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_arrow_capturer` (`run bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_arrow_capturer.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `4⏎`; node: `4⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_const_arrow_capturer`. |
 | `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_own_cell_double_read` (`run bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_own_cell_double_read.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `1⏎1⏎`; node: `1⏎1⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_const_own_cell_double_read`. |
 | `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_var_numeric` (`run bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_var_numeric.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `4⏎6⏎`; node: `4⏎6⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_var_numeric`. |
-| `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison` (`run bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `1⏎`; node: `true⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§2.1 / §2.2). Fixture rewritten to stay in the supported subset and renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_const_feeds_a_fold_sensitive_comparison`; pinned `yes⏎`, node-equal. |
+| `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison` (`run bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `1⏎`; node: `true⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§7.1 / §7.2). Fixture rewritten to stay in the supported subset and renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_const_feeds_a_fold_sensitive_comparison`; pinned `yes⏎`, node-equal. |
 | `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_float_const` (`run bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_float_const.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `4⏎`; node: `4⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_const_float_const`. |
 | `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_numeric` (`run bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_numeric.ts`) | exit 1, `E5506 bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shad…` | exit 0, `4⏎6⏎`; node: `4⏎6⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_numeric`. |
 | `soundness/bitwise_compound::bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_string` (`run bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_string.ts`) | exit 1, `E5506 reading module binding 'n' from a function is only available for compile-time-constant 'const' initializ…` (+1 more) | exit 0, `4⏎hi⏎`; node: `4⏎hi⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_string`. |
@@ -109,10 +135,10 @@ text is Task 10's.
 | `soundness/bitwise_compound::bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow` (`run bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow.ts`) | exit 1, `E5506 bitwise compound assignment '\|=' on a non-integer module global is unavailable in the current phase` | exit 0, `14⏎`; node: `14⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow`. |
 | `soundness/bitwise_compound::bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow` (`run bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow.ts`) | exit 1, `E5506 bitwise compound assignment '\|=' on a non-integer module global is unavailable in the current phase` | exit 0, `14⏎`; node: `14⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow`. |
 | `soundness/bitwise_compound::bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow` (`run bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow.ts`) | exit 1, `E5506 bitwise compound assignment '\|=' on a non-integer module global is unavailable in the current phase` | exit 0, `14⏎`; node: `14⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow`. |
-| `soundness/events::event_marker_redeclared_by_inner_scalar_fails_closed` (`run event_marker_redeclared_by_inner_scalar_fails_closed.js`) | exit 1, `E5506 redeclaring a name bound to an Event/CustomEvent in an inner scope is not supported in the current phase…` | exit 0, `0⏎`; node: `undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§2.1 / §2.2). Fixture rewritten to stay in the supported subset and renamed `event_marker_redeclared_by_inner_scalar_reads_the_inner_scalar`; pinned `6⏎tick⏎`, node-equal. |
+| `soundness/events::event_marker_redeclared_by_inner_scalar_fails_closed` (`run event_marker_redeclared_by_inner_scalar_fails_closed.js`) | exit 1, `E5506 redeclaring a name bound to an Event/CustomEvent in an inner scope is not supported in the current phase…` | exit 0, `0⏎`; node: `undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§7.1 / §7.2). Fixture rewritten to stay in the supported subset and renamed `event_marker_redeclared_by_inner_scalar_reads_the_inner_scalar`; pinned `6⏎tick⏎`, node-equal. |
 | `soundness/events::event_marker_redeclared_inside_function_fails_closed` (`run event_marker_redeclared_inside_function_fails_closed.js`) | exit 1, `E5506 redeclaring a name bound to an Event/CustomEvent in an inner scope is not supported in the current phase…` | exit 0, `inner⏎`; node: `inner⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `event_marker_redeclared_inside_function_reads_the_inner_binding`. |
 | `soundness/events::event_marker_redeclared_by_inner_object_fails_closed` (`run event_marker_redeclared_by_inner_object_fails_closed.js`) | exit 1, `E5506 redeclaring a name bound to an Event/CustomEvent in an inner scope is not supported in the current phase…` | exit 0, `x⏎`; node: `x⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `event_marker_redeclared_by_inner_object_reads_the_inner_object`. |
-| `soundness/events::event_marker_shadowed_by_for_of_binding_fails_closed` (`run event_marker_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to an Event/CustomEvent in the current phase (this pro…` | exit 0, `0⏎0⏎`; node: `undefined⏎undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§2.1 / §2.2). Fixture rewritten to stay in the supported subset and renamed `event_marker_shadowed_by_for_of_binding_reads_the_loop_binding`; pinned `aa⏎bb⏎tick⏎`, node-equal. |
+| `soundness/events::event_marker_shadowed_by_for_of_binding_fails_closed` (`run event_marker_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to an Event/CustomEvent in the current phase (this pro…` | exit 0, `0⏎0⏎`; node: `undefined⏎undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§7.1 / §7.2). Fixture rewritten to stay in the supported subset and renamed `event_marker_shadowed_by_for_of_binding_reads_the_loop_binding`; pinned `aa⏎bb⏎tick⏎`, node-equal. |
 | `soundness/events::event_target_handle_shadowed_by_for_of_binding_fails_closed` (`run event_target_handle_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to an EventTarget in the current phase (this provenanc…` | exit 0, `2⏎`; node: `2⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `event_target_handle_shadowed_by_for_of_binding_reads_the_loop_binding`. |
 | `soundness/events::event_target_handle_redeclared_in_an_inner_block_fails_closed` (`run event_target_handle_redeclared_in_an_inner_block_fails_closed.js`) | exit 1, `E5506 redeclaring a name bound to an EventTarget in an inner scope is not supported in the current phase (this…` (+1 more) | exit 0, `5⏎`; node: `5⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `event_target_handle_redeclared_in_an_inner_block_reads_the_inner_binding`. |
 | `soundness/textcodec::text_decoder_marker_shadowed_by_for_of_binding_fails_closed` (`run text_decoder_marker_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a TextDecoder in the current phase (this provenance…` | exit 1, `E5506 a TextEncoder byte buffer cannot be read in this position: kali admits it only as a TextDecoder().decode…` (+1 more); node: exit 1, TypeError | **rationale only / stderr only**: still refused; needle and dated note updated, name kept. node throws a TypeError on the string loop variable; kali now refuses at the method call instead of at the shadow. |
@@ -123,12 +149,12 @@ text is Task 10's.
 | `soundness/textcodec::bytes_handle_redeclared_in_an_inner_block_fails_closed` (`run bytes_handle_redeclared_in_an_inner_block_fails_closed.js`) | exit 1, `E5506 redeclaring a name bound to a TextEncoder().encode() byte handle in an inner scope is not supported in t…` (+1 more) | exit 0, `5⏎hi⏎`; node: `5⏎hi⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `bytes_handle_redeclared_in_an_inner_block_reads_the_inner_binding`. |
 | `soundness/url::url_binding_name_shadowing_fails_closed_shadow_over_url` (`run url_binding_name_shadowing_fails_closed_shadow_over_url.js`) | exit 1, `E5506 redeclaring a name bound to a URL/URLSearchParams in an inner scope is not supported in the current phas…` | exit 0, `7⏎`; node: `7⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `url_binding_name_shadowing_reads_the_inner_binding_shadow_over_url`. |
 | `soundness/url::url_binding_name_shadowing_fails_closed_url_over_generic` (`run url_binding_name_shadowing_fails_closed_url_over_generic.js`) | exit 1, `E5506 constructing a URL is only supported as 'const <name> = new URL(<string-literal>)' in the current phase;…` | exit 0, `/first⏎`; node: `/first⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `url_binding_name_shadowing_reads_the_inner_binding_url_over_generic`. |
-| `soundness/url::url_shadowed_by_for_of_binding_fails_closed` (`run url_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a URL/URLSearchParams in the current phase (this pr…` | exit 0, `0⏎`; node: `undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§2.1 / §2.2). Fixture rewritten to stay in the supported subset and renamed `url_shadowed_by_for_of_binding_reads_the_loop_binding`; pinned `aa⏎/p⏎`, node-equal. |
+| `soundness/url::url_shadowed_by_for_of_binding_fails_closed` (`run url_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a URL/URLSearchParams in the current phase (this pr…` | exit 0, `0⏎`; node: `undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§7.1 / §7.2). Fixture rewritten to stay in the supported subset and renamed `url_shadowed_by_for_of_binding_reads_the_loop_binding`; pinned `aa⏎/p⏎`, node-equal. |
 | `soundness/url::url_search_params_shadowed_by_for_of_binding_fails_closed` (`run url_search_params_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a URL/URLSearchParams in the current phase (this pr…` | exit 1, `E5506 calling '.get()' is unavailable in the current phase: the receiver is a value this program built, and ka…`; node: exit 1, TypeError | **rationale only / stderr only**: still refused; needle and dated note updated, name kept. node throws a TypeError on the string loop variable; kali now refuses at the method call instead of at the shadow. |
-| `soundness/url::url_shadowed_by_for_of_binding_inside_a_function_fails_closed` (`run url_shadowed_by_for_of_binding_inside_a_function_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a URL/URLSearchParams in the current phase (this pr…` | exit 0, `0⏎`; node: `undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§2.1 / §2.2). Fixture rewritten to stay in the supported subset and renamed `url_shadowed_by_for_of_binding_inside_a_function_reads_the_loop_binding`; pinned `aa⏎/p⏎`, node-equal. |
+| `soundness/url::url_shadowed_by_for_of_binding_inside_a_function_fails_closed` (`run url_shadowed_by_for_of_binding_inside_a_function_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a URL/URLSearchParams in the current phase (this pr…` | exit 0, `0⏎`; node: `undefined⏎` | **NEW SILENT WRONG at Task 4** (ruling H2): the shadow now resolves correctly, but the old fixture's read hit a pre-existing defect (§7.1 / §7.2). Fixture rewritten to stay in the supported subset and renamed `url_shadowed_by_for_of_binding_inside_a_function_reads_the_loop_binding`; pinned `aa⏎/p⏎`, node-equal. |
 | `soundness/url::url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage` (`run url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js`) | exit 1, `E5506 redeclaring a name bound to a URL/URLSearchParams in an inner scope is not supported in the current phas…` | exit 0, `x⏎`; node: `x⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `url_redeclared_in_an_inner_block_reads_the_inner_binding`. |
 | `soundness/url::url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage` (`run url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js`) | exit 1, `E5506 redeclaring a name bound to a URL/URLSearchParams in an inner scope is not supported in the current phas…` (+1 more) | exit 0, `5⏎`; node: `5⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `url_search_params_redeclared_in_an_inner_block_reads_the_inner_binding`. |
-| `runtime_smoke::run::run_rejects_crypto_random_result_shadowed_by_a_for_of_binding` (`run --api browser main.js`; `for (const fb of ['aa','bbb']) console.log(fb.byteLength)` shadowing a `crypto.getRandomValues` result) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a crypto.getRandomValues(...) result …` | exit 0, `8⏎0⏎0⏎`; node: `8⏎undefined⏎undefined⏎` | **NEW SILENT WRONG**, not in Task 4's list (Task 4 triaged the `cases` target only). Same primitive-member-read defect as §2.1; handled as ruling H2 directs: fixture rewritten (`fb.length` in the loop, `fb.byteLength` after it) and renamed `run_reads_a_for_of_binding_that_shadows_a_crypto_random_result`; pinned `8⏎2⏎3⏎8⏎`, node-equal. |
+| `runtime_smoke::run::run_rejects_crypto_random_result_shadowed_by_a_for_of_binding` (`run --api browser main.js`; `for (const fb of ['aa','bbb']) console.log(fb.byteLength)` shadowing a `crypto.getRandomValues` result) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to a crypto.getRandomValues(...) result …` | exit 0, `8⏎0⏎0⏎`; node: `8⏎undefined⏎undefined⏎` | **NEW SILENT WRONG**, not in Task 4's list (Task 4 triaged the `cases` target only). Same primitive-member-read defect as §7.1; handled as ruling H2 directs: fixture rewritten (`fb.length` in the loop, `fb.byteLength` after it) and renamed `run_reads_a_for_of_binding_that_shadows_a_crypto_random_result`; pinned `8⏎2⏎3⏎8⏎`, node-equal. |
 
 ### §1.1 The sweep
 
@@ -157,7 +183,7 @@ Per controller ruling R9, growable `for…of` loop-variable capture and
 `for…in` key capture are still refused, as they were at baseline
 (`scope/per_iteration::a_growable_for_of_loop_variable_capture_stays_refused`,
 `a_for_in_key_capture_stays_refused`). They are not a move and not a
-capability loss (§2.5). A capability loss that no case, fixture or corpus
+capability loss (§2). A capability loss that no case, fixture or corpus
 program exercises was not measured.
 
 ### §1.2 The classifier ground truth
@@ -183,21 +209,131 @@ assert `{FIXED}` and R-26's assert `{SILENT}`, matching §0.2, so the gate
 
 ---
 
-## §2. Discovered while implementing
+## §2. Measured capability loss
 
-### §2.1 A member read on a primitive renders `0` instead of `undefined`
+**None in any trial, case, fixture or corpus program; one constructed program found by hand (§7.8).** Capability loss here means a program that exited 0 with
+node-correct output at `6345f082b` and is refused at HEAD.
+
+* The 60 moved trials (§1): none is a capability loss of class 1, 2 or 3.
+* The 6,423-trial sweep (§1.1): 7 trials carry one of the new refusals, and
+  none of them is such a program. Five were silently wrong or failed
+  internally at the baseline (the two `--compat eval` cases, `r_loopmix`,
+  `nested_loops`, `r_continue`), and two were already refused (`r_defer4`,
+  the abort module-scope `for…of` case).
+* Two shapes are still refused exactly as at the baseline, so they are neither
+  a move nor a loss: a closure capturing a growable `for…of` loop variable
+  (`scope/per_iteration::a_growable_for_of_loop_variable_capture_stays_refused`)
+  and a closure capturing a `for…in` key
+  (`a_for_in_key_capture_stays_refused`). The spec had claimed both; ruling R9
+  narrowed it (spec A-8, §7.5).
+
+The one constructed loss is §7.8: a function declared but never called in a loop makes the loop an owner (ruling R8), and a synchronous closure in that loop that captures a binding of the enclosing function is then refused where the baseline was node-correct. No trial, case or corpus program has that shape.
+
+What this does not say: a program that no case, fixture or corpus program
+exercises was not measured. The five silent-to-refused moves above cost an
+honest refusal in place of a wrong value, and are the intended trade.
+
+## §3. The run-only refusals and the `check` / `run` gap
+
+Five refusals come from MIR or from codegen, and `check` runs neither, so
+`check` exits 0 on the same programs, as it does at the baseline for the depth-2
+refusal:
+
+| shape | probe | `run` | `check` |
+|---|---|---|---|
+| a closure in an owner loop that also captures a binding of the enclosing function | `r_loopmix` | E5506 `through a per-iteration record` | **exit 0** |
+| a closure reading an outer owner loop's binding from a nested owner loop | `nested_loops` | E5506, same message | exit 0 |
+| a `continue` in an owner `for` | `r_continue` | E5506 `` `continue` in a `for` loop `` | exit 0 |
+| an owner `for…of` over a compile-time iterable | `r_defer4` | E5506 `compile-time iterable` | exit 0 |
+| a closure capturing the growable `for…of` loop variable | `for_of_growable` | E5506 `captured local binding without closure lowering` | exit 0 |
+
+Only `r_loopmix` has a `check` case
+(`scope/per_iteration::a_capture_of_a_function_binding_through_a_record_is_not_seen_by_check`).
+The other four `check` exits were measured by hand at HEAD and are not
+pinned. Two refusals are not in the gap: a `for…in` key capture is refused
+by `check` as well (the `kali_types` gate), and a closure in a `for` head is
+refused by the resolver (E3100) under both commands.
+
+The gap is the one `literal-array-mutators-discovered-defects.md` §1 records
+for the mutator refusals. Mirroring these refusals in `check` would need the
+iteration-owner analysis to run before MIR. This project did not do that.
+
+## §4. Nested owner loops refuse at depth 2
+
+`for (let i…) { for (let j…) { setTimeout(() => console.log(i, j), 0); } }`
+prints `0 0`, `0 1`, `1 0`, `1 1` in node and is refused under `run`
+(`scope/per_iteration::nested_owner_loops_are_refused_at_depth_two`, spec A-4).
+At the baseline it printed `0 0` four times at exit 0. The inner closure
+reaches `i` two records away, through the inner record, and codegen has no
+lowering for an env walk of depth 2 or more through an iteration record.
+
+**Future item: lower depth-2 walks.** That would also lift the
+enclosing-function capture refusal (`r_loopmix`). The message text for the
+nested case is wrong today (§7.7).
+
+## §5. Per-iteration records are never freed
+
+One record is allocated per iteration of an owner loop, in the never-reset
+global region, the same class as the baseline's one record per activation
+(`kali_codegen/src/closure.rs:1-20`; spec §1.1). A loop of N iterations
+allocates N records and nothing frees them, so a long-running owner loop
+grows memory linearly. The records hold only the loop's captured bindings.
+No measurement of the growth was taken. A future item is to release a record
+once no callback holds it; under the project's invariants that means
+ownership or reference counting, not a tracing collector.
+
+## §6. Shapes not reached
+
+None of these is claimed in the maturity row.
+
+* **`catch`.** `try` / `catch` / `finally` is refused by the parser
+  (`bs_r_catch_shadow`: E5506 `try/catch/finally is unavailable`), at the
+  baseline and at HEAD. The rename pass handles `catch` parameters (spec A-1),
+  but nothing reaches it.
+* **`switch` fallthrough.** True fallthrough is refused (`bs_r_switch_case`,
+  E5506 `this switch is not in the supported lowering set`). A closure
+  registered inside a `switch` clause that does lower panics the compiler
+  (§7.4).
+* **String `+`.** `bs_r_str_shadow`
+  (`let s="a"; if(true){ let s=3; console.log(s+1); } console.log(s);`) was
+  refused at the baseline with E3200. At HEAD it prints `4` then `a`, as node
+  does, because the rename gives the two `s` separate types. That was measured
+  with the probe and no case pins it, so it is not claimed.
+* **Unrolled `for…of`.** A callback registered in a `for…of` over a
+  compile-time iterable is refused (`r_defer4`, spec A-5; §3).
+* **`Kali.test` registrations.** `Kali.test` is not on the
+  deferred-registration list, so a loop registering only `Kali.test`
+  callbacks keeps the baseline lowering (spec A-2). Not measured.
+* **`setInterval` and `addEventListener`.** They are on the shared
+  `kali_common::is_deferred_registration_callee` list and unit-tested there
+  and in MIR, but no end-to-end case runs them, so they are not claimed.
+  `addEventListener` programs measured by hand were refused for unrelated
+  reasons (`Event` use).
+* **`loopc1`, `loopc2`, `loopc4`, `loopc5` and `defer3`.** A closure stored
+  in a variable and called after the loop, and `Promise.resolve().then(…)` in
+  a loop, are refused at the baseline by the first-class-call refusal
+  (`calling 'f0' is unavailable …`) and by the unresolved-callee refusal, and
+  still are. They are probes, so a movement would show.
+
+## §7. Anything else found
+
+
+### §7.1 A member read on a primitive renders `0` instead of `undefined`
 
 Repro: `const x = 5; console.log(x.type);`. node prints `undefined`; kali
 prints `0` at exit 0 on both `6345f082b` and HEAD. The same holds for a string
 receiver (`for (const s of ['aa']) console.log(s.pathname)` prints `0`).
 The defect has nothing to do with shadowing. The old per-provenance shadow
-guards (Event, URL, crypto) kept five fixtures away from it. Once the rename
-made those guards unnecessary, the fixtures reached it and became silent wrong
-values, and they were rewritten (§1, ruling H2). It looks like a lane of
+guards (Event, URL, crypto) kept five fixtures away from it (four from Task 4's list, plus the
+runtime_smoke crypto `for…of` trial). Once the rename made those guards
+unnecessary, the fixtures reached it and became silent wrong values, and they
+were rewritten (§1, ruling H2). The sixth NEW SILENT WRONG fixture, the
+fold-sensitive comparison in `soundness/bitwise_compound`, reached §7.2
+instead, so six fixtures in all were kept away from the two defects. It looks like a lane of
 register R-21 (no `undefined` value; an absent field reads `0`), but it is not
 filed there yet.
 
-### §2.2 A boolean returned from a function renders `1` instead of `true`
+### §7.2 A boolean returned from a function renders `1` instead of `true`
 
 Repro: `function f() { return 1 === 1; } console.log(f());`. node prints
 `true`; kali prints `1` at exit 0 on both `6345f082b` and HEAD. The concat
@@ -206,7 +342,7 @@ register R-34, a boolean-returning user function rendering `1`/`0`. It
 unmasked the fold-sensitive-comparison case in `soundness/bitwise_compound`,
 which now selects a string instead of logging the boolean.
 
-### §2.3 Closures in a `for` head are safe only because the resolver refuses them
+### §7.3 Closures in a `for` head are safe only because the resolver refuses them
 
 Repro: `for (let i = 0, g = () => i; i < 3; i++) { queueMicrotask(() => console.log(g())); }`.
 node prints `0⏎0⏎0⏎`, because `g` closes over the copy of `i` from the
@@ -216,7 +352,7 @@ head, the per-iteration record lowering would hand it the live record and
 print `0 1 2`. Before that is admitted, the head's closure needs its own
 pre-iteration record.
 
-### §2.4 A closure registered inside a `switch` clause panics `repr_infer`
+### §7.4 A closure registered inside a `switch` clause panics `repr_infer`
 
 Repro: `for (let i = 0; i < 2; i++) { switch (i) { case 0: queueMicrotask(() => console.log(i)); break; default: break; } }`
 (at top level or inside a function). node prints `0`. kali panics at
@@ -225,7 +361,7 @@ Repro: `for (let i = 0; i < 2; i++) { switch (i) { case 0: queueMicrotask(() => 
 The panic is identical at `6345f082b`, so this project did not introduce it,
 but it is a crash, not a diagnostic. See `stageAB-followups.md` §F-AB-2.
 
-### §2.5 Widening promotion to non-scalar (`TaggedVal`) loop-head cells
+### §7.5 Widening promotion to non-scalar (`TaggedVal`) loop-head cells
 
 Growable `for…of` loop-variable capture
 (`function m(){ const xs=[]; xs.push(5); xs.push(6); for(const x of xs){ queueMicrotask(()=>console.log(x)); } } m();`,
@@ -236,3 +372,69 @@ non-scalar cell only with an `Object` repr, so the cell stays a local
 (controller ruling R9; Task 10 narrows the spec's claim). Widening the shared
 promotion predicate to `TaggedVal` loop-head cells would make this work. The
 same applies to `for…in` key capture.
+
+### §7.6 JSX tag names are never renamed
+
+Ruling R6. A JSX element's tag name is not passed through the rename pass.
+That is safe today because no stage resolves a tag to a binding:
+`kali_types` `resolve/jsx.rs` resolves only the children, and HIR lowers JSX
+opaquely. Once a component tag (`<Foo />` naming a `const Foo` that a block
+shadows) resolves to a binding, the pass needs a reference hook so the tag
+follows the rename.
+
+### §7.7 The depth-2 message is misleading for nested owner loops
+
+The A-4 message says ``a closure `f` in a loop that captures `i` through a
+per-iteration record is unavailable …: `i` belongs to the enclosing function,
+two records away``. For a nested owner loop (`nested_loops`, §4) `i` belongs
+to the outer loop's record, not to the enclosing function. The refusal is
+right; the text is not. A message-text follow-up. Neither code nor message
+changed in this project's docs task.
+
+### §7.8 The textual R8 rule over-approximates owners
+
+Ruling R8 makes a loop an owner when a deferred registration appears anywhere
+textually inside it, including inside a function defined in the loop and
+never invoked. That is a capability loss in one constructed shape:
+
+```js
+function m(){ let a=10; for(let i=0;i<2;i++){ const r=()=>{ setTimeout(()=>console.log(i),0); }; const g=()=>a+i; console.log(g()); } } m();
+```
+
+`r` is never called. node prints `10` then `11`, and so did `6345f082b`. At
+HEAD `run` refuses it with E5506 (`a closure … captures `a` through a
+per-iteration record`), because `r` makes the loop an owner and `g` then reads
+`a` two records away (§3). Without `r` the program runs (`10`, `11`). A precise
+rule would need to know whether the registering function is called from the
+loop. Outside a closure that captures an enclosing-function binding, the cost
+is only a record per iteration that nothing needs (§5). Not found in any
+trial, case or corpus program (§2).
+
+### §7.9 A new capability with no pinning case
+
+Two same-named stateful classes in different scopes, read through a variable
+receiver, now print node's `1 2`:
+
+```js
+class P { constructor(){ this.n=1; } }
+function f(){ class P { constructor(){ this.n=2; } } const p=new P(); return p.n; }
+const q=new P(); console.log(q.n, f());
+```
+
+The baseline refused them (`constructing class 'P' is unavailable … declared
+more than once`). The rename gives the two classes different names, so they
+are no longer "declared more than once". `object/class_instances` keeps
+`r_ambiguous`, which still refuses for a different reason (§1), but no case
+pins the working shape, so it is not claimed. A `class` shadowing case is
+missing from `scope/block_shadowing`, and so is a `var` shadowing case; both
+programs were run by hand at HEAD and matched node.
+
+### §7.10 A `globalThis.performance` receiver reads `0`
+
+`const t=globalThis.performance; console.log(typeof t.now());` prints `0`
+(node `number`) at exit 0 with empty stderr, at the baseline and at HEAD. The
+shadowed spelling in `unresolved-member-call-discovered-defects.md` §6 item 9
+(`const t=globalThis.performance; { const t={k:1}; } console.log(typeof t.now());`)
+was refused at the baseline with E5506 and now prints the same `0`, because the
+rename removed the shadow the refusal keyed on and exposed this defect. It is
+a silent wrong value that does not depend on scope. Not filed in the register.

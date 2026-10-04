@@ -261,6 +261,18 @@ fixture or corpus program exercises was not measured.
    is refused by `run` at HEAD, where node prints `number` and the baseline
    printed `0` (wrong too, so not a capability loss). No fail-open example
    was found.
+   **Fixed for the shadow** by the block-scoping project
+   (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`), at
+   `16dc1cf9c` (the rename wired in): the inner `t` is a binding of its own,
+   so the shadow no longer matters (case
+   `scope/block_shadowing::a_block_const_shadows_a_parameter_only_inside_the_block`
+   pins the rule). What remains is not about scope: the shadowed example is no
+   longer refused. It prints `0` at exit 0 with empty stderr at HEAD (node
+   `number`), exactly as the unshadowed spelling
+   `const t=globalThis.performance; console.log(typeof t.now());` does on
+   both binaries. That is a separate pre-existing silent defect (a
+   `globalThis.performance` receiver lowers to a zero placeholder); see
+   `block-scoping-discovered-defects.md` §7.10.
 10. **`scope.rs` doc comment (Task 5).** The `MemberReceiver` enum sits
     between `/// A lexical scope.` and `pub struct Scope`, so the doc comment
     reads as attached to the enum. Cosmetic.

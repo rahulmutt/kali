@@ -496,5 +496,10 @@ None of these involves a mutator gate. Each gives the same output at
   (`sort`) in place of `foo`, `cd7a99637` refused the program through the
   §7 defect; after the §7 fix it prints `7` then `0` again, as at baseline.
   Related to array-bounds followups §11.
+  **Fixed** by the block-scoping project
+  (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`), at
+  `16dc1cf9c` (the rename wired in): the inner `a` is a binding of its own, so
+  the repro prints `7` then `1` as node does (measured at HEAD). The nearest
+  case is `scope/block_shadowing::a_block_array_does_not_change_the_outer_array`.
 
 Not fixed.
