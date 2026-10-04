@@ -165,13 +165,12 @@ impl Visitor for Sweep<'_> {
                     self.report(&owner);
                 }
             }
-            Expression::Identifier(name) => {
+            Expression::Identifier(name)
                 if self.plans.rewritten.contains_key(name.as_str())
-                    && self.scopes.resolve(name, cx) == scopes::Resolved::Free
-                {
-                    let name = name.clone();
-                    self.report(&name);
-                }
+                    && self.scopes.resolve(name, cx) == scopes::Resolved::Free =>
+            {
+                let name = name.clone();
+                self.report(&name);
             }
             _ => {}
         }

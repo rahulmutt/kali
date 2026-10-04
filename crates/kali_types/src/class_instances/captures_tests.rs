@@ -29,7 +29,7 @@ fn a_nested_class_reading_an_enclosing_local_refuses() {
         "function make(k){ class C { constructor(){ this.n = 1; } get(){ const f = () => k; return f(); } } return new C(); } make(1);",
         "function make(){ function h(){ return 1; } class C { m(){ return h(); } } return new C(); } make();",
     ] {
-        assert_eq!(captures(program), [want.clone()], "{program}");
+        assert_eq!(captures(program), std::slice::from_ref(&want), "{program}");
     }
 }
 

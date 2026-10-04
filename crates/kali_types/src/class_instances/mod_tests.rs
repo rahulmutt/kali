@@ -78,7 +78,7 @@ fn the_repr_backstop_refuses_a_string_field_and_admits_a_number_field() {
     );
     assert_eq!(
         repr_refusals("class P { constructor(n){ this.name = n; } } const p = new P(\"bob\"); console.log(p.name);"),
-        [refused.clone()]
+        std::slice::from_ref(&refused)
     );
     assert_eq!(
         repr_refusals("class P { name = \"bob\"; } const p = new P(); console.log(p.name);"),

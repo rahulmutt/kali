@@ -195,7 +195,7 @@ fn a_field_and_a_method_with_the_same_name_refuse() {
     );
     assert_eq!(
         messages("class C { constructor(){ this.go = 7; } go(){ return 1; } } new C().go();"),
-        [want.clone()]
+        std::slice::from_ref(&want)
     );
     assert_eq!(
         messages("class C { go = 7; go(){ return 1; } } new C();"),

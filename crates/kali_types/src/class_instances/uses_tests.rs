@@ -354,7 +354,7 @@ fn typeof_of_an_instance_field_refuses() {
         "class P { constructor(){ this.n = 1; } } const p = new P(); const t = typeof (p.n);",
     ] {
         let (_, d) = run(program);
-        assert_eq!(d, [want.clone()], "{program}");
+        assert_eq!(d, std::slice::from_ref(&want), "{program}");
     }
     // `typeof` of something else, and a field read elsewhere, are not refused.
     let (_, d) = run("class P { constructor(){ this.n = 1; } } const p = new P(); const k = 2; console.log(typeof k, p.n);");
