@@ -261,7 +261,16 @@
     "carries no assignment. The gate `every_zero_two_row_is_the_class_set_its_live_cases_assert`",
     "named the mismatch first and the §0.2 row followed it. N1's cluster DEFINITION stays: R-48 is",
     "still a member and still SILENT, so this is the R-13 precedent (a member leaves a cluster that",
-    "survives), not the R-56 one."
+    "survives), not the R-56 one.",
+    "",
+    "REMOVED 2026-10-04 by the block-scoping project",
+    "(docs/superpowers/specs/2026-10-04-block-scoping-design.md): R-10 leaves. Both its tier-2 oracle cases",
+    "(`r10_block_scope_shadowing_{module_scope,in_function}`) now assert FIXED -- kali prints `r=1`,",
+    "matching node v26.10.0 -- so it left the SILENT filter, and an entry outside that filter carries no",
+    "assignment. The gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named the mismatch",
+    "first and the §0.2 row followed it. G7's cluster DEFINITION stays: R-06 is still a member and still",
+    "SILENT (and R-53 names G7 as its alternate), so this is the R-13 precedent (a member leaves a cluster",
+    "that survives)."
   ],
   "clusters": [
     {
@@ -369,13 +378,6 @@
       "id": "R-09",
       "cluster": "R-09 (unclustered)",
       "registerSource": "unclustered (isolated lowering bug).",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-10",
-      "cluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost",
-      "registerSource": "G7.",
       "alternate": null,
       "alternateCluster": null
     },

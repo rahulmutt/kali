@@ -117,16 +117,16 @@ dollar = "$"
 "event_marker_with_foreign_shadow_and_capture_fails_closed.js" = "function outer(){ const e = new Event('tick'); const f = () => e.type; return f(); }\nfunction g(){ const Event = 1; return Event; }\nconsole.log(outer());\nconsole.log(g());\n"
 "event_computed_type_read_fails_closed.js" = "const e = new Event('tick');\nconsole.log(e['type']);\n"
 "event_type_property_on_plain_object_is_unaffected.js" = "const o = { type: 'x' };\nconsole.log(o.type);\n"
-"event_marker_redeclared_by_inner_object_fails_closed.js" = "const e = new Event('tick');\n{ const e = { type: 'x' }; console.log(e.type); }\n"
-"event_marker_redeclared_by_inner_scalar_fails_closed.js" = "const e = new Event('tick');\n{ const e = 5; console.log(e.type); }\n"
-"event_marker_redeclared_inside_function_fails_closed.js" = "function f(){ const e = new Event('tick'); { const e = { type: 'inner' }; return e.type; } }\nconsole.log(f());\n"
-"event_marker_shadowed_by_for_of_binding_fails_closed.js" = "const e = new Event('tick');\nfor (const e of ['aa','bb']) { console.log(e.type); }\n"
+"event_marker_redeclared_by_inner_object_reads_the_inner_object.js" = "const e = new Event('tick');\n{ const e = { type: 'x' }; console.log(e.type); }\n"
+"event_marker_redeclared_by_inner_scalar_reads_the_inner_scalar.js" = "const e = new Event('tick');\n{ const e = 5; console.log(e + 1); }\nconsole.log(e.type);\n"
+"event_marker_redeclared_inside_function_reads_the_inner_binding.js" = "function f(){ const e = new Event('tick'); { const e = { type: 'inner' }; return e.type; } }\nconsole.log(f());\n"
+"event_marker_shadowed_by_for_of_binding_reads_the_loop_binding.js" = "const e = new Event('tick');\nfor (const e of ['aa','bb']) { console.log(e); }\nconsole.log(e.type);\n"
 "event_marker_type_assignment_fails_closed.js" = "const e = new Event('tick');\ne.type = 'z';\nconsole.log(e.type);\n"
 "event_marker_other_property_assignment_fails_closed.js" = "const e = new Event('tick');\ne.bubbles = true;\nconsole.log('after');\n"
 "event_marker_same_name_in_two_functions_is_unaffected.js" = "function f(){ const e = new Event('tick'); return e.type; }\nfunction g(){ const e = { type: 'g' }; return e.type; }\nconsole.log(f());\nconsole.log(g());\n"
 "for_of_binding_without_marker_shadow_is_unaffected.js" = "const e = new Event('tick');\nfor (const x of ['aa','bb']) { console.log(x.length); }\nconsole.log(e.type);\n"
-"event_target_handle_shadowed_by_for_of_binding_fails_closed.js" = "const t = new EventTarget();\nfor (const t of ['aa']) { console.log(t.length); }\n"
-"event_target_handle_redeclared_in_an_inner_block_fails_closed.js" = "const t = new EventTarget();\n{ const t = 5; console.log(t); }\n"
+"event_target_handle_shadowed_by_for_of_binding_reads_the_loop_binding.js" = "const t = new EventTarget();\nfor (const t of ['aa']) { console.log(t.length); }\n"
+"event_target_handle_redeclared_in_an_inner_block_reads_the_inner_binding.js" = "const t = new EventTarget();\n{ const t = 5; console.log(t); }\n"
 
 [[case]]
 name = "event_target_construction_in_declarator_compiles_and_runs"
@@ -1070,7 +1070,7 @@ stdout = """x
 """
 
 [[case]]
-name = "event_marker_redeclared_by_inner_object_fails_closed"
+name = "event_marker_redeclared_by_inner_object_reads_the_inner_object"
 rationale = """Stage D event-surface lane (Task 3) — `new EventTarget()` construction lane + handle-escape discipline.
 
 The construction lane emits an opaque i64 host handle for a declarator-bound `new EventTarget()`, records the binding's provenance, and fails closed on every read that would leak the raw handle (spec §2.4). The addEventListener/dispatchEvent emit arms land in Task 4; until then a `t.addEventListener(...)` still takes the Stage C backstop.
@@ -1079,13 +1079,16 @@ Review C-1/M-1 regression pins: the marker side-table is name-keyed and FLAT, so
 
 REVIEW C-1 (Critical, silent wrong value): the marker side-table is keyed by NAME with no block scoping, and a later same-name declarator was skipped for RECORDING without invalidating the entry — so the inner `e.type` kept answering the OUTER marker's text. Measured before the fix: `tick`, exit 0; node v26.5.0 prints `x`.
 
-Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "event_marker_redeclared_by_inner_object_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to an Event/CustomEvent"]
+Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to an Event/CustomEvent in an inner scope is not supported in the current phase (this provenance is name-keyed and not block-…); at HEAD kali prints `x`; node v26.10.0 prints the same. Renamed from `event_marker_redeclared_by_inner_object_fails_closed`."""
+args = ["run", "event_marker_redeclared_by_inner_object_reads_the_inner_object.js"]
+exit = "success"
+stdout = """x
+"""
 
 [[case]]
-name = "event_marker_redeclared_by_inner_scalar_fails_closed"
+name = "event_marker_redeclared_by_inner_scalar_reads_the_inner_scalar"
 rationale = """Stage D event-surface lane (Task 3) — `new EventTarget()` construction lane + handle-escape discipline.
 
 The construction lane emits an opaque i64 host handle for a declarator-bound `new EventTarget()`, records the binding's provenance, and fails closed on every read that would leak the raw handle (spec §2.4). The addEventListener/dispatchEvent emit arms land in Task 4; until then a `t.addEventListener(...)` still takes the Stage C backstop.
@@ -1094,13 +1097,17 @@ Review C-1/M-1 regression pins: the marker side-table is name-keyed and FLAT, so
 
 REVIEW C-1, scalar shadow: measured before the fix `tick`, exit 0; node v26.5.0 prints `undefined`.
 
-Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "event_marker_redeclared_by_inner_scalar_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to an Event/CustomEvent"]
+Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the inner binding is now a binding of its own, so this shadow no longer needs a refusal. The program used to be `{ const e = 5; console.log(e.type); }` (HEAD `0`, node `undefined`). At HEAD it reads the inner binding, as node does, but a member read on a primitive renders `0` where node prints `undefined` (a pre-existing defect: `const x = 5; console.log(x.type);` prints `0` on `6345f082b` too, with no shadow; filed in `docs/superpowers/followups/block-scoping-discovered-defects.md`), so it would have pinned a wrong value. The fixture now reads the shadowing binding inside kali's supported subset and reads the outer binding after it: `{ const e = 5; console.log(e + 1); }` then `console.log(e.type)`. node v26.10.0 prints `6` then `tick`; kali prints the same. At `6345f082b` this program was refused (E5506 `redeclaring a name bound to an Event/CustomEvent in an inner scope`)."""
+args = ["run", "event_marker_redeclared_by_inner_scalar_reads_the_inner_scalar.js"]
+exit = "success"
+stdout = """6
+tick
+"""
 
 [[case]]
-name = "event_marker_redeclared_inside_function_fails_closed"
+name = "event_marker_redeclared_inside_function_reads_the_inner_binding"
 rationale = """Stage D event-surface lane (Task 3) — `new EventTarget()` construction lane + handle-escape discipline.
 
 The construction lane emits an opaque i64 host handle for a declarator-bound `new EventTarget()`, records the binding's provenance, and fails closed on every read that would leak the raw handle (spec §2.4). The addEventListener/dispatchEvent emit arms land in Task 4; until then a `t.addEventListener(...)` still takes the Stage C backstop.
@@ -1109,13 +1116,16 @@ Review C-1/M-1 regression pins: the marker side-table is name-keyed and FLAT, so
 
 REVIEW C-1, FUNCTION scope — proves the hazard is not confined to `_start` (the marker table is per-emitter, and both declarators live in `f`). Measured before the fix `tick`, exit 0; node v26.5.0 prints `inner`.
 
-Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "event_marker_redeclared_inside_function_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to an Event/CustomEvent"]
+Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to an Event/CustomEvent in an inner scope is not supported in the current phase (this provenance is name-keyed and not block-…); at HEAD kali prints `inner`; node v26.10.0 prints the same. Renamed from `event_marker_redeclared_inside_function_fails_closed`."""
+args = ["run", "event_marker_redeclared_inside_function_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """inner
+"""
 
 [[case]]
-name = "event_marker_shadowed_by_for_of_binding_fails_closed"
+name = "event_marker_shadowed_by_for_of_binding_reads_the_loop_binding"
 rationale = """Stage D event-surface lane (Task 3) — `new EventTarget()` construction lane + handle-escape discipline.
 
 The construction lane emits an opaque i64 host handle for a declarator-bound `new EventTarget()`, records the binding's provenance, and fails closed on every read that would leak the raw handle (spec §2.4). The addEventListener/dispatchEvent emit arms land in Task 4; until then a `t.addEventListener(...)` still takes the Stage C backstop.
@@ -1124,10 +1134,15 @@ Review C-1/M-1 regression pins: the marker side-table is name-keyed and FLAT, so
 
 REVIEW C-1 sibling found while probing the fix: a for-of LOOP BINDING does not pass through the declarator choke, so the same stale-marker hijack was live one lowering away. Measured before the sibling fix: `tick\\ntick\\n`, exit 0; node v26.5.0 prints `undefined` twice.
 
-Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "event_marker_shadowed_by_for_of_binding_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow"]
+Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the inner binding is now a binding of its own, so this shadow no longer needs a refusal. The program used to be `for (const e of ['aa','bb']) { console.log(e.type); }` (HEAD `0` twice, node `undefined` twice). At HEAD it reads the inner binding, as node does, but a member read on a primitive renders `0` where node prints `undefined` (a pre-existing defect: `const x = 5; console.log(x.type);` prints `0` on `6345f082b` too, with no shadow; filed in `docs/superpowers/followups/block-scoping-discovered-defects.md`), so it would have pinned a wrong value. The fixture now reads the shadowing binding inside kali's supported subset and reads the outer binding after it: `for (const e of ['aa','bb']) { console.log(e); }` then `console.log(e.type)`. node v26.10.0 prints `aa`, `bb`, `tick`; kali prints the same. At `6345f082b` this program was refused (E5506 `a for-of loop binding may not shadow a name bound to an Event/CustomEvent`)."""
+args = ["run", "event_marker_shadowed_by_for_of_binding_reads_the_loop_binding.js"]
+exit = "success"
+stdout = """aa
+bb
+tick
+"""
 
 [[case]]
 name = "event_marker_type_assignment_fails_closed"
@@ -1191,7 +1206,7 @@ tick
 """
 
 [[case]]
-name = "event_target_handle_shadowed_by_for_of_binding_fails_closed"
+name = "event_target_handle_shadowed_by_for_of_binding_reads_the_loop_binding"
 rationale = """Stage D event-surface lane (Task 3) — `new EventTarget()` construction lane + handle-escape discipline.
 
 The construction lane emits an opaque i64 host handle for a declarator-bound `new EventTarget()`, records the binding's provenance, and fails closed on every read that would leak the raw handle (spec §2.4). The addEventListener/dispatchEvent emit arms land in Task 4; until then a `t.addEventListener(...)` still takes the Stage C backstop.
@@ -1202,13 +1217,16 @@ The Event-marker arms above (declarator + for-of) were the model the unified `st
 
 T-new-D, for-of choke (NEW), EventTarget handle.
 
-Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "event_target_handle_shadowed_by_for_of_binding_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to an EventTarget"]
+Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: a for-of loop binding may not shadow a name bound to an EventTarget in the current phase (this provenance is name-keyed and not block-scoped; the shad…); at HEAD kali prints `2`; node v26.10.0 prints the same. Renamed from `event_target_handle_shadowed_by_for_of_binding_fails_closed`."""
+args = ["run", "event_target_handle_shadowed_by_for_of_binding_reads_the_loop_binding.js"]
+exit = "success"
+stdout = """2
+"""
 
 [[case]]
-name = "event_target_handle_redeclared_in_an_inner_block_fails_closed"
+name = "event_target_handle_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage D event-surface lane (Task 3) — `new EventTarget()` construction lane + handle-escape discipline.
 
 The construction lane emits an opaque i64 host handle for a declarator-bound `new EventTarget()`, records the binding's provenance, and fails closed on every read that would leak the raw handle (spec §2.4). The addEventListener/dispatchEvent emit arms land in Task 4; until then a `t.addEventListener(...)` still takes the Stage C backstop.
@@ -1219,7 +1237,10 @@ The Event-marker arms above (declarator + for-of) were the model the unified `st
 
 T-new-D, declarator choke (NEW), EventTarget handle.
 
-Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "event_target_handle_redeclared_in_an_inner_block_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to an EventTarget"]
+Like [`assert_e5506`] but pins the DIAGNOSTIC TEXT too: these shapes already deny for several unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to an EventTarget in an inner scope is not supported in the current phase (this provenance is name-keyed and not block-scoped…); at HEAD kali prints `5`; node v26.10.0 prints the same. Renamed from `event_target_handle_redeclared_in_an_inner_block_fails_closed`."""
+args = ["run", "event_target_handle_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """5
+"""

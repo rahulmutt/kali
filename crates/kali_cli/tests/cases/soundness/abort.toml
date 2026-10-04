@@ -110,7 +110,7 @@ dollar = "$"
 "abort_signal_static_call_with_shadowed_receiver_not_denied.js" = "const AbortSignal = 5;\nconst s = AbortSignal.timeout(5);\nconsole.log(\"ran:\" + s);\n"
 "abort_handle_inline_new_in_arg_position.js" = "function f(x) { return 1; }\nf(new AbortController());\nconsole.log(\"ok\");\n"
 "abort_handle_shadowed_by_for_of_binding_fails_closed.js" = "const c = new AbortController();\nfor (const c of ['aa']) { c.abort(); }\nconsole.log('aborted=' + c.signal.aborted);\n"
-"abort_handle_redeclared_in_an_inner_block_fails_closed.js" = "const c = new AbortController();\n{ const c = 5; console.log(c); }\nconsole.log('aborted=' + c.signal.aborted);\n"
+"abort_handle_redeclared_in_an_inner_block_reads_the_inner_binding.js" = "const c = new AbortController();\n{ const c = 5; console.log(c); }\nconsole.log('aborted=' + c.signal.aborted);\n"
 "for_of_binding_without_abort_shadow_is_unaffected.js" = "const c = new AbortController();\nfor (const x of ['aa','bb']) { console.log(x.length); }\nc.abort();\nconsole.log('aborted=' + c.signal.aborted);\n"
 
 [[case]]
@@ -921,13 +921,15 @@ T-new-D, for-of choke (NEW) — the SIDE-EFFECT row: measured pre-fix `aborted=t
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The loop variable is a string, so node throws a TypeError on the method call (exit 1). At `6345f082b` kali refused at the shadow; the loop binding is now a binding of its own, so kali refuses at the method call or operand instead. The verdict (refused, node exits 1) is unchanged; only the diagnostic moved. HEAD's first diagnostic: E5506 `calling `.abort()` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for a method of that name on it; no`."""
 args = ["run", "abort_handle_shadowed_by_for_of_binding_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to an AbortController/AbortSignal"]
+stderr_contains = ["E5506", "calling `.abort()` is unavailable"]
 
 [[case]]
-name = "abort_handle_redeclared_in_an_inner_block_fails_closed"
+name = "abort_handle_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage P3 (AbortController/AbortSignal lane) — Task 3: real `new AbortController()` lowering (8-byte global abort cell), `c.abort()` dispatch, the bare-identifier position gate, and capture allowlist entry 3.
 
 The atomic core of the stage: the exclusion-list flip (`declarator_init_is_placeholder_construct`) lands with the real lowering, entry 3, and `.abort()` dispatch in one commit — intermediate states are unsound/red. These pins prove the visible-no-op-but-runs surface, the fail-closed reads (raw print / unknown method / `let`-declared), the sound deferred-capture-by-value case, and the b2 red-proof (plain objects still deny).
@@ -940,10 +942,14 @@ T-new-D, declarator choke (NEW): the abort lane had no C-4-style arm, so a block
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
-args = ["run", "abort_handle_redeclared_in_an_inner_block_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to an AbortController/AbortSignal"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to an AbortController/AbortSignal in an inner scope is not supported in the current phase (this provenance is name-keyed and…); at HEAD kali prints `5` then `aborted=false`; node v26.10.0 prints the same. Renamed from `abort_handle_redeclared_in_an_inner_block_fails_closed`."""
+args = ["run", "abort_handle_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """5
+aborted=false
+"""
 
 [[case]]
 name = "for_of_binding_without_abort_shadow_is_unaffected"

@@ -99,8 +99,8 @@ dollar = "$"
 "url_searchparams_composition_mutation_fails_closed_append.js" = "const u = new URL('https://example.com/p?a=1');\nu.searchParams.append('b', 'z');\nconsole.log(u.search);\n"
 "usp_leading_question_mark_stripped.js" = "const q = new URLSearchParams('?a=1');\nconsole.log(q.get('a'));\nconsole.log(q.toString());\n"
 "usp_append_evaluates_args_before_mutation.js" = "const q = new URLSearchParams('a=1');\nq.append('b', q.has('b') ? 'yes' : 'no');\nconsole.log(q.get('b'));\nconsole.log(q.toString());\n"
-"url_binding_name_shadowing_fails_closed_shadow_over_url.js" = "const u = new URL('https://x/first');\n{\n  const u = { pathname: 7 };\n  console.log(u.pathname);\n}\n"
-"url_binding_name_shadowing_fails_closed_url_over_generic.js" = "const u = { pathname: 7 };\n{\n  const u = new URL('https://x/first');\n  console.log(u.pathname);\n}\n"
+"url_binding_name_shadowing_reads_the_inner_binding_shadow_over_url.js" = "const u = new URL('https://x/first');\n{\n  const u = { pathname: 7 };\n  console.log(u.pathname);\n}\n"
+"url_binding_name_shadowing_reads_the_inner_binding_url_over_generic.js" = "const u = { pathname: 7 };\n{\n  const u = new URL('https://x/first');\n  console.log(u.pathname);\n}\n"
 "usp_get_absent_prints_null.js" = "const q = new URLSearchParams('a=1');\nconsole.log(q.get('nope'));\nconsole.log(q.get('a'));\n"
 "usp_get_absent_concat_renders_null.js" = "const q = new URLSearchParams('a=1');\nconsole.log('v=' + q.get('a'));\nconsole.log('v=' + q.get('nope'));\n"
 "usp_get_result_length_fails_closed.js" = "const q = new URLSearchParams('a=1');\nconsole.log(q.get('a').length);\n"
@@ -114,11 +114,11 @@ dollar = "$"
 "usp_tostring_multibyte_percent_encoding.js" = "const q = new URLSearchParams('a=caf%C3%A9&sym=%26%3D');\nconsole.log(q.toString());\nconsole.log(q.get('a'));\n"
 "usp_get_after_dynamic_set_content_equality.js" = "let n = 1;\nconst q = new URLSearchParams('a=x');\nq.set('a', '' + n);\nif (q.get('a') === '1') { console.log('eq'); } else { console.log('ne'); }\nif (q.get('a') !== '1') { console.log('ne2'); } else { console.log('eq2'); }\n"
 "usp_dynamic_append_and_tostring_content_equality.js" = "let n = 1;\nconst q = new URLSearchParams('a=x');\nq.append('g', '' + n);\nif (q.get('g') === '1') { console.log('append-eq'); }\nif (q.toString() === 'a=x&g=1') { console.log('tostring-eq'); }\n"
-"url_shadowed_by_for_of_binding_fails_closed.js" = "const u = new URL('https://e.com/p');\nfor (const u of ['aa']) { console.log(u.pathname); }\n"
-"url_shadowed_by_for_of_binding_inside_a_function_fails_closed.js" = "function f(){ const u = new URL('https://e.com/p'); for (const u of ['aa']) { return u.pathname; } return 'x'; }\nconsole.log(f());\n"
+"url_shadowed_by_for_of_binding_reads_the_loop_binding.js" = "const u = new URL('https://e.com/p');\nfor (const u of ['aa']) { console.log(u); }\nconsole.log(u.pathname);\n"
+"url_shadowed_by_for_of_binding_inside_a_function_reads_the_loop_binding.js" = "function f(){ const u = new URL('https://e.com/p'); for (const u of ['aa']) { console.log(u); } return u.pathname; }\nconsole.log(f());\n"
 "url_search_params_shadowed_by_for_of_binding_fails_closed.js" = "const q = new URLSearchParams('alpha=1');\nfor (const q of ['aa']) { console.log(q.get('alpha')); }\n"
-"url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js" = "const u = new URL('https://e.com/p');\n{ const u = { pathname: 'x' }; console.log(u.pathname); }\n"
-"url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js" = "const q = new URLSearchParams('alpha=1');\n{ const q = 5; console.log(q); }\n"
+"url_redeclared_in_an_inner_block_reads_the_inner_binding.js" = "const u = new URL('https://e.com/p');\n{ const u = { pathname: 'x' }; console.log(u.pathname); }\n"
+"url_search_params_redeclared_in_an_inner_block_reads_the_inner_binding.js" = "const q = new URLSearchParams('alpha=1');\n{ const q = 5; console.log(q); }\n"
 "for_of_binding_without_url_shadow_is_unaffected.js" = "const u = new URL('https://e.com/p');\nconst q = new URLSearchParams('alpha=1');\nfor (const x of ['aa','bb']) { console.log(x.length); }\nconsole.log(u.pathname);\nconsole.log(q.get('alpha'));\n"
 
 [[case]]
@@ -696,26 +696,32 @@ a=1&b=no
 """
 
 [[case]]
-name = "url_binding_name_shadowing_fails_closed_shadow_over_url"
+name = "url_binding_name_shadowing_reads_the_inner_binding_shadow_over_url"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
 Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block scoping). A block-scoped shadow of a URL binding read 0 where node reads the shadow's value (7). Denied at the declarator choke; the REVERSE order (generic binding first, URL shadow second) is refused at the intercept and falls to the F10 ctor deny — both directions E5506.
 
-Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
-args = ["run", "url_binding_name_shadowing_fails_closed_shadow_over_url.js"]
-exit = "failure"
-stderr_contains = ["E5506"]
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to a URL/URLSearchParams in an inner scope is not supported in the current phase (this provenance is name-keyed and not block…); at HEAD kali prints `7`; node v26.10.0 prints the same. Renamed from `url_binding_name_shadowing_fails_closed_shadow_over_url`."""
+args = ["run", "url_binding_name_shadowing_reads_the_inner_binding_shadow_over_url.js"]
+exit = "success"
+stdout = """7
+"""
 
 [[case]]
-name = "url_binding_name_shadowing_fails_closed_url_over_generic"
+name = "url_binding_name_shadowing_reads_the_inner_binding_url_over_generic"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
 Stage-review C-4: URL/USP provenance is name-keyed and FLAT (no block scoping). A block-scoped shadow of a URL binding read 0 where node reads the shadow's value (7). Denied at the declarator choke; the REVERSE order (generic binding first, URL shadow second) is refused at the intercept and falls to the F10 ctor deny — both directions E5506.
 
-Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506)."""
-args = ["run", "url_binding_name_shadowing_fails_closed_url_over_generic.js"]
-exit = "failure"
-stderr_contains = ["E5506"]
+Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: constructing a URL is only supported as `const <name> = new URL(<string-literal>)` in the current phase; any other construction position has no loweri…); at HEAD kali prints `/first`; node v26.10.0 prints the same. Renamed from `url_binding_name_shadowing_fails_closed_url_over_generic`."""
+args = ["run", "url_binding_name_shadowing_reads_the_inner_binding_url_over_generic.js"]
+exit = "success"
+stdout = """/first
+"""
 
 [[case]]
 name = "usp_get_absent_prints_null"
@@ -876,7 +882,7 @@ tostring-eq
 """
 
 [[case]]
-name = "url_shadowed_by_for_of_binding_fails_closed"
+name = "url_shadowed_by_for_of_binding_reads_the_loop_binding"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -887,13 +893,17 @@ T-new-D, for-of choke (NEW): measured pre-fix `/p`, exit 0; node prints `undefin
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "url_shadowed_by_for_of_binding_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a URL/URLSearchParams"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the inner binding is now a binding of its own, so this shadow no longer needs a refusal. The program used to be `for (const u of ['aa']) { console.log(u.pathname); }` (HEAD `0`, node `undefined`). At HEAD it reads the inner binding, as node does, but a member read on a primitive renders `0` where node prints `undefined` (a pre-existing defect: `const x = 5; console.log(x.type);` prints `0` on `6345f082b` too, with no shadow; filed in `docs/superpowers/followups/block-scoping-discovered-defects.md`), so it would have pinned a wrong value. The fixture now reads the shadowing binding inside kali's supported subset and reads the outer binding after it: `for (const u of ['aa']) { console.log(u); }` then `console.log(u.pathname)`. node v26.10.0 prints `aa` then `/p`; kali prints the same. At `6345f082b` this program was refused (E5506 `a for-of loop binding may not shadow a name bound to a URL/URLSearchParams`)."""
+args = ["run", "url_shadowed_by_for_of_binding_reads_the_loop_binding.js"]
+exit = "success"
+stdout = """aa
+/p
+"""
 
 [[case]]
-name = "url_shadowed_by_for_of_binding_inside_a_function_fails_closed"
+name = "url_shadowed_by_for_of_binding_inside_a_function_reads_the_loop_binding"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -904,10 +914,14 @@ T-new-D, for-of choke (NEW), FUNCTION scope — the tables are per-emitter, so t
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "url_shadowed_by_for_of_binding_inside_a_function_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a URL/URLSearchParams"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the inner binding is now a binding of its own, so this shadow no longer needs a refusal. The program used to be `function f(){ … for (const u of ['aa']) { return u.pathname; } … }` (HEAD `0`, node `undefined`). At HEAD it reads the inner binding, as node does, but a member read on a primitive renders `0` where node prints `undefined` (a pre-existing defect: `const x = 5; console.log(x.type);` prints `0` on `6345f082b` too, with no shadow; filed in `docs/superpowers/followups/block-scoping-discovered-defects.md`), so it would have pinned a wrong value. The fixture now reads the shadowing binding inside kali's supported subset and reads the outer binding after it: the loop logs `u` and the function then returns the outer `u.pathname`. node v26.10.0 prints `aa` then `/p`; kali prints the same. At `6345f082b` this program was refused (E5506 `a for-of loop binding may not shadow a name bound to a URL/URLSearchParams`)."""
+args = ["run", "url_shadowed_by_for_of_binding_inside_a_function_reads_the_loop_binding.js"]
+exit = "success"
+stdout = """aa
+/p
+"""
 
 [[case]]
 name = "url_search_params_shadowed_by_for_of_binding_fails_closed"
@@ -921,13 +935,15 @@ T-new-D, for-of choke (NEW), USP twin: measured pre-fix `1`, exit 0; node throws
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The loop variable is a string, so node throws a TypeError on the method call (exit 1). At `6345f082b` kali refused at the shadow; the loop binding is now a binding of its own, so kali refuses at the method call or operand instead. The verdict (refused, node exits 1) is unchanged; only the diagnostic moved. HEAD's first diagnostic: E5506 `calling `.get()` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for a method of that name on it; node`."""
 args = ["run", "url_search_params_shadowed_by_for_of_binding_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a URL/URLSearchParams"]
+stderr_contains = ["E5506", "calling `.get()` is unavailable"]
 
 [[case]]
-name = "url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage"
+name = "url_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -938,13 +954,16 @@ T-new-D requirement 2 — PRE-EXISTING COVERAGE pin (passes before and after): t
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to a URL/URLSearchParams"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to a URL/URLSearchParams in an inner scope is not supported in the current phase (this provenance is name-keyed and not block…); at HEAD kali prints `x`; node v26.10.0 prints the same. Renamed from `url_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage`."""
+args = ["run", "url_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """x
+"""
 
 [[case]]
-name = "url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage"
+name = "url_search_params_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage P4 (URL + URLSearchParams lane) — Task 3: compile-time-parse construction of both handles, the URL component reads (pure loads over the parsed-at-compile-time arena struct), USP construction, and the shared escape-restricted position gate (a raw read of a URL/USP handle fails closed E5506). USP methods land in Task 4; here construction only proves it compiles + runs.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -955,10 +974,13 @@ PRE-EXISTING COVERAGE pin, USP twin.
 
 Run `kali run` expecting a fail-closed compile (nonzero exit); return stderr so the caller can assert the diagnostic code (E5506).
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error."""
-args = ["run", "url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to a URL/URLSearchParams"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane (`needle`) — these shapes can deny for unrelated pre-existing reasons, so a bare "contains E5506" assertion could pass on the wrong error.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to a URL/URLSearchParams in an inner scope is not supported in the current phase (this provenance is name-keyed and not block…); at HEAD kali prints `5`; node v26.10.0 prints the same. Renamed from `url_search_params_redeclared_in_an_inner_block_fails_closed_pre_existing_coverage`."""
+args = ["run", "url_search_params_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """5
+"""
 
 [[case]]
 name = "for_of_binding_without_url_shadow_is_unaffected"
