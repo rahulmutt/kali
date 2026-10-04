@@ -14,6 +14,7 @@ pub mod monomorphize;
 mod package;
 mod program_classes;
 mod repr_infer;
+pub use repr_infer::infer_reprs;
 mod resolve;
 mod scope;
 mod static_analysis;
