@@ -230,6 +230,10 @@ fn class_instance_messages_are_stable() {
         "constructing class `B` is unavailable in the current phase: it is in an `extends` chain with another program class and keeps state; kali refuses rather than build an instance whose fields read 0"
     );
     assert_eq!(
+        class_construction_unavailable_message("P", CLASS_REASON_FIELD_VALUE),
+        "constructing class `P` is unavailable in the current phase: it has a field that may hold a value other than a number or boolean; kali refuses rather than build an instance whose fields read 0"
+    );
+    assert_eq!(
         plain_function_construction_unavailable_message("Box"),
         "constructing an object with the plain function `Box` is unavailable in the current phase; use a class"
     );

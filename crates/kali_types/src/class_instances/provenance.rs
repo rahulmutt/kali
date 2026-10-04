@@ -446,7 +446,7 @@ impl Visitor for EnvBuilder<'_> {
 }
 
 /// Whether control can fall off the end of `body`.
-fn falls_through(body: &[Statement]) -> bool {
+pub(crate) fn falls_through(body: &[Statement]) -> bool {
     !matches!(
         body.last(),
         Some(Statement::ReturnStatement(_) | Statement::ThrowStatement(_))
@@ -455,7 +455,7 @@ fn falls_through(body: &[Statement]) -> bool {
 
 /// An argument-less `return` at `s` or in its non-block statement children
 /// (blocks are visited as statement lists of their own).
-fn bare_return(s: &Statement) -> bool {
+pub(crate) fn bare_return(s: &Statement) -> bool {
     match s {
         Statement::ReturnStatement(r) => r.argument.is_none(),
         Statement::LabeledStatement(l) => bare_return(&l.body),
@@ -685,6 +685,8 @@ impl Visitor for Facts<'_, '_> {
 pub(crate) struct Provenance {
     values: BTreeMap<BindingId, Val>,
     returns: BTreeMap<FnKey, Val>,
+    /// The parameters of every frame whose call sites are not all known.
+    pub unknown_params: Vec<BindingId>,
 }
 
 impl Provenance {
@@ -727,6 +729,7 @@ impl Provenance {
         let mut p = Provenance {
             values: BTreeMap::new(),
             returns: BTreeMap::new(),
+            unknown_params: Vec::new(),
         };
         loop {
             let mut values: BTreeMap<BindingId, Val> = BTreeMap::new();
@@ -794,8 +797,9 @@ impl Provenance {
                 };
                 returns.insert(key.clone(), v);
             }
-            let next = Provenance { values, returns };
+            let next = Provenance { values, returns, unknown_params: Vec::new() };
             if next.values == p.values && next.returns == p.returns {
+                p.unknown_params = unknown_params;
                 return p;
             }
             p = next;

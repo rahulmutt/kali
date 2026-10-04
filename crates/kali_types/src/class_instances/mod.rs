@@ -3,16 +3,20 @@
 //! `__this`-taking functions, and refuses every instance it cannot prove.
 
 pub(crate) mod classes;
+pub(crate) mod kinds;
 pub(crate) mod provenance;
 pub(crate) mod scopes;
 pub(crate) mod translate;
 pub(crate) mod uses;
 pub(crate) mod walk;
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kali_ast::{Expression, Statement};
-use kali_common::{class_construction_unavailable_message, CLASS_REASON_UNLOWERED};
+use kali_common::{
+    class_construction_unavailable_message, Repr, ReprTable, CLASS_REASON_FIELD_VALUE,
+    CLASS_REASON_UNLOWERED,
+};
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
 
 use classes::ClassPlans;
@@ -24,6 +28,8 @@ pub struct ClassRewrite {
     pub changed: bool,
     /// E5506 refusals, in a deterministic order.
     pub diagnostics: Vec<Diagnostic>,
+    /// Each rewritten class's instance fields, by class name.
+    pub fields: BTreeMap<String, Vec<String>>,
 }
 
 /// Rewrites every provable in-slice program class to `C__new` / `C__m`
@@ -33,16 +39,50 @@ pub fn rewrite_class_instances(statements: &mut Vec<Statement>) -> ClassRewrite 
     let mut plans = classes::plan_classes(statements, &spelled);
     let mut diagnostics = std::mem::take(&mut plans.diagnostics);
     if plans.rewritten.is_empty() {
-        return ClassRewrite { changed: false, diagnostics };
+        return ClassRewrite { changed: false, diagnostics, fields: BTreeMap::new() };
     }
+    let fields = plans
+        .rewritten
+        .values()
+        .map(|class| (class.name.clone(), class.fields.clone()))
+        .collect();
     provenance::reassociate_new(statements, &plans);
     let scopes = scopes::Scopes::build(statements);
     let env = provenance::build_env(statements, &scopes, &plans);
     let prov = provenance::Provenance::solve(statements, &env);
+    diagnostics.extend(kinds::check_field_kinds(statements, &env, &prov));
     diagnostics.extend(uses::check_and_rewrite(statements, &env, &prov));
     translate::translate_classes(statements, &plans);
     diagnostics.extend(sweep(statements, &plans));
-    ClassRewrite { changed: true, diagnostics }
+    ClassRewrite { changed: true, diagnostics, fields }
+}
+
+/// R-23's backstop over the re-inferred reprs: each rewritten class's factory
+/// `C__new` builds `__this`, whose shape must hold every field as a number
+/// proven not to be a string. A shape the table cannot show refuses too.
+/// (`null`, `undefined` and BigInt intern as `I64` like a number; the
+/// value-kind proof in [`kinds`] refuses those before the rewrite.)
+pub fn field_repr_refusals(table: &ReprTable, fields: &BTreeMap<String, Vec<String>>) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for (class, fields) in fields {
+        if fields.is_empty() {
+            continue;
+        }
+        let proven = match table.scalar(&format!("{class}__new"), "__this") {
+            Repr::Object(shape) => fields.iter().all(|field| {
+                matches!(table.shape_field(shape, field), Some((_, Repr::I64 | Repr::F64)))
+                    && table.shape_field_is_proven_numeric(shape, field)
+            }),
+            _ => false,
+        };
+        if !proven {
+            diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                class_construction_unavailable_message(class, CLASS_REASON_FIELD_VALUE),
+            ));
+        }
+    }
+    diagnostics
 }
 
 /// The A-10 backstop: anything of a rewritten class that survived translation
@@ -118,6 +158,9 @@ impl Visitor for Sweep<'_> {
 #[cfg(test)]
 #[path = "classes_tests.rs"]
 mod classes_tests;
+#[cfg(test)]
+#[path = "kinds_tests.rs"]
+mod kinds_tests;
 #[cfg(test)]
 #[path = "mod_tests.rs"]
 mod mod_tests;

@@ -7,6 +7,10 @@
 #
 # `[source]` keys are one file per program, because `[source]` is file-wide.
 
+[constants]
+# A real JS template literal in a fixture spells `${` as `${dollar}{` (cases README).
+dollar = "$"
+
 [source]
 "field_write_in_method.js" = '''
 class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main(){ const s=new Stack(); s.add(3); console.log(s.n); } main();
@@ -196,6 +200,53 @@ class C{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main()
 
 "r22_shift.ts" = '''
 class C { a: Array<Array<number>>; static k(){ return 3; } } console.log(C.k()); console.log("after");
+'''
+
+"r23_g1_ctor_string_arg.js" = '''
+class P { constructor(name){ this.name = name; } } const p = new P("bob"); console.log(p.name); console.log("hi " + p.name);
+'''
+
+"r23_g2_ctor_string_literal.js" = '''
+class P { constructor(){ this.name = "bob"; } greet(){ return "hi " + this.name; } } const p = new P(); console.log(p.greet());
+'''
+
+"r23_g7_string_initializer.js" = '''
+class P { name = "bob"; greet(){ return "hi " + this.name; } } const p = new P(); console.log(p.greet());
+'''
+
+"r23_h1_string_in_template.js" = '''
+class P { constructor(){ this.name = "bob"; } } const p = new P(); console.log(`hi ${dollar}{p.name}`);
+'''
+
+"r23_h3_string_via_local.js" = '''
+class P { constructor(){ this.name = "bob"; } } const p = new P(); const s = p.name; console.log("hi " + s);
+'''
+
+"r23_i1_string_via_method_write.js" = '''
+class P { constructor(){ this.name = "a"; } set(n){ this.name = n; } } const p = new P(); p.set("zed"); console.log(p.name); console.log(p.name + "!");
+'''
+
+"r23_i7_bigint_field.js" = '''
+class P { constructor(a){ this.a = a; } } const p = new P(10n); console.log(p.a);
+'''
+
+"r23_d5_null_field.js" = '''
+class C { constructor(){ this.v = null; } } const a = new C(); console.log(a.v);
+'''
+
+"r23_f2_null_compared.js" = '''
+class Box { constructor(){ this.val = null; } }
+const b = new Box(); if (b.val === null) { console.log("empty"); } else { console.log("full"); }
+'''
+
+"r23_f4_string_param_in_method.js" = '''
+class P { constructor(name){ this.name = name; } greet(){ return "hi " + this.name; } }
+const p = new P("bob"); console.log(p.greet());
+'''
+
+"r23_f5_number_field_vs_undefined.js" = '''
+class P { constructor(){ this.n = 1; } }
+const p = new P(); console.log(p.n === undefined);
 '''
 
 [[case]]
@@ -729,3 +780,170 @@ rationale = """Ruling R-22 (final review, repro pt1). node v26.10.0 prints `3` /
 args = ["run", "r22_shift.ts"]
 exit = "success"
 stdout = "3\nafter\n"
+
+[[case]]
+name = "r23_g1_ctor_string_arg_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro g1): a string constructor argument stored in a field. node v26.10.0 prints `bob` / `hi bob`. At HEAD d75a10075 kali printed `bob` / `hi -9223354444668731389` at exit 0 (the string field's raw handle in a concat)."""
+args = ["run", "r23_g1_ctor_string_arg.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_g1_ctor_string_arg_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro g1): a string constructor argument stored in a field. node v26.10.0 prints `bob` / `hi bob`. At HEAD d75a10075 kali printed `bob` / `hi -9223354444668731389` at exit 0 (the string field's raw handle in a concat)."""
+args = ["check", "r23_g1_ctor_string_arg.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_g2_ctor_string_literal_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro g2): a string literal assigned in the constructor, concatenated in a method. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354444668731389` at exit 0."""
+args = ["run", "r23_g2_ctor_string_literal.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_g2_ctor_string_literal_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro g2): a string literal assigned in the constructor, concatenated in a method. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354444668731389` at exit 0."""
+args = ["check", "r23_g2_ctor_string_literal.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_g7_string_initializer_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro g7): a string field initializer, concatenated in a method. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354444668731389` at exit 0."""
+args = ["run", "r23_g7_string_initializer.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_g7_string_initializer_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro g7): a string field initializer, concatenated in a method. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354444668731389` at exit 0."""
+args = ["check", "r23_g7_string_initializer.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_h1_string_in_template_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro h1): a string field read in a template literal. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354431783829501` at exit 0."""
+args = ["run", "r23_h1_string_in_template.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_h1_string_in_template_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro h1): a string field read in a template literal. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354431783829501` at exit 0."""
+args = ["check", "r23_h1_string_in_template.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_h3_string_via_local_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro h3): a string field copied to a local, then concatenated. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354431783829501` at exit 0."""
+args = ["run", "r23_h3_string_via_local.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_h3_string_via_local_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro h3): a string field copied to a local, then concatenated. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354431783829501` at exit 0."""
+args = ["check", "r23_h3_string_via_local.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_i1_string_via_method_write_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro i1): a string written into a field by a method. node v26.10.0 prints `zed` / `zed!`. At HEAD d75a10075 kali printed `zed` / `-9223354444668731389!` at exit 0."""
+args = ["run", "r23_i1_string_via_method_write.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_i1_string_via_method_write_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro i1): a string written into a field by a method. node v26.10.0 prints `zed` / `zed!`. At HEAD d75a10075 kali printed `zed` / `-9223354444668731389!` at exit 0."""
+args = ["check", "r23_i1_string_via_method_write.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_i7_bigint_field_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro i7): a BigInt constructor argument stored in a field. node v26.10.0 prints `10n`. At HEAD d75a10075 kali printed `10` at exit 0."""
+args = ["run", "r23_i7_bigint_field.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_i7_bigint_field_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro i7): a BigInt constructor argument stored in a field. node v26.10.0 prints `10n`. At HEAD d75a10075 kali printed `10` at exit 0."""
+args = ["check", "r23_i7_bigint_field.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_d5_null_field_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro d5): a field holding `null`. node v26.10.0 prints `null`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["run", "r23_d5_null_field.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_d5_null_field_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro d5): a field holding `null`. node v26.10.0 prints `null`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["check", "r23_d5_null_field.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_f2_null_compared_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro f2_null): a `null` field compared with `=== null`. kali's output happened to match node, but only because `0 === null` folded the same way; a field that may hold `null` refuses as a class. node v26.10.0 prints `empty`. At HEAD d75a10075 kali printed `empty` at exit 0."""
+args = ["run", "r23_f2_null_compared.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_f2_null_compared_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro f2_null): a `null` field compared with `=== null`. kali's output happened to match node, but only because `0 === null` folded the same way; a field that may hold `null` refuses as a class. node v26.10.0 prints `empty`. At HEAD d75a10075 kali printed `empty` at exit 0."""
+args = ["check", "r23_f2_null_compared.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_f4_string_param_in_method_is_refused_under_run"
+rationale = """Ruling R-23 (final review, repro f4_str): a string constructor argument concatenated in a method. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354444668731389` at exit 0."""
+args = ["run", "r23_f4_string_param_in_method.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_f4_string_param_in_method_is_refused_under_check"
+rationale = """Ruling R-23 (final review, repro f4_str): a string constructor argument concatenated in a method. node v26.10.0 prints `hi bob`. At HEAD d75a10075 kali printed `hi -9223354444668731389` at exit 0."""
+args = ["check", "r23_f4_string_param_in_method.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has a field that may hold a value other than a number or boolean"]
+
+[[case]]
+name = "r23_f5_number_field_vs_undefined_matches_node"
+rationale = """Ruling R-23 (control) (final review, repro f5_undef_field): a number field compared with `undefined`: the field holds only a number, so the class stays rewritten. node v26.10.0 prints `false`. At HEAD d75a10075 kali printed `false` at exit 0."""
+args = ["run", "r23_f5_number_field_vs_undefined.js"]
+exit = "success"
+stdout = "false\n"

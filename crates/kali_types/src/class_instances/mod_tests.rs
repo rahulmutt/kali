@@ -46,3 +46,32 @@ fn a_this_in_a_generated_function_is_swept_but_not_in_a_nested_arrow_free_progra
     assert_eq!(sweep_messages("function C__m(__this){ return this.n; }"), [unlowered()]);
     assert_eq!(sweep_messages("function main(){ return () => this; }"), Vec::<String>::new());
 }
+
+/// R-23's repr backstop over the rewritten, re-inferred program.
+fn repr_refusals(src: &str) -> Vec<String> {
+    let mut stmts = parse_statements(src);
+    let rewrite = super::rewrite_class_instances(&mut stmts);
+    let table = crate::infer_reprs(&stmts);
+    super::field_repr_refusals(&table, &rewrite.fields)
+        .into_iter()
+        .map(|d| d.message)
+        .collect()
+}
+
+#[test]
+fn the_repr_backstop_refuses_a_string_field_and_admits_a_number_field() {
+    let refused = kali_common::class_construction_unavailable_message(
+        "P",
+        kali_common::CLASS_REASON_FIELD_VALUE,
+    );
+    assert_eq!(
+        repr_refusals("class P { constructor(n){ this.name = n; } } const p = new P(\"bob\"); console.log(p.name);"),
+        [refused.clone()]
+    );
+    assert_eq!(
+        repr_refusals("class P { name = \"bob\"; } const p = new P(); console.log(p.name);"),
+        [refused]
+    );
+    assert!(repr_refusals("class P { constructor(n){ this.n = n; } } const p = new P(4); console.log(p.n);").is_empty());
+    assert!(repr_refusals("class P { m(){ return 1; } } console.log(new P().m());").is_empty());
+}

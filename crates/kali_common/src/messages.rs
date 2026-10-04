@@ -247,6 +247,9 @@ pub const CLASS_REASON_EXPRESSION: &str = "is a class expression and keeps state
 pub const CLASS_REASON_EXPORTED: &str = "is exported and keeps state";
 pub const CLASS_REASON_AMBIGUOUS: &str = "is declared more than once and keeps state";
 pub const CLASS_REASON_UNLOWERED: &str = "reached code generation without being lowered";
+/// Ruling R-23: a rewritten class's field holds one 8-byte number slot.
+pub const CLASS_REASON_FIELD_VALUE: &str =
+    "has a field that may hold a value other than a number or boolean";
 
 /// `new C(…)` of a program class kali does not lower to an object
 /// (class-instances spec §3.4, A-1).

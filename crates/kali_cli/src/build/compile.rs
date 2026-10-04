@@ -785,6 +785,12 @@ fn analyze_source_file(
         if rewrite.changed {
             kali_types::monomorphize::monomorphize_statements(&mut parsed.statements);
             repr_table = kali_types::infer_reprs(&parsed.statements);
+            // R-23: a field the re-inferred reprs cannot show to be a number
+            // or boolean refuses.
+            diagnostics.extend(kali_types::class_instances::field_repr_refusals(
+                &repr_table,
+                &rewrite.fields,
+            ));
         }
 
         for message in repr_table.shape_conflicts() {
