@@ -300,6 +300,11 @@ pub fn class_instance_mixed_message(class: &str, place: &str) -> String {
     )
 }
 
+/// `typeof o.f` on an instance field (ruling R-24): the field slot is read as a number.
+pub const CLASS_POSITION_TYPEOF_FIELD: &str = "the object of a field read under `typeof`";
+/// `o as T` / `o satisfies T` / `<T>o` on an instance (ruling R-28).
+pub const CLASS_POSITION_TYPE_ASSERTION: &str = "an operand of a type assertion";
+
 pub fn class_instance_position_message(class: &str, position: &str) -> String {
     format!(
         "using an instance of class `{class}` as {position} is unavailable in the current phase"

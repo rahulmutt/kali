@@ -252,7 +252,8 @@ pub(crate) fn abstract_expr(e: &Expression, cx: &Cx, env: &Env) -> Src {
 }
 
 /// A1-9: rewrites `new (C(a).m())` / `new (C(a).f)` / `new (C(a))` to the
-/// canonical `new C(a)` at the chain's root, for rewritten `C` only.
+/// canonical `new C(a)` at the chain's root, for rewritten `C` only. Wrappers
+/// stay where they are, so `new (C() as T)` becomes `(new C()) as T`.
 pub(crate) fn reassociate_new(statements: &mut Vec<Statement>, plans: &ClassPlans) {
     walk(statements, &mut Reassociate { plans });
 }
@@ -279,7 +280,10 @@ impl Visitor for Reassociate<'_> {
         // Find the deepest Call(Identifier(class), args) and replace it with new class(args).
         fn root(e: &mut Expression) -> &mut Expression {
             let descend = match e {
-                Expression::MemberExpression(_) => true,
+                Expression::MemberExpression(_)
+                | Expression::ParenthesizedExpression(_)
+                | Expression::TypeAssertion(_)
+                | Expression::SatisfiesExpression(_) => true,
                 Expression::CallExpression(c) => !matches!(c.callee, Expression::Identifier(_)),
                 _ => false,
             };
@@ -288,8 +292,11 @@ impl Visitor for Reassociate<'_> {
             }
             match e {
                 Expression::MemberExpression(m) => root(&mut m.object),
+                Expression::ParenthesizedExpression(p) => root(&mut p.expression),
+                Expression::TypeAssertion(t) => root(&mut t.expression),
+                Expression::SatisfiesExpression(s) => root(&mut s.expression),
                 Expression::CallExpression(c) => root(&mut c.callee),
-                _ => unreachable!("only members and calls descend"),
+                _ => unreachable!("only members, wrappers and calls descend"),
             }
         }
         let slot = root(&mut chain);

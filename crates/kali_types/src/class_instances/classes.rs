@@ -53,7 +53,8 @@ impl ClassPlans {
 
 /// `new X(a)` in either parse shape (A-9): `callee: Identifier(X)`, or
 /// `callee` a member/call chain whose deepest node is `Call(Identifier(X), a)`
-/// with `args` empty. Returns `X`.
+/// with `args` empty. The chain may pass through parentheses and TS wrappers
+/// (`new C() as T` parses as `new (C() as T)`). Returns `X`.
 pub(crate) fn new_target(new: &NewExpression) -> Option<&str> {
     if let Expression::Identifier(name) = &new.callee {
         return Some(name);
@@ -65,6 +66,9 @@ pub(crate) fn new_target(new: &NewExpression) -> Option<&str> {
     loop {
         match node {
             Expression::MemberExpression(m) => node = &m.object,
+            Expression::ParenthesizedExpression(p) => node = &p.expression,
+            Expression::TypeAssertion(t) => node = &t.expression,
+            Expression::SatisfiesExpression(s) => node = &s.expression,
             Expression::CallExpression(c) => match &c.callee {
                 Expression::Identifier(name) => return Some(name),
                 inner => node = inner,

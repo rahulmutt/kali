@@ -249,6 +249,35 @@ class P { constructor(){ this.n = 1; } }
 const p = new P(); console.log(p.n === undefined);
 '''
 
+"r24_f3_typeof_field.js" = '''
+class P { constructor(n){ this.n = n; } }
+const p = new P(3); console.log(typeof p.n);
+'''
+
+"r24_d10_typeof_field_among_reads.js" = '''
+class C { constructor(){ this.v = 1; } } const a = new C(); const s = `${dollar}{a.v}`; console.log(s); console.log(typeof a.v); console.log(a.v === 1);
+'''
+
+"r28_u1_as_any_receiver.ts" = '''
+class C { n = 2; m(){ return this.n; } } const c = new C(); console.log((c as any).m());
+'''
+
+"r28_u3_as_any_alias.ts" = '''
+class C { n = 2; m(){ return this.n; } } const c = new C(); const d = c as any; console.log(d.m());
+'''
+
+"r28_t2_satisfies_alias.ts" = '''
+class C { n: number; constructor(){ this.n = 2; } } const c = new C(); const d = c satisfies C; console.log(d.n);
+'''
+
+"r28_t3_as_alias_write.ts" = '''
+class C { n: number; constructor(){ this.n = 2; } } const c = new C(); const d = c as C; d.n = 9; console.log(c.n);
+'''
+
+"r28_new_as.ts" = '''
+class C { n = 2; } const d = new C() as C; console.log(d.n);
+'''
+
 [[case]]
 name = "a_field_write_in_a_method_is_kept"
 rationale = """literal-array-mutators followups §14b. node v26.10.0 prints `3`. At `7c4daa9f7` kali printed `0` at exit 0: the constructor never ran and the store in `add` was dropped."""
@@ -947,3 +976,115 @@ rationale = """Ruling R-23 (control) (final review, repro f5_undef_field): a num
 args = ["run", "r23_f5_number_field_vs_undefined.js"]
 exit = "success"
 stdout = "false\n"
+
+[[case]]
+name = "r24_f3_typeof_field_is_refused_under_run"
+rationale = """Ruling R-24 (final review, repro f3_typeof): `typeof` of an instance field. node v26.10.0 prints `number`. At HEAD d75a10075 kali printed `0` at exit 0 (the field slot read as a number by `typeof`)."""
+args = ["run", "r24_f3_typeof_field.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as the object of a field read under `typeof`"]
+
+[[case]]
+name = "r24_f3_typeof_field_is_refused_under_check"
+rationale = """Ruling R-24 (final review, repro f3_typeof): `typeof` of an instance field. node v26.10.0 prints `number`. At HEAD d75a10075 kali printed `0` at exit 0 (the field slot read as a number by `typeof`)."""
+args = ["check", "r24_f3_typeof_field.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as the object of a field read under `typeof`"]
+
+[[case]]
+name = "r24_d10_typeof_field_among_reads_is_refused_under_run"
+rationale = """Ruling R-24 (final review, repro d10): a field read in a template, under `typeof`, and in `===`; only the `typeof` read was wrong. node v26.10.0 prints `1` / `number` / `true`. At HEAD d75a10075 kali printed `1` / `0` / `true` at exit 0."""
+args = ["run", "r24_d10_typeof_field_among_reads.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as the object of a field read under `typeof`"]
+
+[[case]]
+name = "r24_d10_typeof_field_among_reads_is_refused_under_check"
+rationale = """Ruling R-24 (final review, repro d10): a field read in a template, under `typeof`, and in `===`; only the `typeof` read was wrong. node v26.10.0 prints `1` / `number` / `true`. At HEAD d75a10075 kali printed `1` / `0` / `true` at exit 0."""
+args = ["check", "r24_d10_typeof_field_among_reads.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as the object of a field read under `typeof`"]
+
+[[case]]
+name = "r28_u1_as_any_receiver_is_refused_under_run"
+rationale = """Ruling R-28 (final review, repro u1): `(c as any).m()`. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["run", "r28_u1_as_any_receiver.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_u1_as_any_receiver_is_refused_under_check"
+rationale = """Ruling R-28 (final review, repro u1): `(c as any).m()`. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["check", "r28_u1_as_any_receiver.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_u3_as_any_alias_is_refused_under_run"
+rationale = """Ruling R-28 (final review, repro u3): `const d = c as any; d.m()`. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["run", "r28_u3_as_any_alias.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_u3_as_any_alias_is_refused_under_check"
+rationale = """Ruling R-28 (final review, repro u3): `const d = c as any; d.m()`. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["check", "r28_u3_as_any_alias.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_t2_satisfies_alias_is_refused_under_run"
+rationale = """Ruling R-28 (final review, repro t2): `const d = c satisfies C; d.n`. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["run", "r28_t2_satisfies_alias.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_t2_satisfies_alias_is_refused_under_check"
+rationale = """Ruling R-28 (final review, repro t2): `const d = c satisfies C; d.n`. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["check", "r28_t2_satisfies_alias.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_t3_as_alias_write_is_refused_under_run"
+rationale = """Ruling R-28 (final review, repro t3): `const d = c as C; d.n = 9; c.n` (the write through the alias was lost). node v26.10.0 prints `9`. At HEAD d75a10075 kali printed `2` at exit 0."""
+args = ["run", "r28_t3_as_alias_write.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_t3_as_alias_write_is_refused_under_check"
+rationale = """Ruling R-28 (final review, repro t3): `const d = c as C; d.n = 9; c.n` (the write through the alias was lost). node v26.10.0 prints `9`. At HEAD d75a10075 kali printed `2` at exit 0."""
+args = ["check", "r28_t3_as_alias_write.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_new_as_is_refused_under_run"
+rationale = """Ruling R-28 (final review, repro x_new_as): `new C() as C`, which parses as `new (C() as C)`; found while fixing R-28, not in the review list. The A-9 reassociation now looks through the wrapper, giving `(new C()) as C`, which refuses at the wrapper. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["run", "r28_new_as.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]
+
+[[case]]
+name = "r28_new_as_is_refused_under_check"
+rationale = """Ruling R-28 (final review, repro x_new_as): `new C() as C`, which parses as `new (C() as C)`; found while fixing R-28, not in the review list. The A-9 reassociation now looks through the wrapper, giving `(new C()) as C`, which refuses at the wrapper. node v26.10.0 prints `2`. At HEAD d75a10075 kali printed `0` at exit 0."""
+args = ["check", "r28_new_as.ts"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a type assertion"]

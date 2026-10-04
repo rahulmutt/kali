@@ -266,6 +266,14 @@ fn class_instance_messages_are_stable() {
         "using an instance of class `C` as an argument to a host call is unavailable in the current phase"
     );
     assert_eq!(
+        class_instance_position_message("C", CLASS_POSITION_TYPEOF_FIELD),
+        "using an instance of class `C` as the object of a field read under `typeof` is unavailable in the current phase"
+    );
+    assert_eq!(
+        class_instance_position_message("C", CLASS_POSITION_TYPE_ASSERTION),
+        "using an instance of class `C` as an operand of a type assertion is unavailable in the current phase"
+    );
+    assert_eq!(
         class_receiver_unresolved_message("get", "C"),
         "could not determine the class of the receiver of `.get()`; method `get` belongs to class `C`, and kali refuses rather than call it without its instance"
     );

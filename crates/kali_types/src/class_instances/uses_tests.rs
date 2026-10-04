@@ -230,3 +230,38 @@ fn an_instance_captured_from_an_enclosing_function_refuses() {
     let (_, d) = run(&format!("{CLASS}function f(p){{ p.add(1); return p.n; }} function main(){{ const s=new C(); f(s); s.add(2); }} main();"));
     assert!(d.is_empty(), "{d:?}");
 }
+
+// Ruling R-24: `typeof` of an instance field reads the slot as a number.
+#[test]
+fn typeof_of_an_instance_field_refuses() {
+    let want = kali_common::class_instance_position_message("P", kali_common::CLASS_POSITION_TYPEOF_FIELD);
+    for program in [
+        "class P { constructor(n){ this.n = n; } } const p = new P(3); console.log(typeof p.n);",
+        "class P { constructor(){ this.n = 1; } t(){ return typeof this.n; } } const p = new P(); p.t();",
+        "class P { constructor(){ this.n = 1; } } const p = new P(); const t = typeof (p.n);",
+    ] {
+        let (_, d) = run(program);
+        assert_eq!(d, [want.clone()], "{program}");
+    }
+    // `typeof` of something else, and a field read elsewhere, are not refused.
+    let (_, d) = run("class P { constructor(){ this.n = 1; } } const p = new P(); const k = 2; console.log(typeof k, p.n);");
+    assert!(d.is_empty(), "{d:?}");
+}
+
+// Ruling R-28: a TS wrapper around an instance would form an alias kali does not track.
+#[test]
+fn a_type_assertion_or_satisfies_around_an_instance_refuses() {
+    let want = kali_common::class_instance_position_message("C", kali_common::CLASS_POSITION_TYPE_ASSERTION);
+    for program in [
+        "class C { n = 2; m(){ return this.n; } } const c = new C(); console.log((c as any).m());",
+        "class C { n = 2; m(){ return this.n; } } const c = new C(); const d = c as any; console.log(d.m());",
+        "class C { n = 2; } const c = new C(); const d = c satisfies C; console.log(d.n);",
+        "class C { n = 2; } const d = new C() as C; console.log(d.n);",
+    ] {
+        let (_, d) = run(program);
+        assert!(d.contains(&want), "{program}: {d:?}");
+    }
+    // A wrapper around a non-instance is not refused.
+    let (_, d) = run("class C { n = 2; } const c = new C(); const k = c.n as number; console.log(k);");
+    assert!(d.is_empty(), "{d:?}");
+}

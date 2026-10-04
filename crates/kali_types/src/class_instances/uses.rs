@@ -14,7 +14,8 @@ use kali_common::{
     class_field_outside_set_message, class_field_undeclared_read_message,
     class_instance_mixed_message, class_instance_position_message, class_method_value_message,
     class_receiver_unresolved_message, class_value_message,
-    unresolved_member_call_unavailable_message,
+    unresolved_member_call_unavailable_message, CLASS_POSITION_TYPEOF_FIELD,
+    CLASS_POSITION_TYPE_ASSERTION,
 };
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
 
@@ -66,6 +67,8 @@ impl Visitor for Uses<'_, '_> {
         let before = self.diagnostics.len();
         self.class_as_value(expr, pos, cx);
         self.arguments_object(expr, cx);
+        self.typeof_field(expr, cx);
+        self.type_assertion(expr, cx);
         // A wrapper's inner expression is visited at the same position.
         if !is_wrapper(expr) {
             let v = self.eval(expr, cx);
@@ -225,6 +228,33 @@ impl Uses<'_, '_> {
                 &class,
                 "the `arguments` object",
             ));
+        }
+    }
+
+    /// R-24: `typeof o.f` of an instance field reads the slot as a number.
+    fn typeof_field(&mut self, expr: &Expression, cx: &Cx) {
+        let Expression::UnaryExpression(unary) = expr else {
+            return;
+        };
+        if unary.operator != "typeof" {
+            return;
+        }
+        let Expression::MemberExpression(member) = strip(&unary.argument) else {
+            return;
+        };
+        if let Val::Inst(class) = self.eval(&member.object, cx) {
+            self.refuse(class_instance_position_message(&class, CLASS_POSITION_TYPEOF_FIELD));
+        }
+    }
+
+    /// R-28: `o as T`, `<T>o` and `o satisfies T` around an instance would
+    /// form an alias of a type kali does not track; refuse at the wrapper.
+    fn type_assertion(&mut self, expr: &Expression, cx: &Cx) {
+        if !matches!(expr, Expression::TypeAssertion(_) | Expression::SatisfiesExpression(_)) {
+            return;
+        }
+        if let Val::Inst(class) = self.eval(expr, cx) {
+            self.refuse(class_instance_position_message(&class, CLASS_POSITION_TYPE_ASSERTION));
         }
     }
 
