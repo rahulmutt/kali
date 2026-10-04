@@ -15,6 +15,155 @@ class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function ma
 class C{ constructor(v){ this.n=v; } get(){ return this.n+1; } } const s=new C(4); console.log(s.get(), s.n);
 '''
 
+"14a.js" = '''
+class S { push(v){ return v+1; } } console.log(new S().push(1));
+'''
+
+"ctor_chain.js" = '''
+class C{ constructor(){ this.n=0; this.m=this.n+2; } } const s=new C(); console.log(s.m);
+'''
+
+"ctor_read.js" = '''
+class C{ constructor(){ this.n=5; } } const s=new C(); console.log(s.n);
+'''
+
+"field_decl.js" = '''
+class C{ n=1; set(v){ this.n=v; } } const s=new C(); s.set(9); console.log(s.n);
+'''
+
+"in_main.js" = '''
+function main(){ class C{ constructor(v){ this.v=v; } } const c=new C(2); console.log(c.v); } main();
+'''
+
+"known_r30.js" = '''
+class F{ constructor(){ this.ok=false; } set(){ this.ok=true; } } const f=new F(); f.set(); console.log(f.ok);
+'''
+
+"method_read.js" = '''
+class C{ constructor(){ this.n=5; } get(){ return this.n; } } const s=new C(); console.log(s.get());
+'''
+
+"method_write.js" = '''
+class C{ constructor(){ this.n=0; } set(v){ this.n=v; } } const s=new C(); s.set(9); console.log(s.n);
+'''
+
+"ok_extends_stateless.js" = '''
+class A{ f(){return 4;} } class B extends A{ g(){ return 1; } } const b=new B(); console.log(b.f()+b.g());
+'''
+
+"ok_host_r8.js" = '''
+class X extends EventTarget { fire(){ this.addEventListener("t", () => {}); return 1; } } const x = new X(); console.log(x.fire());
+'''
+
+"ok_objlit.js" = '''
+function mk(){ return {n:0}; } function get(o){ return o.n; } const a=mk(); a.n=2; console.log(get(a));
+'''
+
+"ok_static_only.js" = '''
+class U { static twice(x){ return 2*x; } } console.log(U.twice(4));
+'''
+
+"ok_user_push.js" = '''
+class Stack{ constructor(){ this.n=0; } push(v){ this.n=this.n+v; return this.n; } } const s=new Stack(); const a=[1]; a.push(2); console.log(a.length, s.push(5));
+'''
+
+"outside_write.js" = '''
+class C{ constructor(){ this.n=0; } } const s=new C(); s.n=4; console.log(s.n);
+'''
+
+"param.js" = '''
+class P{ constructor(x,y){ this.x=x; this.y=y; } } function len2(p){ return p.x*p.x+p.y*p.y; } console.log(len2(new P(3,4)));
+'''
+
+"r_ambiguous.js" = '''
+function a(){ class P{ constructor(){ this.n=1; } } return new P(); } function b(){ class P{ constructor(){ this.n=2; } } return new P(); } console.log(a().n, b().n);
+'''
+
+"r_array.js" = '''
+class C{ constructor(){ this.n=1; } } const xs=[new C(), new C()]; console.log(xs[1].n);
+'''
+
+"r_ctor_return.js" = '''
+class C{ constructor(){ this.n=1; return {n:2}; } } const c=new C(); console.log(c.n);
+'''
+
+"r_extends_stateful.js" = '''
+class A{ constructor(){ this.n=1; } } class B extends A{ g(){ return this.n; } } const b=new B(); console.log(b.g());
+'''
+
+"r_field_outside.js" = '''
+class C{ constructor(){ this.n=0; } set(){ this.m=1; } } const c=new C(); c.set(); console.log(c.m);
+'''
+
+"r_getter.js" = '''
+class A{ get v(){ return 3; } } const a=new A(); console.log(a.v);
+'''
+
+"r_instanceof.js" = '''
+class C{ constructor(){ this.n=1; } } const c=new C(); console.log(c instanceof C);
+'''
+
+"r_log_instance.js" = '''
+class C{ constructor(){ this.n=1; } } const c=new C(); console.log(c);
+'''
+
+"r_method_value.js" = '''
+class C{ constructor(){ this.n=1; } get(){ return this.n; } } const c=new C(); const m=c.get; console.log(typeof m);
+'''
+
+"r_mixed_param.js" = '''
+class A{ constructor(){ this.n=1; } } class B{ constructor(){ this.n=2; } } function f(x){ return x.n; } console.log(f(new A()), f(new B()));
+'''
+
+"r_no_init.js" = '''
+class C{ n; } const c=new C(); console.log(c.n);
+'''
+
+"r_plain_fn_new.js" = '''
+function Box(v){ this.v=v; } const b=new Box(9); console.log(b.v);
+'''
+
+"r_undeclared_read.js" = '''
+class C{ constructor(){ this.n=1; } } const c=new C(); console.log(c.zz);
+'''
+
+"r_unresolved_recv.js" = '''
+class C{ constructor(){ this.n=1; } get(){ return this.n; } } function f(x){ return x.get(); } const g=f; console.log(g(new C()));
+'''
+
+"recursive.js" = '''
+class M{ constructor(){ this.calls=0; } fact(n){ this.calls=this.calls+1; if (n<=1) { return 1; } return n*this.fact(n-1); } } const m=new M(); console.log(m.fact(5), m.calls);
+'''
+
+"return.js" = '''
+class C{ constructor(v){ this.v=v; } } function mk(v){ return new C(v); } const c=mk(7); console.log(c.v);
+'''
+
+"same_method.js" = '''
+class A{ f(){ return 1; } } class B{ f(){ return 2; } } const a=new A(); const b=new B(); console.log(a.f(), b.f());
+'''
+
+"this_method.js" = '''
+class A{ a(){ return this.b()+1; } b(){ return 2; } } const x=new A(); console.log(x.a());
+'''
+
+"top.js" = '''
+class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } const s=new Stack(); s.add(3); console.log(s.n);
+'''
+
+"14b.ts" = '''
+class Stack{ n: number = 0; add(x: number){ this.n=this.n+x; } } function main(){ const s=new Stack(); s.add(3); console.log(s.n); } main();
+'''
+"ctor_arg.ts" = '''
+class C{ n: number; constructor(v: number){ this.n=v; } get(): number { return this.n+1; } } const s=new C(4); console.log(s.get(), s.n);
+'''
+"param.ts" = '''
+class P{ x: number; y: number; constructor(x: number, y: number){ this.x=x; this.y=y; } } function len2(p: P): number { return p.x*p.x+p.y*p.y; } console.log(len2(new P(3,4)));
+'''
+"return.ts" = '''
+class C{ v: number; constructor(v: number){ this.v=v; } } function mk(v: number): C { return new C(v); } const c=mk(7); console.log(c.v);
+'''
+
 [[case]]
 name = "a_field_write_in_a_method_is_kept"
 rationale = """literal-array-mutators followups §14b. node v26.10.0 prints `3`. At `7c4daa9f7` kali printed `0` at exit 0: the constructor never ran and the store in `add` was dropped."""
@@ -28,3 +177,403 @@ rationale = """node v26.10.0 prints `5 4`. At `7c4daa9f7` kali failed with E4201
 args = ["run", "ctor_arg.js"]
 exit = "success"
 stdout = "5 4\n"
+
+[[case]]
+name = "14a_matches_node"
+rationale = """node v26.10.0 prints `2`. At `7c4daa9f7` the baseline row `cls_14a`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "14a.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "ctor_chain_matches_node"
+rationale = """node v26.10.0 prints `2`. At `7c4daa9f7` the baseline row `cls_ctor_chain`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "ctor_chain.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "ctor_read_matches_node"
+rationale = """node v26.10.0 prints `5`. At `7c4daa9f7` the baseline row `cls_ctor_read`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "ctor_read.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "field_decl_matches_node"
+rationale = """node v26.10.0 prints `9`. At `7c4daa9f7` the baseline row `cls_field_decl`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "field_decl.js"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "in_main_matches_node"
+rationale = """node v26.10.0 prints `2`. At `7c4daa9f7` the baseline row `cls_in_main`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[42]`, check exit 0."""
+args = ["run", "in_main.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "known_r30_the_bool_field_still_prints_one"
+rationale = """Known-wrong control for R-30 (spec §1.1), not a fix: node v26.10.0 prints `true`; kali prints `1` because a bool field round-trips as a number. The class rewrite does not change this; this case pins today's output so a fix shows up as a diff. baseline row `cls_known_r30`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "known_r30.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "method_read_matches_node"
+rationale = """node v26.10.0 prints `5`. At `7c4daa9f7` the baseline row `cls_method_read`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "method_read.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "method_write_matches_node"
+rationale = """node v26.10.0 prints `9`. At `7c4daa9f7` the baseline row `cls_method_write`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "method_write.js"]
+exit = "success"
+stdout = "9\n"
+
+[[case]]
+name = "ok_extends_stateless_matches_node"
+rationale = """node v26.10.0 prints `5`. At `7c4daa9f7` the baseline row `cls_ok_extends_stateless`: CORRECT, kali printed `5`, check exit 0."""
+args = ["run", "ok_extends_stateless.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "ok_host_r8_matches_node"
+rationale = """node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_ok_host_r8`: CORRECT, kali printed `1`, check exit 0."""
+args = ["run", "ok_host_r8.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "ok_objlit_matches_node"
+rationale = """node v26.10.0 prints `2`. At `7c4daa9f7` the baseline row `cls_ok_objlit`: CORRECT, kali printed `2`, check exit 0."""
+args = ["run", "ok_objlit.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "ok_static_only_matches_node"
+rationale = """node v26.10.0 prints `8`. At `7c4daa9f7` the baseline row `cls_ok_static_only`: CORRECT, kali printed `8`, check exit 0."""
+args = ["run", "ok_static_only.js"]
+exit = "success"
+stdout = "8\n"
+
+[[case]]
+name = "ok_user_push_is_refused_under_run"
+rationale = """Control, equal to its own baseline row (ruling R-7): the refusal is the pre-existing literal-array `.push()` lane (`a.push(2)` on `const a=[1]`), not the class. node v26.10.0 prints `2 5`. At `7c4daa9f7` the baseline row `cls_ok_user_push`: REFUSES, kali printed `error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call`, check exit 1."""
+args = ["run", "ok_user_push.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "calling `.push()` on a literal array"]
+
+[[case]]
+name = "ok_user_push_is_refused_under_check"
+rationale = """Control, equal to its own baseline row (ruling R-7): the refusal is the pre-existing literal-array `.push()` lane (`a.push(2)` on `const a=[1]`), not the class. node v26.10.0 prints `2 5`. At `7c4daa9f7` the baseline row `cls_ok_user_push`: REFUSES, kali printed `error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call`, check exit 1."""
+args = ["check", "ok_user_push.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "calling `.push()` on a literal array"]
+
+[[case]]
+name = "outside_write_matches_node"
+rationale = """node v26.10.0 prints `4`. At `7c4daa9f7` the baseline row `cls_outside_write`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "outside_write.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "param_matches_node"
+rationale = """node v26.10.0 prints `25`. At `7c4daa9f7` the baseline row `cls_param`: REFUSES, kali printed `error[E5506]: passing an array literal to function 'len2' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal`, check exit 0."""
+args = ["run", "param.js"]
+exit = "success"
+stdout = "25\n"
+
+[[case]]
+name = "r_ambiguous_is_refused_under_run"
+rationale = """Two same-named stateful classes in different scopes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_ambiguous`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0."""
+args = ["run", "r_ambiguous.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "declared more than once and keeps state"]
+
+[[case]]
+name = "r_ambiguous_is_refused_under_check"
+rationale = """Two same-named stateful classes in different scopes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_ambiguous`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0."""
+args = ["check", "r_ambiguous.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "declared more than once and keeps state"]
+
+[[case]]
+name = "r_array_is_refused_under_run"
+rationale = """An instance as an array element: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_array`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_array.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "an array element"]
+
+[[case]]
+name = "r_array_is_refused_under_check"
+rationale = """An instance as an array element: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_array`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_array.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "an array element"]
+
+[[case]]
+name = "r_ctor_return_is_refused_under_run"
+rationale = """A constructor that returns an object: refused with E5506 under run and check. node v26.10.0 prints `2`. At `7c4daa9f7` the baseline row `cls_r_ctor_return`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_ctor_return.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a constructor that returns a value"]
+
+[[case]]
+name = "r_ctor_return_is_refused_under_check"
+rationale = """A constructor that returns an object: refused with E5506 under run and check. node v26.10.0 prints `2`. At `7c4daa9f7` the baseline row `cls_r_ctor_return`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_ctor_return.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a constructor that returns a value"]
+
+[[case]]
+name = "r_extends_stateful_is_refused_under_run"
+rationale = """A stateful class in an `extends` chain: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_extends_stateful`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_extends_stateful.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "constructing class `B`", "`extends` chain"]
+
+[[case]]
+name = "r_extends_stateful_is_refused_under_check"
+rationale = """A stateful class in an `extends` chain: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_extends_stateful`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_extends_stateful.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "constructing class `B`", "`extends` chain"]
+
+[[case]]
+name = "r_field_outside_is_refused_under_run"
+rationale = """A field assigned outside the declared set, then read: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_field_outside`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_field_outside.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "is assigned outside its declared fields", "field `m` is not declared on class `C`"]
+
+[[case]]
+name = "r_field_outside_is_refused_under_check"
+rationale = """A field assigned outside the declared set, then read: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_field_outside`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_field_outside.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "is assigned outside its declared fields", "field `m` is not declared on class `C`"]
+
+[[case]]
+name = "r_getter_is_refused_under_run"
+rationale = """A class with a getter: refused with E5506 under run and check. node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_r_getter`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_getter.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "it has a getter or setter"]
+
+[[case]]
+name = "r_getter_is_refused_under_check"
+rationale = """A class with a getter: refused with E5506 under run and check. node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_r_getter`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_getter.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "it has a getter or setter"]
+
+[[case]]
+name = "r_instanceof_is_refused_under_run"
+rationale = """`instanceof` on an instance: refused with E5506 under run and check. node v26.10.0 prints `true`. At `7c4daa9f7` the baseline row `cls_r_instanceof`: OTHER, kali printed `Uncaught unsupported `instanceof` operator: kali cannot evaluate it (no runtime key-presence or prototype-chain machinery)`, check exit 0."""
+args = ["run", "r_instanceof.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a binary operator"]
+
+[[case]]
+name = "r_instanceof_is_refused_under_check"
+rationale = """`instanceof` on an instance: refused with E5506 under run and check. node v26.10.0 prints `true`. At `7c4daa9f7` the baseline row `cls_r_instanceof`: OTHER, kali printed `Uncaught unsupported `instanceof` operator: kali cannot evaluate it (no runtime key-presence or prototype-chain machinery)`, check exit 0."""
+args = ["check", "r_instanceof.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "as an operand of a binary operator"]
+
+[[case]]
+name = "r_log_instance_is_refused_under_run"
+rationale = """An instance passed to console.log: refused with E5506 under run and check. node v26.10.0 prints `C { n: 1 }`. At `7c4daa9f7` the baseline row `cls_r_log_instance`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_log_instance.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "an argument to a call kali cannot resolve"]
+
+[[case]]
+name = "r_log_instance_is_refused_under_check"
+rationale = """An instance passed to console.log: refused with E5506 under run and check. node v26.10.0 prints `C { n: 1 }`. At `7c4daa9f7` the baseline row `cls_r_log_instance`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_log_instance.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "an argument to a call kali cannot resolve"]
+
+[[case]]
+name = "r_method_value_is_refused_under_run"
+rationale = """A method taken as a value: refused with E5506 under run and check. node v26.10.0 prints `function`. At `7c4daa9f7` the baseline row `cls_r_method_value`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_method_value.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "taking method `get` of class `C` as a value"]
+
+[[case]]
+name = "r_method_value_is_refused_under_check"
+rationale = """A method taken as a value: refused with E5506 under run and check. node v26.10.0 prints `function`. At `7c4daa9f7` the baseline row `cls_r_method_value`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_method_value.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "taking method `get` of class `C` as a value"]
+
+[[case]]
+name = "r_mixed_param_is_refused_under_run"
+rationale = """A parameter reached by instances of two classes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_mixed_param`: REFUSES, kali printed `error[E5506]: passing an array literal to function 'f' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal`, check exit 0."""
+args = ["run", "r_mixed_param.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "may hold an instance of class"]
+
+[[case]]
+name = "r_mixed_param_is_refused_under_check"
+rationale = """A parameter reached by instances of two classes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_mixed_param`: REFUSES, kali printed `error[E5506]: passing an array literal to function 'f' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal`, check exit 0."""
+args = ["check", "r_mixed_param.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "may hold an instance of class"]
+
+[[case]]
+name = "r_no_init_is_refused_under_run"
+rationale = """A field declared with no initial value: refused with E5506 under run and check. node v26.10.0 prints `undefined`. At `7c4daa9f7` the baseline row `cls_r_no_init`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_no_init.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has no initial value"]
+
+[[case]]
+name = "r_no_init_is_refused_under_check"
+rationale = """A field declared with no initial value: refused with E5506 under run and check. node v26.10.0 prints `undefined`. At `7c4daa9f7` the baseline row `cls_r_no_init`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_no_init.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "has no initial value"]
+
+[[case]]
+name = "r_plain_fn_new_is_refused_under_run"
+rationale = """`new` on a plain function: refused with E5506 under run and check. node v26.10.0 prints `9`. At `7c4daa9f7` the baseline row `cls_r_plain_fn_new`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_plain_fn_new.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "constructing an object with the plain function `Box`"]
+
+[[case]]
+name = "r_plain_fn_new_is_refused_under_check"
+rationale = """`new` on a plain function: refused with E5506 under run and check. node v26.10.0 prints `9`. At `7c4daa9f7` the baseline row `cls_r_plain_fn_new`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_plain_fn_new.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "constructing an object with the plain function `Box`"]
+
+[[case]]
+name = "r_undeclared_read_is_refused_under_run"
+rationale = """A read of an undeclared field: refused with E5506 under run and check. node v26.10.0 prints `undefined`. At `7c4daa9f7` the baseline row `cls_r_undeclared_read`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "r_undeclared_read.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "is not declared on class `C`"]
+
+[[case]]
+name = "r_undeclared_read_is_refused_under_check"
+rationale = """A read of an undeclared field: refused with E5506 under run and check. node v26.10.0 prints `undefined`. At `7c4daa9f7` the baseline row `cls_r_undeclared_read`: SILENT, kali printed `0`, check exit 0."""
+args = ["check", "r_undeclared_read.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "is not declared on class `C`"]
+
+[[case]]
+name = "r_unresolved_recv_is_refused_under_run"
+rationale = """A method call on a receiver kali cannot resolve: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_unresolved_recv`: REFUSES, kali printed `warning[E3100]: undefined identifier 'f' reached codegen and was lowered through a zero placeholder compatibility fallback`, check exit 0."""
+args = ["run", "r_unresolved_recv.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "could not determine the class of the receiver"]
+
+[[case]]
+name = "r_unresolved_recv_is_refused_under_check"
+rationale = """A method call on a receiver kali cannot resolve: refused with E5506 under run and check. node v26.10.0 prints `1`. At `7c4daa9f7` the baseline row `cls_r_unresolved_recv`: REFUSES, kali printed `warning[E3100]: undefined identifier 'f' reached codegen and was lowered through a zero placeholder compatibility fallback`, check exit 0."""
+args = ["check", "r_unresolved_recv.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "could not determine the class of the receiver"]
+
+[[case]]
+name = "recursive_matches_node"
+rationale = """node v26.10.0 prints `120 5`. At `7c4daa9f7` the baseline row `cls_recursive`: SILENT, kali printed `120 0`, check exit 0."""
+args = ["run", "recursive.js"]
+exit = "success"
+stdout = "120 5\n"
+
+[[case]]
+name = "return_matches_node"
+rationale = """node v26.10.0 prints `7`. At `7c4daa9f7` the baseline row `cls_return`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "return.js"]
+exit = "success"
+stdout = "7\n"
+
+[[case]]
+name = "same_method_matches_node"
+rationale = """node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_same_method`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0."""
+args = ["run", "same_method.js"]
+exit = "success"
+stdout = "1 2\n"
+
+[[case]]
+name = "this_method_matches_node"
+rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_this_method`: CORRECT, kali printed `3`, check exit 0."""
+args = ["run", "this_method.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "top_matches_node"
+rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_top`: SILENT, kali printed `0`, check exit 0."""
+args = ["run", "top.js"]
+exit = "success"
+stdout = "3\n"
+[[case]]
+name = "ts_14b_matches_node"
+rationale = """The `14b` program with a typed field (`n: number = 0;`) and typed parameter. node (type-stripped) prints `3`; the ts source takes the same rewrite as the js twin."""
+args = ["run", "14b.ts"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "ts_ctor_arg_matches_node"
+rationale = """The `ctor_arg` program with typed field and parameters. node (type-stripped) prints `5 4`."""
+args = ["run", "ctor_arg.ts"]
+exit = "success"
+stdout = "5 4\n"
+
+[[case]]
+name = "ts_param_matches_node"
+rationale = """The `param` program with typed fields, parameters and return. node (type-stripped) prints `25`."""
+args = ["run", "param.ts"]
+exit = "success"
+stdout = "25\n"
+
+[[case]]
+name = "ts_return_matches_node"
+rationale = """The `return` program with typed field, parameter and return. node (type-stripped) prints `7`."""
+args = ["run", "return.ts"]
+exit = "success"
+stdout = "7\n"
