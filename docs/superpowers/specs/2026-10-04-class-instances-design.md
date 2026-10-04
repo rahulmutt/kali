@@ -526,3 +526,14 @@ Found while planning, at the baseline `7c4daa9f7`.
   rewrite's whole-program view, the way a function used as a value escapes
   §3.3 rule 4. So each refuses at `new` when stateful, and is untouched when
   stateless.
+* **A-9. `new` precedence is fixed in the rewrite, not the parser
+  (supersedes A-2's last two sentences).** The parser's misparse is
+  load-bearing elsewhere: the cases spell `new Array(n).fill(…)` 70 times,
+  and `new TextEncoder().encode(…)`, `new TextDecoder(…).decode(…)`,
+  `new URL(s).pathname` and `new Event(…).type` more than 25 more. Their
+  lowerings see the shape `NewExpression { callee: <chain over Call(X, a)>,
+  args: [] }`. The parser is not changed. Instead the rewrite re-associates
+  that shape when `X` is a rewritten class:
+  `new (C(a).m(b))` becomes `(new C(a)).m(b)` and then `C__m(C__new(a), b)`.
+  `new (C(a).f)` becomes `(new C(a)).f`. A stateful out-of-slice class refuses
+  in either shape. Every other `new` is left as parsed.
