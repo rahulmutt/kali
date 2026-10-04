@@ -37,7 +37,7 @@ is new to this triage because Task 4 triaged the `cases` target only.
 
 | class | trials |
 |---|---|
-| wanted (a silent wrong value or a refusal became node-correct) | 45 (42 re-pinned to node's output, 2 `tier2::r10_*` flipped to FIXED, 1 classifier ground truth held for the human partner's pick) |
+| wanted (a silent wrong value or a refusal became node-correct) | 45 (42 re-pinned to node's output, 2 `tier2::r10_*` flipped to FIXED, 1 classifier ground truth re-pinned to a new SILENT specimen) |
 | rationale only / stderr only | 9 |
 | NEW SILENT WRONG: the shadow now resolves correctly, but the read hits a pre-existing defect (§2.1, §2.2); fixture rewritten under ruling H2 | 6 (the 5 Task 4 found, plus the runtime_smoke trial) |
 | capability loss, class 1 / 2 / 3 | 0 / 0 / 0 |
@@ -79,7 +79,7 @@ text is Task 10's.
 | `object/computed_member_static_name::check_refuses_a_shadowed_fold_name_read` (`check shadowed_key_read.js`) | exit 1, `E5506 computed member access 'o[k]' is unavailable in the current phase unless the index is a literal or a com…` | exit 0, `Checked 1 file(s)⏎`; node: `2⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0 (`check`); renamed `check_admits_a_read_through_a_block_shadowed_fold_name`. |
 | `object/computed_member_static_name::run_refuses_a_shadowed_fold_name_read` (`run shadowed_key_read.js`) | exit 1, `E5506 computed member access 'o[k]' is unavailable in the current phase unless the index is a literal or a com…` | exit 0, `2⏎`; node: `2⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `run_reads_through_a_block_shadowed_fold_name`. |
 | `object/computed_member_static_name::run_refuses_a_shadowed_fold_name_store` (`run shadowed_key_store.js`) | exit 1, `E5506 computed member access 'o[k]' is unavailable in the current phase unless the index is a literal or a com…` | exit 0, `8⏎`; node: `8⏎` | **wanted**: a refusal became node-correct output. Re-pinned to exit 0; renamed `run_stores_through_a_block_shadowed_fold_name`. |
-| `oracle/classifier_ground_truth::a_block_scoped_shadow_read_classifies_as_silent` (`run silent.js`) | exit 0, `r=2⏎` | exit 0, `r=1⏎`; node: `r=1⏎` | **wanted**: silent `r=2` became node's `r=1`. Fixture NOT re-pinned yet: the replacement SILENT specimen awaits the human partner's pick (ruling R4, spec §5.2); see §3. |
+| `oracle/classifier_ground_truth::a_block_scoped_shadow_read_classifies_as_silent` (`run silent.js`) | exit 0, `r=2⏎` | exit 0, `r=1⏎`; node: `r=1⏎` | **wanted**: silent `r=2` became node's `r=1`. The SILENT specimen was replaced by the human partner's pick, R-26 (`console.log(+"abc");`), and the case renamed `unary_plus_on_a_non_numeric_string_classifies_as_silent`; see §1.2. |
 | `oracle/tier2::r10_block_scope_shadowing_module_scope` (`run r10_module.js`) | exit 0, `r=2⏎` | exit 0, `r=1⏎`; node: `r=1⏎` | **wanted**: silent `r=2` became node's `r=1`. Re-pinned `verdict = "fixed"` with the dated FIXED line; header index line updated; §0.2's R-10 status cell, `clusters.json` and the ranking regenerated with it (the R-14 precedent). |
 | `oracle/tier2::r10_block_scope_shadowing_in_function` (`run r10_function.js`) | exit 0, `r=2⏎` | exit 0, `r=1⏎`; node: `r=1⏎` | **wanted**: silent `r=2` became node's `r=1`. Re-pinned `verdict = "fixed"` with the dated FIXED line; header index line updated; §0.2's R-10 status cell, `clusters.json` and the ranking regenerated with it (the R-14 precedent). |
 | `soundness/abort::abort_handle_shadowed_by_for_of_binding_fails_closed` (`run abort_handle_shadowed_by_for_of_binding_fails_closed.js`) | exit 1, `E5506 a for-of loop binding may not shadow a name bound to an AbortController/AbortSignal in the current phase…` | exit 1, `E5506 calling '.abort()' is unavailable in the current phase: the receiver is a value this program built, and …`; node: exit 1, TypeError | **rationale only / stderr only**: still refused; needle and dated note updated, name kept. node throws a TypeError on the string loop variable; kali now refuses at the method call instead of at the shadow. |
@@ -160,13 +160,13 @@ Per controller ruling R9, growable `for…of` loop-variable capture and
 capability loss (§2.5). A capability loss that no case, fixture or corpus
 program exercises was not measured.
 
-### §1.2 The classifier ground truth (pending)
+### §1.2 The classifier ground truth
 
 `oracle/classifier_ground_truth::a_block_scoped_shadow_read_classifies_as_silent`
-used R-10 as the file's only SILENT specimen, so it now measures FIXED and
-fails. Per spec §5.2 its replacement comes from the register's entries still
-SILENT at HEAD and is chosen by the human partner. Three candidates were
-measured at `de662a327`, each with exit 0 and empty stderr on both binaries:
+used R-10 as the file's only SILENT specimen, so it now measures FIXED. Per
+spec §5.2, its replacement came from the register's entries still SILENT at
+HEAD and was chosen by the human partner. Three candidates were measured at
+`de662a327`, each with exit 0 and empty stderr on both binaries:
 
 | register id | repro (`silent.js`) | node v26.10.0 | kali (HEAD and `6345f082b`) |
 |---|---|---|---|
@@ -174,9 +174,12 @@ measured at `de662a327`, each with exit 0 and empty stderr on both binaries:
 | R-26 | `console.log(+"abc");` | `NaN` | `5451` |
 | R-23 | `var b=true; console.log(typeof b);` | `boolean` | `0` |
 
-Until the pick is made, that case is the only red trial, and the gate
-`every_zero_two_row_is_the_class_set_its_live_cases_assert` reads R-10 as
-`{FIXED, SILENT}` against §0.2's `{FIXED}` because of it.
+**Picked: R-26.** `silent.js` is now `console.log(+"abc");` with
+`register_entry = "R-26"`, and the case is renamed
+`unary_plus_on_a_non_numeric_string_classifies_as_silent`. The R-10 and R-13
+readings are kept in its rationale. After the re-pin, R-10's oracle cases
+assert `{FIXED}` and R-26's assert `{SILENT}`, matching §0.2, so the gate
+`every_zero_two_row_is_the_class_set_its_live_cases_assert` passes.
 
 ---
 
