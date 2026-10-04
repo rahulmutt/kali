@@ -476,10 +476,12 @@ stderr_contains = ["E5506", "${NOT_PASSABLE}"]
 
 [[case]]
 name = "a_constructed_argument_refuses"
-rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `4`. `new C()` lowers to the same LIR node as `[C()]`, so the guard cannot admit one without admitting the other; the human partner ruled the wide guard (spec section 3.4)."""
+rationale = """At `733cd26125` kali printed `0` at exit 0 with no diagnostic where node v26.8.2 prints `4`. `new C()` lowers to the same LIR node as `[C()]`, so the guard cannot admit one without admitting the other; the human partner ruled the wide guard (spec section 3.4).
+
+**2026-10-04 (class-instances):** `C` is an in-slice program class, so `new C()` is now lowered to an object-literal factory before IR and no longer reaches the inline-allocation guard. kali prints `4` at exit 0, as node v26.10.0 does; at `7c4daa9f7` it refused with this guard's E5506. Wanted (a refusal became correct). Re-pinned to node's output; the name is kept so the trial id stays stable."""
 args = ["run", "arg_construction.js"]
-exit = "failure"
-stderr_contains = ["E5506", "${NOT_PASSABLE}"]
+exit = "success"
+stdout = "4\n"
 
 [[case]]
 name = "a_bound_allocation_argument_is_correct"
