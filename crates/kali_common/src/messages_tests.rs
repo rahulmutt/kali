@@ -222,3 +222,59 @@ fn object_prototype_names_are_the_eleven_inherited_methods() {
         ]
     );
 }
+
+#[test]
+fn class_instance_messages_are_stable() {
+    assert_eq!(
+        class_construction_unavailable_message("B", CLASS_REASON_EXTENDS),
+        "constructing class `B` is unavailable in the current phase: it is in an `extends` chain with another program class and keeps state; kali refuses rather than build an instance whose fields read 0"
+    );
+    assert_eq!(
+        plain_function_construction_unavailable_message("Box"),
+        "constructing an object with the plain function `Box` is unavailable in the current phase; use a class"
+    );
+    assert_eq!(
+        class_field_outside_set_message("C", "m"),
+        "field `m` of class `C` is assigned outside its declared fields and the constructor's leading `this.m = …` assignments; declare it, or assign it at the start of the constructor"
+    );
+    assert_eq!(
+        class_field_undeclared_read_message("C", "zz"),
+        "field `zz` is not declared on class `C`; reading it is unavailable in the current phase"
+    );
+    assert_eq!(
+        class_field_without_initial_value_message("C", "n"),
+        "field `n` of class `C` has no initial value; kali cannot hold `undefined` in an instance field"
+    );
+    assert_eq!(
+        class_field_initializer_this_message("C", "n"),
+        "the initializer of field `n` of class `C` uses `this` beyond the fields already set; this is unavailable in the current phase"
+    );
+    assert_eq!(
+        constructor_return_unavailable_message(),
+        "a constructor that returns a value is unavailable in the current phase"
+    );
+    assert_eq!(
+        class_instance_mixed_message("A", "parameter `x` of `f`"),
+        "parameter `x` of `f` may hold an instance of class `A` and other values; this is unavailable in the current phase"
+    );
+    assert_eq!(
+        class_instance_position_message("C", "an argument to a host call"),
+        "using an instance of class `C` as an argument to a host call is unavailable in the current phase"
+    );
+    assert_eq!(
+        class_receiver_unresolved_message("get", "C"),
+        "could not determine the class of the receiver of `.get()`; method `get` belongs to class `C`, and kali refuses rather than call it without its instance"
+    );
+    assert_eq!(
+        class_method_value_message("C", "get"),
+        "taking method `get` of class `C` as a value is unavailable in the current phase"
+    );
+    assert_eq!(
+        class_value_message("C"),
+        "using class `C` as a value is unavailable in the current phase; only `new C(…)` is supported"
+    );
+    assert_eq!(
+        class_generated_name_collision_message("__this", "C"),
+        "the name `__this` that kali would generate for class `C` is already used by this program; this is unavailable in the current phase"
+    );
+}

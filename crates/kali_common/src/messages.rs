@@ -235,6 +235,98 @@ pub fn unresolved_member_call_unavailable_message(method: &str) -> String {
     )
 }
 
+/// Why a stateful out-of-slice class refuses at `new` (class-instances spec
+/// A-1, A-8, A-10). The text completes "it …".
+pub const CLASS_REASON_EXTENDS: &str =
+    "is in an `extends` chain with another program class and keeps state";
+pub const CLASS_REASON_ACCESSOR: &str = "has a getter or setter";
+pub const CLASS_REASON_STATIC: &str = "has a static member and keeps state";
+pub const CLASS_REASON_PRIVATE: &str = "has a #private member";
+pub const CLASS_REASON_COMPUTED: &str = "has a computed member name and keeps state";
+pub const CLASS_REASON_EXPRESSION: &str = "is a class expression and keeps state";
+pub const CLASS_REASON_EXPORTED: &str = "is exported and keeps state";
+pub const CLASS_REASON_AMBIGUOUS: &str = "is declared more than once and keeps state";
+pub const CLASS_REASON_UNLOWERED: &str = "reached code generation without being lowered";
+
+/// `new C(…)` of a program class kali does not lower to an object
+/// (class-instances spec §3.4, A-1).
+pub fn class_construction_unavailable_message(class: &str, reason: &str) -> String {
+    format!(
+        "constructing class `{class}` is unavailable in the current phase: it {reason}; kali refuses rather than build an instance whose fields read 0"
+    )
+}
+
+/// `new f(…)` of a program `function` (class-instances spec §3.4).
+pub fn plain_function_construction_unavailable_message(name: &str) -> String {
+    format!(
+        "constructing an object with the plain function `{name}` is unavailable in the current phase; use a class"
+    )
+}
+
+pub fn class_field_outside_set_message(class: &str, field: &str) -> String {
+    format!(
+        "field `{field}` of class `{class}` is assigned outside its declared fields and the constructor's leading `this.{field} = …` assignments; declare it, or assign it at the start of the constructor"
+    )
+}
+
+pub fn class_field_undeclared_read_message(class: &str, field: &str) -> String {
+    format!(
+        "field `{field}` is not declared on class `{class}`; reading it is unavailable in the current phase"
+    )
+}
+
+pub fn class_field_without_initial_value_message(class: &str, field: &str) -> String {
+    format!(
+        "field `{field}` of class `{class}` has no initial value; kali cannot hold `undefined` in an instance field"
+    )
+}
+
+pub fn class_field_initializer_this_message(class: &str, field: &str) -> String {
+    format!(
+        "the initializer of field `{field}` of class `{class}` uses `this` beyond the fields already set; this is unavailable in the current phase"
+    )
+}
+
+pub const fn constructor_return_unavailable_message() -> &'static str {
+    "a constructor that returns a value is unavailable in the current phase"
+}
+
+pub fn class_instance_mixed_message(class: &str, place: &str) -> String {
+    format!(
+        "{place} may hold an instance of class `{class}` and other values; this is unavailable in the current phase"
+    )
+}
+
+pub fn class_instance_position_message(class: &str, position: &str) -> String {
+    format!(
+        "using an instance of class `{class}` as {position} is unavailable in the current phase"
+    )
+}
+
+pub fn class_receiver_unresolved_message(method: &str, class: &str) -> String {
+    format!(
+        "could not determine the class of the receiver of `.{method}()`; method `{method}` belongs to class `{class}`, and kali refuses rather than call it without its instance"
+    )
+}
+
+pub fn class_method_value_message(class: &str, method: &str) -> String {
+    format!(
+        "taking method `{method}` of class `{class}` as a value is unavailable in the current phase"
+    )
+}
+
+pub fn class_value_message(class: &str) -> String {
+    format!(
+        "using class `{class}` as a value is unavailable in the current phase; only `new {class}(…)` is supported"
+    )
+}
+
+pub fn class_generated_name_collision_message(name: &str, class: &str) -> String {
+    format!(
+        "the name `{name}` that kali would generate for class `{class}` is already used by this program; this is unavailable in the current phase"
+    )
+}
+
 /// Canonical wording for an assignment to a plain runtime array's `.length`.
 pub const fn runtime_array_length_write_unavailable_message() -> &'static str {
     "assigning to `.length` of a runtime array is unavailable in the current phase: the array has a fixed length, so kali refuses rather than store into an element"
