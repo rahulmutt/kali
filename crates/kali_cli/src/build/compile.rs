@@ -772,6 +772,21 @@ fn analyze_source_file(
         }
         repr_table = resolved.repr_table;
 
+        // Class instances (class-instances spec §3.1): rewrite in-slice
+        // classes to object-literal factories AFTER the resolver has checked
+        // the program as written, then re-infer reprs over the rewritten
+        // program. A program with nothing to rewrite is untouched.
+        let rewrite =
+            kali_types::class_instances::rewrite_class_instances(&mut parsed.statements);
+        diagnostics.extend(rewrite.diagnostics);
+        if has_errors(&diagnostics) {
+            return Err(diagnostics);
+        }
+        if rewrite.changed {
+            kali_types::monomorphize::monomorphize_statements(&mut parsed.statements);
+            repr_table = kali_types::infer_reprs(&parsed.statements);
+        }
+
         for message in repr_table.shape_conflicts() {
             diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,

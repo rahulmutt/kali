@@ -1,0 +1,30 @@
+# Cases for the class-instances project (spec
+# docs/superpowers/specs/2026-10-04-class-instances-design.md and its §6
+# amendments). A program-class instance holds its fields, or kali refuses with
+# E5506 under `run` and `check` alike. Each rationale gives kali's output at
+# the baseline `7c4daa9f7` (tools/array-return-probes/baseline-cls.tsv) and
+# node v26.10.0's.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide.
+
+[source]
+"field_write_in_method.js" = '''
+class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main(){ const s=new Stack(); s.add(3); console.log(s.n); } main();
+'''
+"ctor_arg.js" = '''
+class C{ constructor(v){ this.n=v; } get(){ return this.n+1; } } const s=new C(4); console.log(s.get(), s.n);
+'''
+
+[[case]]
+name = "a_field_write_in_a_method_is_kept"
+rationale = """literal-array-mutators followups §14b. node v26.10.0 prints `3`. At `7c4daa9f7` kali printed `0` at exit 0: the constructor never ran and the store in `add` was dropped."""
+args = ["run", "field_write_in_method.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_constructor_argument_reaches_the_field"
+rationale = """node v26.10.0 prints `5 4`. At `7c4daa9f7` kali failed with E4201 (invalid wasm): the class body was a zero-parameter function called with one argument."""
+args = ["run", "ctor_arg.js"]
+exit = "success"
+stdout = "5 4\n"
