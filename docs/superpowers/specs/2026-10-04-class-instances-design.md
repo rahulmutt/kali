@@ -442,3 +442,72 @@ The followups file also records, as future items: `extends` between program
 classes, accessors, statics, `#private`, containers of instances, mixed-class
 parameters, rendering an instance, `new` of a plain function, and R-30 on
 instance fields.
+
+---
+
+## 6. Amendments
+
+Found while planning, at the baseline `7c4daa9f7`.
+
+* **A-1. Out-of-slice classes refuse only when their chain is stateful (the
+  human partner's choice, option 1 of two).** `class A{ f(){return 4;} }
+  class B extends A{}` then `new B().f()` prints `4` at the baseline, as node
+  does. The unresolved-member-call project pins it as
+  `a_method_inherited_from_a_program_base_still_matches_node_under_run`, and
+  §3.4's first row would have refused it. A stateful chain is silently wrong
+  at the baseline: `class A{ constructor(){ this.n=1; } } class B extends A{
+  g(){ return this.n; } }` then `new B().g()` prints `0` where node prints `1`.
+  The other option was to refuse every chain. §3.2 and §3.4 are amended:
+  * A class's **chain** is the class plus every program class it extends or
+    that extends it, transitively. A host-derived chain is never touched.
+  * A class is **rewritten** when its chain is the class alone and it has no
+    getter, setter, `static` member, `#private` member or computed member
+    name.
+  * Every other program class is **out of slice**. Its chain is
+    **stateful** when any class in it has a declared field, a `constructor`,
+    a getter or setter, a `#private` member, or a `this` anywhere in a method
+    body, nested arrows included. A stateful out-of-slice class refuses at
+    `new` (§3.4's first row, with the reason). A stateless out-of-slice
+    class is not touched, and keeps the baseline's bare-name dispatch. So
+    `class U { static twice(x){ return 2*x; } }` (`U.twice(4)` prints `8`)
+    and the control above keep working, and
+    `class A{ get v(){ return 3; } }` (`new A().v` prints `0` at the
+    baseline; node `3`) refuses.
+  * A base class of any program class is never rewritten, so an inherited
+    method keeps its bare name.
+* **A-2. The parser keeps what the rewrite needs.** At the baseline
+  `parse_class_body` (`kali_parser/src/declaration.rs:341-445`) parses
+  `get v(){}`, `set v(x){}` and `static f(){}` as plain methods `v`, `v` and
+  `f` (the modifier token is skipped), skips every field initializer, and
+  records nothing for `#x`. The AST gains `ClassBody.fields`
+  (`ClassField { name, value: Option<Expression>, is_static }`),
+  `ClassBody.has_private_members`, `MethodDefinition.kind` (`Method`, `Get`,
+  `Set`) and `MethodDefinition.is_static`, all `#[serde(default)]`. And `new`
+  takes a member expression and its own arguments, then the call/member chain
+  continues on the `NewExpression`: `new C(a).m()` parses as
+  `(new C(a)).m()`, where it parsed as `new (C(a).m())`
+  (`kali_parser/src/expression/primary.rs:228-263`). That makes §1 item 6
+  reachable.
+* **A-3. The receiver is `__this`, not `self`.** `self` is a common user name
+  and a browser global. The method parameter and the factory's object are
+  named `__this`, and the factory's field locals `__f_<field>`. §3.2's
+  examples read `self` for `__this`. Every mangled name (`C__new`, `C__m`,
+  `__this`, `__f_<field>`) is checked against every identifier the program
+  spells. A collision refuses with `E5506` ("the name `X` that kali would
+  generate for class `C` is already used by this program"), rather than being
+  an internal error.
+* **A-4. A parameter carries no type annotation in the AST.**
+  `FunctionDeclaration.params` and `MethodDefinition.params` are
+  `Vec<String>`, so §3.3 rule 4's annotation cross-check has nothing to read
+  and is dropped. A parameter resolves from its call sites alone.
+* **A-5. A call naming neither a method nor a field of `C`** on an instance of
+  `C` refuses with `kali_common::unresolved_member_call_unavailable_message`,
+  the shared text of the unresolved-member-call project. For a `const`
+  receiver the resolver's mirror fires first, and `analyze_source_file`
+  returns before the rewrite runs (`compile.rs:770-772`), so the two never
+  both report. A call to a *field* (`c.cb()` where `cb = () => 5`) is left as
+  written; the object-literal lane decides it.
+* **A-6. Only `repr_infer` re-runs on the rewritten program.** The resolver's
+  other repr-driven checks (`resolve/mod.rs:615`, `:777`) ran on the program
+  as written, before the rewrite. A method body moves into `C__m` unchanged
+  but for `this`, so those checks have already seen its code.
