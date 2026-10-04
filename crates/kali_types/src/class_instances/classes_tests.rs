@@ -83,3 +83,28 @@ fn new_target_reads_both_parse_shapes() {
     }).collect();
     assert_eq!(targets, [Some("C".into()), Some("C".into()), Some("C".into())]);
 }
+
+#[test]
+fn an_uninitialized_field_is_not_bound_for_this_reads() {
+    assert_eq!(messages("class C { n; constructor(){ this.m = this.n; this.n = 1; } } new C();"),
+        [kali_common::class_field_without_initial_value_message("C", "n")]);
+    assert_eq!(plan("class C { n; constructor(){ this.m = this.n; this.n = 1; } } new C();").rewritten["C"].leading_run, 0);
+    assert_eq!(messages("class C { n; m = this.n; constructor(){ this.n = 1; } } new C();"),
+        [kali_common::class_field_initializer_this_message("C", "m")]);
+}
+
+#[test]
+fn this_in_a_nested_function_ends_the_run_or_refuses_an_initializer() {
+    let p = plan("class C { constructor(){ this.n = 1; this.cb = () => this.n; } } new C();");
+    assert_eq!(p.rewritten["C"].fields, ["n".to_string()]);
+    assert_eq!(p.rewritten["C"].leading_run, 1);
+    assert_eq!(messages("class C { n = 1; cb = () => this.n; } new C();"),
+        [kali_common::class_field_initializer_this_message("C", "cb")]);
+}
+
+#[test]
+fn a_return_in_a_nested_arrow_does_not_refuse_and_a_run_stops_on_an_unbound_read() {
+    assert!(messages("class C { constructor(){ this.n = 1; const f = () => { return 2; }; } } new C();").is_empty());
+    let p = plan("class C { constructor(){ this.a = 1; this.b = this.g; this.g = 2; } } new C();");
+    assert_eq!(p.rewritten["C"].leading_run, 1);
+}

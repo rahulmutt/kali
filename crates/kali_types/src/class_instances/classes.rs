@@ -34,6 +34,7 @@ pub(crate) struct RewrittenClass {
     pub ctor_params: Vec<String>,
 }
 
+/// A class may be in `rewritten` while `diagnostics` is non-empty; any diagnostic stops compilation before lowering.
 #[derive(Debug, Default)]
 pub(crate) struct ClassPlans {
     pub rewritten: BTreeMap<String, RewrittenClass>,
@@ -137,10 +138,12 @@ impl Visitor for Facts {
 struct ThisUses(Vec<Option<String>>);
 
 impl Visitor for ThisUses {
-    fn expr(&mut self, expr: &mut Expression, pos: &Pos, _cx: &Cx) {
+    fn expr(&mut self, expr: &mut Expression, pos: &Pos, cx: &Cx) {
         if matches!(expr, Expression::ThisExpression) {
+            // Inside a nested arrow or function (R-9) the read is a snapshot hazard.
+            let nested = cx.frames.len() > 1;
             self.0.push(match pos {
-                Pos::MemberObject { property: Some(g), call: false, write: false } => {
+                Pos::MemberObject { property: Some(g), call: false, write: false } if !nested => {
                     Some(g.clone())
                 }
                 _ => None,
@@ -346,14 +349,19 @@ fn plan_one(name: &str, body: &ClassBody, diagnostics: &mut Vec<Diagnostic>) -> 
         .unwrap_or(&[]);
 
     let mut fields: Vec<String> = Vec::new();
+    // Fields initialized so far (an initializer, or the run); `fields` keeps first-binding order.
+    let mut bound: Vec<String> = Vec::new();
     for field in body.fields.iter().filter(|f| !f.is_static) {
         if let Some(value) = &field.value {
-            if !only_bound_this_reads(&this_uses_in_expr(value), &fields) {
+            if !only_bound_this_reads(&this_uses_in_expr(value), &bound) {
                 diagnostics.push(refusal(class_field_initializer_this_message(name, &field.name)));
             }
         }
         if !fields.contains(&field.name) {
             fields.push(field.name.clone());
+        }
+        if field.value.is_some() && !bound.contains(&field.name) {
+            bound.push(field.name.clone());
         }
     }
 
@@ -361,11 +369,14 @@ fn plan_one(name: &str, body: &ClassBody, diagnostics: &mut Vec<Diagnostic>) -> 
     let mut leading_run = 0;
     for statement in ctor_statements {
         let Some((field, right)) = this_field_assignment(statement) else { break };
-        if !only_bound_this_reads(&this_uses_in_expr(right), &fields) {
+        if !only_bound_this_reads(&this_uses_in_expr(right), &bound) {
             break;
         }
         if !fields.iter().any(|f| f == field) {
             fields.push(field.to_string());
+        }
+        if !bound.iter().any(|f| f == field) {
+            bound.push(field.to_string());
         }
         run_bound.push(field.to_string());
         leading_run += 1;
