@@ -7,18 +7,21 @@ measures more than it fixes writes down what it left, so the silence is not
 read as absence.
 
 **Oracle:** `node v26.10.0`.
-**Measured at:** `bb2411ea6` (branch `class-instances`), on
+**Measured at:** §4 and §5 at `bb2411ea6` (branch `class-instances`), on
 `target/debug/kali` built from that commit (`cargo build -p kali_cli`, the
-`dev` profile). The baseline binary was built from `7c4daa9f7` in a separate
-worktree. Probe rows come from `tools/array-return-probes/probes/cls_*.js`
-(runner `tools/array-return-probes/run.sh`); a probe's baseline column is
-`tools/array-return-probes/baseline-cls.tsv`, measured at `7c4daa9f7`.
+`dev` profile), with the re-pins at `109dda3ed`. The baseline binary was built
+from `7c4daa9f7` in a separate worktree. Probe rows come from
+`tools/array-return-probes/probes/cls_*.js` (runner
+`tools/array-return-probes/run.sh`); a probe's baseline column is
+`tools/array-return-probes/baseline-cls.tsv`, measured at `7c4daa9f7`. The
+§6 plain-object-lane items (4 onward) come from controller and reviewer
+probes at HEAD during implementation.
 
 **What ships.** The spec's §1 slice was narrowed during implementation by
 controller rulings R-13 to R-20, so the list below is the contract, not the
 spec's original §1. An in-slice class has no `extends` link to another
 program class and no accessor, `static`, `#private` or computed member, and is
-a class declaration, not exported, not declared twice, and constructed. For
+a class declaration, not exported (detected only for `export default class` and `export { C }`; `export class C` is not seen, R-11, §6.6), not declared twice, and constructed. For
 one, `new C(a)` runs field initializers then the constructor; `this.f` /
 `s.f` read and write; `s.m(a)` binds `this`; instances flow through the
 parameters and returns of program function declarations and methods (tracked
