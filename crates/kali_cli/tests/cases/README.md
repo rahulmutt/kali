@@ -6,7 +6,7 @@ compiles nothing — the single `cases` target discovers this tree at runtime.
 ```bash
 cargo test -p kali_cli --test cases                     # everything
 cargo test -p kali_cli --test cases -- switch/          # one family
-cargo test -p kali_cli --test cases -- --ignored        # the 2 gated cases — see below
+cargo test -p kali_cli --test cases -- --ignored        # the 1 gated case — see below
 cargo test -p kali_cli --test cases -- --exact 'switch/runtime::a_single_case_switch_with_no_default_is_admitted'
 cargo test -p kali_cli --test cases -- --list           # every trial id, no execution
 ```
@@ -59,10 +59,13 @@ Today's families: `array/`, `browser/`, `math/`, `misc/`, `nullish/`, `object/`,
 
 `ignore = true` marks a case that is registered and listed but not run — it
 mirrors a `#[ignore]` the source carried, i.e. a known-broken behaviour the case
-pins for the day it is fixed. There are exactly two:
-`soundness/block_arrows.toml` and `soundness/r06_object_init.toml`. **Both fail
-today**, on purpose, so `-- --ignored` reports `0 passed; 2 failed`; that is the
-expected state, not a regression. `-- --include-ignored` therefore also goes red.
+pins for the day it is fixed. There is exactly one:
+`soundness/r06_object_init.toml`. **It fails today**, on purpose, so
+`-- --ignored` reports `0 passed; 1 failed`; that is the expected state, not a
+regression. `-- --include-ignored` therefore also goes red. (There were two
+until 2026-10-04, when the class-instances project made
+`soundness/block_arrows::class_method_bodies_return_their_value` print node's
+`42` and it was un-ignored.)
 
 Discovery refuses rather than degrades. Each of these fails the whole target:
 

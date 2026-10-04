@@ -94,6 +94,18 @@ const f = function () {
 };
 f();
 """
+"a_function_expression_body_supports_compound_and_typeof.js" = """const f = function () {
+  let n = 1;
+  n += 2;
+  n++;
+  let m = 0;
+  m ||= 5;
+  console.log(n + " " + m);
+  let t = typeof true;
+  console.log(t);
+};
+f();
+"""
 "anonymous_export_default_function_compiles_and_runs.js" = """export default function () {
   return 1;
 };
@@ -194,6 +206,13 @@ exit = "failure"
 stderr_contains = ["E5506", "constructing an object with the plain function `Box`"]
 
 [[case]]
+name = "a_function_expression_body_supports_compound_and_typeof"
+rationale = """Ruling R-20 (2026-10-04, class-instances): replaces the coverage the class-instances re-pin of `a_function_expression_body_supports_compound_and_typeof_and_new` removed. That case's `new Box(9)` on a plain function is now refused, so its compound assignment (`n += 2`), update (`n++`), logical assignment (`m ||= 5`) and `typeof` inside a function-expression body no longer run. This is the same body without `function Box` / `new Box(9)`; the deviations listed on that case (`||=` for `??=`, `typeof true`, single-argument `console.log`) carry over. node v26.10.0 prints `4 5` / `boolean`."""
+args = ["run", "a_function_expression_body_supports_compound_and_typeof.js"]
+exit = "success"
+stdout = "4 5\nboolean\n"
+
+[[case]]
 name = "anonymous_export_default_function_compiles_and_runs"
 rationale = """Task 3 (B): an anonymous `export default function () {}` must compile and run cleanly — no panic, no spurious diagnostic — now that the pre-pass (`name_anon_functions.rs`) fills its empty `name` the same way `kali_hir`'s fallback already does, closing the naming divergence between the two crates (`kali_types::resolve_export_default` binds the function's scope directly under `func.name`, with no fallback of its own — before this fix it would bind under the literal empty string). This body is intentionally simple (no compound-assign/typeof/new): `resolve_export_default` does not push onto `current_function` (see the doc comment on `TypeContext::current_function_scopes`, which explicitly defers that to a later task), so it stays outside Task 3's repr-tracking scope — this test is only about the NAME agreeing, not about repr-tracking this body too."""
 args = ["run", "anonymous_export_default_function_compiles_and_runs.js"]
@@ -207,8 +226,7 @@ rationale = """Stage 5 recorded `class C { run(){ return 42; } } new C().run()` 
 
 VERDICT (Task 4, fresh binary at this commit): the hypothesis is FALSIFIED. Task 3's repr-tracking did not touch this path — kali still prints `0` where node prints `42`. Root cause is a SEPARATE lowering gap (class-method `return` value is dropped, not a repr-tracking problem); see docs/superpowers/followups/throw-fallout-stage6-triage.md section 9. Left `#[ignore]`d with assertions intact per the task brief — do not widen this stage to chase it.
 
-**2026-10-04 (class-instances):** this case now passes under `-- --ignored`: `C` is an in-slice program class, lowered to an object-literal factory, and kali prints `42` at exit 0, as node v26.10.0 does (at `7c4daa9f7` kali printed `0`). Wanted (a silent wrong value became correct). Still `ignore = true`: un-ignoring it also changes the cases README's count of ignored cases, which is outside this task's files, so it is left to the controller."""
-ignore = true
+**2026-10-04 (class-instances):** this case now passes under `-- --ignored`: `C` is an in-slice program class, lowered to an object-literal factory, and kali prints `42` at exit 0, as node v26.10.0 does (at `7c4daa9f7` kali printed `0`). Wanted (a silent wrong value became correct). Un-ignored under ruling R-19 (the cases README's ignored-case count updated with it)."""
 args = ["run", "class_method_bodies_return_their_value.js"]
 exit = "success"
 stdout = "42\n"
