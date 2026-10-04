@@ -1,0 +1,177 @@
+[source]
+"top_if.js" = """let x=1; if(true){ let x=2; console.log(x); } console.log(x);
+"""
+"top_block_const.js" = """const x=1; { const x=2; console.log(x); } console.log(x);
+"""
+"fn_if.js" = """function f(){ let x=1; if(true){ let x=2; console.log(x); } return x; } console.log(f());
+"""
+"fn_param.js" = """function f(c){ { const c=7; console.log(c); } return c; } console.log(f(2));
+"""
+"for_let.js" = """let i=100; for(let i=0;i<2;i++){ console.log(i); } console.log(i);
+"""
+"for_body.js" = """let s=0; const v=9; for(let i=0;i<2;i++){ const v=i*10; s+=v; } console.log(s, v);
+"""
+"while_shadow.js" = """let n=3; let k=0; while(k<2){ let n=k; k++; } console.log(n);
+"""
+"arr_shadow.js" = """const a=[1,2,3]; { const a=[9]; console.log(a.length); } console.log(a.length);
+"""
+"nested_fn.js" = """let x=1; { let x=2; function g(){ return x; } console.log(g()); } console.log(x);
+"""
+"closure_outer.js" = """let x=1; function g(){ return x; } { let x=2; console.log(g()); }
+"""
+"sibling.js" = """function f(){ { let a=1; console.log(a); } { let a="s"; console.log(a); } } f();
+"""
+"samefn.js" = """function a(){ function h(){ return 1; } return h(); } function b(){ function h(){ return 2; } return h(); } console.log(a(), b());
+"""
+"blockfn.js" = """{ function h(){ return 1; } console.log(h()); } { function h(){ return 2; } console.log(h()); }
+"""
+"inner_capture.js" = """function m(){ let x=1; function g(){ { let x=2; } return x; } return g(); } console.log(m());
+"""
+"var_sibling.js" = """function f(){ { var v=1; } { let v=2; } return v; } console.log(f());
+"""
+"top_if.ts" = """let x = 1; if (true) { let x = 2; console.log(x); } console.log(x);
+"""
+"dup_in_block.js" = """let x = 1; { let x = 2; let x = 3; }
+"""
+"shadow_refusal.js" = """let s = 1; { let s = "a"; s = 1; console.log(s); } console.log(s);
+"""
+
+[[case]]
+name = "a_block_let_does_not_change_the_module_binding"
+rationale = """R-10. node v26.10.0 prints `2 then 1`. At `6345f082b` kali printed `2 then 2` at exit 0 (probe `bs_top_if`, SILENT)."""
+args = ["run", "top_if.js"]
+exit = "success"
+stdout = "2\n1\n"
+
+[[case]]
+name = "a_block_const_does_not_change_the_module_binding"
+rationale = """R-10. node v26.10.0 prints `2 then 1`. At `6345f082b` kali printed `2 then 2` at exit 0 (probe `bs_top_block_const`, SILENT)."""
+args = ["run", "top_block_const.js"]
+exit = "success"
+stdout = "2\n1\n"
+
+[[case]]
+name = "a_block_let_does_not_change_the_function_local"
+rationale = """R-10. node v26.10.0 prints `2 then 1`. At `6345f082b` kali printed `2 then 2` at exit 0 (probe `bs_fn_if`, SILENT)."""
+args = ["run", "fn_if.js"]
+exit = "success"
+stdout = "2\n1\n"
+
+[[case]]
+name = "a_block_const_shadows_a_parameter_only_inside_the_block"
+rationale = """R-10. node v26.10.0 prints `7 then 2`. At `6345f082b` kali printed `7 then 7` at exit 0 (probe `bs_fn_param`, SILENT)."""
+args = ["run", "fn_param.js"]
+exit = "success"
+stdout = "7\n2\n"
+
+[[case]]
+name = "a_for_let_does_not_change_the_outer_binding"
+rationale = """R-10. node v26.10.0 prints `0 then 1 then 100`. At `6345f082b` kali printed `0 then 1 then 2` at exit 0 (probe `bs_for_let`, SILENT)."""
+args = ["run", "for_let.js"]
+exit = "success"
+stdout = "0\n1\n100\n"
+
+[[case]]
+name = "a_for_body_const_does_not_change_the_outer_binding"
+rationale = """R-10. node v26.10.0 prints `10 9`. At `6345f082b` kali printed `10 10` at exit 0 (probe `bs_for_body`, SILENT)."""
+args = ["run", "for_body.js"]
+exit = "success"
+stdout = "10 9\n"
+
+[[case]]
+name = "a_while_body_let_does_not_change_the_outer_binding"
+rationale = """R-10. node v26.10.0 prints `3`. At `6345f082b` kali printed `1` at exit 0 (probe `bs_while_shadow`, SILENT)."""
+args = ["run", "while_shadow.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_block_array_does_not_change_the_outer_array"
+rationale = """R-10. node v26.10.0 prints `1 then 3`. At `6345f082b` kali printed `1 then 1` at exit 0 (probe `bs_arr_shadow`, SILENT)."""
+args = ["run", "arr_shadow.js"]
+exit = "success"
+stdout = "1\n3\n"
+
+[[case]]
+name = "a_function_declared_in_a_shadowing_block_sees_the_block_binding"
+rationale = """R-10. node v26.10.0 prints `2 then 1`. At `6345f082b` kali printed `2 then 2` at exit 0 (probe `bs_nested_fn`, SILENT)."""
+args = ["run", "nested_fn.js"]
+exit = "success"
+stdout = "2\n1\n"
+
+[[case]]
+name = "a_closure_keeps_the_outer_binding_when_a_block_shadows_it"
+rationale = """R-10. node v26.10.0 prints `1`. At `6345f082b` kali printed `2` at exit 0 (probe `bs_closure_outer`, SILENT)."""
+args = ["run", "closure_outer.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "sibling_blocks_may_bind_the_same_name_at_different_types"
+rationale = """R-10. node v26.10.0 prints `1 then s`. At `6345f082b` kali refused at exit 1 (probe `bs_sibling`, REFUSES): error[E5506]: binding `a` in `f` is used as both a string and a number."""
+args = ["run", "sibling.js"]
+exit = "success"
+stdout = "1\ns\n"
+
+[[case]]
+name = "same_named_inner_functions_in_different_functions_stay_separate"
+rationale = """R-10. node v26.10.0 prints `1 2`. At `6345f082b` kali failed at exit 1 (probe `bs_samefn`, OTHER): error[E4201]: failed to load WASM module: failed to parse WebAssembly module."""
+args = ["run", "samefn.js"]
+exit = "success"
+stdout = "1 2\n"
+
+[[case]]
+name = "same_named_functions_in_sibling_blocks_stay_separate"
+rationale = """R-10. node v26.10.0 prints `1 then 2`. At `6345f082b` kali failed at exit 1 (probe `bs_blockfn`, OTHER): error[E4201]: failed to load WASM module: failed to parse WebAssembly module."""
+args = ["run", "blockfn.js"]
+exit = "success"
+stdout = "1\n2\n"
+
+[[case]]
+name = "inner_function_block_shadow_keeps_the_capture"
+rationale = """R-10. node v26.10.0 prints `1`. At `6345f082b` kali printed `2` at exit 0 (probe `bs_inner_capture`, SILENT)."""
+args = ["run", "inner_capture.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "var_hoists_past_a_sibling_let"
+rationale = """R-10. node v26.10.0 prints `1`. At `6345f082b` kali printed `2` at exit 0 (probe `bs_var_sibling`, SILENT)."""
+args = ["run", "var_sibling.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_typed_block_shadow_runs_like_node"
+rationale = """R-10, TypeScript source (no annotations: `let x: number` fails with E3100 at both `6345f082b` and head). node v26.10.0 (type-stripped) prints `2` then `1`. At `6345f082b` the same program as `top_if.js` printed `2` then `2` (probe `bs_top_if`, SILENT)."""
+args = ["run", "top_if.ts"]
+exit = "success"
+stdout = "2\n1\n"
+
+[[case]]
+name = "check_accepts_a_block_shadow"
+rationale = """`check` runs analyze_source_file, so the rename pass must not turn a valid shadow into a diagnostic."""
+args = ["check", "top_if.js"]
+exit = "success"
+
+[[case]]
+name = "check_accepts_same_named_functions_in_different_functions"
+rationale = """At `6345f082b` `run` of this program failed to load its WASM module (probe `bs_samefn`, OTHER); `check` must accept it."""
+args = ["check", "samefn.js"]
+exit = "success"
+
+[[case]]
+name = "a_redeclaration_in_a_block_names_the_binding_as_written"
+rationale = """The rename leaves same-scope duplicates for the resolver; E3101 names `x`, never `x{b0}`."""
+args = ["check", "dup_in_block.js"]
+exit = "failure"
+stderr_contains = ["E3101", "'x'"]
+stderr_absent = ["{b"]
+
+[[case]]
+name = "a_refusal_on_a_renamed_binding_names_it_as_written"
+rationale = """The block's `s` is renamed `s{b0}`; the mixed string/number refusal must name `s`, never `s{b0}` (verified: with the display mapping disabled the message reads "binding `s{b0}` at module scope"). node v26.10.0 prints `1` then `1`. At `6345f082b` kali refused with E5506 naming `s` (the block's `s` and the module's `s` were one binding); the brief's `s + 1` variant failed with E3200 there (probe `bs_r_str_shadow`, OTHER) and now runs."""
+args = ["run", "shadow_refusal.js"]
+exit = "failure"
+stderr_contains = ["E5506", "binding `s` at module scope"]
+stderr_absent = ["{b"]
