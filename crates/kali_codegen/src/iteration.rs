@@ -17,10 +17,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use kali_error::{_error_codes::e5, Diagnostic};
 use kali_lir::{LirNode, LirNodeId, LirNodeKind};
 use kali_mir::EnvPlan;
+use wasm_encoder::{Function, Instruction};
 
 /// An owner loop currently being emitted (spec §3.3).
-// Read by the per-iteration record emission (block-scoping Task 8).
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub(crate) struct ActiveIteration {
     pub(crate) label: String,
@@ -89,6 +88,38 @@ pub(crate) fn names_declared_in_loop(nodes: &[LirNode], loop_id: LirNodeId) -> B
         }
     }
     out
+}
+
+/// `let` / `const` names declared in the subtree at `id` (a loop clause), not
+/// in a nested loop or function: a `for` head's bindings when `id` is its init.
+pub(crate) fn names_declared_in(nodes: &[LirNode], id: LirNodeId) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    collect_declared(nodes, id, &mut out);
+    out
+}
+
+/// True when the subtree at `id` holds an unlabeled or labelled `continue` that
+/// is not inside a nested loop or function, i.e. one that targets the loop
+/// whose body `id` is (spec A-5). A `switch` is entered: its `continue`
+/// reaches the enclosing loop.
+pub(crate) fn contains_direct_continue(nodes: &[LirNode], id: LirNodeId) -> bool {
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if is_loop_node(nodes, id) || crate::lower::is_function_like(nodes, id) {
+        return false;
+    }
+    if node.kind == LirNodeKind::Branch
+        && node
+            .text
+            .as_deref()
+            .is_some_and(|text| text.starts_with("continue"))
+    {
+        return true;
+    }
+    node.children
+        .iter()
+        .any(|child| contains_direct_continue(nodes, *child))
 }
 
 fn collect_declared(nodes: &[LirNode], id: LirNodeId, out: &mut BTreeSet<String>) {
@@ -164,6 +195,179 @@ pub(crate) fn iteration_save_local_name(label: &str) -> String {
 /// The scratch local the next-iteration copy reads the previous record through.
 pub(crate) fn iteration_prev_local_name() -> String {
     "__iter_prev#env".to_string()
+}
+
+/// The emission of per-iteration records (spec §3.3, A-5): `g8` holds the
+/// current iteration's record for the whole of an owner loop's iteration, and
+/// the record's parent is the `g8` the loop was entered with.
+impl<'a> crate::FunctionEmitter<'a> {
+    /// The iteration label of loop `id` (an MIR iteration owner), marking the
+    /// plan placed for the A-6 backstop. `None` when no plan of this function
+    /// matches the loop.
+    pub(crate) fn iteration_label_of_loop(&mut self, id: LirNodeId) -> Option<String> {
+        let plans: Vec<(&str, &EnvPlan)> = self
+            .iteration_plans
+            .iter()
+            .map(|(label, plan)| (label.as_str(), plan))
+            .collect();
+        let label = iteration_label_for_loop(&self.program.nodes, id, &plans)?.to_string();
+        self.emitted_iterations.insert(label.clone());
+        Some(label)
+    }
+
+    /// Whether owner loop `label` carries per-iteration records: its plan has
+    /// a promotable cell, so `lower.rs` reserved its save local. Otherwise its
+    /// cells stay locals and nothing moves into a record.
+    pub(crate) fn iteration_has_records(&self, label: &str) -> bool {
+        self.locals.contains_key(&iteration_save_local_name(label))
+    }
+
+    /// The name of the first cell of iteration plan `label`, for diagnostics.
+    pub(crate) fn iteration_first_cell(&self, label: &str) -> String {
+        self.iteration_plans
+            .iter()
+            .find(|(candidate, _)| candidate == label)
+            .and_then(|(_, plan)| plan.cells.first())
+            .map(|cell| cell.name.clone())
+            .unwrap_or_default()
+    }
+
+    /// Whether cell `name` of iteration plan `label` is promotable (it lives
+    /// in the record, not a local): `lower.rs`'s predicate, in the namespace
+    /// of the loop's function.
+    fn iteration_cell_is_promotable(&self, label: &str, name: &str, is_scalar: bool) -> bool {
+        crate::closure::cell_is_promotable(
+            self.repr_table,
+            owner_repr_namespace(self.env_plans, label),
+            name,
+            is_scalar,
+        )
+    }
+
+    /// The record offset of promotable cell `name` of iteration plan `label`
+    /// (a loop binding the loop itself stores, such as a `for…in` key).
+    pub(crate) fn iteration_record_cell_offset(&self, label: &str, name: &str) -> Option<u32> {
+        let (_, plan) = self
+            .iteration_plans
+            .iter()
+            .find(|(candidate, _)| candidate == label)?;
+        let cell = plan.cell_for(name)?;
+        self.iteration_cell_is_promotable(label, name, cell.is_scalar)
+            .then_some(cell.offset)
+    }
+
+    /// Refuse an owner loop's records with E5506 `message` (spec A-5). The
+    /// loop is then emitted without records; the program does not run.
+    pub(crate) fn refuse_iteration_records(&mut self, message: String) {
+        self.diagnostics
+            .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+    }
+
+    /// Enter owner loop `label`: save `g8` into the loop's save local and make
+    /// the loop the innermost active iteration.
+    pub(crate) fn enter_iteration(&mut self, function: &mut Function, label: &str) {
+        let save_local = self.locals[&iteration_save_local_name(label)];
+        let plan = self
+            .iteration_plans
+            .iter()
+            .find(|(candidate, _)| candidate == label)
+            .map(|(_, plan)| plan.clone())
+            .unwrap_or_default();
+        function.instruction(&Instruction::GlobalGet(self.current_env_global()));
+        function.instruction(&Instruction::LocalSet(save_local));
+        self.active_iterations.push(ActiveIteration {
+            label: label.to_string(),
+            save_local,
+            plan,
+        });
+    }
+
+    /// Allocate a record for the innermost active iteration, with parent = the
+    /// `g8` that loop was entered with (its save local, never the previous
+    /// record, so records never chain to each other), and set `g8` to it.
+    pub(crate) fn alloc_iteration_record(&mut self, function: &mut Function) {
+        let Some(active) = self.active_iterations.last() else {
+            return;
+        };
+        let cell_count = active.plan.cells.len() as u32;
+        let save_local = active.save_local;
+        crate::closure::emit_env_alloc(
+            function,
+            self.alloc_global_fn_index(),
+            cell_count,
+            self.current_env_global(),
+            save_local,
+        );
+    }
+
+    /// `for (let …; test; update)`: allocate the next iteration's record and
+    /// copy the current values of the head cells `head` into it, so `update`
+    /// and the next iteration run on the copy and the closures of this
+    /// iteration keep theirs.
+    pub(crate) fn copy_head_cells_into_new_record(
+        &mut self,
+        function: &mut Function,
+        head: &BTreeSet<String>,
+    ) {
+        let Some(active) = self.active_iterations.last() else {
+            return;
+        };
+        let label = active.label.clone();
+        let mut copied: Vec<u32> = active
+            .plan
+            .cells
+            .iter()
+            .filter(|cell| {
+                head.contains(&cell.name)
+                    && self.iteration_cell_is_promotable(&label, &cell.name, cell.is_scalar)
+            })
+            .map(|cell| cell.offset)
+            .collect();
+        copied.sort_unstable();
+        let env_global = self.current_env_global();
+        let prev = self.locals[&iteration_prev_local_name()];
+        function.instruction(&Instruction::GlobalGet(env_global));
+        function.instruction(&Instruction::LocalSet(prev));
+        self.alloc_iteration_record(function);
+        for offset in copied {
+            crate::closure::emit_env_base_addr(function, env_global, 0);
+            function.instruction(&Instruction::LocalGet(prev));
+            function.instruction(&Instruction::I32WrapI64);
+            function.instruction(&Instruction::I64Load(crate::closure::env_memarg(
+                8 + offset,
+            )));
+            function.instruction(&Instruction::I64Store(crate::closure::env_memarg(
+                8 + offset,
+            )));
+        }
+    }
+
+    /// Leave the innermost owner loop: restore `g8` from its save local.
+    pub(crate) fn exit_iteration(&mut self, function: &mut Function) {
+        let Some(active) = self.active_iterations.pop() else {
+            return;
+        };
+        function.instruction(&Instruction::LocalGet(active.save_local));
+        function.instruction(&Instruction::GlobalSet(self.current_env_global()));
+    }
+
+    /// The A-6 backstop: one E5506 per iteration plan of this function whose
+    /// loop was never placed. Called once the whole body has been emitted.
+    pub(crate) fn push_unplaced_iteration_diagnostics(&mut self) {
+        let unplaced: Vec<String> = self
+            .iteration_plans
+            .iter()
+            .map(|(label, _)| label)
+            .filter(|label| !self.emitted_iterations.contains(*label))
+            .cloned()
+            .collect();
+        for label in unplaced {
+            self.diagnostics.push(Diagnostic::error(
+                e5::FEATURE_UNAVAILABLE as u32,
+                kali_common::iteration_record_unplaced_message(&label),
+            ));
+        }
+    }
 }
 
 #[cfg(test)]

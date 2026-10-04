@@ -153,3 +153,130 @@ fn lowering_reports_the_depth_two_refusal() {
         "{diagnostics:?}"
     );
 }
+
+fn lowering_diagnostics(
+    source: &str,
+    edit_plans: impl FnOnce(&mut BTreeMap<String, EnvPlan>),
+) -> Vec<Diagnostic> {
+    let (program, mut env_plans) = parse_and_lower_lir_with_env_plans(source);
+    edit_plans(&mut env_plans);
+    let mut ctx = crate::CodegenCtx::new(crate::TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.env_plans = env_plans;
+    crate::lower_lir_to_wasm(&mut ctx, &program).diagnostics
+}
+
+fn has_e5506(diagnostics: &[Diagnostic], needle: &str) -> bool {
+    diagnostics
+        .iter()
+        .any(|d| d.code == Some(e5::FEATURE_UNAVAILABLE as u32) && d.message.contains(needle))
+}
+
+#[test]
+fn a_for_head_declares_only_its_init_names() {
+    let (lir, _) = parse_and_lower_lir_with_env_plans(
+        "function m(){ for(let i=0; i<2; i++){ const k=i; } } m();",
+    );
+    let for_loop = loops(&lir.nodes)[0];
+    let init = lir.nodes[for_loop.0 as usize].children[0];
+    let expected: BTreeSet<String> = ["i"].iter().map(|s| s.to_string()).collect();
+    assert_eq!(names_declared_in(&lir.nodes, init), expected);
+    let whole: BTreeSet<String> = ["i", "k"].iter().map(|s| s.to_string()).collect();
+    assert_eq!(names_declared_in_loop(&lir.nodes, for_loop), whole);
+}
+
+#[test]
+fn a_direct_continue_is_found_but_not_one_in_a_nested_loop_or_function() {
+    let body_of = |source: &str| {
+        let (lir, _) = parse_and_lower_lir_with_env_plans(source);
+        let outer = loops(&lir.nodes)[0];
+        let body = *lir.nodes[outer.0 as usize].children.last().unwrap();
+        contains_direct_continue(&lir.nodes, body)
+    };
+    assert!(body_of(
+        "function m(){ for(let i=0;i<3;i++){ if(i===1) continue; } } m();"
+    ));
+    assert!(body_of(
+        "function m(){ for(let i=0;i<3;i++){ switch(i){ case 1: continue; default: break; } } } m();"
+    ));
+    assert!(!body_of(
+        "function m(){ for(let i=0;i<3;i++){ for(let j=0;j<3;j++){ continue; } } } m();"
+    ));
+    assert!(!body_of(
+        "function m(){ for(let i=0;i<3;i++){ const f=()=>{ for(;;){ continue; } }; } } m();"
+    ));
+}
+
+#[test]
+fn lowering_an_owner_loop_places_its_plan() {
+    let diagnostics = lowering_diagnostics(
+        "function m(){ for(let i=0;i<3;i++){ setTimeout(()=>console.log(i), 0); } } m();",
+        |_| {},
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d.code != Some(e5::FEATURE_UNAVAILABLE as u32)),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn lowering_refuses_continue_in_an_owner_for() {
+    let diagnostics = lowering_diagnostics(
+        "function m(){ for(let i=0;i<3;i++){ if(i===1) continue; queueMicrotask(()=>console.log(i)); } } m();",
+        |_| {},
+    );
+    assert!(
+        has_e5506(&diagnostics, "`continue` in a `for` loop"),
+        "{diagnostics:?}"
+    );
+    assert!(
+        !has_e5506(&diagnostics, "was planned but no loop declared"),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn lowering_refuses_an_unrolled_for_of_owner() {
+    let diagnostics = lowering_diagnostics(
+        "function m(){ for(const x of [5,6]){ queueMicrotask(()=>console.log(x)); } } m();",
+        |_| {},
+    );
+    assert!(
+        has_e5506(&diagnostics, "compile-time iterable that captures `x`"),
+        "{diagnostics:?}"
+    );
+}
+
+#[test]
+fn an_iteration_plan_no_loop_declares_is_refused_by_the_backstop() {
+    let diagnostics = lowering_diagnostics(
+        "function m(){ for(let i=0;i<3;i++){ console.log(i); } } m();",
+        |plans| {
+            plans.insert(
+                "m{iter7}".to_string(),
+                EnvPlan {
+                    owns_env: true,
+                    cells: vec![kali_mir::EnvCell {
+                        name: "nowhere".to_string(),
+                        offset: 0,
+                        is_scalar: true,
+                    }],
+                    captured: Vec::new(),
+                    iteration_of: Some("m".to_string()),
+                },
+            );
+        },
+    );
+    assert!(
+        has_e5506(
+            &diagnostics,
+            "per-iteration closure record `m{iter7}` was planned"
+        ),
+        "{diagnostics:?}"
+    );
+}

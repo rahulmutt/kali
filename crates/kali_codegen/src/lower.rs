@@ -1816,6 +1816,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         } else if function.is_entry {
             emitter.emit_coverage_hit(&mut body, coverage_id);
             emitter.emit_sequence(&mut body, &top_level_children(lir), false);
+            emitter.push_unplaced_iteration_diagnostics();
         } else {
             emitter.emit_function_body(&mut body, function.body, function.result, coverage_id);
         }

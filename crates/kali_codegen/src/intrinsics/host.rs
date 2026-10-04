@@ -1727,10 +1727,11 @@ impl<'a> FunctionEmitter<'a> {
     /// [`crate::lower::declarator_init_is_placeholder_construct`]): its owner-body
     /// read is already the `0` placeholder, so the deferred read of the same `0`
     /// introduces no divergence. That is provable only for a depth-1 capture whose
-    /// owner is the function doing the registration (`owner == self.function_name`
-    /// — the registration is emitted in the owner's own body, so `self.body` holds
-    /// the declarator); a placeholder captured from a further ancestor cannot be
-    /// proven here and stays denied (fail closed).
+    /// owner is the function doing the registration (the owner's repr namespace
+    /// `== self.function_name`, so a loop's per-iteration record counts as its
+    /// function — the registration is emitted in the owner's own body, so
+    /// `self.body` holds the declarator); a placeholder captured from a further
+    /// ancestor cannot be proven here and stays denied (fail closed).
     fn unlowered_capture_denied(&self, plan_key: &str) -> Option<&'static str> {
         let plan = self.env_plans.get(plan_key)?;
         plan.captured.iter().find_map(|reference| {
@@ -1752,9 +1753,13 @@ impl<'a> FunctionEmitter<'a> {
                 return None;
             }
             // ALLOWLIST 2: a provable zero-placeholder construct declared in the
-            // owner's own (== current) body. No real value to diverge.
+            // owner's own (== current) body. No real value to diverge. The
+            // owner is compared by repr namespace: a per-iteration record's
+            // bindings are declared in its loop's function body, which is
+            // `self.body` when that function registers the callback
+            // (block-scoping Task 8; module-loop records map to `_start`).
             if reference.depth == 1
-                && reference.owner == self.function_name
+                && owner == self.function_name
                 && self.binding_is_placeholder_construct(&reference.name)
             {
                 return None;

@@ -390,6 +390,39 @@ impl<'a> FunctionEmitter<'a> {
             }
         };
 
+        // Block-scoping §3.3 / A-5: an iteration owner carries a record per
+        // iteration. A `for` allocates its first record before `init` and, at
+        // the end of each body, the next one with the head cells copied in,
+        // so `init`, `test`, the body and `update` all run with `g8` = the
+        // current iteration's record. The other loops allocate at the top of
+        // each iteration. A `for` body with a direct `continue` would skip the
+        // copy, so that loop is refused.
+        let is_for = kind == "for";
+        let owner = self.iteration_label_of_loop(id).filter(|label| {
+            let continues = is_for
+                && body.is_some_and(|body| {
+                    crate::iteration::contains_direct_continue(&self.program.nodes, body)
+                });
+            if continues {
+                self.refuse_iteration_records(
+                    kali_common::iteration_for_continue_message().to_string(),
+                );
+            }
+            !continues && self.iteration_has_records(label)
+        });
+        let head: BTreeSet<String> = match (&owner, init) {
+            (Some(_), Some(init)) if is_for => {
+                crate::iteration::names_declared_in(&self.program.nodes, init)
+            }
+            _ => BTreeSet::new(),
+        };
+        if let Some(label) = &owner {
+            self.enter_iteration(function, label);
+            if is_for {
+                self.alloc_iteration_record(function);
+            }
+        }
+
         // for-init runs once, before the loop.
         if let Some(init) = init {
             let produced = self.emit_node(function, init, false);
@@ -464,12 +497,19 @@ impl<'a> FunctionEmitter<'a> {
             });
         }
 
+        if owner.is_some() && !is_for {
+            self.alloc_iteration_record(function);
+        }
+
         let emit_body_and_update = |emitter: &mut Self, function: &mut Function| {
             if let Some(body) = body {
                 let produced = emitter.emit_node(function, body, false);
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
                 }
+            }
+            if owner.is_some() && is_for {
+                emitter.copy_head_cells_into_new_record(function, &head);
             }
             if let Some(update) = update {
                 let produced = emitter.emit_node(function, update, false);
@@ -527,6 +567,10 @@ impl<'a> FunctionEmitter<'a> {
             if let Some(frame) = self.arena_frames.pop() {
                 self.emit_arena_release(function, &frame);
             }
+        }
+        // Reached by the falsy-test exit and by every `break`.
+        if owner.is_some() {
+            self.exit_iteration(function);
         }
 
         EmittedValue {
@@ -599,7 +643,20 @@ impl<'a> FunctionEmitter<'a> {
         // identifier read of the key resolves to via `self.locals` (see
         // `emit_value`'s 0-child `Value` arm).
         let key_name = self.for_in_key_name(left_id);
-        let Some(key_local) = self.locals.get(&key_name).copied() else {
+        // Block-scoping §3.3: an owner `for…in` allocates a record at the top
+        // of each iteration, and a promotable key lives in it (Task 7 dropped
+        // its local), so `key = ord` stores into the record.
+        let owner = self
+            .iteration_label_of_loop(id)
+            .filter(|label| self.iteration_has_records(label));
+        let key_slot = match self.locals.get(&key_name).copied() {
+            Some(local) => Some(Ok(local)),
+            None => owner
+                .as_deref()
+                .and_then(|label| self.iteration_record_cell_offset(label, &key_name))
+                .map(Err),
+        };
+        let Some(key_slot) = key_slot else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!("for..in key binding '{key_name}' has no reserved local"),
@@ -688,6 +745,9 @@ impl<'a> FunctionEmitter<'a> {
         // preheader: ord = 0
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(ord_local));
+        if let Some(label) = &owner {
+            self.enter_iteration(function, label);
+        }
 
         // block (break target) { loop (continue target) { ... } }. Register the
         // labels so a `break`/`continue` inside the body targets THIS for-in
@@ -709,6 +769,10 @@ impl<'a> FunctionEmitter<'a> {
             continue_is_faithful: false,
         });
 
+        if owner.is_some() {
+            self.alloc_iteration_record(function);
+        }
+
         // break when ord >= N
         function.instruction(&Instruction::LocalGet(ord_local));
         function.instruction(&Instruction::I64Const(n));
@@ -717,7 +781,22 @@ impl<'a> FunctionEmitter<'a> {
 
         // key = ord
         function.instruction(&Instruction::LocalGet(ord_local));
-        function.instruction(&Instruction::LocalSet(key_local));
+        match key_slot {
+            Ok(key_local) => {
+                function.instruction(&Instruction::LocalSet(key_local));
+            }
+            Err(offset) => {
+                // The loop is the innermost active iteration: depth 0.
+                let scratch = self.locals.len() as u32;
+                crate::closure::emit_cell_store(
+                    function,
+                    self.current_env_global(),
+                    0,
+                    offset,
+                    scratch,
+                );
+            }
+        }
 
         // body
         let produced = self.emit_node(function, body_id, false);
@@ -737,6 +816,9 @@ impl<'a> FunctionEmitter<'a> {
         self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::End); // end block
         self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+        if owner.is_some() {
+            self.exit_iteration(function);
+        }
 
         EmittedValue {
             produced: false,
@@ -877,11 +959,20 @@ impl<'a> FunctionEmitter<'a> {
     /// EVERY exit path restores the caller's env — a fresh, distinct record per
     /// activation (no leak across calls or recursion). A no-op unless this
     /// function owns a promotable env.
+    ///
+    /// Block-scoping §3.3: a function that owns no env but is inside an owner
+    /// loop has `g8` set to that loop's record; a `return` restores the `g8`
+    /// the outermost active loop was entered with, i.e. the caller's env.
+    /// (`break` leaves through the loop's outer `End`, where `exit_iteration`
+    /// runs.)
     pub(crate) fn emit_env_restore(&mut self, function: &mut Function) {
-        if !self.owns_promotable_env() {
+        let save_local = if self.owns_promotable_env() {
+            self.locals[&crate::closure::env_save_local_name()]
+        } else if let Some(outermost) = self.active_iterations.first() {
+            outermost.save_local
+        } else {
             return;
-        }
-        let save_local = self.locals[&crate::closure::env_save_local_name()];
+        };
         function.instruction(&Instruction::LocalGet(save_local));
         function.instruction(&Instruction::GlobalSet(self.current_env_global()));
     }
@@ -915,6 +1006,7 @@ impl<'a> FunctionEmitter<'a> {
         // this code is unreachable on that path). Stack-neutral, so a
         // fall-through return value beneath it is preserved.
         self.emit_env_restore(function);
+        self.push_unplaced_iteration_diagnostics();
     }
 
     pub(crate) fn emit_sequence(
@@ -1974,7 +2066,7 @@ impl<'a> FunctionEmitter<'a> {
                             return self.deny_e5506(function, &message);
                         }
                     }
-                    self.emit_for_of_array_iteration(function, &node)
+                    self.emit_for_of_array_iteration(function, id, &node)
                 }
                 Some("return") => self.emit_return(function, &node),
                 Some("while") | Some("do-while") | Some("for") => {

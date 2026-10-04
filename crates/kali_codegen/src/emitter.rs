@@ -574,14 +574,11 @@ pub(crate) struct FunctionEmitter<'a> {
     /// surface (Stage C Concern 2 fail-closed guard, `emit_call`).
     pub(crate) env_plans: &'a std::collections::BTreeMap<String, kali_mir::EnvPlan>,
     /// This function's per-iteration plans (spec §3.3), from `iteration_plans_of`.
-    // Read by the per-iteration record emission (block-scoping Task 8).
-    #[allow(dead_code)]
     pub(crate) iteration_plans: Vec<(String, kali_mir::EnvPlan)>,
     /// Owner loops currently being emitted, outermost first.
-    #[allow(dead_code)]
     pub(crate) active_iterations: Vec<crate::iteration::ActiveIteration>,
-    /// Iteration labels whose loop was emitted (the A-6 backstop).
-    #[allow(dead_code)]
+    /// Iteration labels whose loop was placed: its records were emitted, or
+    /// were refused by name (spec A-5). The A-6 backstop refuses the rest.
     pub(crate) emitted_iterations: BTreeSet<String>,
 }
 
@@ -920,9 +917,12 @@ impl<'a> FunctionEmitter<'a> {
     /// local provenance-set member, or a depth-1 captured binding whose OWNER is
     /// a REAL function (not `_start`) and whose repr-table entry is `AbortHandle`
     /// (the owner-keyed lookup pattern; no env-slot metadata needed — the cell
-    /// holds the handle by value).
+    /// holds the handle by value). The owner is compared by its repr namespace
+    /// (`owner_repr_namespace`), so a per-iteration record of a function's loop
+    /// (`m{iter0}`) counts as `m`, and one of a module-scope loop (`{iter0}`)
+    /// counts as `_start` and stays excluded (block-scoping Task 8).
     ///
-    /// The `owner != "_start"` guard is load-bearing: a module-scope (`_start`)
+    /// The `_start` exclusion is load-bearing: a module-scope (`_start`)
     /// `const c = new AbortController()` — including one declared inside a
     /// loop/block body, where the declarator intercept binds `c` as a plain
     /// `_start` LOCAL via `LocalSet` and never populates the captured env cell —
@@ -936,19 +936,20 @@ impl<'a> FunctionEmitter<'a> {
     /// `is_module_scope_abort_handle` denies a method call on the receiver
     /// (`emit/call.rs`) AND a bare/member read of it (`emit/control_flow.rs`
     /// identifier + abort member-read arms). Do NOT revert this exclusion —
-    /// re-admitting `_start` owners re-enables the wrong-cell store.
+    /// re-admitting `_start` owners, including module-scope loop records,
+    /// re-enables the wrong-cell store.
     pub(crate) fn is_abort_handle(&self, name: &str) -> bool {
         if self.abort_handle_locals.contains(name) {
             return true;
         }
         self.env_plan.captured.iter().any(|reference| {
+            let namespace =
+                crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner);
             reference.name == name
                 && reference.depth == 1
-                && reference.owner != "_start"
-                && self.repr_table.scalar(
-                    crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner),
-                    &reference.name,
-                ) == kali_common::Repr::AbortHandle
+                && namespace != "_start"
+                && self.repr_table.scalar(namespace, &reference.name)
+                    == kali_common::Repr::AbortHandle
         })
     }
 

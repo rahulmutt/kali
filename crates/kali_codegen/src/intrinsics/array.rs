@@ -1150,6 +1150,7 @@ impl<'a> FunctionEmitter<'a> {
     /// the index and therefore visits the NEXT element, not the same one. `break`
     /// exits the enclosing `Block`. Both reuse the standard control-frame /
     /// `LoopFrame` scaffolding, so they resolve identically to every other loop.
+    #[allow(clippy::too_many_arguments)]
     fn emit_for_of_growable_runtime_loop(
         &mut self,
         function: &mut Function,
@@ -1157,6 +1158,7 @@ impl<'a> FunctionEmitter<'a> {
         iterable_id: LirNodeId,
         handle_name: String,
         field_receiver: bool,
+        owner: Option<String>,
     ) -> EmittedValue {
         // Fail closed: a growable `for..of` lexically NESTED inside another
         // would share the single index/length scratch pair, clobbering the
@@ -1206,7 +1208,16 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
-        let Some(loop_local) = self.locals.get(&loop_name).copied() else {
+        // Block-scoping §3.3: in an owner loop a promotable loop variable lives
+        // in the per-iteration record (Task 7 dropped its local).
+        let loop_slot = match self.locals.get(&loop_name).copied() {
+            Some(local) => Some(Ok(local)),
+            None => owner
+                .as_deref()
+                .and_then(|label| self.iteration_record_cell_offset(label, &loop_name))
+                .map(Err),
+        };
+        let Some(loop_slot) = loop_slot else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(
@@ -1250,6 +1261,10 @@ impl<'a> FunctionEmitter<'a> {
         // does not extend this loop, matching the design's fixed count).
         self.emit_growable_length(function, iterable_id);
         function.instruction(&Instruction::LocalSet(len_local));
+        // The iterable is evaluated once, above, with the enclosing `g8`.
+        if let Some(label) = &owner {
+            self.enter_iteration(function, label);
+        }
 
         let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
         function.instruction(&Instruction::Block(BlockType::Empty));
@@ -1261,6 +1276,11 @@ impl<'a> FunctionEmitter<'a> {
             continue_is_faithful: true,
         });
 
+        // A fresh record at the top of every iteration, before `v` is stored.
+        if owner.is_some() {
+            self.alloc_iteration_record(function);
+        }
+
         // if i >= n break
         function.instruction(&Instruction::LocalGet(index_local));
         function.instruction(&Instruction::LocalGet(len_local));
@@ -1270,7 +1290,22 @@ impl<'a> FunctionEmitter<'a> {
 
         // v = data[i]
         self.emit_growable_index_read_at_local(function, iterable_id, index_local);
-        function.instruction(&Instruction::LocalSet(loop_local));
+        match loop_slot {
+            Ok(loop_local) => {
+                function.instruction(&Instruction::LocalSet(loop_local));
+            }
+            Err(offset) => {
+                // The loop is the innermost active iteration: depth 0.
+                let scratch = self.locals.len() as u32;
+                crate::closure::emit_cell_store(
+                    function,
+                    self.current_env_global(),
+                    0,
+                    offset,
+                    scratch,
+                );
+            }
+        }
 
         // i += 1  (BEFORE the body — makes `continue` visit the next element)
         function.instruction(&Instruction::LocalGet(index_local));
@@ -1296,6 +1331,9 @@ impl<'a> FunctionEmitter<'a> {
         self.pop_control_frame(ControlFlowLabelKind::LoopContinue);
         function.instruction(&Instruction::End); // end block
         self.pop_control_frame(ControlFlowLabelKind::LoopBreak);
+        if owner.is_some() {
+            self.exit_iteration(function);
+        }
 
         EmittedValue {
             produced: false,
@@ -1306,8 +1344,16 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn emit_for_of_array_iteration(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         node: &LirNode,
     ) -> EmittedValue {
+        // Block-scoping §3.3 / A-5: only the growable runtime loop below can
+        // carry per-iteration records; every other lane unrolls at compile
+        // time, so an owner loop on those lanes is refused.
+        let label = self.iteration_label_of_loop(id);
+        let owner = label
+            .clone()
+            .filter(|label| self.iteration_has_records(label));
         let Some(array_id) = node.children.get(1).copied() else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1337,6 +1383,7 @@ impl<'a> FunctionEmitter<'a> {
                     array_id,
                     handle_name,
                     false,
+                    owner,
                 );
             }
         }
@@ -1352,7 +1399,15 @@ impl<'a> FunctionEmitter<'a> {
             let key = self
                 .growable_field_receiver_key(array_id)
                 .unwrap_or_default();
-            return self.emit_for_of_growable_runtime_loop(function, node, array_id, key, true);
+            return self
+                .emit_for_of_growable_runtime_loop(function, node, array_id, key, true, owner);
+        }
+
+        if let Some(label) = &label {
+            let first_cell = self.iteration_first_cell(label);
+            self.refuse_iteration_records(kali_common::iteration_unrolled_for_of_message(
+                &first_cell,
+            ));
         }
 
         let mut array_id = array_id;

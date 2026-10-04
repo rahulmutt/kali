@@ -84,7 +84,7 @@ pub(crate) fn cell_is_promotable(
 }
 
 /// A `MemArg` for an 8-byte-aligned i64 access at `offset`.
-fn env_memarg(offset: u32) -> MemArg {
+pub(crate) fn env_memarg(offset: u32) -> MemArg {
     MemArg {
         offset: offset as u64,
         align: 3,
