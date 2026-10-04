@@ -6,7 +6,11 @@ use kali_ast::Expression;
 fn resolutions(src: &str, name: &str) -> Vec<Resolved> {
     let mut stmts = parse_statements(src);
     let scopes = Scopes::build(&mut stmts);
-    struct R<'a> { scopes: &'a Scopes, name: &'a str, out: Vec<Resolved> }
+    struct R<'a> {
+        scopes: &'a Scopes,
+        name: &'a str,
+        out: Vec<Resolved>,
+    }
     impl Visitor for R<'_> {
         fn expr(&mut self, expr: &mut Expression, _: &Pos, cx: &Cx) {
             if matches!(expr, Expression::Identifier(n) if n == self.name) {
@@ -14,13 +18,20 @@ fn resolutions(src: &str, name: &str) -> Vec<Resolved> {
             }
         }
     }
-    let mut r = R { scopes: &scopes, name, out: Vec::new() };
+    let mut r = R {
+        scopes: &scopes,
+        name,
+        out: Vec::new(),
+    };
     walk(&mut stmts, &mut r);
     r.out
 }
 
 fn binding(frame: &str, name: &str) -> Resolved {
-    Resolved::Binding(BindingId { frame: frame.into(), name: name.into() })
+    Resolved::Binding(BindingId {
+        frame: frame.into(),
+        name: name.into(),
+    })
 }
 
 #[test]
@@ -37,7 +48,10 @@ fn a_parameter_shadows_the_outer_binding() {
 
 #[test]
 fn a_name_declared_twice_in_one_frame_is_ambiguous() {
-    let got = resolutions("function g(){ { const s = 1; s; } { const s = 2; s; } }", "s");
+    let got = resolutions(
+        "function g(){ { const s = 1; s; } { const s = 2; s; } }",
+        "s",
+    );
     assert_eq!(got, [Resolved::Ambiguous, Resolved::Ambiguous]);
 }
 

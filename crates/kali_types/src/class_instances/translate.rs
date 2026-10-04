@@ -32,7 +32,9 @@ impl Visitor for Translate<'_> {
         for statement in old {
             match self.plan_of(&statement) {
                 Some(plan) => {
-                    let Statement::ClassDeclaration(class) = statement else { unreachable!() };
+                    let Statement::ClassDeclaration(class) = statement else {
+                        unreachable!()
+                    };
                     list.extend(translate_class(&class, plan));
                 }
                 None => list.push(statement),
@@ -56,7 +58,10 @@ fn ident(name: &str) -> Expression {
 
 fn declare(kind: &str, name: &str, init: Expression) -> Statement {
     Statement::VariableDeclaration(VariableDeclaration {
-        declarations: vec![VariableDeclarator { id: name.to_string(), init: Some(init) }],
+        declarations: vec![VariableDeclarator {
+            id: name.to_string(),
+            init: Some(init),
+        }],
         kind: kind.to_string(),
     })
 }
@@ -66,10 +71,17 @@ fn field_var(field: &str) -> String {
 }
 
 fn return_this() -> Statement {
-    Statement::ReturnStatement(ReturnStatement { argument: Some(ident(THIS)) })
+    Statement::ReturnStatement(ReturnStatement {
+        argument: Some(ident(THIS)),
+    })
 }
 
-fn function(name: String, params: Vec<String>, body: Vec<Statement>, source: Option<&MethodDefinition>) -> Statement {
+fn function(
+    name: String,
+    params: Vec<String>,
+    body: Vec<Statement>,
+    source: Option<&MethodDefinition>,
+) -> Statement {
     Statement::FunctionDeclaration(FunctionDeclaration {
         name,
         params,
@@ -82,11 +94,28 @@ fn function(name: String, params: Vec<String>, body: Vec<Statement>, source: Opt
 /// The statements `class` becomes: its factory, then its methods.
 fn translate_class(class: &ClassDeclaration, plan: &RewrittenClass) -> Vec<Statement> {
     let mut out = vec![factory(&class.body, plan)];
-    for method in class.body.methods.iter().filter(|m| !m.is_static && m.name != "constructor") {
-        let mut body = method.body.as_deref().cloned().unwrap_or(BlockStatement { body: vec![] }).body;
+    for method in class
+        .body
+        .methods
+        .iter()
+        .filter(|m| !m.is_static && m.name != "constructor")
+    {
+        let mut body = method
+            .body
+            .as_deref()
+            .cloned()
+            .unwrap_or(BlockStatement { body: vec![] })
+            .body;
         replace_this(&mut body, Replace::This);
-        let params = std::iter::once(THIS.to_string()).chain(method.params.iter().cloned()).collect();
-        out.push(function(format!("{}__{}", plan.name, method.name), params, body, Some(method)));
+        let params = std::iter::once(THIS.to_string())
+            .chain(method.params.iter().cloned())
+            .collect();
+        out.push(function(
+            format!("{}__{}", plan.name, method.name),
+            params,
+            body,
+            Some(method),
+        ));
     }
     out
 }
@@ -98,13 +127,22 @@ fn factory(body: &ClassBody, plan: &RewrittenClass) -> Statement {
         if let Some(value) = &field.value {
             let mut value = vec![expression_statement(value.clone())];
             replace_this(&mut value, Replace::FieldReads);
-            stmts.push(declare("let", &field_var(&field.name), take_expression(value)));
+            stmts.push(declare(
+                "let",
+                &field_var(&field.name),
+                take_expression(value),
+            ));
             declared.insert(field.name.clone());
         }
     }
-    let constructor = body.methods.iter().find(|m| m.name == "constructor" && !m.is_static);
-    let ctor_body: Vec<Statement> =
-        constructor.and_then(|m| m.body.as_deref()).map(|b| b.body.clone()).unwrap_or_default();
+    let constructor = body
+        .methods
+        .iter()
+        .find(|m| m.name == "constructor" && !m.is_static);
+    let ctor_body: Vec<Statement> = constructor
+        .and_then(|m| m.body.as_deref())
+        .map(|b| b.body.clone())
+        .unwrap_or_default();
     let (run, rest) = ctor_body.split_at(plan.leading_run.min(ctor_body.len()));
     for statement in run {
         let (field, value) = run_member(statement);
@@ -114,13 +152,13 @@ fn factory(body: &ClassBody, plan: &RewrittenClass) -> Statement {
         if declared.insert(field.clone()) {
             stmts.push(declare("let", &field_var(&field), value));
         } else {
-            stmts.push(expression_statement(Expression::AssignmentExpression(Box::new(
-                AssignmentExpression {
+            stmts.push(expression_statement(Expression::AssignmentExpression(
+                Box::new(AssignmentExpression {
                     operator: AssignmentOperator::Assign,
                     left: ident(&field_var(&field)),
                     right: value,
-                },
-            ))));
+                }),
+            )));
         }
     }
     let properties = plan
@@ -142,11 +180,18 @@ fn factory(body: &ClassBody, plan: &RewrittenClass) -> Statement {
     replace_bare_returns(&mut rest);
     stmts.extend(rest);
     stmts.push(return_this());
-    function(format!("{}__new", plan.name), plan.ctor_params.clone(), stmts, None)
+    function(
+        format!("{}__new", plan.name),
+        plan.ctor_params.clone(),
+        stmts,
+        None,
+    )
 }
 
 fn expression_statement(expression: Expression) -> Statement {
-    Statement::ExpressionStatement(ExpressionStatement { expression: Box::new(expression) })
+    Statement::ExpressionStatement(ExpressionStatement {
+        expression: Box::new(expression),
+    })
 }
 
 fn take_expression(mut statements: Vec<Statement>) -> Expression {
@@ -158,12 +203,19 @@ fn take_expression(mut statements: Vec<Statement>) -> Expression {
 
 /// `this.f = e` as `(f, e)`; planning guarantees the leading run has this shape.
 fn run_member(statement: &Statement) -> (String, Expression) {
-    let Statement::ExpressionStatement(stmt) = statement else { unreachable!("leading run") };
+    let Statement::ExpressionStatement(stmt) = statement else {
+        unreachable!("leading run")
+    };
     let Expression::AssignmentExpression(assign) = stmt.expression.as_ref() else {
         unreachable!("leading run")
     };
-    let Expression::MemberExpression(member) = &assign.left else { unreachable!("leading run") };
-    (member.property.clone().unwrap_or_default(), assign.right.clone())
+    let Expression::MemberExpression(member) = &assign.left else {
+        unreachable!("leading run")
+    };
+    (
+        member.property.clone().unwrap_or_default(),
+        assign.right.clone(),
+    )
 }
 
 #[derive(Clone, Copy)]
@@ -206,7 +258,11 @@ impl Visitor for ReplaceThis {
 
 /// Whether the nearest non-arrow frame is the walk's root, the code being translated.
 fn owns_this(cx: &Cx) -> bool {
-    cx.frames.iter().rev().find(|f| f.kind != FrameKind::Arrow).is_some_and(|f| f.kind == FrameKind::Program)
+    cx.frames
+        .iter()
+        .rev()
+        .find(|f| f.kind != FrameKind::Arrow)
+        .is_some_and(|f| f.kind == FrameKind::Program)
 }
 
 /// `return;` → `return __this;`, outside nested functions and arrows.

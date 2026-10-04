@@ -25,7 +25,10 @@ fn tail(src: &str, n: usize) -> Vec<kali_ast::Statement> {
 fn new_and_method_calls_are_rewritten() {
     let (stmts, diags) = run("class C { constructor(v){ this.n = v; } add(x){ this.n = this.n + x; } } const s = new C(1); s.add(2);");
     assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(stmts[1..].to_vec(), tail("const s = C__new(1); C__add(s, 2);", 2));
+    assert_eq!(
+        stmts[1..].to_vec(),
+        tail("const s = C__new(1); C__add(s, 2);", 2)
+    );
 }
 
 #[test]
@@ -40,17 +43,38 @@ fn this_method_calls_and_compound_assignments_are_rewritten_inside_the_class() {
 fn same_named_methods_dispatch_per_class() {
     let (stmts, diags) = run("class A{ f(){ return 1; } } class B{ f(){ return 2; } } const a=new A(); const b=new B(); a.f(); b.f();");
     assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(stmts[2..].to_vec(), tail("const a=A__new(); const b=B__new(); A__f(a); B__f(b);", 4));
+    assert_eq!(
+        stmts[2..].to_vec(),
+        tail("const a=A__new(); const b=B__new(); A__f(a); B__f(b);", 4)
+    );
 }
 
 #[test]
 fn positions_outside_the_allowlist_refuse() {
     let (_, d) = run("class C{ constructor(){ this.n=1; } } const c=new C(); console.log(c);");
-    assert_eq!(d, [kali_common::class_instance_position_message("C", "an argument to a call kali cannot resolve to a program function")]);
+    assert_eq!(
+        d,
+        [kali_common::class_instance_position_message(
+            "C",
+            "an argument to a call kali cannot resolve to a program function"
+        )]
+    );
     let (_, d) = run("class C{ constructor(){ this.n=1; } } const xs=[new C()];");
-    assert_eq!(d, [kali_common::class_instance_position_message("C", "an array element")]);
+    assert_eq!(
+        d,
+        [kali_common::class_instance_position_message(
+            "C",
+            "an array element"
+        )]
+    );
     let (_, d) = run("class C{ constructor(){ this.n=1; } } const c=new C(); c instanceof C;");
-    assert!(d.contains(&kali_common::class_instance_position_message("C", "an operand of a binary operator")), "{d:?}");
+    assert!(
+        d.contains(&kali_common::class_instance_position_message(
+            "C",
+            "an operand of a binary operator"
+        )),
+        "{d:?}"
+    );
     assert!(d.contains(&kali_common::class_value_message("C")), "{d:?}");
 }
 
@@ -59,33 +83,64 @@ fn field_rules_refuse_at_the_use() {
     let (_, d) = run("class C{ constructor(){ this.n=0; } set(){ this.m=1; } } new C().set();");
     assert_eq!(d, [kali_common::class_field_outside_set_message("C", "m")]);
     let (_, d) = run("class C{ constructor(){ this.n=1; } } const c=new C(); c.zz;");
-    assert_eq!(d, [kali_common::class_field_undeclared_read_message("C", "zz")]);
-    let (_, d) = run("class C{ constructor(){ this.n=1; } get(){ return 1; } } const c=new C(); const m=c.get;");
-    assert!(d.contains(&kali_common::class_method_value_message("C", "get")), "{d:?}");
+    assert_eq!(
+        d,
+        [kali_common::class_field_undeclared_read_message("C", "zz")]
+    );
+    let (_, d) = run(
+        "class C{ constructor(){ this.n=1; } get(){ return 1; } } const c=new C(); const m=c.get;",
+    );
+    assert!(
+        d.contains(&kali_common::class_method_value_message("C", "get")),
+        "{d:?}"
+    );
     let (_, d) = run("class C{ constructor(){ this.n=1; } } const c=new C(); c.zork();");
-    assert_eq!(d, [kali_common::unresolved_member_call_unavailable_message("zork")]);
+    assert_eq!(
+        d,
+        [kali_common::unresolved_member_call_unavailable_message(
+            "zork"
+        )]
+    );
 }
 
 #[test]
 fn mixed_and_unresolved_receivers_refuse() {
     let (_, d) = run("class A{ constructor(){ this.n=1; } } class B{ constructor(){ this.n=2; } } function f(x){ return x.n; } f(new A()); f(new B());");
-    assert!(d.contains(&kali_common::class_instance_mixed_message("A", "parameter `x` of `f`")), "{d:?}");
+    assert!(
+        d.contains(&kali_common::class_instance_mixed_message(
+            "A",
+            "parameter `x` of `f`"
+        )),
+        "{d:?}"
+    );
     let (_, d) = run("class C{ constructor(){ this.n=1; } get(){ return this.n; } } function f(x){ return x.get(); } const g=f; g(new C());");
-    assert!(d.contains(&kali_common::class_receiver_unresolved_message("get", "C")), "{d:?}");
+    assert!(
+        d.contains(&kali_common::class_receiver_unresolved_message("get", "C")),
+        "{d:?}"
+    );
 }
 
 #[test]
 fn an_array_push_next_to_a_user_push_is_left_alone() {
     let (stmts, d) = run("class Stack{ constructor(){ this.n=0; } push(v){ this.n=this.n+v; } } const s=new Stack(); const a=[1]; a.push(2); s.push(5);");
     assert!(d.is_empty(), "{d:?}");
-    assert_eq!(stmts[1..].to_vec(), tail("const s=Stack__new(); const a=[1]; a.push(2); Stack__push(s, 5);", 4));
+    assert_eq!(
+        stmts[1..].to_vec(),
+        tail(
+            "const s=Stack__new(); const a=[1]; a.push(2); Stack__push(s, 5);",
+            4
+        )
+    );
 }
 
 #[test]
 fn an_update_in_value_position_is_left_for_the_lane_to_refuse() {
-    let (stmts, d) = run("class C{ constructor(){ this.n=0; } inc(){ return this.n++; } } new C().inc();");
+    let (stmts, d) =
+        run("class C{ constructor(){ this.n=0; } inc(){ return this.n++; } } new C().inc();");
     assert!(d.is_empty(), "{d:?}");
-    let expected = parse_statements("class C{ constructor(){ this.n=0; } inc(){ return this.n++; } } C__inc(C__new());");
+    let expected = parse_statements(
+        "class C{ constructor(){ this.n=0; } inc(){ return this.n++; } } C__inc(C__new());",
+    );
     assert_eq!(stmts, expected);
 }
 
@@ -95,9 +150,11 @@ fn an_update_in_value_position_is_left_for_the_lane_to_refuse() {
 fn the_class_as_a_value_refuses_in_every_position() {
     let (_, d) = run("class C{ constructor(v){ this.n=v; } } const K = C; new K(5); new C(1);");
     assert!(d.contains(&kali_common::class_value_message("C")), "{d:?}");
-    let (_, d) = run("class C{ constructor(){ this.n=1; } m(){ return 1; } } new C(); C.prototype.m;");
+    let (_, d) =
+        run("class C{ constructor(){ this.n=1; } m(){ return 1; } } new C(); C.prototype.m;");
     assert!(d.contains(&kali_common::class_value_message("C")), "{d:?}");
-    let (_, d) = run("class C{ constructor(){ this.n=1; } } new C(); function f(k){ return k; } f(C);");
+    let (_, d) =
+        run("class C{ constructor(){ this.n=1; } } new C(); function f(k){ return k; } f(C);");
     assert!(d.contains(&kali_common::class_value_message("C")), "{d:?}");
     let (_, d) = run("class C{ constructor(){ this.n=1; } } new C(); function f(){ return C; }");
     assert!(d.contains(&kali_common::class_value_message("C")), "{d:?}");
@@ -107,7 +164,8 @@ fn the_class_as_a_value_refuses_in_every_position() {
 
 #[test]
 fn a_shadowed_class_name_is_not_the_class() {
-    let (stmts, d) = run("class C{ constructor(){ this.n=1; } } new C(); function f(C){ return C; } f(2);");
+    let (stmts, d) =
+        run("class C{ constructor(){ this.n=1; } } new C(); function f(C){ return C; } f(2);");
     assert!(d.is_empty(), "{d:?}");
     assert_eq!(stmts[1..2].to_vec(), tail("C__new();", 1));
 }
@@ -117,33 +175,63 @@ fn method_values_refuse_call_apply_and_bind() {
     for tail in ["s.get.call(s);", "s.get.apply(s, []);", "s.get.bind(s);"] {
         let src = format!("class C{{ constructor(){{ this.n=1; }} get(){{ return this.n; }} }} const s=new C(); {tail}");
         let (_, d) = run(&src);
-        assert!(d.contains(&kali_common::class_method_value_message("C", "get")), "{tail}: {d:?}");
+        assert!(
+            d.contains(&kali_common::class_method_value_message("C", "get")),
+            "{tail}: {d:?}"
+        );
     }
 }
 
 #[test]
 fn arguments_check_the_parameter_they_bind() {
-    let (stmts, d) = run("class C{ constructor(v){ this.n=v; } } function f(x){ return x.n; } f(new C(1));");
+    let (stmts, d) =
+        run("class C{ constructor(v){ this.n=v; } } function f(x){ return x.n; } f(new C(1));");
     assert!(d.is_empty(), "{d:?}");
     assert_eq!(stmts[2..].to_vec(), tail("f(C__new(1));", 1));
     let (_, d) = run("class C{ constructor(){ this.n=1; } } function f(){ return 1; } f(new C());");
-    assert_eq!(d, [kali_common::class_instance_position_message("C", "an extra argument")]);
+    assert_eq!(
+        d,
+        [kali_common::class_instance_position_message(
+            "C",
+            "an extra argument"
+        )]
+    );
     let (_, d) = run("class C{ constructor(){ this.n=1; } } new C(new C());");
-    assert_eq!(d, [kali_common::class_instance_position_message("C", "an extra argument")]);
+    assert_eq!(
+        d,
+        [kali_common::class_instance_position_message(
+            "C",
+            "an extra argument"
+        )]
+    );
 }
 
 #[test]
 fn returns_check_the_function_return() {
     let (_, d) = run("class C{ constructor(){ this.n=1; } } function f(b){ if (b) { return new C(); } return 2; } f(true);");
-    assert_eq!(d, [kali_common::class_instance_mixed_message("C", "the return value of `f`")]);
-    let (_, d) = run("class C{ constructor(){ this.n=1; } } function f(){ return new C(); } const c = f(); c.n;");
+    assert_eq!(
+        d,
+        [kali_common::class_instance_mixed_message(
+            "C",
+            "the return value of `f`"
+        )]
+    );
+    let (_, d) = run(
+        "class C{ constructor(){ this.n=1; } } function f(){ return new C(); } const c = f(); c.n;",
+    );
     assert!(d.is_empty(), "{d:?}");
 }
 
 #[test]
 fn a_parenthesized_instance_refuses_once() {
     let (_, d) = run("class C{ constructor(){ this.n=1; } } const c=new C(); const xs=[(c)];");
-    assert_eq!(d, [kali_common::class_instance_position_message("C", "an array element")]);
+    assert_eq!(
+        d,
+        [kali_common::class_instance_position_message(
+            "C",
+            "an array element"
+        )]
+    );
 }
 
 #[test]
@@ -172,16 +260,34 @@ fn an_instance_returned_from_an_untracked_frame_refuses() {
 #[test]
 fn a_top_level_return_names_the_program() {
     let (_, d) = run("class C { constructor(){ this.n=0; } } return new C();");
-    assert_eq!(d, [kali_common::class_instance_mixed_message("C", "the return value of the program")]);
+    assert_eq!(
+        d,
+        [kali_common::class_instance_mixed_message(
+            "C",
+            "the return value of the program"
+        )]
+    );
 }
 
 // Ruling R-14: `arguments` would hand an instance parameter out untracked.
 #[test]
 fn arguments_in_an_instance_taking_frame_refuses() {
     let (_, d) = run("class C { constructor(){ this.n=0; } m(){} } function f(a){ return arguments[0]; } const y=f(new C()); y.m();");
-    assert!(d.contains(&kali_common::class_instance_position_message("C", "the `arguments` object")), "{d:?}");
+    assert!(
+        d.contains(&kali_common::class_instance_position_message(
+            "C",
+            "the `arguments` object"
+        )),
+        "{d:?}"
+    );
     let (_, d) = run("class C { constructor(){ this.n=0; } m(){} } function f(a){ const g = () => arguments[0]; return 1; } f(new C());");
-    assert!(d.contains(&kali_common::class_instance_position_message("C", "the `arguments` object")), "{d:?}");
+    assert!(
+        d.contains(&kali_common::class_instance_position_message(
+            "C",
+            "the `arguments` object"
+        )),
+        "{d:?}"
+    );
     let (_, d) = run("class C { constructor(){ this.n=0; } } function f(a){ return arguments.length; } f(1); new C();");
     assert!(d.is_empty(), "{d:?}");
 }
@@ -190,7 +296,10 @@ fn arguments_in_an_instance_taking_frame_refuses() {
 #[test]
 fn a_field_access_on_a_non_variable_receiver_refuses() {
     const CLASS: &str = "class C { constructor(){ this.v=3; } } ";
-    let want = kali_common::class_instance_position_message("C", "the receiver of a field access that is not a variable");
+    let want = kali_common::class_instance_position_message(
+        "C",
+        "the receiver of a field access that is not a variable",
+    );
     let (_, d) = run(&format!("{CLASS}new C().v;"));
     assert!(d.contains(&want), "{d:?}");
     let (_, d) = run(&format!("{CLASS}const c = new C(); c.v;"));
@@ -216,7 +325,10 @@ fn an_instance_inside_an_arrow_or_function_expression_refuses() {
 #[test]
 fn an_instance_captured_from_an_enclosing_function_refuses() {
     const CLASS: &str = "class C { constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } ";
-    let want = kali_common::class_instance_position_message("C", "a value captured from an enclosing function");
+    let want = kali_common::class_instance_position_message(
+        "C",
+        "a value captured from an enclosing function",
+    );
     for program in [
         "function main(){ const s=new C(); function g(){ s.add(1); } g(); } main();",
         "function main(){ const s=new C(); function g(){ return s; } const t=g(); t.add(4); } main();",
@@ -234,7 +346,8 @@ fn an_instance_captured_from_an_enclosing_function_refuses() {
 // Ruling R-24: `typeof` of an instance field reads the slot as a number.
 #[test]
 fn typeof_of_an_instance_field_refuses() {
-    let want = kali_common::class_instance_position_message("P", kali_common::CLASS_POSITION_TYPEOF_FIELD);
+    let want =
+        kali_common::class_instance_position_message("P", kali_common::CLASS_POSITION_TYPEOF_FIELD);
     for program in [
         "class P { constructor(n){ this.n = n; } } const p = new P(3); console.log(typeof p.n);",
         "class P { constructor(){ this.n = 1; } t(){ return typeof this.n; } } const p = new P(); p.t();",
@@ -251,7 +364,10 @@ fn typeof_of_an_instance_field_refuses() {
 // Ruling R-28: a TS wrapper around an instance would form an alias kali does not track.
 #[test]
 fn a_type_assertion_or_satisfies_around_an_instance_refuses() {
-    let want = kali_common::class_instance_position_message("C", kali_common::CLASS_POSITION_TYPE_ASSERTION);
+    let want = kali_common::class_instance_position_message(
+        "C",
+        kali_common::CLASS_POSITION_TYPE_ASSERTION,
+    );
     for program in [
         "class C { n = 2; m(){ return this.n; } } const c = new C(); console.log((c as any).m());",
         "class C { n = 2; m(){ return this.n; } } const c = new C(); const d = c as any; console.log(d.m());",
@@ -262,6 +378,7 @@ fn a_type_assertion_or_satisfies_around_an_instance_refuses() {
         assert!(d.contains(&want), "{program}: {d:?}");
     }
     // A wrapper around a non-instance is not refused.
-    let (_, d) = run("class C { n = 2; } const c = new C(); const k = c.n as number; console.log(k);");
+    let (_, d) =
+        run("class C { n = 2; } const c = new C(); const k = c.n as number; console.log(k);");
     assert!(d.is_empty(), "{d:?}");
 }

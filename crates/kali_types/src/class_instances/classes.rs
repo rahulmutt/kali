@@ -8,12 +8,11 @@ use kali_ast::{
     NewExpression, Statement, VariableDeclarator,
 };
 use kali_common::{
-    class_construction_unavailable_message,
-    class_field_initializer_this_message, class_field_without_initial_value_message,
-    class_generated_name_collision_message, constructor_return_unavailable_message,
-    plain_function_construction_unavailable_message, CLASS_REASON_ACCESSOR,
-    CLASS_REASON_AMBIGUOUS, CLASS_REASON_COMPUTED, CLASS_REASON_EXPORTED, CLASS_REASON_EXPRESSION,
-    CLASS_REASON_EXTENDS, CLASS_REASON_FIELD_METHOD, CLASS_REASON_PRIVATE,
+    class_construction_unavailable_message, class_field_initializer_this_message,
+    class_field_without_initial_value_message, class_generated_name_collision_message,
+    constructor_return_unavailable_message, plain_function_construction_unavailable_message,
+    CLASS_REASON_ACCESSOR, CLASS_REASON_AMBIGUOUS, CLASS_REASON_COMPUTED, CLASS_REASON_EXPORTED,
+    CLASS_REASON_EXPRESSION, CLASS_REASON_EXTENDS, CLASS_REASON_FIELD_METHOD, CLASS_REASON_PRIVATE,
     CLASS_REASON_SAME_EXPRESSION, CLASS_REASON_STATIC,
 };
 
@@ -98,7 +97,13 @@ struct Facts {
 }
 
 impl Facts {
-    fn add_class(&mut self, name: &str, super_class: &Option<String>, body: &ClassBody, is_expression: bool) {
+    fn add_class(
+        &mut self,
+        name: &str,
+        super_class: &Option<String>,
+        body: &ClassBody,
+        is_expression: bool,
+    ) {
         self.decls.entry(name.to_string()).or_default().push(Decl {
             body: body.clone(),
             super_class: super_class.clone(),
@@ -161,9 +166,11 @@ impl Visitor for ThisUses {
             // Inside a nested arrow or function (R-9) the read is a snapshot hazard.
             let nested = cx.frames.len() > 1;
             self.0.push(match pos {
-                Pos::MemberObject { property: Some(g), call: false, write: false } if !nested => {
-                    Some(g.clone())
-                }
+                Pos::MemberObject {
+                    property: Some(g),
+                    call: false,
+                    write: false,
+                } if !nested => Some(g.clone()),
                 _ => None,
             });
         }
@@ -185,7 +192,8 @@ fn this_uses_in_expr(expr: &Expression) -> Vec<Option<String>> {
 
 /// Only `this.g` reads of fields already in `bound`.
 fn only_bound_this_reads(uses: &[Option<String>], bound: &[String]) -> bool {
-    uses.iter().all(|u| matches!(u, Some(g) if bound.contains(g)))
+    uses.iter()
+        .all(|u| matches!(u, Some(g) if bound.contains(g)))
 }
 
 fn body_has_this(body: &ClassBody) -> bool {
@@ -234,12 +242,18 @@ fn returns_value(statement: &Statement) -> bool {
 
 /// `this.f = e` as a statement: `(f, e)`.
 fn this_field_assignment(statement: &Statement) -> Option<(&str, &Expression)> {
-    let Statement::ExpressionStatement(stmt) = statement else { return None };
-    let Expression::AssignmentExpression(assign) = stmt.expression.as_ref() else { return None };
+    let Statement::ExpressionStatement(stmt) = statement else {
+        return None;
+    };
+    let Expression::AssignmentExpression(assign) = stmt.expression.as_ref() else {
+        return None;
+    };
     if assign.operator != AssignmentOperator::Assign {
         return None;
     }
-    let Expression::MemberExpression(member) = &assign.left else { return None };
+    let Expression::MemberExpression(member) = &assign.left else {
+        return None;
+    };
     if !matches!(member.object, Expression::ThisExpression) || member.computed_index.is_some() {
         return None;
     }
@@ -274,7 +288,10 @@ fn refusal(message: String) -> Diagnostic {
     Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message)
 }
 
-pub(crate) fn plan_classes(statements: &mut Vec<Statement>, spelled: &BTreeSet<String>) -> ClassPlans {
+pub(crate) fn plan_classes(
+    statements: &mut Vec<Statement>,
+    spelled: &BTreeSet<String>,
+) -> ClassPlans {
     let program = ProgramClasses::collect(statements);
     let host = program.host_derived();
     let mut facts = Facts::default();
@@ -323,23 +340,29 @@ pub(crate) fn plan_classes(statements: &mut Vec<Statement>, spelled: &BTreeSet<S
                 if stateful {
                     plans
                         .diagnostics
-                        .push(refusal(class_construction_unavailable_message(name, reason)));
+                        .push(refusal(class_construction_unavailable_message(
+                            name, reason,
+                        )));
                 } else if facts.chained.contains(name) {
                     // R-29 (§14a): the chain shape lowers to 0 for a class
                     // kali leaves as it is.
-                    plans.diagnostics.push(refusal(class_construction_unavailable_message(
-                        name,
-                        CLASS_REASON_SAME_EXPRESSION,
-                    )));
+                    plans
+                        .diagnostics
+                        .push(refusal(class_construction_unavailable_message(
+                            name,
+                            CLASS_REASON_SAME_EXPRESSION,
+                        )));
                 }
             }
             None => {
                 let plan = plan_one(name, &decls[0].body, &mut plans.diagnostics);
                 if plan.fields.iter().any(|f| plan.methods.contains(f)) {
-                    plans.diagnostics.push(refusal(class_construction_unavailable_message(
-                        name,
-                        CLASS_REASON_FIELD_METHOD,
-                    )));
+                    plans
+                        .diagnostics
+                        .push(refusal(class_construction_unavailable_message(
+                            name,
+                            CLASS_REASON_FIELD_METHOD,
+                        )));
                 }
                 plans.rewritten.insert(name.clone(), plan);
             }
@@ -350,11 +373,15 @@ pub(crate) fn plan_classes(statements: &mut Vec<Statement>, spelled: &BTreeSet<S
         if facts.functions.contains(target) && !facts.decls.contains_key(target) {
             plans
                 .diagnostics
-                .push(refusal(plain_function_construction_unavailable_message(target)));
+                .push(refusal(plain_function_construction_unavailable_message(
+                    target,
+                )));
         }
     }
 
-    plans.diagnostics.extend(generated_name_collisions(&plans.rewritten, spelled));
+    plans
+        .diagnostics
+        .extend(generated_name_collisions(&plans.rewritten, spelled));
     plans
 }
 
@@ -384,7 +411,10 @@ fn generated_name_collisions(
         for generated in functions(class).into_iter().chain(locals) {
             let duplicated = owners.get(&generated).is_some_and(|n| *n > 1);
             if duplicated || spelled.contains(&generated) {
-                diagnostics.push(refusal(class_generated_name_collision_message(&generated, &class.name)));
+                diagnostics.push(refusal(class_generated_name_collision_message(
+                    &generated,
+                    &class.name,
+                )));
             }
         }
     }
@@ -408,7 +438,10 @@ fn plan_one(name: &str, body: &ClassBody, diagnostics: &mut Vec<Diagnostic>) -> 
     for field in body.fields.iter().filter(|f| !f.is_static) {
         if let Some(value) = &field.value {
             if !only_bound_this_reads(&this_uses_in_expr(value), &bound) {
-                diagnostics.push(refusal(class_field_initializer_this_message(name, &field.name)));
+                diagnostics.push(refusal(class_field_initializer_this_message(
+                    name,
+                    &field.name,
+                )));
             }
         }
         if !fields.contains(&field.name) {
@@ -422,7 +455,9 @@ fn plan_one(name: &str, body: &ClassBody, diagnostics: &mut Vec<Diagnostic>) -> 
     let mut run_bound: Vec<String> = Vec::new();
     let mut leading_run = 0;
     for statement in ctor_statements {
-        let Some((field, right)) = this_field_assignment(statement) else { break };
+        let Some((field, right)) = this_field_assignment(statement) else {
+            break;
+        };
         if !only_bound_this_reads(&this_uses_in_expr(right), &bound) {
             break;
         }
@@ -436,14 +471,23 @@ fn plan_one(name: &str, body: &ClassBody, diagnostics: &mut Vec<Diagnostic>) -> 
         leading_run += 1;
     }
 
-    for field in body.fields.iter().filter(|f| !f.is_static && f.value.is_none()) {
+    for field in body
+        .fields
+        .iter()
+        .filter(|f| !f.is_static && f.value.is_none())
+    {
         if !run_bound.contains(&field.name) {
-            diagnostics.push(refusal(class_field_without_initial_value_message(name, &field.name)));
+            diagnostics.push(refusal(class_field_without_initial_value_message(
+                name,
+                &field.name,
+            )));
         }
     }
 
     if ctor_statements.iter().any(returns_value) {
-        diagnostics.push(refusal(constructor_return_unavailable_message().to_string()));
+        diagnostics.push(refusal(
+            constructor_return_unavailable_message().to_string(),
+        ));
     }
 
     RewrittenClass {

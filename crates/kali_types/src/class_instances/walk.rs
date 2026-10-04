@@ -5,9 +5,9 @@
 //! exhaustive with no `_ =>` arm, so a new AST variant is a compile error here.
 
 use kali_ast::{
-    AssignmentOperator, BlockStatement, ClassBody, ClassDeclaration, ClassExpression, Expression,
-    ExpressionOrSpread, ExportDefaultDeclaration, ForInLefthand, ForInit, ForOfLefthand,
-    FunctionDeclaration, JsxAttributeItem, JsxAttributeValue, JsxChild, JsxElement,
+    AssignmentOperator, BlockStatement, ClassBody, ClassDeclaration, ClassExpression,
+    ExportDefaultDeclaration, Expression, ExpressionOrSpread, ForInLefthand, ForInit,
+    ForOfLefthand, FunctionDeclaration, JsxAttributeItem, JsxAttributeValue, JsxChild, JsxElement,
     JsxExpressionContainer, JsxFragment, MethodDefinition, OptionalChainInner, Statement,
     VariableDeclaration, VariableDeclarator,
 };
@@ -17,13 +17,24 @@ pub(crate) type FnKey = String;
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum FrameKind {
     Program,
-    Function { is_async_or_generator: bool, is_expression: bool },
+    Function {
+        is_async_or_generator: bool,
+        is_expression: bool,
+    },
     /// An expression-bodied or block-bodied arrow (`FunctionExpression { is_arrow: true }`).
     Arrow,
-    Method { class: String, method: String, is_static: bool },
-    Constructor { class: String },
+    Method {
+        class: String,
+        method: String,
+        is_static: bool,
+    },
+    Constructor {
+        class: String,
+    },
     /// The class's field initializers (they run with `this` bound to the instance).
-    FieldInit { class: String },
+    FieldInit {
+        class: String,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -58,7 +69,11 @@ impl Cx {
         for frame in self.frames.iter().rev() {
             match &frame.kind {
                 FrameKind::Arrow => continue,
-                FrameKind::Method { class, is_static: false, .. }
+                FrameKind::Method {
+                    class,
+                    is_static: false,
+                    ..
+                }
                 | FrameKind::Constructor { class }
                 | FrameKind::FieldInit { class } => return Some(class),
                 _ => return None,
@@ -73,9 +88,16 @@ impl Cx {
 pub(crate) enum Pos {
     BindingInit(String),
     BindingAssign(String),
-    CallArg { callee: Expression, index: usize },
+    CallArg {
+        callee: Expression,
+        index: usize,
+    },
     Return,
-    MemberObject { property: Option<String>, call: bool, write: bool },
+    MemberObject {
+        property: Option<String>,
+        call: bool,
+        write: bool,
+    },
     Discarded,
     Callee,
     NewCallee,
@@ -102,7 +124,12 @@ pub(crate) trait Visitor {
 pub(crate) fn walk(statements: &mut Vec<Statement>, visitor: &mut dyn Visitor) {
     let mut walker = Walker {
         visitor,
-        cx: Cx { frames: vec![Frame { key: String::new(), kind: FrameKind::Program }] },
+        cx: Cx {
+            frames: vec![Frame {
+                key: String::new(),
+                kind: FrameKind::Program,
+            }],
+        },
     };
     walker.list(statements);
 }
@@ -143,7 +170,8 @@ impl Walker<'_> {
 
     fn var_decl(&mut self, decl: &mut VariableDeclaration) {
         for declarator in &mut decl.declarations {
-            self.visitor.var_declarator(declarator, &decl.kind, &self.cx);
+            self.visitor
+                .var_declarator(declarator, &decl.kind, &self.cx);
             if let Some(init) = &mut declarator.init {
                 self.expr(init, Pos::BindingInit(declarator.id.clone()));
             }
@@ -152,7 +180,11 @@ impl Walker<'_> {
 
     fn function_decl(&mut self, function: &mut FunctionDeclaration) {
         self.visitor.function_decl(function, &self.cx);
-        let name = if function.name.is_empty() { ANON } else { function.name.as_str() };
+        let name = if function.name.is_empty() {
+            ANON
+        } else {
+            function.name.as_str()
+        };
         let kind = FrameKind::Function {
             is_async_or_generator: function.is_async || function.generator,
             is_expression: false,
@@ -164,7 +196,9 @@ impl Walker<'_> {
 
     fn class_body(&mut self, class: &str, body: &mut ClassBody) {
         if body.fields.iter().any(|f| f.value.is_some()) {
-            let kind = FrameKind::FieldInit { class: class.to_string() };
+            let kind = FrameKind::FieldInit {
+                class: class.to_string(),
+            };
             let fields = &mut body.fields;
             self.in_frame(&format!("{class}#fields"), kind, &[], |w| {
                 for field in fields.iter_mut() {
@@ -181,7 +215,9 @@ impl Walker<'_> {
 
     fn method(&mut self, class: &str, method: &mut MethodDefinition) {
         let kind = if method.name == "constructor" && !method.is_static {
-            FrameKind::Constructor { class: class.to_string() }
+            FrameKind::Constructor {
+                class: class.to_string(),
+            }
         } else {
             FrameKind::Method {
                 class: class.to_string(),
@@ -262,9 +298,7 @@ impl Walker<'_> {
             Statement::ForInStatement(stmt) => {
                 match &mut stmt.left {
                     ForInLefthand::VariableDeclaration(decl) => self.var_decl(decl),
-                    ForInLefthand::Expression(expr) => {
-                        self.expr(expr, Pos::Other("a loop target"))
-                    }
+                    ForInLefthand::Expression(expr) => self.expr(expr, Pos::Other("a loop target")),
                 }
                 self.expr(&mut stmt.right, Pos::Other("a loop iterable"));
                 self.statement(&mut stmt.body);
@@ -272,9 +306,7 @@ impl Walker<'_> {
             Statement::ForOfStatement(stmt) => {
                 match &mut stmt.left {
                     ForOfLefthand::VariableDeclaration(decl) => self.var_decl(decl),
-                    ForOfLefthand::Expression(expr) => {
-                        self.expr(expr, Pos::Other("a loop target"))
-                    }
+                    ForOfLefthand::Expression(expr) => self.expr(expr, Pos::Other("a loop target")),
                 }
                 self.expr(&mut stmt.right, Pos::Other("a loop iterable"));
                 self.statement(&mut stmt.body);
@@ -326,9 +358,7 @@ impl Walker<'_> {
 
     fn expression_or_spread(&mut self, element: &mut ExpressionOrSpread) {
         match element {
-            ExpressionOrSpread::Expression(expr) => {
-                self.expr(expr, Pos::Other("an array element"))
-            }
+            ExpressionOrSpread::Expression(expr) => self.expr(expr, Pos::Other("an array element")),
             ExpressionOrSpread::Spread(spread) => {
                 self.expr(&mut spread.argument, Pos::Other("a spread operand"))
             }
@@ -348,17 +378,30 @@ impl Walker<'_> {
             Expression::Identifier(_) => {}
             Expression::Literal(_) => {}
             Expression::BinaryExpression(binary) => {
-                self.expr(&mut binary.left, Pos::Other("an operand of a binary operator"));
-                self.expr(&mut binary.right, Pos::Other("an operand of a binary operator"));
+                self.expr(
+                    &mut binary.left,
+                    Pos::Other("an operand of a binary operator"),
+                );
+                self.expr(
+                    &mut binary.right,
+                    Pos::Other("an operand of a binary operator"),
+                );
             }
-            Expression::UnaryExpression(unary) => {
-                self.expr(&mut unary.argument, Pos::Other("an operand of a unary operator"))
-            }
+            Expression::UnaryExpression(unary) => self.expr(
+                &mut unary.argument,
+                Pos::Other("an operand of a unary operator"),
+            ),
             Expression::CallExpression(call) => {
                 self.expr(&mut call.callee, Pos::Callee);
                 let callee = call.callee.clone();
                 for (index, arg) in call.args.iter_mut().enumerate() {
-                    self.expr(arg, Pos::CallArg { callee: callee.clone(), index });
+                    self.expr(
+                        arg,
+                        Pos::CallArg {
+                            callee: callee.clone(),
+                            index,
+                        },
+                    );
                 }
             }
             Expression::MemberExpression(member) => {
@@ -368,7 +411,14 @@ impl Walker<'_> {
                     _ => (false, false),
                 };
                 let property = member.property.clone();
-                self.expr(&mut member.object, Pos::MemberObject { property, call, write });
+                self.expr(
+                    &mut member.object,
+                    Pos::MemberObject {
+                        property,
+                        call,
+                        write,
+                    },
+                );
                 if let Some(index) = &mut member.computed_index {
                     self.expr(index, Pos::Other("a computed key"));
                 }
@@ -405,7 +455,9 @@ impl Walker<'_> {
                 let name = arrow.id.clone().unwrap_or_else(|| ANON.to_string());
                 let params: Vec<String> = arrow.params.iter().map(|p| p.name.clone()).collect();
                 let body = &mut arrow.body;
-                self.in_frame(&name, FrameKind::Arrow, &params, |w| w.expr(body, Pos::Return));
+                self.in_frame(&name, FrameKind::Arrow, &params, |w| {
+                    w.expr(body, Pos::Return)
+                });
             }
             Expression::ClassExpression(class) => {
                 self.visitor.class_expr(class, &self.cx);
@@ -447,11 +499,20 @@ impl Walker<'_> {
                 self.expr(&mut assignment.right, right_pos);
             }
             Expression::LogicalExpression(logical) => {
-                self.expr(&mut logical.left, Pos::Other("a logical or conditional operand"));
-                self.expr(&mut logical.right, Pos::Other("a logical or conditional operand"));
+                self.expr(
+                    &mut logical.left,
+                    Pos::Other("a logical or conditional operand"),
+                );
+                self.expr(
+                    &mut logical.right,
+                    Pos::Other("a logical or conditional operand"),
+                );
             }
             Expression::ConditionalExpression(conditional) => {
-                self.expr(&mut conditional.test, Pos::Other("a logical or conditional operand"));
+                self.expr(
+                    &mut conditional.test,
+                    Pos::Other("a logical or conditional operand"),
+                );
                 self.expr(
                     &mut conditional.consequent,
                     Pos::Other("a logical or conditional operand"),
@@ -490,9 +551,7 @@ impl Walker<'_> {
             Expression::JsxFragment(fragment) => self.jsx_fragment(fragment),
             Expression::JsxEmptyExpression => {}
             Expression::TypeAssertion(assertion) => self.expr(&mut assertion.expression, pos),
-            Expression::SatisfiesExpression(satisfies) => {
-                self.expr(&mut satisfies.expression, pos)
-            }
+            Expression::SatisfiesExpression(satisfies) => self.expr(&mut satisfies.expression, pos),
             Expression::ThisExpression => {}
             Expression::SuperExpression => {}
             Expression::PrivateIdentifier(_) => {}

@@ -12,7 +12,10 @@ fn captures(src: &str) -> Vec<String> {
     let spelled = Scopes::build(&mut stmts).spelled().clone();
     let plans = plan_classes(&mut stmts, &spelled);
     let scopes = Scopes::build(&mut stmts);
-    check_captures(&mut stmts, &scopes, &plans).into_iter().map(|d| d.message).collect()
+    check_captures(&mut stmts, &scopes, &plans)
+        .into_iter()
+        .map(|d| d.message)
+        .collect()
 }
 
 // Ruling R-25.
@@ -49,8 +52,15 @@ fn a_field_initializer_naming_a_constructor_binding_refuses() {
         "const x = 10; class C { a = x + 1; constructor(){ const x = 2; this.b = x; } } new C();",
         "class C { a = x; constructor(){ var x = 2; } } new C();",
     ] {
-        assert!(captures(program).contains(&want), "{program}: {:?}", captures(program));
+        assert!(
+            captures(program).contains(&want),
+            "{program}: {:?}",
+            captures(program)
+        );
     }
     // An initializer naming something the constructor does not declare is fine.
-    assert!(captures("const x = 10; class C { a = x; constructor(y){ this.b = y; } } new C(3);").is_empty());
+    assert!(
+        captures("const x = 10; class C { a = x; constructor(y){ this.b = y; } } new C(3);")
+            .is_empty()
+    );
 }

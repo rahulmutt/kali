@@ -63,7 +63,9 @@ impl Visitor for Collect {
     fn stmts(&mut self, list: &mut Vec<Statement>, _cx: &Cx) {
         // Import locals (R-30r); the walker does not descend into imports.
         for statement in list.iter() {
-            let Statement::ImportDeclaration(import) = statement else { continue };
+            let Statement::ImportDeclaration(import) = statement else {
+                continue;
+            };
             for specifier in &import.specifiers {
                 match specifier {
                     ImportSpecifier::Default(local) | ImportSpecifier::Namespace(local) => {
@@ -80,7 +82,10 @@ impl Visitor for Collect {
     fn enter_frame(&mut self, cx: &Cx, params: &[String]) {
         for param in params {
             self.declare(param, cx);
-            self.params.entry(cx.key().to_string()).or_default().push(param.clone());
+            self.params
+                .entry(cx.key().to_string())
+                .or_default()
+                .push(param.clone());
         }
     }
     fn class_decl(&mut self, class: &ClassDeclaration, _exported_default: bool, cx: &Cx) {
@@ -109,17 +114,28 @@ impl Scopes {
     pub(crate) fn build(statements: &mut Vec<Statement>) -> Scopes {
         let mut collect = Collect::default();
         walk(statements, &mut collect);
-        Scopes { declared: collect.declared, params: collect.params, spelled: collect.spelled }
+        Scopes {
+            declared: collect.declared,
+            params: collect.params,
+            spelled: collect.spelled,
+        }
     }
 
     /// The innermost enclosing frame that declares `name`.
     pub(crate) fn resolve(&self, name: &str, cx: &Cx) -> Resolved {
         for frame in cx.frames.iter().rev() {
-            if let Some(count) = self.declared.get(&frame.key).and_then(|names| names.get(name)) {
+            if let Some(count) = self
+                .declared
+                .get(&frame.key)
+                .and_then(|names| names.get(name))
+            {
                 return if *count > 1 {
                     Resolved::Ambiguous
                 } else {
-                    Resolved::Binding(BindingId { frame: frame.key.clone(), name: name.to_string() })
+                    Resolved::Binding(BindingId {
+                        frame: frame.key.clone(),
+                        name: name.to_string(),
+                    })
                 };
             }
         }
@@ -137,7 +153,9 @@ impl Scopes {
 
     /// Whether `frame` itself declares `name` (a parameter or a declaration).
     pub(crate) fn declares(&self, frame: &str, name: &str) -> bool {
-        self.declared.get(frame).is_some_and(|names| names.contains_key(name))
+        self.declared
+            .get(frame)
+            .is_some_and(|names| names.contains_key(name))
     }
 
     pub(crate) fn params(&self, frame: &str) -> &[String] {

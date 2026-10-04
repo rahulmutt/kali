@@ -19,7 +19,10 @@ fn plans() -> ClassPlans {
 
 fn sweep_messages(src: &str) -> Vec<String> {
     let mut stmts = parse_statements(src);
-    sweep(&mut stmts, &plans()).into_iter().map(|d| d.message).collect()
+    sweep(&mut stmts, &plans())
+        .into_iter()
+        .map(|d| d.message)
+        .collect()
 }
 
 fn unlowered() -> String {
@@ -28,7 +31,10 @@ fn unlowered() -> String {
 
 #[test]
 fn a_leftover_class_reference_is_swept_once() {
-    assert_eq!(sweep_messages("function f(){ return C; } const d = C;"), [unlowered()]);
+    assert_eq!(
+        sweep_messages("function f(){ return C; } const d = C;"),
+        [unlowered()]
+    );
 }
 
 #[test]
@@ -43,8 +49,14 @@ fn a_leftover_new_is_swept() {
 
 #[test]
 fn a_this_in_a_generated_function_is_swept_but_not_in_a_nested_arrow_free_program() {
-    assert_eq!(sweep_messages("function C__m(__this){ return this.n; }"), [unlowered()]);
-    assert_eq!(sweep_messages("function main(){ return () => this; }"), Vec::<String>::new());
+    assert_eq!(
+        sweep_messages("function C__m(__this){ return this.n; }"),
+        [unlowered()]
+    );
+    assert_eq!(
+        sweep_messages("function main(){ return () => this; }"),
+        Vec::<String>::new()
+    );
 }
 
 /// R-23's repr backstop over the rewritten, re-inferred program.
@@ -72,6 +84,9 @@ fn the_repr_backstop_refuses_a_string_field_and_admits_a_number_field() {
         repr_refusals("class P { name = \"bob\"; } const p = new P(); console.log(p.name);"),
         [refused]
     );
-    assert!(repr_refusals("class P { constructor(n){ this.n = n; } } const p = new P(4); console.log(p.n);").is_empty());
+    assert!(repr_refusals(
+        "class P { constructor(n){ this.n = n; } } const p = new P(4); console.log(p.n);"
+    )
+    .is_empty());
     assert!(repr_refusals("class P { m(){ return 1; } } console.log(new P().m());").is_empty());
 }

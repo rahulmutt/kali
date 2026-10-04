@@ -16,7 +16,9 @@ use kali_ast::{
 use kali_common::{class_construction_unavailable_message, CLASS_REASON_FIELD_VALUE};
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
 
-use super::provenance::{abstract_expr, bare_return, falls_through, is_wrapper, strip, Env, Provenance, Val};
+use super::provenance::{
+    abstract_expr, bare_return, falls_through, is_wrapper, strip, Env, Provenance, Val,
+};
 use super::scopes::{BindingId, Resolved};
 use super::walk::{walk, Cx, FnKey, Frame, FrameKind, Pos, Visitor, ANON};
 
@@ -52,12 +54,30 @@ enum KSrc {
     Arith(Vec<KSrc>),
 }
 
-const ARITHMETIC: &[&str] =
-    &["+", "-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>"];
-const COMPARISON: &[&str] =
-    &["==", "!=", "===", "!==", "<", ">", "<=", ">=", "instanceof", "in"];
+const ARITHMETIC: &[&str] = &[
+    "+", "-", "*", "/", "%", "**", "&", "|", "^", "<<", ">>", ">>>",
+];
+const COMPARISON: &[&str] = &[
+    "==",
+    "!=",
+    "===",
+    "!==",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "instanceof",
+    "in",
+];
 /// Free globals whose call always returns a number or a boolean.
-const NUMERIC_GLOBALS: &[&str] = &["Number", "Boolean", "parseInt", "parseFloat", "isNaN", "isFinite"];
+const NUMERIC_GLOBALS: &[&str] = &[
+    "Number",
+    "Boolean",
+    "parseInt",
+    "parseFloat",
+    "isNaN",
+    "isFinite",
+];
 
 fn compound_arithmetic(operator: &AssignmentOperator) -> bool {
     !matches!(
@@ -93,7 +113,9 @@ impl Abstract<'_, '_> {
             Expression::TypeAssertion(t) => self.kind(&t.expression, cx),
             Expression::SatisfiesExpression(s) => self.kind(&s.expression, cx),
             Expression::ChainExpression(c) => self.kind(&c.expression, cx),
-            Expression::Literal(LiteralValue::Number(_) | LiteralValue::Boolean(_)) => KSrc::NumBool,
+            Expression::Literal(LiteralValue::Number(_) | LiteralValue::Boolean(_)) => {
+                KSrc::NumBool
+            }
             Expression::Identifier(name) => match self.env.scopes.resolve(name, cx) {
                 Resolved::Binding(id) if self.env.functions.contains_key(&id) => KSrc::Other,
                 Resolved::Binding(id) => KSrc::Binding(id),
@@ -106,16 +128,19 @@ impl Abstract<'_, '_> {
                 "-" | "+" | "~" => KSrc::Arith(vec![self.kind(&u.argument, cx)]),
                 _ => KSrc::Other,
             },
-            Expression::BinaryExpression(b) if COMPARISON.contains(&b.operator.as_str()) => KSrc::NumBool,
+            Expression::BinaryExpression(b) if COMPARISON.contains(&b.operator.as_str()) => {
+                KSrc::NumBool
+            }
             Expression::BinaryExpression(b) if ARITHMETIC.contains(&b.operator.as_str()) => {
                 KSrc::Arith(vec![self.kind(&b.left, cx), self.kind(&b.right, cx)])
             }
             Expression::LogicalExpression(l) => {
                 KSrc::Join(vec![self.kind(&l.left, cx), self.kind(&l.right, cx)])
             }
-            Expression::ConditionalExpression(c) => {
-                KSrc::Join(vec![self.kind(&c.consequent, cx), self.kind(&c.alternate, cx)])
-            }
+            Expression::ConditionalExpression(c) => KSrc::Join(vec![
+                self.kind(&c.consequent, cx),
+                self.kind(&c.alternate, cx),
+            ]),
             Expression::SequenceExpression(s) => match s.expressions.last() {
                 Some(last) => self.kind(last, cx),
                 None => KSrc::Other,
@@ -133,7 +158,9 @@ impl Abstract<'_, '_> {
             Expression::UpdateExpression(u) => KSrc::Arith(vec![self.kind(&u.argument, cx)]),
             Expression::MemberExpression(m) => match (&m.property, &m.computed_index) {
                 (Some(field), None) => match self.instance(&m.object, cx) {
-                    Some(class) if self.is_field(&class, field) => KSrc::Field(class, field.clone()),
+                    Some(class) if self.is_field(&class, field) => {
+                        KSrc::Field(class, field.clone())
+                    }
                     _ => KSrc::Other,
                 },
                 _ => KSrc::Other,
@@ -148,7 +175,9 @@ impl Abstract<'_, '_> {
                     None => KSrc::Other,
                 },
                 Expression::MemberExpression(member) => {
-                    let Some(method) = &member.property else { return KSrc::Other };
+                    let Some(method) = &member.property else {
+                        return KSrc::Other;
+                    };
                     if let Expression::Identifier(root) = &member.object {
                         if root == "Math" && self.free(root, cx) {
                             return KSrc::NumBool;
@@ -192,14 +221,19 @@ impl Facts<'_, '_> {
     }
 
     fn add_params(&mut self, key: &str, args: &[Expression], cx: &Cx) {
-        let spread = args.iter().any(|a| matches!(strip(a), Expression::SpreadElement(_)));
+        let spread = args
+            .iter()
+            .any(|a| matches!(strip(a), Expression::SpreadElement(_)));
         for (index, param) in self.abs.env.scopes.params(key).to_vec().iter().enumerate() {
             let src = match args.get(index) {
                 Some(arg) if !spread => self.abs.kind(arg, cx),
                 _ => KSrc::Other,
             };
             self.bindings
-                .entry(BindingId { frame: key.to_string(), name: param.clone() })
+                .entry(BindingId {
+                    frame: key.to_string(),
+                    name: param.clone(),
+                })
                 .or_default()
                 .push(src);
         }
@@ -207,7 +241,10 @@ impl Facts<'_, '_> {
 
     fn add_field(&mut self, class: String, field: &str, src: KSrc) {
         if self.abs.is_field(&class, field) {
-            self.fields.entry((class, field.to_string())).or_default().push(src);
+            self.fields
+                .entry((class, field.to_string()))
+                .or_default()
+                .push(src);
         }
     }
 
@@ -255,7 +292,10 @@ impl Visitor for Facts<'_, '_> {
     fn expr(&mut self, expr: &mut Expression, pos: &Pos, cx: &Cx) {
         if matches!(pos, Pos::Return) && !is_wrapper(expr) {
             let src = self.abs.kind(expr, cx);
-            self.returns.entry(cx.key().to_string()).or_default().push(src);
+            self.returns
+                .entry(cx.key().to_string())
+                .or_default()
+                .push(src);
         }
         if matches!(pos, Pos::Other("a loop target")) {
             self.write(expr, KSrc::Other, cx);
@@ -268,7 +308,10 @@ impl Visitor for Facts<'_, '_> {
                         self.abs.kind(&assign.left, cx),
                         self.abs.kind(&assign.right, cx),
                     ]),
-                    _ => KSrc::Join(vec![self.abs.kind(&assign.left, cx), self.abs.kind(&assign.right, cx)]),
+                    _ => KSrc::Join(vec![
+                        self.abs.kind(&assign.left, cx),
+                        self.abs.kind(&assign.right, cx),
+                    ]),
                 };
                 self.write(&assign.left, src, cx);
             }
@@ -284,8 +327,13 @@ impl Visitor for Facts<'_, '_> {
                     }
                 }
                 Expression::MemberExpression(member) => {
-                    let Some(method) = &member.property else { return };
-                    match self.abs.prov.eval(&abstract_expr(&member.object, cx, self.abs.env), self.abs.env) {
+                    let Some(method) = &member.property else {
+                        return;
+                    };
+                    match self.abs.prov.eval(
+                        &abstract_expr(&member.object, cx, self.abs.env),
+                        self.abs.env,
+                    ) {
                         Val::Inst(class) => {
                             if let Some(key) = self.abs.env.method_key(&class, method).cloned() {
                                 self.add_params(&key, &call.args, cx);
@@ -332,7 +380,10 @@ impl Visitor for Facts<'_, '_> {
     }
     fn stmts(&mut self, list: &mut Vec<Statement>, cx: &Cx) {
         if list.iter().any(bare_return) {
-            self.returns.entry(cx.key().to_string()).or_default().push(KSrc::Other);
+            self.returns
+                .entry(cx.key().to_string())
+                .or_default()
+                .push(KSrc::Other);
         }
     }
     fn class_decl(&mut self, class: &ClassDeclaration, _exported_default: bool, cx: &Cx) {
@@ -349,7 +400,9 @@ impl Visitor for Facts<'_, '_> {
         let mut init = cx.clone();
         init.frames.push(Frame {
             key: cx.child_key(&format!("{}#fields", class.name)),
-            kind: FrameKind::FieldInit { class: class.name.clone() },
+            kind: FrameKind::FieldInit {
+                class: class.name.clone(),
+            },
         });
         for field in class.body.fields.iter().filter(|f| !f.is_static) {
             if let Some(value) = &field.value {
@@ -366,11 +419,19 @@ impl Visitor for Facts<'_, '_> {
         self.add_binding(&d.id, cx, src);
     }
     fn function_decl(&mut self, f: &FunctionDeclaration, cx: &Cx) {
-        let name = if f.name.is_empty() { ANON } else { f.name.as_str() };
+        let name = if f.name.is_empty() {
+            ANON
+        } else {
+            f.name.as_str()
+        };
         if !f.name.is_empty() {
             self.add_binding(name, cx, KSrc::Other);
         }
-        self.function(cx.child_key(name), Some(&f.body.body), f.is_async || f.generator);
+        self.function(
+            cx.child_key(name),
+            Some(&f.body.body),
+            f.is_async || f.generator,
+        );
     }
     fn catch_param(&mut self, name: &str, cx: &Cx) {
         self.add_binding(name, cx, KSrc::Other);
@@ -395,7 +456,9 @@ impl Solved {
                 .get(&(class.clone(), field.clone()))
                 .copied()
                 .unwrap_or(Kind::Bottom),
-            KSrc::Join(sources) => sources.iter().fold(Kind::Bottom, |acc, s| acc.join(self.eval(s))),
+            KSrc::Join(sources) => sources
+                .iter()
+                .fold(Kind::Bottom, |acc, s| acc.join(self.eval(s))),
             KSrc::Arith(operands) => {
                 let kinds: Vec<Kind> = operands.iter().map(|s| self.eval(s)).collect();
                 if kinds.contains(&Kind::Other) {
@@ -414,7 +477,12 @@ fn fold<K: Ord + Clone>(facts: &BTreeMap<K, Vec<KSrc>>, solved: &Solved) -> BTre
     facts
         .iter()
         .map(|(k, sources)| {
-            (k.clone(), sources.iter().fold(Kind::Bottom, |acc, s| acc.join(solved.eval(s))))
+            (
+                k.clone(),
+                sources
+                    .iter()
+                    .fold(Kind::Bottom, |acc, s| acc.join(solved.eval(s))),
+            )
         })
         .collect()
 }
@@ -434,16 +502,27 @@ pub(crate) fn field_kinds(
     walk(statements, &mut facts);
     // A parameter of a frame with untracked call sites may receive anything.
     for id in &prov.unknown_params {
-        facts.bindings.entry(id.clone()).or_default().push(KSrc::Other);
+        facts
+            .bindings
+            .entry(id.clone())
+            .or_default()
+            .push(KSrc::Other);
     }
-    let mut solved = Solved { bindings: BTreeMap::new(), returns: BTreeMap::new(), fields: BTreeMap::new() };
+    let mut solved = Solved {
+        bindings: BTreeMap::new(),
+        returns: BTreeMap::new(),
+        fields: BTreeMap::new(),
+    };
     loop {
         let next = Solved {
             bindings: fold(&facts.bindings, &solved),
             returns: fold(&facts.returns, &solved),
             fields: fold(&facts.fields, &solved),
         };
-        if next.bindings == solved.bindings && next.returns == solved.returns && next.fields == solved.fields {
+        if next.bindings == solved.bindings
+            && next.returns == solved.returns
+            && next.fields == solved.fields
+        {
             break;
         }
         solved = next;

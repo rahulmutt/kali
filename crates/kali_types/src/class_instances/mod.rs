@@ -40,7 +40,11 @@ pub fn rewrite_class_instances(statements: &mut Vec<Statement>) -> ClassRewrite 
     let mut plans = classes::plan_classes(statements, &spelled);
     let mut diagnostics = std::mem::take(&mut plans.diagnostics);
     if plans.rewritten.is_empty() {
-        return ClassRewrite { changed: false, diagnostics, fields: BTreeMap::new() };
+        return ClassRewrite {
+            changed: false,
+            diagnostics,
+            fields: BTreeMap::new(),
+        };
     }
     let fields = plans
         .rewritten
@@ -56,7 +60,11 @@ pub fn rewrite_class_instances(statements: &mut Vec<Statement>) -> ClassRewrite 
     diagnostics.extend(uses::check_and_rewrite(statements, &env, &prov));
     translate::translate_classes(statements, &plans);
     diagnostics.extend(sweep(statements, &plans));
-    ClassRewrite { changed: true, diagnostics, fields }
+    ClassRewrite {
+        changed: true,
+        diagnostics,
+        fields,
+    }
 }
 
 /// R-23's backstop over the re-inferred reprs: each rewritten class's factory
@@ -64,7 +72,10 @@ pub fn rewrite_class_instances(statements: &mut Vec<Statement>) -> ClassRewrite 
 /// proven not to be a string. A shape the table cannot show refuses too.
 /// (`null`, `undefined` and BigInt intern as `I64` like a number; the
 /// value-kind proof in [`kinds`] refuses those before the rewrite.)
-pub fn field_repr_refusals(table: &ReprTable, fields: &BTreeMap<String, Vec<String>>) -> Vec<Diagnostic> {
+pub fn field_repr_refusals(
+    table: &ReprTable,
+    fields: &BTreeMap<String, Vec<String>>,
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for (class, fields) in fields {
         if fields.is_empty() {
@@ -72,8 +83,10 @@ pub fn field_repr_refusals(table: &ReprTable, fields: &BTreeMap<String, Vec<Stri
         }
         let proven = match table.scalar(&format!("{class}__new"), "__this") {
             Repr::Object(shape) => fields.iter().all(|field| {
-                matches!(table.shape_field(shape, field), Some((_, Repr::I64 | Repr::F64)))
-                    && table.shape_field_is_proven_numeric(shape, field)
+                matches!(
+                    table.shape_field(shape, field),
+                    Some((_, Repr::I64 | Repr::F64))
+                ) && table.shape_field_is_proven_numeric(shape, field)
             }),
             _ => false,
         };
@@ -91,7 +104,12 @@ pub fn field_repr_refusals(table: &ReprTable, fields: &BTreeMap<String, Vec<Stri
 /// would reach code generation unlowered, so refuse it (once per class).
 fn sweep(statements: &mut Vec<Statement>, plans: &ClassPlans) -> Vec<Diagnostic> {
     let scopes = scopes::Scopes::build(statements);
-    let mut sweeper = Sweep { plans, scopes: &scopes, reported: BTreeSet::new(), diagnostics: Vec::new() };
+    let mut sweeper = Sweep {
+        plans,
+        scopes: &scopes,
+        reported: BTreeSet::new(),
+        diagnostics: Vec::new(),
+    };
     walk(statements, &mut sweeper);
     sweeper.diagnostics
 }
@@ -120,7 +138,10 @@ impl Sweep<'_> {
             .values()
             .find(|class| {
                 name == format!("{}__new", class.name)
-                    || class.methods.iter().any(|m| name == format!("{}__{m}", class.name))
+                    || class
+                        .methods
+                        .iter()
+                        .any(|m| name == format!("{}__{m}", class.name))
             })
             .map(|class| class.name.clone())
     }

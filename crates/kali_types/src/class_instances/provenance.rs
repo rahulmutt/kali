@@ -804,7 +804,11 @@ impl Provenance {
                 };
                 returns.insert(key.clone(), v);
             }
-            let next = Provenance { values, returns, unknown_params: Vec::new() };
+            let next = Provenance {
+                values,
+                returns,
+                unknown_params: Vec::new(),
+            };
             if next.values == p.values && next.returns == p.returns {
                 p.unknown_params = unknown_params;
                 return p;

@@ -76,14 +76,18 @@ impl Visitor for Uses<'_, '_> {
         if !is_wrapper(expr) {
             let v = self.eval(expr, cx);
             match &v {
-                Val::Inst(class) if inside_closure(cx) => self.refuse(class_instance_position_message(
-                    class,
-                    "a value inside an arrow function or function expression",
-                )),
-                Val::Inst(class) if self.captured(expr, cx) => self.refuse(class_instance_position_message(
-                    class,
-                    "a value captured from an enclosing function",
-                )),
+                Val::Inst(class) if inside_closure(cx) => {
+                    self.refuse(class_instance_position_message(
+                        class,
+                        "a value inside an arrow function or function expression",
+                    ))
+                }
+                Val::Inst(class) if self.captured(expr, cx) => {
+                    self.refuse(class_instance_position_message(
+                        class,
+                        "a value captured from an enclosing function",
+                    ))
+                }
                 Val::Inst(class) => self.position(class, pos, expr, cx),
                 _ => {}
             }
@@ -99,7 +103,13 @@ impl Visitor for Uses<'_, '_> {
 fn inside_closure(cx: &Cx) -> bool {
     matches!(
         cx.frames.last().map(|f| &f.kind),
-        Some(FrameKind::Arrow | FrameKind::Function { is_expression: true, .. })
+        Some(
+            FrameKind::Arrow
+                | FrameKind::Function {
+                    is_expression: true,
+                    ..
+                }
+        )
     )
 }
 
@@ -246,18 +256,27 @@ impl Uses<'_, '_> {
             return;
         };
         if let Val::Inst(class) = self.eval(&member.object, cx) {
-            self.refuse(class_instance_position_message(&class, CLASS_POSITION_TYPEOF_FIELD));
+            self.refuse(class_instance_position_message(
+                &class,
+                CLASS_POSITION_TYPEOF_FIELD,
+            ));
         }
     }
 
     /// R-28: `o as T`, `<T>o` and `o satisfies T` around an instance would
     /// form an alias of a type kali does not track; refuse at the wrapper.
     fn type_assertion(&mut self, expr: &Expression, cx: &Cx) {
-        if !matches!(expr, Expression::TypeAssertion(_) | Expression::SatisfiesExpression(_)) {
+        if !matches!(
+            expr,
+            Expression::TypeAssertion(_) | Expression::SatisfiesExpression(_)
+        ) {
             return;
         }
         if let Val::Inst(class) = self.eval(expr, cx) {
-            self.refuse(class_instance_position_message(&class, CLASS_POSITION_TYPE_ASSERTION));
+            self.refuse(class_instance_position_message(
+                &class,
+                CLASS_POSITION_TYPE_ASSERTION,
+            ));
         }
     }
 
@@ -276,14 +295,17 @@ impl Uses<'_, '_> {
         };
         let is_field = |f: &str| plan.fields.iter().any(|g| g == f);
         let is_method = |m: &str| plan.methods.contains(m);
-        let variable_receiver = matches!(expr, Expression::Identifier(_) | Expression::ThisExpression);
+        let variable_receiver =
+            matches!(expr, Expression::Identifier(_) | Expression::ThisExpression);
         let message = match pos {
-            Pos::MemberObject { property: Some(_), call: false, .. } if !variable_receiver => {
-                Some(class_instance_position_message(
-                    class,
-                    "the receiver of a field access that is not a variable",
-                ))
-            }
+            Pos::MemberObject {
+                property: Some(_),
+                call: false,
+                ..
+            } if !variable_receiver => Some(class_instance_position_message(
+                class,
+                "the receiver of a field access that is not a variable",
+            )),
             Pos::BindingInit(name) | Pos::BindingAssign(name) => {
                 let holds = match self.env.scopes.resolve(name, cx) {
                     Resolved::Binding(id) => self.prov.binding(&id) == Val::Inst(class.into()),

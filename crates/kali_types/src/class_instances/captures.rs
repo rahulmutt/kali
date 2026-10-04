@@ -23,7 +23,12 @@ pub(crate) fn check_captures(
     scopes: &Scopes,
     plans: &ClassPlans,
 ) -> Vec<Diagnostic> {
-    let mut captures = Captures { scopes, plans, reported: BTreeSet::new(), diagnostics: Vec::new() };
+    let mut captures = Captures {
+        scopes,
+        plans,
+        reported: BTreeSet::new(),
+        diagnostics: Vec::new(),
+    };
     walk(statements, &mut captures);
     captures.diagnostics
 }
@@ -54,17 +59,26 @@ fn class_frame<'k>(kind: &'k FrameKind, plans: &ClassPlans) -> Option<(&'k str, 
         FrameKind::FieldInit { class } => (class, true),
         FrameKind::Program | FrameKind::Function { .. } | FrameKind::Arrow => return None,
     };
-    plans.rewritten.contains_key(class).then_some((class.as_str(), field_init))
+    plans
+        .rewritten
+        .contains_key(class)
+        .then_some((class.as_str(), field_init))
 }
 
 impl Visitor for Captures<'_> {
     fn expr(&mut self, expr: &mut Expression, _pos: &Pos, cx: &Cx) {
-        let Expression::Identifier(name) = expr else { return };
+        let Expression::Identifier(name) = expr else {
+            return;
+        };
         // `None` for a free name (a global).
         let declared = self.scopes.declaring_frame(name, cx).map(str::to_string);
         for (index, frame) in cx.frames.iter().enumerate() {
-            let Some((class, field_init)) = class_frame(&frame.kind, self.plans) else { continue };
-            let inside = cx.frames[index..].iter().any(|f| Some(&f.key) == declared.as_ref());
+            let Some((class, field_init)) = class_frame(&frame.kind, self.plans) else {
+                continue;
+            };
+            let inside = cx.frames[index..]
+                .iter()
+                .any(|f| Some(&f.key) == declared.as_ref());
             if inside {
                 continue;
             }
@@ -72,7 +86,9 @@ impl Visitor for Captures<'_> {
                 self.refuse(class, CLASS_REASON_ENCLOSING_LOCAL);
             }
             if field_init {
-                let parent = Cx { frames: cx.frames[..index].to_vec() };
+                let parent = Cx {
+                    frames: cx.frames[..index].to_vec(),
+                };
                 let constructor = parent.child_key(&format!("{class}#constructor"));
                 if self.scopes.declares(&constructor, name) {
                     self.refuse(class, CLASS_REASON_INITIALIZER_SCOPE);

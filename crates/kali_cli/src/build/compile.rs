@@ -776,8 +776,7 @@ fn analyze_source_file(
         // classes to object-literal factories AFTER the resolver has checked
         // the program as written, then re-infer reprs over the rewritten
         // program. A program with nothing to rewrite is untouched.
-        let rewrite =
-            kali_types::class_instances::rewrite_class_instances(&mut parsed.statements);
+        let rewrite = kali_types::class_instances::rewrite_class_instances(&mut parsed.statements);
         diagnostics.extend(rewrite.diagnostics);
         if has_errors(&diagnostics) {
             return Err(diagnostics);

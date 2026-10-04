@@ -4,7 +4,11 @@ use crate::test_support::parse_statements;
 fn rewrite(src: &str) -> (Vec<kali_ast::Statement>, Vec<String>, bool) {
     let mut stmts = parse_statements(src);
     let r = rewrite_class_instances(&mut stmts);
-    (stmts, r.diagnostics.into_iter().map(|d| d.message).collect(), r.changed)
+    (
+        stmts,
+        r.diagnostics.into_iter().map(|d| d.message).collect(),
+        r.changed,
+    )
 }
 
 #[test]
@@ -35,14 +39,19 @@ fn methods_take_this_and_arrows_keep_it_but_functions_do_not() {
     // The full entry refuses the arrow's `this`.
     let (_, d, _) = rewrite(src);
     assert!(
-        d.contains(&kali_common::class_instance_position_message("C", "a value inside an arrow function or function expression")),
+        d.contains(&kali_common::class_instance_position_message(
+            "C",
+            "a value inside an arrow function or function expression"
+        )),
         "{d:?}"
     );
 }
 
 #[test]
 fn a_bare_return_in_the_constructor_returns_the_instance() {
-    let (got, d, _) = rewrite("class C { constructor(v){ this.n = v; if (v > 1) { return; } this.n = 0; } } new C(2);");
+    let (got, d, _) = rewrite(
+        "class C { constructor(v){ this.n = v; if (v > 1) { return; } this.n = 0; } } new C(2);",
+    );
     assert!(d.is_empty(), "{d:?}");
     let want = parse_statements("function C__new(v){ let __f_n = v; const __this = { n: __f_n }; if (v > 1) { return __this; } __this.n = 0; return __this; } C__new(2);");
     assert_eq!(got, want);
@@ -65,7 +74,9 @@ fn a_program_without_rewritable_classes_is_byte_identical() {
 
 #[test]
 fn nested_class_translates_in_place() {
-    let (got, d, _) = rewrite("function main(){ class C{ constructor(v){ this.v=v; } } const c=new C(2); return c.v; }");
+    let (got, d, _) = rewrite(
+        "function main(){ class C{ constructor(v){ this.v=v; } } const c=new C(2); return c.v; }",
+    );
     assert!(d.is_empty(), "{d:?}");
     let want = parse_statements("function main(){ function C__new(v){ let __f_v = v; const __this = { v: __f_v }; return __this; } const c=C__new(2); return c.v; }");
     assert_eq!(got, want);

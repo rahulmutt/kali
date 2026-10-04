@@ -3862,7 +3862,10 @@ fn assert_json_object_type_and_constructor_semantics(
         // `7c4daa9f7` `errors` was `[]` and the harness failed the test on
         // a wrong `typeof` of the zero instance.
         let errors = json["errors"].as_array().cloned().unwrap_or_default();
-        assert!(!errors.is_empty(), "expected compile-time errors, got: {json}");
+        assert!(
+            !errors.is_empty(),
+            "expected compile-time errors, got: {json}"
+        );
         assert!(
             errors.iter().all(|e| e["code"] == "E5506"),
             "expected only E5506 errors, got: {json}"
