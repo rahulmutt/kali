@@ -67,6 +67,10 @@ impl ProgramClasses {
         }
     }
 
+    pub(crate) fn is_ambiguous(&self, name: &str) -> bool {
+        self.ambiguous.contains(name)
+    }
+
     pub(crate) fn host_derived(&self) -> BTreeSet<String> {
         self.classes
             .keys()

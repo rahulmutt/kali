@@ -4,10 +4,15 @@
 
 // Later tasks (4-7) consume these; until then they are only exercised by tests.
 #[allow(dead_code)]
+pub(crate) mod classes;
+#[allow(dead_code)]
 pub(crate) mod scopes;
 #[allow(dead_code)]
 pub(crate) mod walk;
 
+#[cfg(test)]
+#[path = "classes_tests.rs"]
+mod classes_tests;
 #[cfg(test)]
 #[path = "walk_tests.rs"]
 mod walk_tests;
