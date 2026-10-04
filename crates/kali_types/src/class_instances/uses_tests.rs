@@ -157,11 +157,11 @@ fn a_class_named_as_a_jsx_element_refuses() {
 #[test]
 fn an_instance_returned_from_an_untracked_frame_refuses() {
     const CLASS: &str = "class C { constructor(){ this.n=0; } m(){} } ";
-    let anon = kali_common::class_instance_mixed_message("C", "the return value of `<anon>`");
+    let anon = kali_common::class_instance_mixed_message("C", "the return value of `mk`");
     for program in [
-        "const c=new C(); const xs=[0].map(() => c); xs[0].m(); xs[0].zz = 5; console.log(xs[0]);",
-        "const c=new C(); const o={ f: function(){ return c; } }; o.f().m(); o.f().zz = 1;",
-        "const c=new C(); for (const x of [0].map(() => c)) { x.m(); }",
+        "const c=new C(); function mk(){ return c; } const xs=[0].map(mk); xs[0].m(); xs[0].zz = 5; console.log(xs[0]);",
+        "const c=new C(); function mk(){ return c; } const o={ f: mk }; o.f().m(); o.f().zz = 1;",
+        "const c=new C(); function mk(){ return c; } for (const x of [0].map(mk)) { x.m(); }",
     ] {
         let (_, d) = run(&format!("{CLASS}{program}"));
         assert!(d.contains(&anon), "{program}: {d:?}");
@@ -185,5 +185,33 @@ fn arguments_in_an_instance_taking_frame_refuses() {
     let (_, d) = run("class C { constructor(){ this.n=0; } m(){} } function f(a){ const g = () => arguments[0]; return 1; } f(new C());");
     assert!(d.contains(&kali_common::class_instance_position_message("C", "the `arguments` object")), "{d:?}");
     let (_, d) = run("class C { constructor(){ this.n=0; } } function f(a){ return arguments.length; } f(1); new C();");
+    assert!(d.is_empty(), "{d:?}");
+}
+
+// Ruling R-15: a field access needs a variable receiver.
+#[test]
+fn a_field_access_on_a_non_variable_receiver_refuses() {
+    const CLASS: &str = "class C { constructor(){ this.v=3; } } ";
+    let want = kali_common::class_instance_position_message("C", "the receiver of a field access that is not a variable");
+    let (_, d) = run(&format!("{CLASS}new C().v;"));
+    assert!(d.contains(&want), "{d:?}");
+    let (_, d) = run(&format!("{CLASS}const c = new C(); c.v;"));
+    assert!(d.is_empty(), "{d:?}");
+}
+
+// Ruling R-16: an instance value inside an arrow or a function expression refuses.
+#[test]
+fn an_instance_inside_an_arrow_or_function_expression_refuses() {
+    const CLASS: &str = "class C { constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } ";
+    for program in [
+        "class E { constructor(){ this.n=1; } bump(){ const f = () => { this.n = 2; }; f(); } } const e = new E(); e.bump(); const c = new C();",
+        "const s=new C(); const f=()=>{ s.add(1); }; f();",
+        "const f = (x) => x.n; f(new C());",
+        "const s=new C(); const f=function(){ s.add(1); }; f();",
+    ] {
+        let (_, d) = run(&format!("{CLASS}{program}"));
+        assert!(d.iter().any(|m| m.contains("a value inside an arrow function or function expression")), "{program}: {d:?}");
+    }
+    let (_, d) = run(&format!("{CLASS}function main(){{ const s=new C(); function g(){{ s.add(1); }} g(); }} main();"));
     assert!(d.is_empty(), "{d:?}");
 }

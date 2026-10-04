@@ -69,8 +69,13 @@ impl Visitor for Uses<'_, '_> {
         // A wrapper's inner expression is visited at the same position.
         if !is_wrapper(expr) {
             let v = self.eval(expr, cx);
-            if let Val::Inst(class) = &v {
-                self.position(class, pos, cx);
+            match &v {
+                Val::Inst(class) if inside_closure(cx) => self.refuse(class_instance_position_message(
+                    class,
+                    "a value inside an arrow function or function expression",
+                )),
+                Val::Inst(class) => self.position(class, pos, expr, cx),
+                _ => {}
             }
             self.receiver(&v, pos);
         }
@@ -78,6 +83,14 @@ impl Visitor for Uses<'_, '_> {
             self.rewrite(expr, pos, cx);
         }
     }
+}
+
+/// R-16: the innermost frame is an arrow or a function expression.
+fn inside_closure(cx: &Cx) -> bool {
+    matches!(
+        cx.frames.last().map(|f| &f.kind),
+        Some(FrameKind::Arrow | FrameKind::Function { is_expression: true, .. })
+    )
 }
 
 /// The twelve arithmetic and bitwise compound operators, as binary operators.
@@ -212,13 +225,20 @@ impl Uses<'_, '_> {
     }
 
     /// Step 2: an instance of `class` at `pos`.
-    fn position(&mut self, class: &str, pos: &Pos, cx: &Cx) {
+    fn position(&mut self, class: &str, pos: &Pos, expr: &Expression, cx: &Cx) {
         let Some(plan) = self.class(class) else {
             return;
         };
         let is_field = |f: &str| plan.fields.iter().any(|g| g == f);
         let is_method = |m: &str| plan.methods.contains(m);
+        let variable_receiver = matches!(expr, Expression::Identifier(_) | Expression::ThisExpression);
         let message = match pos {
+            Pos::MemberObject { property: Some(_), call: false, .. } if !variable_receiver => {
+                Some(class_instance_position_message(
+                    class,
+                    "the receiver of a field access that is not a variable",
+                ))
+            }
             Pos::BindingInit(name) | Pos::BindingAssign(name) => {
                 let holds = match self.env.scopes.resolve(name, cx) {
                     Resolved::Binding(id) => self.prov.binding(&id) == Val::Inst(class.into()),

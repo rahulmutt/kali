@@ -17,7 +17,7 @@ pub(crate) type FnKey = String;
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum FrameKind {
     Program,
-    Function { is_async_or_generator: bool },
+    Function { is_async_or_generator: bool, is_expression: bool },
     /// An expression-bodied or block-bodied arrow (`FunctionExpression { is_arrow: true }`).
     Arrow,
     Method { class: String, method: String, is_static: bool },
@@ -155,6 +155,7 @@ impl Walker<'_> {
         let name = if function.name.is_empty() { ANON } else { function.name.as_str() };
         let kind = FrameKind::Function {
             is_async_or_generator: function.is_async || function.generator,
+            is_expression: false,
         };
         let params = function.params.clone();
         let body = &mut function.body;
@@ -389,6 +390,7 @@ impl Walker<'_> {
                 } else {
                     FrameKind::Function {
                         is_async_or_generator: function.is_async || function.generator,
+                        is_expression: true,
                     }
                 };
                 let params: Vec<String> = function.params.iter().map(|p| p.name.clone()).collect();

@@ -22,14 +22,22 @@ fn the_spec_example_translates() {
 
 #[test]
 fn methods_take_this_and_arrows_keep_it_but_functions_do_not() {
-    let (got, d, _) = rewrite(
-        "class C { constructor(){ this.n = 1; } bump(){ const f = () => { this.n = this.n + 1; }; const g = function(){ return this; }; f(); return this.n; } } const c = new C(); c.bump();",
-    );
-    assert!(d.is_empty(), "{d:?}");
+    // R-16 refuses `this` inside an arrow, so the translation is driven directly.
+    let src = "class C { constructor(){ this.n = 1; } bump(){ const f = () => { this.n = this.n + 1; }; const g = function(){ return this; }; f(); return this.n; } } const c = new C(); c.bump();";
+    let mut got = parse_statements(src);
+    let spelled = super::scopes::Scopes::build(&mut got).spelled().clone();
+    let plans = super::classes::plan_classes(&mut got, &spelled);
+    super::translate::translate_classes(&mut got, &plans);
     let want = parse_statements(
-        "function C__new(){ let __f_n = 1; const __this = { n: __f_n }; return __this; } function C__bump(__this){ const f = () => { __this.n = __this.n + 1; }; const g = function(){ return this; }; f(); return __this.n; } const c = C__new(); C__bump(c);",
+        "function C__new(){ let __f_n = 1; const __this = { n: __f_n }; return __this; } function C__bump(__this){ const f = () => { __this.n = __this.n + 1; }; const g = function(){ return this; }; f(); return __this.n; } const c = new C(); c.bump();",
     );
     assert_eq!(got, want);
+    // The full entry refuses the arrow's `this`.
+    let (_, d, _) = rewrite(src);
+    assert!(
+        d.contains(&kali_common::class_instance_position_message("C", "a value inside an arrow function or function expression")),
+        "{d:?}"
+    );
 }
 
 #[test]

@@ -108,11 +108,12 @@ fn frame_kinds_are_reported() {
             self.0.push(cx.frames.last().unwrap().kind.clone());
         }
     }
-    let mut stmts = parse_statements("async function f(){} class C { constructor(){} static s(){} }");
+    let mut stmts = parse_statements("async function f(){} const g = function(){}; class C { constructor(){} static s(){} }");
     let mut v = Kinds(Vec::new());
     walk(&mut stmts, &mut v);
     assert_eq!(v.0, [
-        FrameKind::Function { is_async_or_generator: true },
+        FrameKind::Function { is_async_or_generator: true, is_expression: false },
+        FrameKind::Function { is_async_or_generator: false, is_expression: true },
         FrameKind::Constructor { class: "C".into() },
         FrameKind::Method { class: "C".into(), method: "s".into(), is_static: true },
     ]);
