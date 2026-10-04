@@ -164,6 +164,26 @@ class P{ x: number; y: number; constructor(x: number, y: number){ this.x=x; this
 class C{ v: number; constructor(v: number){ this.v=v; } } function mk(v: number): C { return new C(v); } const c=mk(7); console.log(c.v);
 '''
 
+"update.js" = '''
+class C{ constructor(){ this.n=0; } inc(){ this.n++; } get(){ return this.n; } } const s=new C(); s.inc(); s.inc(); console.log(s.get(), s.n);
+'''
+
+"compound.js" = '''
+class Acc{ total=0; add(x){ this.total += x; return this.total; } } const a=new Acc(); a.add(2); console.log(a.add(5));
+'''
+
+"r36.js" = '''
+class C{ constructor(){ this.v=3; } } console.log(new C().v);
+'''
+
+"this_arrow.js" = '''
+class C{ constructor(){ this.n=1; } bump(){ const f = () => { this.n = this.n + 1; }; f(); f(); return this.n; } } const c=new C(); console.log(c.bump());
+'''
+
+"capture.js" = '''
+class C{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } const s=new C(); const f = () => { s.add(4); }; f(); console.log(s.n);
+'''
+
 [[case]]
 name = "a_field_write_in_a_method_is_kept"
 rationale = """literal-array-mutators followups §14b. node v26.10.0 prints `3`. At `7c4daa9f7` kali printed `0` at exit 0: the constructor never ran and the store in `add` was dropped."""
@@ -577,3 +597,83 @@ rationale = """The `return` program with typed field, parameter and return. node
 args = ["run", "return.ts"]
 exit = "success"
 stdout = "7\n"
+
+[[case]]
+name = "update_is_refused_under_run"
+rationale = """node v26.10.0 prints `2 2`. At `7c4daa9f7` the baseline row `cls_update`: REFUSES, kali printed `error[E5506]: update expression lowering is unavailable unless the target is a mutable local binding; use a local binding or the later compatibility path`, check exit 1. R-17: the resolver refuses member update before the class rewrite runs (spec §3.5 is not reachable; ruling R-17)."""
+args = ["run", "update.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "update expression lowering is unavailable"]
+
+[[case]]
+name = "update_is_refused_under_check"
+rationale = """node v26.10.0 prints `2 2`. At `7c4daa9f7` the baseline row `cls_update`: REFUSES, kali printed `error[E5506]: update expression lowering is unavailable unless the target is a mutable local binding; use a local binding or the later compatibility path`, check exit 1. R-17: the resolver refuses member update before the class rewrite runs (spec §3.5 is not reachable; ruling R-17)."""
+args = ["check", "update.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "update expression lowering is unavailable"]
+
+[[case]]
+name = "compound_is_refused_under_run"
+rationale = """node v26.10.0 prints `7`. At `7c4daa9f7` the baseline row `cls_compound`: REFUSES, kali printed `error[E5506]: compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path`, check exit 1. R-17: the resolver refuses member compound assignment before the class rewrite runs (spec §3.5 is not reachable; ruling R-17)."""
+args = ["run", "compound.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "compound assignment lowering is unavailable"]
+
+[[case]]
+name = "compound_is_refused_under_check"
+rationale = """node v26.10.0 prints `7`. At `7c4daa9f7` the baseline row `cls_compound`: REFUSES, kali printed `error[E5506]: compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path`, check exit 1. R-17: the resolver refuses member compound assignment before the class rewrite runs (spec §3.5 is not reachable; ruling R-17)."""
+args = ["check", "compound.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "compound assignment lowering is unavailable"]
+
+[[case]]
+name = "r36_is_refused_under_run"
+rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_r36`: SILENT, kali printed `0`, check exit 0. Ruling R-15: a field read on a non-variable receiver (`new C().v`) refuses, because the object-literal lane reads a call result's field as 0."""
+args = ["run", "r36.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "the receiver of a field access that is not a variable"]
+
+[[case]]
+name = "r36_is_refused_under_check"
+rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_r36`: SILENT, kali printed `0`, check exit 0. Ruling R-15: a field read on a non-variable receiver (`new C().v`) refuses, because the object-literal lane reads a call result's field as 0."""
+args = ["check", "r36.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "the receiver of a field access that is not a variable"]
+
+[[case]]
+name = "this_arrow_is_refused_under_run"
+rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_this_arrow`: SILENT, kali printed `0`, check exit 0. Ruling R-16: an instance (here `this`) inside an arrow refuses, because the object-literal lane loses writes made through a captured object in an arrow."""
+args = ["run", "this_arrow.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a value inside an arrow function or function expression"]
+
+[[case]]
+name = "this_arrow_is_refused_under_check"
+rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_this_arrow`: SILENT, kali printed `0`, check exit 0. Ruling R-16: an instance (here `this`) inside an arrow refuses, because the object-literal lane loses writes made through a captured object in an arrow."""
+args = ["check", "this_arrow.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a value inside an arrow function or function expression"]
+
+[[case]]
+name = "capture_is_refused_under_run"
+rationale = """node v26.10.0 prints `4`. At `7c4daa9f7` the baseline row `cls_capture`: SILENT, kali printed `0`, check exit 0. Ruling R-16: a captured instance used inside an arrow refuses."""
+args = ["run", "capture.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a value inside an arrow function or function expression"]
+
+[[case]]
+name = "capture_is_refused_under_check"
+rationale = """node v26.10.0 prints `4`. At `7c4daa9f7` the baseline row `cls_capture`: SILENT, kali printed `0`, check exit 0. Ruling R-16: a captured instance used inside an arrow refuses."""
+args = ["check", "capture.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a value inside an arrow function or function expression"]
