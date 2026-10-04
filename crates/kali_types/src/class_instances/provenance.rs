@@ -783,7 +783,9 @@ impl Provenance {
             }
             let mut returns: BTreeMap<FnKey, Val> = BTreeMap::new();
             for (key, sources) in &facts.returns {
-                let v = if facts.async_frames.contains(key) || !unique(key) {
+                // R-13: a frame with untracked call sites (escaped, anonymous
+                // callbacks, object-literal functions) hands its return out unseen.
+                let v = if facts.async_frames.contains(key) || !known.contains(key) {
                     Val::Unknown
                 } else {
                     sources

@@ -151,3 +151,39 @@ fn a_class_named_as_a_jsx_element_refuses() {
     let (_, d) = run("class C{ constructor(){ this.n=1; } } new C(); const e = <div><C /></div>;");
     assert!(d.contains(&kali_common::class_value_message("C")), "{d:?}");
 }
+
+// Ruling R-13: a frame whose call sites are not all tracked returns `Unknown`,
+// so returning an instance from it refuses.
+#[test]
+fn an_instance_returned_from_an_untracked_frame_refuses() {
+    const CLASS: &str = "class C { constructor(){ this.n=0; } m(){} } ";
+    let anon = kali_common::class_instance_mixed_message("C", "the return value of `<anon>`");
+    for program in [
+        "const c=new C(); const xs=[0].map(() => c); xs[0].m(); xs[0].zz = 5; console.log(xs[0]);",
+        "const c=new C(); const o={ f: function(){ return c; } }; o.f().m(); o.f().zz = 1;",
+        "const c=new C(); for (const x of [0].map(() => c)) { x.m(); }",
+    ] {
+        let (_, d) = run(&format!("{CLASS}{program}"));
+        assert!(d.contains(&anon), "{program}: {d:?}");
+    }
+    let program = "const c=new C(); function mk(){ return c; } function ap(g){ return g(); } const y=ap(mk); y.n; y.zz = 1;";
+    let (_, d) = run(&format!("{CLASS}{program}"));
+    assert!(d.contains(&kali_common::class_instance_mixed_message("C", "the return value of `mk`")), "{d:?}");
+}
+
+#[test]
+fn a_top_level_return_names_the_program() {
+    let (_, d) = run("class C { constructor(){ this.n=0; } } return new C();");
+    assert_eq!(d, [kali_common::class_instance_mixed_message("C", "the return value of the program")]);
+}
+
+// Ruling R-14: `arguments` would hand an instance parameter out untracked.
+#[test]
+fn arguments_in_an_instance_taking_frame_refuses() {
+    let (_, d) = run("class C { constructor(){ this.n=0; } m(){} } function f(a){ return arguments[0]; } const y=f(new C()); y.m();");
+    assert!(d.contains(&kali_common::class_instance_position_message("C", "the `arguments` object")), "{d:?}");
+    let (_, d) = run("class C { constructor(){ this.n=0; } m(){} } function f(a){ const g = () => arguments[0]; return 1; } f(new C());");
+    assert!(d.contains(&kali_common::class_instance_position_message("C", "the `arguments` object")), "{d:?}");
+    let (_, d) = run("class C { constructor(){ this.n=0; } } function f(a){ return arguments.length; } f(1); new C();");
+    assert!(d.is_empty(), "{d:?}");
+}

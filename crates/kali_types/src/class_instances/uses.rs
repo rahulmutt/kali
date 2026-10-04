@@ -21,7 +21,7 @@ use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
 use super::classes::RewrittenClass;
 use super::provenance::{abstract_expr, is_wrapper, strip, Env, Provenance, Val};
 use super::scopes::{BindingId, Resolved};
-use super::walk::{walk, Cx, Pos, Visitor};
+use super::walk::{walk, Cx, FrameKind, Pos, Visitor};
 
 /// Checks every expression against §3.3's allowlist and rewrites the uses it
 /// proves. Diagnostics come in walk order.
@@ -65,6 +65,7 @@ impl Visitor for Uses<'_, '_> {
     fn expr(&mut self, expr: &mut Expression, pos: &Pos, cx: &Cx) {
         let before = self.diagnostics.len();
         self.class_as_value(expr, pos, cx);
+        self.arguments_object(expr, cx);
         // A wrapper's inner expression is visited at the same position.
         if !is_wrapper(expr) {
             let v = self.eval(expr, cx);
@@ -177,6 +178,39 @@ impl Uses<'_, '_> {
         }
     }
 
+    /// R-14: `arguments` in a frame with an instance parameter hands the
+    /// instance out untracked (`arguments[0]` abstracts to `NotInst`).
+    fn arguments_object(&mut self, expr: &Expression, cx: &Cx) {
+        let Expression::Identifier(name) = expr else {
+            return;
+        };
+        if name != "arguments" || self.env.scopes.resolve(name, cx) != Resolved::Free {
+            return;
+        }
+        // Arrows have no `arguments` of their own.
+        let Some(frame) = cx.frames.iter().rev().find(|f| f.kind != FrameKind::Arrow) else {
+            return;
+        };
+        let mut classes: Vec<String> = Vec::new();
+        for param in self.env.scopes.params(&frame.key) {
+            let id = BindingId {
+                frame: frame.key.clone(),
+                name: param.clone(),
+            };
+            if let Val::Inst(class) = self.prov.binding(&id) {
+                if !classes.contains(&class) {
+                    classes.push(class);
+                }
+            }
+        }
+        for class in classes {
+            self.refuse(class_instance_position_message(
+                &class,
+                "the `arguments` object",
+            ));
+        }
+    }
+
     /// Step 2: an instance of `class` at `pos`.
     fn position(&mut self, class: &str, pos: &Pos, cx: &Cx) {
         let Some(plan) = self.class(class) else {
@@ -194,7 +228,11 @@ impl Uses<'_, '_> {
             }
             Pos::CallArg { callee, index } => return self.call_arg(class, callee, *index, cx),
             Pos::Return => (self.prov.returns(cx.key()) != Val::Inst(class.into())).then(|| {
-                class_instance_mixed_message(class, &format!("the return value of `{}`", cx.key()))
+                let place = match cx.key() {
+                    "" => "the return value of the program".to_string(),
+                    key => format!("the return value of `{key}`"),
+                };
+                class_instance_mixed_message(class, &place)
             }),
             Pos::MemberObject { property: None, .. } => Some(class_instance_position_message(
                 class,
