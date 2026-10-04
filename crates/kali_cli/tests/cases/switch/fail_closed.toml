@@ -742,10 +742,12 @@ rationale = """Fix round 4, LEAK 1 (Critical): a `new`-invocation site was invis
 
 Fix wave item 5: was a hand-rolled PREFIX of the rule text (`"the discriminant is not a proven integer"`), which goes insensitive the moment Rule 1's message widens — as Rule 4's already did once on this branch. Routed through the constant.
 
-Assert `out` was denied by the named rule, not merely denied."""
+Assert `out` was denied by the named rule, not merely denied.
+
+**2026-10-04 (class-instances):** `new s(true)` on the plain function `s` is now refused earlier, by the class-instances pass, with E5506 (`constructing an object with the plain function `s``, spec §3.4), so the switch's Rule 1 is no longer reached. At `7c4daa9f7` kali refused with Rule 1's E5506 (node v26.10.0 prints `a=one`). Rationale only: the verdict is still a refusal and only the text moved. Re-pinned to the new rule's text; a `new` site of a plain function can no longer reach `switch_plan`."""
 exit = "failure"
 args = ["run", "a_new_invocation_site_of_the_enclosing_function_is_fail_closed.js"]
-stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_contains = ["E5506", "constructing an object with the plain function `s`"]
 
 # --- R-35 Task 9: `break`/`continue` terminators ---
 [[case]]
@@ -1024,10 +1026,12 @@ Isolates `!function_escapes` the same way the readonly cell above isolates its c
 
 Not a switch rule: `kali_types`'s `plain_write_targets` shape conflict, which refuses a string-reachable binding fed by an unbacked plain source BEFORE `switch_plan` ever runs. Tests that pin a SWITCH-side conjunct must assert this is ABSENT, or they cannot tell the two apart.
 
-Assert `out` was denied by the named rule, not merely denied."""
+Assert `out` was denied by the named rule, not merely denied.
+
+**2026-10-04 (class-instances):** `new s(true)` on the plain function `s` is now refused earlier, by the class-instances pass, with E5506 (`constructing an object with the plain function `s``, spec §3.4), so the switch's Rule 1 is no longer reached. At `7c4daa9f7` kali refused with Rule 1's E5506 (node v26.10.0 prints `v=3`). Rationale only: the verdict is still a refusal and only the text moved. Re-pinned to the new rule's text; the `REPR_MIXED_CONFLICT` absence claims still hold. A `new` site of a plain function can no longer reach `switch_plan`; the escape gate stays pinned by `an_escaping_function_denies_a_string_parameter_discriminant`."""
 exit = "failure"
 args = ["run", "a_new_expression_call_site_denies_a_string_parameter_discriminant.js"]
-stderr_contains = ["E5506", "${RULE_1_DISCRIMINANT}"]
+stderr_contains = ["E5506", "constructing an object with the plain function `s`"]
 stderr_absent = ["${REPR_MIXED_CONFLICT}"]
 stdout_absent = ["${REPR_MIXED_CONFLICT}"]
 

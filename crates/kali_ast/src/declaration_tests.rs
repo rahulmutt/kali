@@ -17,6 +17,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         body: Some(Box::new(BlockStatement { body: vec![] })),
         is_async: true,
         generator: true,
+        ..Default::default()
     };
     let class = ClassExpression {
         super_class: None,
@@ -31,6 +32,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                     body: Some(Box::new(BlockStatement { body: vec![] })),
                     is_async: true,
                     generator: true,
+                    ..Default::default()
                 },
                 MethodDefinition {
                     name: "inner".to_string(),
@@ -38,8 +40,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                     body: Some(Box::new(BlockStatement { body: vec![] })),
                     is_async: false,
                     generator: true,
+                    ..Default::default()
                 },
             ],
+            ..Default::default()
         }),
     };
     let class_decl = ClassDeclaration {
@@ -55,6 +59,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                     body: Some(Box::new(BlockStatement { body: vec![] })),
                     is_async: true,
                     generator: true,
+                    ..Default::default()
                 },
                 MethodDefinition {
                     name: "inner".to_string(),
@@ -62,8 +67,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                     body: Some(Box::new(BlockStatement { body: vec![] })),
                     is_async: false,
                     generator: true,
+                    ..Default::default()
                 },
             ],
+            ..Default::default()
         }),
     };
     let default_export_class = Statement::ExportDefault(ExportDefaultDeclaration::Expression(
@@ -80,6 +87,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                         body: Some(Box::new(BlockStatement { body: vec![] })),
                         is_async: true,
                         generator: true,
+                        ..Default::default()
                     },
                     MethodDefinition {
                         name: "inner".to_string(),
@@ -87,8 +95,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                         body: Some(Box::new(BlockStatement { body: vec![] })),
                         is_async: false,
                         generator: true,
+                        ..Default::default()
                     },
                 ],
+                ..Default::default()
             }),
         })),
     ));
@@ -106,6 +116,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                         body: Some(Box::new(BlockStatement { body: vec![] })),
                         is_async: true,
                         generator: true,
+                        ..Default::default()
                     },
                     MethodDefinition {
                         name: "inner".to_string(),
@@ -113,8 +124,10 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
                         body: Some(Box::new(BlockStatement { body: vec![] })),
                         is_async: false,
                         generator: true,
+                        ..Default::default()
                     },
                 ],
+                ..Default::default()
             }),
         }),
     );

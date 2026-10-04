@@ -630,6 +630,13 @@ is dated `62d786e74` and must not be read as current.
   `this.v` / `c.v` reads →0; the method body runs, only the field value is lost. The register had
   class `this` as FAIL-CLOSED (E4201); it is now silent, exit 0. Single-field only (2+ fields →
   FL-04). `class C{constructor(){this.v=3}} new C().v`→0 (node 3).
+  **Moved 2026-10-04 (class-instances, `b5dc0c095`):** SILENT → FIXED for an in-slice instance held in
+  a variable, where a field written in a method is read through the variable
+  (`object/class_instances::a_field_write_in_a_method_is_kept`); SILENT → FAIL_CLOSED (`E5506`) for
+  `new C().v` (the `r36` refusal case, rule R-15: a field access whose receiver is not a variable) and
+  for a stateful out-of-slice class. Boolean instance fields still render `1`/`0` after a write (R-30,
+  `docs/superpowers/followups/class-instances-discovered-defects.md` §1). R-36 is in the un-ranked §0.3 set (R-35..R-46), not in
+  the ranked §2 list or the blast-radius ranking, so the ranking was not regenerated.
 - **R-37 — `new Map()` is a silent 0-stub.** `m.set("k",5); m.get("k")`→0 (node 5); `m.size`→0.
 - **R-38 — `new Set()` is a silent 0-stub, value-wrong in control flow.** `s.add(3); s.has(3)`→0
   (node true), and `if(s.has(3))` takes the ELSE branch — a silent branch flip, not just a value.

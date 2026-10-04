@@ -766,15 +766,29 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_ts_input(
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
+    // Re-pinned 2026-10-04 (class-instances, ruling R-18): the fixture now
+    // constructs an in-slice `class Box` (formerly `new` on the plain
+    // function `Box`, which the class-instances pass refuses). The bundle
+    // BUILD now fails closed with E5506: `typeof box` / `box instanceof Box`
+    // use the instance as a unary / binary operand and `typeof Box` /
+    // `instanceof Box` use the class as a value, none of which is in the
+    // spec §1.1 use allowlist (only `new Box(…)`, field access and method
+    // calls are). node v26.10.0 runs the body to `object type ok`. Before:
+    // at `7c4daa9f7` the build succeeded, and the bundle evaluated a wrong
+    // `typeof` of the zero instance and threw.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("using an instance of class `Box` as an operand of a binary operator"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("using class `Box` as a value is unavailable"),
+        "stderr: {stderr}"
     );
 }
 
@@ -799,15 +813,29 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_js_input(
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
+    // Re-pinned 2026-10-04 (class-instances, ruling R-18): the fixture now
+    // constructs an in-slice `class Box` (formerly `new` on the plain
+    // function `Box`, which the class-instances pass refuses). The bundle
+    // BUILD now fails closed with E5506: `typeof box` / `box instanceof Box`
+    // use the instance as a unary / binary operand and `typeof Box` /
+    // `instanceof Box` use the class as a value, none of which is in the
+    // spec §1.1 use allowlist (only `new Box(…)`, field access and method
+    // calls are). node v26.10.0 runs the body to `object type ok`. Before:
+    // at `7c4daa9f7` the build succeeded, and the bundle evaluated a wrong
+    // `typeof` of the zero instance and threw.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("E5506"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("using an instance of class `Box` as an operand of a binary operator"),
+        "stderr: {stderr}"
+    );
+    assert!(
+        stderr.contains("using class `Box` as a value is unavailable"),
+        "stderr: {stderr}"
     );
 }
 
@@ -834,18 +862,34 @@ fn build_emits_browser_bundle_object_type_and_constructor_semantics_in_json_outp
         .output()
         .expect("run kali");
 
-    // Flipped pin (evaluation-trap layering): in/instanceof are runtime
-    // traps, not compile rejects, so the bundle BUILD must succeed —
-    // analysis and builds of code containing them stay usable (the browser
-    // package corpus pins this). Executing the smoke entrypoint traps
-    // fail-closed; that behavior is pinned by soundness_in_operator.rs and
-    // the run/test variants of this family.
+    // Re-pinned 2026-10-04 (class-instances, ruling R-18): the fixture now
+    // constructs an in-slice `class Box` (formerly `new` on the plain
+    // function `Box`, which the class-instances pass refuses). The bundle
+    // BUILD now fails closed with E5506: `typeof box` / `box instanceof Box`
+    // use the instance as a unary / binary operand and `typeof Box` /
+    // `instanceof Box` use the class as a value, none of which is in the
+    // spec §1.1 use allowlist (only `new Box(…)`, field access and method
+    // calls are). node v26.10.0 runs the body to `object type ok`. Before:
+    // at `7c4daa9f7` the build succeeded, and the bundle evaluated a wrong
+    // `typeof` of the zero instance and threw.
     assert!(
-        output.status.success(),
-        "bundle build must succeed: {output:?}"
+        !output.status.success(),
+        "bundle build must fail closed: {output:?}"
     );
     let json = parse_json_stdout(&output);
-    assert_eq!(json["success"], true);
+    assert_eq!(json["success"], false);
+    let errors = json["errors"].as_array().cloned().unwrap_or_default();
+    assert!(
+        errors.iter().all(|e| e["code"] == "E5506") && !errors.is_empty(),
+        "expected only E5506 errors, got: {json}"
+    );
+    assert!(
+        errors.iter().any(|e| e["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("using class `Box` as a value is unavailable")),
+        "expected the class-as-value refusal, got: {json}"
+    );
 }
 
 #[test]

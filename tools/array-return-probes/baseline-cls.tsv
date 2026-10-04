@@ -1,0 +1,41 @@
+cls_14a	SILENT	2	0	0
+cls_14b	SILENT	3	0	0
+cls_capture	SILENT	4	0	0
+cls_compound	REFUSES	7	error[E5506]: compound assignment lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path	1
+cls_ctor_arg	OTHER	5 4	error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[23]	0
+cls_ctor_chain	SILENT	2	0	0
+cls_ctor_read	SILENT	5	0	0
+cls_field_decl	SILENT	9	0	0
+cls_in_main	OTHER	2	error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[42]	0
+cls_known_r30	SILENT	true	0	0
+cls_method_read	SILENT	5	0	0
+cls_method_write	SILENT	9	0	0
+cls_ok_extends_stateless	CORRECT	5	5	0
+cls_ok_host_r8	CORRECT	1	1	0
+cls_ok_objlit	CORRECT	2	2	0
+cls_ok_static_only	CORRECT	8	8	0
+cls_ok_user_push	REFUSES	2 5	error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call	1
+cls_outside_write	SILENT	4	0	0
+cls_param	REFUSES	25	error[E5506]: passing an array literal to function 'len2' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal	0
+cls_r36	SILENT	3	0	0
+cls_r_ambiguous	OTHER	1 2	error[E4201]: failed to load WASM module: failed to parse WebAssembly module	0
+cls_r_array	SILENT	1	0	0
+cls_r_ctor_return	SILENT	2	0	0
+cls_recursive	SILENT	120 5	120 0	0
+cls_return	SILENT	7	0	0
+cls_r_extends_stateful	SILENT	1	0	0
+cls_r_field_outside	SILENT	1	0	0
+cls_r_getter	SILENT	3	0	0
+cls_r_instanceof	OTHER	true	Uncaught unsupported `instanceof` operator: kali cannot evaluate it (no runtime key-presence or prototype-chain machinery)	0
+cls_r_log_instance	SILENT	C { n: 1 }	0	0
+cls_r_method_value	SILENT	function	0	0
+cls_r_mixed_param	REFUSES	1 2	error[E5506]: passing an array literal to function 'f' is unavailable in the current direct-runtime path (the callee would read zero placeholders, not the elements); allocate with `new Array(n)` and assign elements instead. A constructed value (`new C()`) is refused here too: it lowers to the same node as a one-element array literal	0
+cls_r_no_init	SILENT	undefined	0	0
+cls_r_plain_fn_new	SILENT	9	0	0
+cls_r_undeclared_read	SILENT	undefined	0	0
+cls_r_unresolved_recv	REFUSES	1	warning[E3100]: undefined identifier 'f' reached codegen and was lowered through a zero placeholder compatibility fallback	0
+cls_same_method	OTHER	1 2	error[E4201]: failed to load WASM module: failed to parse WebAssembly module	0
+cls_this_arrow	SILENT	3	0	0
+cls_this_method	CORRECT	3	3	0
+cls_top	SILENT	3	0	0
+cls_update	REFUSES	2 2	error[E5506]: update expression lowering is unavailable unless the target is a mutable local binding; use a local binding or the later compatibility path	1

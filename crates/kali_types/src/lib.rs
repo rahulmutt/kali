@@ -6,6 +6,7 @@
 
 mod array_return;
 mod builtins;
+pub mod class_instances;
 mod context;
 mod growable;
 mod late_host;
@@ -13,6 +14,7 @@ pub mod monomorphize;
 mod package;
 mod program_classes;
 mod repr_infer;
+pub use repr_infer::infer_reprs;
 mod resolve;
 mod scope;
 mod static_analysis;

@@ -41,6 +41,7 @@ impl Parser {
                                 body: Some(Box::new(block)),
                                 is_async: false,
                                 generator: false,
+                                is_arrow: true,
                             }));
                         }
                         // Unparseable block: fall through to the identifier

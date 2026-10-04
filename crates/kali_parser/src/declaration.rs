@@ -3,8 +3,8 @@
 use crate::Parser;
 use kali_ast::{
     ArrowFunctionExpression, BlockStatement, ClassBody, ClassDeclaration, ClassExpression,
-    Expression, FunctionDeclaration, FunctionExpression, FunctionParam, MethodDefinition,
-    SequenceExpression, Statement,
+    ClassField, Expression, FunctionDeclaration, FunctionExpression, FunctionParam,
+    MethodDefinition, MethodKind, SequenceExpression, Statement,
 };
 use kali_lexer::{Token, TokenType};
 use std::boxed::Box;
@@ -340,107 +340,217 @@ impl Parser {
 
     pub(crate) fn parse_class_body(&mut self) -> ClassBody {
         let _ = self.stream.accept(TokenType::LeftBrace);
-
-        let mut methods = Vec::new();
-        let mut field_names = Vec::new();
-        let mut has_computed_members = false;
-        let mut previous_kind: Option<TokenType> = None;
-        // Whether the current token can start a member's key (after `;`, `}`,
-        // a parsed method, or a modifier such as `static` / `get`).
-        let mut at_member_start = true;
+        let mut body = ClassBody::default();
         loop {
-            if self.stream.eof() || self.stream.current_kind() == Some(&TokenType::RightBrace) {
-                let _ = self.stream.accept(TokenType::RightBrace);
+            match self.stream.current_kind() {
+                None | Some(TokenType::Eof) => break,
+                Some(TokenType::RightBrace) => {
+                    let _ = self.stream.advance();
+                    break;
+                }
+                Some(TokenType::Semicolon) => {
+                    let _ = self.stream.advance();
+                    continue;
+                }
+                _ => {}
+            }
+            self.parse_class_member(&mut body);
+        }
+        body
+    }
+
+    /// Parses one class member into `body`. A member the AST does not model
+    /// (`#private`, a computed key, a `static {}` block) is skipped and
+    /// flagged.
+    fn parse_class_member(&mut self, body: &mut ClassBody) {
+        let mut is_static = false;
+        let mut kind = MethodKind::Method;
+        // A modifier word is a modifier only when another key follows it:
+        // `get(){}` is a method named `get`, `get v(){}` is a getter.
+        while let Some(token) = self.stream.current() {
+            if token.kind != TokenType::Identifier
+                || !CLASS_MEMBER_MODIFIERS.contains(&token.value.as_str())
+                || matches!(
+                    self.stream.peek_next_kind(),
+                    Some(
+                        TokenType::LeftParen
+                            | TokenType::Eq
+                            | TokenType::Semicolon
+                            | TokenType::Colon
+                            | TokenType::Question
+                            | TokenType::Not
+                            | TokenType::RightBrace
+                    )
+                )
+            {
                 break;
             }
-
-            let is_async = if self.stream.current_kind() == Some(&TokenType::Async)
-                && matches!(
-                    self.stream.peek_next_kind(),
-                    Some(TokenType::Star) | Some(TokenType::Identifier)
-                ) {
-                let _ = self.stream.advance();
-                true
-            } else {
-                false
-            };
-            let generator = if self.stream.current_kind() == Some(&TokenType::Star) {
-                let _ = self.stream.advance();
-                true
-            } else {
-                false
-            };
-
-            let is_method = matches!(self.stream.current_kind(), Some(TokenType::Identifier))
-                && matches!(self.stream.peek_next_kind(), Some(TokenType::LeftParen))
-                || matches!(self.stream.current_kind(), Some(TokenType::Async))
-                    && matches!(self.stream.peek_next_kind(), Some(TokenType::LeftParen));
-
-            if is_method {
-                let method_name = self.stream.advance().map(|t| t.value).unwrap_or_default();
-                let params = self.parse_parameter_list();
-                self.skip_return_type_annotation();
-                let previous_async = self.in_async_function;
-                let previous_generator = self.in_generator_function;
-                self.in_async_function = is_async;
-                self.in_generator_function = generator;
-                let body = match self.parse_block_statement() {
-                    Some(Statement::BlockStatement(bs)) => bs,
-                    _ => BlockStatement { body: Vec::new() },
-                };
-                self.in_generator_function = previous_generator;
-                self.in_async_function = previous_async;
-                methods.push(MethodDefinition {
-                    name: method_name,
-                    params,
-                    body: Some(Box::new(body)),
-                    is_async,
-                    generator,
-                });
-                at_member_start = true;
-            } else {
-                // A computed key (`["foo"](){}`, `static [k] = 1`) is skipped,
-                // so the class's member set is not known.
-                if at_member_start && self.stream.current_kind() == Some(&TokenType::LeftBracket) {
-                    has_computed_members = true;
-                }
-                // A type annotation's name (`label: string;`) follows a `:`.
-                if self.stream.current_kind() == Some(&TokenType::Identifier)
-                    && previous_kind != Some(TokenType::Colon)
-                    && matches!(
-                        self.stream.peek_next_kind(),
-                        Some(
-                            TokenType::Eq
-                                | TokenType::Semicolon
-                                | TokenType::Colon
-                                | TokenType::Question
-                                | TokenType::Not
-                        )
-                    )
-                {
-                    if let Some(token) = self.stream.current() {
-                        field_names.push(token.value.clone());
-                    }
-                }
-                at_member_start = match self.stream.current() {
-                    Some(token) => match token.kind {
-                        TokenType::Semicolon | TokenType::RightBrace | TokenType::Async => true,
-                        TokenType::Identifier => {
-                            CLASS_MEMBER_MODIFIERS.contains(&token.value.as_str())
-                        }
-                        _ => false,
-                    },
-                    None => false,
-                };
-                previous_kind = self.stream.current_kind().copied();
-                let _ = self.stream.advance();
+            match token.value.as_str() {
+                "static" => is_static = true,
+                "get" => kind = MethodKind::Get,
+                "set" => kind = MethodKind::Set,
+                _ => {}
+            }
+            let _ = self.stream.advance();
+        }
+        if is_static && self.stream.current_kind() == Some(&TokenType::LeftBrace) {
+            body.has_static_block = true;
+            self.skip_class_member();
+            return;
+        }
+        let is_async = if self.stream.current_kind() == Some(&TokenType::Async)
+            && matches!(
+                self.stream.peek_next_kind(),
+                Some(TokenType::Star) | Some(TokenType::Identifier)
+            ) {
+            let _ = self.stream.advance();
+            true
+        } else {
+            false
+        };
+        let generator = self.stream.accept(TokenType::Star);
+        match self.stream.current_kind() {
+            Some(TokenType::Hash) => {
+                body.has_private_members = true;
+                self.skip_class_member();
+                return;
+            }
+            Some(TokenType::LeftBracket) => {
+                body.has_computed_members = true;
+                self.skip_class_member();
+                return;
+            }
+            Some(TokenType::Identifier) | Some(TokenType::Async) => {}
+            _ => {
+                // A string or number key: not modelled; skip it.
+                self.skip_class_member();
+                return;
             }
         }
+        let name = self.stream.advance().map(|t| t.value).unwrap_or_default();
+        if self.stream.current_kind() == Some(&TokenType::LeftParen) {
+            let params = self.parse_parameter_list();
+            self.skip_return_type_annotation();
+            let previous_async = self.in_async_function;
+            let previous_generator = self.in_generator_function;
+            self.in_async_function = is_async;
+            self.in_generator_function = generator;
+            let block = match self.parse_block_statement() {
+                Some(Statement::BlockStatement(bs)) => bs,
+                _ => BlockStatement { body: Vec::new() },
+            };
+            self.in_generator_function = previous_generator;
+            self.in_async_function = previous_async;
+            body.methods.push(MethodDefinition {
+                name,
+                params,
+                body: Some(Box::new(block)),
+                is_async,
+                generator,
+                kind,
+                is_static,
+            });
+            return;
+        }
+        // A field: `name`, `name?`, `name!`, `name: Type`, each with an
+        // optional `= initializer`.
+        let _ = self.stream.accept(TokenType::Question) || self.stream.accept(TokenType::Not);
+        let mut initializer_follows = false;
+        if self.stream.current_kind() == Some(&TokenType::Colon) {
+            initializer_follows = self.skip_field_type_annotation();
+        }
+        let value = if initializer_follows || self.stream.accept(TokenType::Eq) {
+            Some(self.parse_assignment_expression())
+        } else {
+            None
+        };
+        let _ = self.stream.accept(TokenType::Semicolon);
+        body.field_names.push(name.clone());
+        body.fields.push(ClassField {
+            name,
+            value,
+            is_static,
+        });
+    }
 
-        ClassBody {
-            methods,
-            field_names,
-            has_computed_members,
+    /// Skips a field's `: Type`, leaving the cursor on `=`, `;`, `}` or the
+    /// next member's key. Tokens carry no line breaks, so an annotation
+    /// without `;` ends where two words meet that no type spells together
+    /// (`string m`).
+    ///
+    /// The lexer fuses closing angles with what follows (`>>`, `>>>`, `>=`,
+    /// `>>=`, `>>>=`), so each closes as many `<` as it has `>` (R-22). When
+    /// such a token closes the last one and ends in `=`, that `=` starts the
+    /// initializer: it is consumed here and `true` is returned.
+    fn skip_field_type_annotation(&mut self) -> bool {
+        const TYPE_WORDS: &[&str] = &[
+            "keyof", "typeof", "readonly", "infer", "unique", "asserts", "is", "extends", "new",
+        ];
+        let _ = self.stream.advance();
+        let mut depth = 0usize;
+        let mut previous_word: Option<String> = None;
+        while let Some(token) = self.stream.current().cloned() {
+            match token.kind {
+                TokenType::Eq | TokenType::Semicolon | TokenType::RightBrace if depth == 0 => break,
+                TokenType::Eof => break,
+                TokenType::LeftParen
+                | TokenType::LeftBracket
+                | TokenType::LeftBrace
+                | TokenType::Lt => depth += 1,
+                TokenType::RightParen
+                | TokenType::RightBracket
+                | TokenType::RightBrace
+                | TokenType::Gt => depth = depth.saturating_sub(1),
+                // `>>` and `>>>` share `GtGt`; the lexeme tells them apart.
+                TokenType::GtGt => depth = depth.saturating_sub(token.value.len()),
+                TokenType::GtEq | TokenType::GtGtEq | TokenType::GtGtGtEq if depth > 0 => {
+                    let closes = token.value.len() - 1;
+                    depth = depth.saturating_sub(closes);
+                    if depth == 0 {
+                        let _ = self.stream.advance();
+                        return true;
+                    }
+                }
+                TokenType::Identifier if depth == 0 => {
+                    if let Some(previous) = &previous_word {
+                        if !TYPE_WORDS.contains(&previous.as_str()) {
+                            break;
+                        }
+                    }
+                }
+                _ => {}
+            }
+            previous_word = (token.kind == TokenType::Identifier).then(|| token.value.clone());
+            let _ = self.stream.advance();
+        }
+        false
+    }
+
+    /// Skips one member the AST does not model: through a `;` at depth 0,
+    /// through the `}` that closes a body opened at depth 0, or up to the
+    /// class's own `}`.
+    fn skip_class_member(&mut self) {
+        let mut depth = 0usize;
+        while let Some(kind) = self.stream.current_kind().copied() {
+            match kind {
+                TokenType::Eof => return,
+                TokenType::Semicolon if depth == 0 => {
+                    let _ = self.stream.advance();
+                    return;
+                }
+                TokenType::RightBrace if depth == 0 => return,
+                TokenType::LeftParen | TokenType::LeftBracket | TokenType::LeftBrace => depth += 1,
+                TokenType::RightParen | TokenType::RightBracket => depth = depth.saturating_sub(1),
+                TokenType::RightBrace => {
+                    depth -= 1;
+                    if depth == 0 {
+                        let _ = self.stream.advance();
+                        return;
+                    }
+                }
+                _ => {}
+            }
+            let _ = self.stream.advance();
         }
     }
 
@@ -635,6 +745,7 @@ impl Parser {
                 body: Some(Box::new(block)),
                 is_async: false,
                 generator: false,
+                is_arrow: true,
             },
         )))
     }
@@ -719,6 +830,7 @@ impl Parser {
             body: func_body,
             is_async,
             generator,
+            is_arrow: false,
         }))
     }
 }

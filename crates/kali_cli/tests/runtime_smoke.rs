@@ -3781,7 +3781,7 @@ async function objectPropertyDeletionSmoke() {
 
 fn object_type_and_constructor_semantics_source(test_mode: bool) -> String {
     if test_mode {
-        return r#"function Box() {}
+        return r#"class Box { constructor() {} }
 Kali.test('object type and constructor semantics', () => {
   const box = new Box();
   if (typeof box !== 'object') {
@@ -3801,7 +3801,7 @@ Kali.test('object type and constructor semantics', () => {
         .to_string();
     }
 
-    r#"function Box() {}
+    r#"class Box { constructor() {} }
 const box = new Box();
 if (typeof box !== 'object') {
   throw new Error('expected object from constructor');
@@ -3849,40 +3849,44 @@ fn assert_json_object_type_and_constructor_semantics(
     let json = parse_json_stdout(&output);
     assert_eq!(json["success"], false);
     if test_mode {
-        // Throw-fallout Stage 6 Task 5 re-pin: the fixture's `instanceof`
-        // trap now fires from INSIDE the `Kali.test(() => { … })` callback
-        // body, which the block-arrow un-flatten patch compiles as a real
-        // standalone function instead of flattening it into module scope.
-        // The trap therefore attributes to the callback's
-        // `__kali_callback_<index>` export (a runtime `CallbackTrap`) rather
-        // than surfacing as a top-level compile-time `errors[]` entry —
-        // `errors` is now EMPTY and `payload.failed == 1`, with the trap
-        // text landing in `stderr` instead. This is a STRICTLY BETTER
-        // shape (attributed to the specific failing test/callback, not a
-        // bare top-level reject) — the program still fails closed (exit
-        // != 0, `success: false`), just reported differently. Before this
-        // patch: `errors[0].code` was `"E4000"`/`"E5506"`. After:
-        // `errors` is `[]`, `payload.failed == 1`, `payload.passed == 0`,
-        // and `stderr` names the failing callback and trap code.
-        assert_eq!(
-            json["errors"].as_array().map(|a| a.len()),
-            Some(0),
-            "expected the top-level errors[] array to be empty (the trap is\
-             attributed to the callback instead), got: {json}"
+        // Re-pinned 2026-10-04 (class-instances, ruling R-18): the fixture
+        // now constructs an in-slice `class Box` instead of `new` on the plain
+        // function `Box` (which the class-instances pass refuses outright).
+        // The class version is refused at COMPILE time, so the refusal is a
+        // top-level `errors[]` entry again rather than a callback trap:
+        // the instance lives inside the `Kali.test(() => { … })` arrow
+        // (ruling R-16: an instance inside an arrow or function expression
+        // refuses), and `typeof Box` / `instanceof Box` use the class as a
+        // value (spec §1.1 use allowlist: only `new Box(…)` is supported).
+        // node v26.10.0 runs the same body without throwing. Before: at
+        // `7c4daa9f7` `errors` was `[]` and the harness failed the test on
+        // a wrong `typeof` of the zero instance.
+        let errors = json["errors"].as_array().cloned().unwrap_or_default();
+        assert!(
+            !errors.is_empty(),
+            "expected compile-time errors, got: {json}"
         );
-        assert_eq!(json["payload"]["failed"], 1, "got: {json}");
+        assert!(
+            errors.iter().all(|e| e["code"] == "E5506"),
+            "expected only E5506 errors, got: {json}"
+        );
+        let messages: Vec<&str> = errors
+            .iter()
+            .filter_map(|e| e["message"].as_str())
+            .collect();
+        assert!(
+            messages.iter().any(|m| m.contains(
+                "using an instance of class `Box` as a value inside an arrow function or function expression"
+            )),
+            "expected the R-16 refusal, got: {json}"
+        );
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains("using class `Box` as a value is unavailable")),
+            "expected the class-as-value refusal, got: {json}"
+        );
         assert_eq!(json["payload"]["passed"], 0, "got: {json}");
-        let harness_stderr = json["stderr"].as_str().unwrap_or_default();
-        assert!(
-            harness_stderr.contains("__kali_callback_"),
-            "expected the trap to attribute to a specific callback export, got: {json}"
-        );
-        assert!(
-            harness_stderr.contains("E4000")
-                || harness_stderr.contains("E5506")
-                || harness_stderr.contains("RuntimeError: unreachable"),
-            "expected fail-closed trap or reject, got: {json}"
-        );
     } else {
         let code = json["errors"][0]["code"].as_str().unwrap_or_default();
         let harness_stderr = json["stderr"].as_str().unwrap_or_default();
@@ -3934,7 +3938,7 @@ fn assert_json_browser_requested_object_type_and_constructor_semantics(
 }
 fn browser_bundle_object_type_and_constructor_semantics_source() -> &'static str {
     r#"// kali-tree-shake: objectTypeSmoke
-function Box() {}
+class Box { constructor() {} }
 async function objectTypeSmoke() {
   const box = new Box();
   if (typeof box !== 'object') {

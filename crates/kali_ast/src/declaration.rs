@@ -28,27 +28,58 @@ pub struct ClassDeclaration {
 }
 
 /// Class body
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClassBody {
     pub methods: Vec<MethodDefinition>,
-    /// Names of the class-field declarations the parser skipped
-    /// (`n = 0;`, `label: string;`). Kept so a member set can include them.
+    /// Names of the class-field declarations (`n = 0;`, `label: string;`),
+    /// static or not, in source order.
     #[serde(default)]
     pub field_names: Vec<String>,
     /// The body has a member with a computed key (`["foo"](){}`), which the
     /// parser skips, so `methods` and `field_names` do not name every member.
     #[serde(default)]
     pub has_computed_members: bool,
+    /// The field declarations with their initializers (class-instances spec A-2).
+    #[serde(default)]
+    pub fields: Vec<ClassField>,
+    /// The body has a `#private` field or method, which the parser skips.
+    #[serde(default)]
+    pub has_private_members: bool,
+    /// The body has a `static { … }` block, which the parser skips.
+    #[serde(default)]
+    pub has_static_block: bool,
+}
+
+/// A class field declaration (`n = 0;`, `static k = 1;`, `label: string;`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ClassField {
+    pub name: String,
+    /// The initializer; `None` for a field declared without one.
+    pub value: Option<Expression>,
+    pub is_static: bool,
+}
+
+/// What a class method definition defines.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MethodKind {
+    #[default]
+    Method,
+    Get,
+    Set,
 }
 
 /// Method definition
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MethodDefinition {
     pub name: String,
     pub params: Vec<String>,
     pub body: Option<Box<BlockStatement>>,
     pub is_async: bool,
     pub generator: bool,
+    #[serde(default)]
+    pub kind: MethodKind,
+    #[serde(default)]
+    pub is_static: bool,
 }
 
 // Variable declaration

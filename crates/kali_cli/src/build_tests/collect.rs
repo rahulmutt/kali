@@ -13,6 +13,7 @@ fn collect_library_exports_rejects_generator_default_export_expression() {
                 body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                 is_async: false,
                 generator: true,
+                ..Default::default()
             },
         ))),
     )];
@@ -47,6 +48,7 @@ fn collect_library_exports_rejects_generator_default_export_expression_through_p
                         body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                         is_async: false,
                         generator: true,
+                        ..Default::default()
                     },
                 ))),
             }),
@@ -84,6 +86,7 @@ fn collect_library_exports_rejects_generator_default_export_expression_through_s
                         body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                         is_async: false,
                         generator: true,
+                        ..Default::default()
                     })),
                 ],
             },
@@ -121,6 +124,7 @@ fn collect_library_exports_rejects_async_generator_default_export_expression_thr
                         body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                         is_async: true,
                         generator: true,
+                        ..Default::default()
                     })),
                 ],
             },
@@ -159,6 +163,7 @@ fn collect_library_exports_rejects_generator_exported_binding() {
                         body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                         is_async: false,
                         generator: true,
+                        ..Default::default()
                     },
                 ))),
             }],
@@ -200,6 +205,7 @@ fn collect_library_exports_rejects_async_generator_default_export_expression() {
                 body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                 is_async: true,
                 generator: true,
+                ..Default::default()
             },
         ))),
     )];
@@ -296,6 +302,7 @@ fn collect_library_exports_rejects_async_generator_exported_binding() {
                         body: Some(Box::new(kali_ast::BlockStatement { body: vec![] })),
                         is_async: true,
                         generator: true,
+                        ..Default::default()
                     },
                 ))),
             }],
@@ -644,6 +651,7 @@ fn collect_library_exports_infers_const_function_expression_bindings_and_aliases
                             })),
                             is_async: false,
                             generator: false,
+                            ..Default::default()
                         },
                     ))),
                 },
@@ -2077,6 +2085,7 @@ fn collect_library_exports_infers_function_binding_signatures_through_sequence_a
                                             })),
                                             is_async: false,
                                             generator: false,
+                                            ..Default::default()
                                         },
                                     ))),
                                 },
