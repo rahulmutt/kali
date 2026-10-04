@@ -468,11 +468,16 @@ None of these involves a mutator gate. Each gives the same output at
 `9dc751cf8` and at HEAD, and each is silent (exit 0, wrong output).
 
 * **A method call on a nameless constructed value evaluates to `0`.**
-  **Fixed** by the class-instances project
+  **Fixed for classes kali lowers** by the class-instances project
   (`docs/superpowers/specs/2026-10-04-class-instances-design.md`), at `b5dc0c095` (the rewrite),
   case `object/class_instances::14a_matches_node` (prints `2`). `S` is a stateless in-slice
   class, so `new S()` is a factory call before IR and `.push(1)` is a method call on it. A
   different shape, `new C().v` (a field read off a nameless instance), is refused with E5506 (R-15).
+  **Fail-closed for every other program class** (ruling R-29): `new X().m()` of a class
+  kali does not lower (one with a `static` member, a class expression, a stateless class
+  in an `extends` chain) still evaluated to `0` after the rewrite, and is now refused with
+  E5506 (`it is outside the class-instances slice and its new result is used in the same
+  expression`), cases `object/class_instances::r29_*`.
   `class S { push(v){ return v+1; } } console.log(new S().push(1));` prints `0`
   (node `2`). `foo` and `sort` give `0` the same way, so the method name does
   not matter. Binding the instance first (`const s=new S(); s.push(1)`) prints

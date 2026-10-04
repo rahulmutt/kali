@@ -36,7 +36,29 @@ instance captured from an enclosing function), R-6 (`recv["m"](…)`), and
 `typeof` / `instanceof` / `===` on an instance or the class as a value
 (§3.3). R-17: compound assignment and `++` / `--` on an instance field stay
 refused by the resolver, so spec §3.5 is not reachable. Stateless out-of-slice
-classes keep the baseline lowering.
+classes keep the baseline lowering, except that `new X().m()` / `new X().f`
+of any program class kali does not lower is refused (R-29).
+
+**Final-review narrowing (rulings R-22 to R-30r, 2026-10-04).** The final
+whole-branch review found clean-compiling programs whose output differed from
+node; each is now refused (or, for R-22, fixed), and the slice is narrower
+than the paragraph above on its own suggests. A class kali would lower is
+refused at `new` when a field may hold anything but a number or a boolean
+(a string, `null`, `undefined`, a BigInt, an array, an object or a function;
+R-23, proven by a value-kind fixpoint in the pass and backed by the
+re-inferred field reprs); when its body reads a variable of an enclosing
+function, so a class declared in a function may read only its own parameters
+and locals and program-level names (R-25); when a field initializer names a
+parameter or variable of its constructor (R-26); when a field and a method
+share a name (R-27); and when a name it generates collides with another
+class's generated name or with any name the program spells, function
+expression and arrow ids and import locals included (R-30r). An instance
+field under `typeof` (R-24) and an instance inside `as` / `<T>` /
+`satisfies` (R-28) refuse at the use. R-22 fixed the parser: a field type
+closed by `>>`, `>>>`, `>=`, `>>=` or `>>>=` no longer swallows the rest of
+the program. Each repro is a case in
+`crates/kali_cli/tests/cases/object/class_instances.toml` (`r22_*` to
+`r30r_*`), whose rationale gives node's output and kali's at `d75a10075`.
 
 ---
 
@@ -45,8 +67,11 @@ classes keep the baseline lowering.
 `class F{ constructor(){ this.ok=false; } set(){ this.ok=true; } }
 const f=new F(); f.set(); console.log(f.ok);` prints `1` (node `true`).
 Probe `cls_known_r30`; at `7c4daa9f7` it printed `0` (SILENT), now `1`. A
-boolean instance field is a number in the object-literal lane after a write,
-so it renders `1` / `0`. The class rewrite does not change that. Pinned as the
+boolean instance field is a number in the object-literal lane, so it always
+renders `1` / `0`, whether or not it was written after construction:
+`class C { constructor(){ this.v = true; } } const a = new C(); console.log(a.v);`
+with no later write prints `1` too (final-review repro d4; node `true`). The class
+rewrite does not change that; R-23 deliberately admits booleans. Pinned as the
 known-wrong control `object/class_instances::known_r30_the_bool_field_still_prints_one`,
 so a fix shows up as a diff. Not fixed.
 
@@ -224,7 +249,9 @@ loss that no case, fixture or corpus program exercises was not measured.
     at most sites, but a block-shadowed name can resolve to the wrong binding.
 12. **R-6: `recv["m"](…)` on an instance refuses** (computed access) rather
     than dispatching; a literal-key bracket call is not rewritten.
-13. **The Task 2 annotation heuristic's limit.** Tokens carry no line
+13. **The Task 2 annotation heuristic's limit.** (R-22 fixed a separate bug
+    here: a closing `>>`, `>>>`, `>=`, `>>=` or `>>>=` now closes as many
+    `<` as it has `>`, and a fused trailing `=` starts the initializer.) Tokens carry no line
     breaks, so `skip_field_type_annotation` (`kali_parser/src/declaration.rs`)
     ends a field's `: Type` where two identifiers meet at depth 0, unless the
     first is one of `TYPE_WORDS` (`keyof`, `typeof`, `readonly`, `infer`,
@@ -232,4 +259,42 @@ loss that no case, fixture or corpus program exercises was not measured.
     one of those words, followed by a newline and the next member's key,
     swallows that key into the type, so the next member is lost. The heuristic
     is not a type parser.
+14. **R-31: a second monomorphization pass makes clones share an anonymous
+    function name.** The rewrite runs `monomorphize_statements` again after
+    `name_anonymous_functions`, so when a method (or any function) is cloned
+    for two object-parameter shapes, both clones carry the same
+    `__kali_fn_N` for an inner arrow, and the module fails with E4201
+    (invalid wasm) under `run` while `check` exits 0. Repros: `class C {
+    constructor(){ this.n = 1; } use(o){ const g = (y) => y + 100; return
+    g(o.a) + this.n; } }` called with `{ a: 5 }` and `{ b: 7, a: 9 }` (m1;
+    node `106` / `110`), and the same with two arrows (m2; node `1011` /
+    `1019`). Not silent (E4201), not fixed.
+15. **R-31: block scoping without classes.** A block-scoped `const` that
+    shadows a parameter replaces it for the rest of the function:
+    `function f(c){ { const c = 7; console.log(c); } return c; }
+    console.log(f(2));` prints `7` / `7` (r12; node `7` / `2`). The same with
+    an instance parameter shadowed by an object literal (r8; node `7` / `2`,
+    kali `7` / `7`). Codegen's bindings are flat per function (see item 11 and
+    literal-array-mutators followups §14). Silent, pre-existing, not fixed.
+16. **R-31: `--compat eval` aliasing.** With the opt-in `eval` flag,
+    `const y = eval('c'); y.n = 7; console.log(c.n);` is not refused for an
+    instance (ev1; node `7`), nor for a plain object (ev2). Without the flag
+    both are refused (`compatibility feature 'eval' … is unavailable`).
+    Extends item 7. Not fixed.
+17. **R-32: forward references between classes.** A method of one class that
+    constructs a class declared after it fails with E3100 `undefined
+    identifier` under `run` and `check` (rc2, rc3, rc4: mutually
+    constructing classes `A` / `B` and `E` / `O`; node prints `4` / `2` and
+    `1` / `0`). Refused, not silent; not fixed.
+18. **R-32: an aliased class reaches only code generation.** `const K = C;
+    new K()` (o1; node `4`) and `function mk(K){ return new K(); } mk(C)`
+    (n3; node `4`) are refused under `run` only at code generation (E3100
+    zero-placeholder / E8001), while `check` exits 0: `C` is never the direct
+    target of `new`, so it is not rewritten and the class-as-value refusal
+    does not apply. Not silent under `run`; `check` misses it. Not fixed.
+19. **R-11 addendum: `export class C` in library mode.** Because the parser
+    drops `export` from `export class C`, a library-mode build's artifact does
+    not export `C` at all; the class disappears from the module's exports
+    rather than being refused. Not fixed.
+
 (The A-10 backstop line repeating after a use refusal is item 2.)

@@ -466,6 +466,9 @@ impl Uses<'_, '_> {
                     .collect();
                 call(format!("{class}__{method}"), args)
             }
+            // Spec §3.5's compound and update rewrites (this arm and the next)
+            // are inert in the pipeline: the resolver refuses member compound
+            // assignment and update before this pass runs (ruling R-17).
             Expression::AssignmentExpression(assign) => {
                 let Some(operator) = compound_operator(&assign.operator) else {
                     return;
