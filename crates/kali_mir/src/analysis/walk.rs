@@ -21,6 +21,7 @@ impl<'a> OwnershipAnalyzer<'a> {
                 }
             }
             HirNodeKind::VarDecl => {
+                self.iteration_note_var_decl(text.as_deref(), &children);
                 for child in children {
                     self.walk_scope_node(child, context);
                 }
@@ -81,6 +82,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::FunctionDecl => {
                 let function_name = text.unwrap_or_else(|| self.next_function_name());
+                self.iteration_note_closure(&function_name);
                 let body = children.last().copied();
                 let params_end = body.map_or(children.len(), |_| children.len().saturating_sub(1));
                 self.push_scope(
@@ -123,6 +125,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::FunctionExpr => {
                 let function_name = text.unwrap_or_else(|| self.next_function_name());
+                self.iteration_note_closure(&function_name);
                 let body = children.last().copied();
                 let params_end = body.map_or(children.len(), |_| children.len().saturating_sub(1));
                 self.push_scope(
@@ -176,6 +179,9 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::CallExpr => {
                 self.arena_note_call_expr(&children);
+                if let Some(callee) = children.first().copied() {
+                    self.iteration_note_call(callee);
+                }
                 let mut direct_call_escape_flags = None;
                 if let Some(callee) = children.first().copied() {
                     let callee_node = &self.nodes[callee.0 as usize];
@@ -300,10 +306,12 @@ impl<'a> OwnershipAnalyzer<'a> {
                 // (`arena_gate.rs`) — loop-kind sets must stay identical or
                 // string-site loop attribution desyncs fail-open.
                 self.arena_enter_loop();
+                self.iteration_open_loop();
                 self.seed_for_of_loop_var_heap(&children);
                 for child in children {
                     self.walk_scope_node(child, context);
                 }
+                self.iteration_close_loop();
                 self.arena_exit_loop();
             }
             HirNodeKind::ForStmt | HirNodeKind::WhileStmt | HirNodeKind::DoWhileStmt => {
@@ -316,9 +324,11 @@ impl<'a> OwnershipAnalyzer<'a> {
                 // (`arena_gate.rs`) — loop-kind sets must stay identical or
                 // string-site loop attribution desyncs fail-open.
                 self.arena_enter_loop();
+                self.iteration_open_loop();
                 for child in children {
                     self.walk_scope_node(child, context);
                 }
+                self.iteration_close_loop();
                 self.arena_exit_loop();
             }
             HirNodeKind::ForInStmt => {
@@ -366,9 +376,14 @@ impl<'a> OwnershipAnalyzer<'a> {
                 // no shape where the missing-inflow gap lets a heap value
                 // escape undetected (verified against the whole-branch
                 // review).
+                //
+                // The iteration frame (block-scoping A-2) is independent of
+                // the arena ordinal: it is opened for every loop kind.
+                self.iteration_open_loop();
                 for child in children {
                     self.walk_scope_node(child, context);
                 }
+                self.iteration_close_loop();
             }
             _ => {
                 for child in children {

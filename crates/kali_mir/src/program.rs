@@ -7,6 +7,19 @@ use crate::{
     ThreadBoundaryProfile,
 };
 
+/// A loop that owns a per-iteration env record: it registers a deferred
+/// callback and a closure created in it captures the loop's own `let` / `const`
+/// bindings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IterationScope {
+    /// `iteration_label(function_key, n)`.
+    pub label: String,
+    /// The owning function's plan key (`""` for the module root).
+    pub function: String,
+    /// The loop-declared `let` / `const` a loop closure captures, sorted.
+    pub cells: Vec<String>,
+}
+
 /// MIR lowering result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MirProgram {
@@ -26,7 +39,15 @@ pub struct MirProgram {
     /// nesting. Anonymous functions are first-class here; non-scope `Function`
     /// nodes (e.g. classes) are absent. Empty when the program was constructed
     /// without ownership analysis.
+    ///
+    /// Each iteration owner (see `iteration_scopes`) is also a key: its parent
+    /// is the innermost enclosing owner of the same function, else the
+    /// function (`None` at the module root); closures created inside an owner
+    /// are re-parented to the innermost owner.
     pub parent_labels: BTreeMap<String, Option<String>>,
+    /// Loops that own a per-iteration env record, in the order they closed
+    /// (inner loops before the loops enclosing them).
+    pub iteration_scopes: Vec<IterationScope>,
 }
 
 impl MirProgram {

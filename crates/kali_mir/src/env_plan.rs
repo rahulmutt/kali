@@ -104,6 +104,12 @@ fn function_key(name: &Option<String>) -> String {
     name.clone().unwrap_or_default()
 }
 
+/// The label of the `n`th iteration candidate (loop, in pre-order) of the
+/// function with plan key `function_key` (`""` for the module root).
+pub fn iteration_label(function_key: &str, n: usize) -> String {
+    format!("{function_key}{{iter{n}}}")
+}
+
 /// Number of ENV-OWNING ancestor hops from `from` up to `to` (`to` inclusive,
 /// `from` exclusive).
 ///

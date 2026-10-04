@@ -83,6 +83,7 @@ fn test_borrowed_lifetime_reports_collapse_exact_duplicates() {
         functions: vec![function.clone(), function],
         arena_facts: Vec::new(),
         parent_labels: std::collections::BTreeMap::new(),
+        iteration_scopes: Vec::new(),
     };
 
     assert_eq!(
