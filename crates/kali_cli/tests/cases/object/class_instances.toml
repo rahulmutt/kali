@@ -184,6 +184,10 @@ class C{ constructor(){ this.n=1; } bump(){ const f = () => { this.n = this.n + 
 class C{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } const s=new C(); const f = () => { s.add(4); }; f(); console.log(s.n);
 '''
 
+"captured_by_nested_fn.js" = '''
+class C{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function main(){ const s=new C(); function g(){ s.add(4); } g(); console.log(s.n); } main();
+'''
+
 [[case]]
 name = "a_field_write_in_a_method_is_kept"
 rationale = """literal-array-mutators followups §14b. node v26.10.0 prints `3`. At `7c4daa9f7` kali printed `0` at exit 0: the constructor never ran and the store in `add` was dropped."""
@@ -570,30 +574,31 @@ rationale = """node v26.10.0 prints `3`. At `7c4daa9f7` the baseline row `cls_to
 args = ["run", "top.js"]
 exit = "success"
 stdout = "3\n"
+
 [[case]]
 name = "ts_14b_matches_node"
-rationale = """The `14b` program with a typed field (`n: number = 0;`) and typed parameter. node (type-stripped) prints `3`; the ts source takes the same rewrite as the js twin."""
+rationale = """The `14b` program with a typed field (`n: number = 0;`) and typed parameter. node (type-stripped) prints `3`; the ts source takes the same rewrite as the js twin. There is no ts baseline row: the baseline probes are js only."""
 args = ["run", "14b.ts"]
 exit = "success"
 stdout = "3\n"
 
 [[case]]
 name = "ts_ctor_arg_matches_node"
-rationale = """The `ctor_arg` program with typed field and parameters. node (type-stripped) prints `5 4`."""
+rationale = """The `ctor_arg` program with typed field and parameters. node (type-stripped) prints `5 4`. There is no ts baseline row: the baseline probes are js only."""
 args = ["run", "ctor_arg.ts"]
 exit = "success"
 stdout = "5 4\n"
 
 [[case]]
 name = "ts_param_matches_node"
-rationale = """The `param` program with typed fields, parameters and return. node (type-stripped) prints `25`."""
+rationale = """The `param` program with typed fields, parameters and return. node (type-stripped) prints `25`. There is no ts baseline row: the baseline probes are js only."""
 args = ["run", "param.ts"]
 exit = "success"
 stdout = "25\n"
 
 [[case]]
 name = "ts_return_matches_node"
-rationale = """The `return` program with typed field, parameter and return. node (type-stripped) prints `7`."""
+rationale = """The `return` program with typed field, parameter and return. node (type-stripped) prints `7`. There is no ts baseline row: the baseline probes are js only."""
 args = ["run", "return.ts"]
 exit = "success"
 stdout = "7\n"
@@ -677,3 +682,19 @@ args = ["check", "capture.js"]
 exit = "failure"
 stdout = ""
 stderr_contains = ["E5506", "a value inside an arrow function or function expression"]
+
+[[case]]
+name = "captured_by_nested_fn_is_refused_under_run"
+rationale = """Not a baseline probe (found in task review). node v26.10.0 prints `4`. Before R-16b kali printed a silent `0` at exit 0: the plain-object lane loses a write made through an object captured by a nested function declaration (`function add(o,x){o.n=o.n+x} function main(){ const s={n:0}; function g(){ add(s,4); } g(); console.log(s.n) }` also prints 0). Ruling R-16b: an instance captured from an enclosing function refuses."""
+args = ["run", "captured_by_nested_fn.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a value captured from an enclosing function"]
+
+[[case]]
+name = "captured_by_nested_fn_is_refused_under_check"
+rationale = """Not a baseline probe (found in task review). node v26.10.0 prints `4`. Before R-16b kali printed a silent `0` at exit 0: the plain-object lane loses a write made through an object captured by a nested function declaration (`function add(o,x){o.n=o.n+x} function main(){ const s={n:0}; function g(){ add(s,4); } g(); console.log(s.n) }` also prints 0). Ruling R-16b: an instance captured from an enclosing function refuses."""
+args = ["check", "captured_by_nested_fn.js"]
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "a value captured from an enclosing function"]
