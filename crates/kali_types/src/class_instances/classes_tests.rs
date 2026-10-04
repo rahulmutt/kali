@@ -108,3 +108,50 @@ fn a_return_in_a_nested_arrow_does_not_refuse_and_a_run_stops_on_an_unbound_read
     let p = plan("class C { constructor(){ this.a = 1; this.b = this.g; this.g = 2; } } new C();");
     assert_eq!(p.rewritten["C"].leading_run, 1);
 }
+
+// Ruling R-27.
+#[test]
+fn a_field_and_a_method_with_the_same_name_refuse() {
+    let want = kali_common::class_construction_unavailable_message("C", kali_common::CLASS_REASON_FIELD_METHOD);
+    assert_eq!(messages("class C { constructor(){ this.go = 7; } go(){ return 1; } } new C().go();"), [want.clone()]);
+    assert_eq!(messages("class C { go = 7; go(){ return 1; } } new C();"), [want]);
+}
+
+// Ruling R-29: `new X().m()` of a program class kali does not rewrite.
+#[test]
+fn a_chained_new_of_an_out_of_slice_class_refuses() {
+    let msg = |c: &str| kali_common::class_construction_unavailable_message(c, kali_common::CLASS_REASON_SAME_EXPRESSION);
+    assert_eq!(messages("class S { static k(){ return 0; } push(v){ return v + 1; } } console.log(new S().push(1));"), [msg("S")]);
+    assert_eq!(messages("const K = class { push(v){ return v + 1; } }; console.log(new K().push(1));"), [msg("K")]);
+    assert_eq!(messages("const K = class X { f(){ return 1; } }; new X().f();"), [msg("X")]);
+    // Bound to a variable first, an out-of-slice stateless class is unchanged (A-1).
+    assert!(messages("class S { static k(){ return 0; } push(v){ return v + 1; } } const s = new S(); s.push(1);").is_empty());
+    // A rewritten class and a host-derived one are not refused here.
+    assert!(messages("class S { push(v){ return v + 1; } } new S().push(1);").is_empty());
+    assert!(messages("class X extends EventTarget { f(){ return 1; } } new X().f();").is_empty());
+    // A stateless class in an `extends` chain is out of the slice too.
+    assert_eq!(messages("class A{ f(){return 4;} } class B extends A{} new B().f();"), [msg("B")]);
+    // `new S()` with no arguments parses as `new (S())`: that is not a chain.
+    assert!(messages("class S { static k(){ return 0; } } const s = new S(); const t = new (S());").is_empty());
+}
+
+// Ruling R-30r: generated names must be unique across classes too.
+#[test]
+fn generated_names_colliding_across_classes_refuse() {
+    let collision = kali_common::class_generated_name_collision_message;
+    let b1 = messages("class A { constructor(){ this.n = 1; } _x(){ return 1; } } class A_ { constructor(){ this.n = 2; } x(){ return 2; } } new A(); new A_();");
+    assert!(b1.contains(&collision("A___x", "A")) && b1.contains(&collision("A___x", "A_")), "{b1:?}");
+    let b3 = messages("class A { constructor(){ this.n = 1; } _new(){ return 1; } } class A_ { constructor(){ this.n = 2; } } new A(); new A_();");
+    assert!(b3.contains(&collision("A___new", "A")) && b3.contains(&collision("A___new", "A_")), "{b3:?}");
+    // (A method spelled `new` never reaches a plan: the parser skips that member.)
+    // Two classes sharing a method name generate distinct names.
+    assert!(messages("class A { f(){ return 1; } } class B { f(){ return 2; } } new A(); new B();").is_empty());
+}
+
+#[test]
+fn a_function_expression_or_arrow_id_or_import_local_counts_as_spelled() {
+    let collision = kali_common::class_generated_name_collision_message;
+    assert_eq!(messages("class C { m(){} } const f = function C__m(){ return 1; }; new C();"), [collision("C__m", "C")]);
+    assert_eq!(messages("import { C__new } from \"./x\"; class C { m(){} } new C();"), [collision("C__new", "C")]);
+    assert_eq!(messages("import C__m from \"./x\"; class C { m(){} } new C();"), [collision("C__m", "C")]);
+}

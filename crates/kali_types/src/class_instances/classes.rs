@@ -13,11 +13,13 @@ use kali_common::{
     class_generated_name_collision_message, constructor_return_unavailable_message,
     plain_function_construction_unavailable_message, CLASS_REASON_ACCESSOR,
     CLASS_REASON_AMBIGUOUS, CLASS_REASON_COMPUTED, CLASS_REASON_EXPORTED, CLASS_REASON_EXPRESSION,
-    CLASS_REASON_EXTENDS, CLASS_REASON_PRIVATE, CLASS_REASON_STATIC,
+    CLASS_REASON_EXTENDS, CLASS_REASON_FIELD_METHOD, CLASS_REASON_PRIVATE,
+    CLASS_REASON_SAME_EXPRESSION, CLASS_REASON_STATIC,
 };
 
 use kali_error::{_error_codes::e5, diagnostic::Diagnostic};
 
+use super::provenance::strip;
 use super::walk::{walk, Cx, Pos, Visitor};
 use crate::program_classes::ProgramClasses;
 
@@ -90,6 +92,8 @@ struct Facts {
     decls: BTreeMap<String, Vec<Decl>>,
     exported: BTreeSet<String>,
     constructed: BTreeSet<String>,
+    /// Targets of `new X().m()`-shaped constructions (A-9's chain shape).
+    chained: BTreeSet<String>,
     functions: BTreeSet<String>,
 }
 
@@ -108,6 +112,16 @@ impl Visitor for Facts {
         if let Expression::NewExpression(new) = expr {
             if let Some(target) = new_target(new) {
                 self.constructed.insert(target.to_string());
+                // `new X(a)` and `new X()` (which parses as `new (X())`) are
+                // not chains; `new X().m()` and `new X().f` are.
+                let plain = match strip(&new.callee) {
+                    Expression::Identifier(_) => true,
+                    Expression::CallExpression(c) => matches!(c.callee, Expression::Identifier(_)),
+                    _ => false,
+                };
+                if !plain {
+                    self.chained.insert(target.to_string());
+                }
             }
         }
     }
@@ -310,10 +324,23 @@ pub(crate) fn plan_classes(statements: &mut Vec<Statement>, spelled: &BTreeSet<S
                     plans
                         .diagnostics
                         .push(refusal(class_construction_unavailable_message(name, reason)));
+                } else if facts.chained.contains(name) {
+                    // R-29 (§14a): the chain shape lowers to 0 for a class
+                    // kali leaves as it is.
+                    plans.diagnostics.push(refusal(class_construction_unavailable_message(
+                        name,
+                        CLASS_REASON_SAME_EXPRESSION,
+                    )));
                 }
             }
             None => {
                 let plan = plan_one(name, &decls[0].body, &mut plans.diagnostics);
+                if plan.fields.iter().any(|f| plan.methods.contains(f)) {
+                    plans.diagnostics.push(refusal(class_construction_unavailable_message(
+                        name,
+                        CLASS_REASON_FIELD_METHOD,
+                    )));
+                }
                 plans.rewritten.insert(name.clone(), plan);
             }
         }
@@ -327,18 +354,41 @@ pub(crate) fn plan_classes(statements: &mut Vec<Statement>, spelled: &BTreeSet<S
         }
     }
 
-    for class in plans.rewritten.values() {
-        let generated = [format!("{}__new", class.name), "__this".to_string()]
-            .into_iter()
+    plans.diagnostics.extend(generated_name_collisions(&plans.rewritten, spelled));
+    plans
+}
+
+/// R-30r: every name the rewrite generates must be new to the program, and
+/// the program-level ones (`C__new`, `C__m`) unique across all rewritten
+/// classes (`A._x` and `A_.x` would both be `A___x`). `__this` and `__f_f`
+/// are locals of each generated function, so they only need to be unspelled.
+fn generated_name_collisions(
+    rewritten: &BTreeMap<String, RewrittenClass>,
+    spelled: &BTreeSet<String>,
+) -> Vec<Diagnostic> {
+    let functions = |class: &RewrittenClass| -> Vec<String> {
+        std::iter::once(format!("{}__new", class.name))
             .chain(class.methods.iter().map(|m| format!("{}__{m}", class.name)))
-            .chain(class.fields.iter().map(|f| format!("__f_{f}")));
-        for generated in generated.filter(|g| spelled.contains(g)) {
-            plans
-                .diagnostics
-                .push(refusal(class_generated_name_collision_message(&generated, &class.name)));
+            .collect()
+    };
+    let mut owners: BTreeMap<String, usize> = BTreeMap::new();
+    for class in rewritten.values() {
+        for name in functions(class) {
+            *owners.entry(name).or_insert(0) += 1;
         }
     }
-    plans
+    let mut diagnostics = Vec::new();
+    for class in rewritten.values() {
+        let locals = std::iter::once("__this".to_string())
+            .chain(class.fields.iter().map(|f| format!("__f_{f}")));
+        for generated in functions(class).into_iter().chain(locals) {
+            let duplicated = owners.get(&generated).is_some_and(|n| *n > 1);
+            if duplicated || spelled.contains(&generated) {
+                diagnostics.push(refusal(class_generated_name_collision_message(&generated, &class.name)));
+            }
+        }
+    }
+    diagnostics
 }
 
 /// The plan of one in-slice, constructed class; refusals go to `diagnostics`.

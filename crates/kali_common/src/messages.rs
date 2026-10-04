@@ -247,6 +247,17 @@ pub const CLASS_REASON_EXPRESSION: &str = "is a class expression and keeps state
 pub const CLASS_REASON_EXPORTED: &str = "is exported and keeps state";
 pub const CLASS_REASON_AMBIGUOUS: &str = "is declared more than once and keeps state";
 pub const CLASS_REASON_UNLOWERED: &str = "reached code generation without being lowered";
+/// Ruling R-25: the factory and method functions are not closures over the
+/// function the class is declared in.
+pub const CLASS_REASON_ENCLOSING_LOCAL: &str = "reads a variable of an enclosing function";
+/// Ruling R-26: the factory runs field initializers inside the constructor's scope.
+pub const CLASS_REASON_INITIALIZER_SCOPE: &str =
+    "has a field initializer that names a parameter or variable of its constructor";
+/// Ruling R-27.
+pub const CLASS_REASON_FIELD_METHOD: &str = "has a field and a method with the same name";
+/// Ruling R-29: `new X().m()` of a class kali does not rewrite.
+pub const CLASS_REASON_SAME_EXPRESSION: &str =
+    "is outside the class-instances slice and its new result is used in the same expression";
 /// Ruling R-23: a rewritten class's field holds one 8-byte number slot.
 pub const CLASS_REASON_FIELD_VALUE: &str =
     "has a field that may hold a value other than a number or boolean";

@@ -3,7 +3,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kali_ast::{ClassDeclaration, ClassExpression, Expression, FunctionDeclaration, Statement, VariableDeclarator};
+use kali_ast::{
+    ClassDeclaration, ClassExpression, Expression, FunctionDeclaration, ImportSpecifier, Statement,
+    VariableDeclarator,
+};
 
 use super::walk::{walk, Cx, FnKey, Pos, Visitor};
 
@@ -47,8 +50,31 @@ impl Collect {
 
 impl Visitor for Collect {
     fn expr(&mut self, expr: &mut Expression, _pos: &Pos, _cx: &Cx) {
-        if let Expression::Identifier(name) = expr {
-            self.spelled.insert(name.clone());
+        match expr {
+            Expression::Identifier(name) => {
+                self.spelled.insert(name.clone());
+            }
+            // A function expression's or arrow's own name (R-30r).
+            Expression::FunctionExpression(f) => self.spelled.extend(f.id.clone()),
+            Expression::ArrowFunctionExpression(a) => self.spelled.extend(a.id.clone()),
+            _ => {}
+        }
+    }
+    fn stmts(&mut self, list: &mut Vec<Statement>, _cx: &Cx) {
+        // Import locals (R-30r); the walker does not descend into imports.
+        for statement in list.iter() {
+            let Statement::ImportDeclaration(import) = statement else { continue };
+            for specifier in &import.specifiers {
+                match specifier {
+                    ImportSpecifier::Default(local) | ImportSpecifier::Namespace(local) => {
+                        self.spelled.insert(local.clone());
+                    }
+                    ImportSpecifier::Named(named) | ImportSpecifier::Type(named) => {
+                        self.spelled.extend(named.iter().map(|n| n.local.clone()));
+                    }
+                    ImportSpecifier::SideEffect => {}
+                }
+            }
         }
     }
     fn enter_frame(&mut self, cx: &Cx, params: &[String]) {
@@ -98,6 +124,20 @@ impl Scopes {
             }
         }
         Resolved::Free
+    }
+
+    /// The innermost enclosing frame that declares `name`, however often.
+    pub(crate) fn declaring_frame<'c>(&self, name: &str, cx: &'c Cx) -> Option<&'c str> {
+        cx.frames
+            .iter()
+            .rev()
+            .find(|frame| self.declares(&frame.key, name))
+            .map(|frame| frame.key.as_str())
+    }
+
+    /// Whether `frame` itself declares `name` (a parameter or a declaration).
+    pub(crate) fn declares(&self, frame: &str, name: &str) -> bool {
+        self.declared.get(frame).is_some_and(|names| names.contains_key(name))
     }
 
     pub(crate) fn params(&self, frame: &str) -> &[String] {

@@ -234,6 +234,22 @@ fn class_instance_messages_are_stable() {
         "constructing class `P` is unavailable in the current phase: it has a field that may hold a value other than a number or boolean; kali refuses rather than build an instance whose fields read 0"
     );
     assert_eq!(
+        class_construction_unavailable_message("C", CLASS_REASON_ENCLOSING_LOCAL),
+        "constructing class `C` is unavailable in the current phase: it reads a variable of an enclosing function; kali refuses rather than build an instance whose fields read 0"
+    );
+    assert_eq!(
+        class_construction_unavailable_message("C", CLASS_REASON_INITIALIZER_SCOPE),
+        "constructing class `C` is unavailable in the current phase: it has a field initializer that names a parameter or variable of its constructor; kali refuses rather than build an instance whose fields read 0"
+    );
+    assert_eq!(
+        class_construction_unavailable_message("C", CLASS_REASON_FIELD_METHOD),
+        "constructing class `C` is unavailable in the current phase: it has a field and a method with the same name; kali refuses rather than build an instance whose fields read 0"
+    );
+    assert_eq!(
+        class_construction_unavailable_message("S", CLASS_REASON_SAME_EXPRESSION),
+        "constructing class `S` is unavailable in the current phase: it is outside the class-instances slice and its new result is used in the same expression; kali refuses rather than build an instance whose fields read 0"
+    );
+    assert_eq!(
         plain_function_construction_unavailable_message("Box"),
         "constructing an object with the plain function `Box` is unavailable in the current phase; use a class"
     );

@@ -2,6 +2,7 @@
 //! rewrites each in-slice program class to an object-literal factory and
 //! `__this`-taking functions, and refuses every instance it cannot prove.
 
+pub(crate) mod captures;
 pub(crate) mod classes;
 pub(crate) mod kinds;
 pub(crate) mod provenance;
@@ -48,6 +49,7 @@ pub fn rewrite_class_instances(statements: &mut Vec<Statement>) -> ClassRewrite 
         .collect();
     provenance::reassociate_new(statements, &plans);
     let scopes = scopes::Scopes::build(statements);
+    diagnostics.extend(captures::check_captures(statements, &scopes, &plans));
     let env = provenance::build_env(statements, &scopes, &plans);
     let prov = provenance::Provenance::solve(statements, &env);
     diagnostics.extend(kinds::check_field_kinds(statements, &env, &prov));
@@ -155,6 +157,9 @@ impl Visitor for Sweep<'_> {
     }
 }
 
+#[cfg(test)]
+#[path = "captures_tests.rs"]
+mod captures_tests;
 #[cfg(test)]
 #[path = "classes_tests.rs"]
 mod classes_tests;

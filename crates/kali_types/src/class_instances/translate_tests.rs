@@ -54,7 +54,7 @@ fn a_program_without_rewritable_classes_is_byte_identical() {
         "const o = { n: 1 }; o.n = 2; console.log(o.n);",
         "class X extends EventTarget { fire(){ this.addEventListener('t', () => {}); return 1; } } const x = new X(); x.fire();",
         "class U { static twice(x){ return 2*x; } } U.twice(4);",
-        "class A{ f(){return 4;} } class B extends A{} new B().f();",
+        "class A{ f(){return 4;} } class B extends A{} const b = new B(); b.f();",
     ] {
         let before = parse_statements(src);
         let (after, d, changed) = rewrite(src);

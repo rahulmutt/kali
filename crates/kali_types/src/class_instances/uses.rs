@@ -31,19 +31,22 @@ pub(crate) fn check_and_rewrite(
     env: &Env,
     prov: &Provenance,
 ) -> Vec<Diagnostic> {
-    let generated = env
-        .plans
-        .rewritten
-        .values()
-        .flat_map(|class| {
-            class.methods.iter().map(|m| {
-                (
-                    format!("{}__{m}", class.name),
-                    (class.name.clone(), m.clone()),
-                )
-            })
-        })
-        .collect();
+    // R-30r: a name generated twice is poisoned (`None`), never overwritten;
+    // planning has already refused it.
+    let mut generated: BTreeMap<String, Option<(String, String)>> = BTreeMap::new();
+    for class in env.plans.rewritten.values() {
+        for m in &class.methods {
+            generated
+                .entry(format!("{}__{m}", class.name))
+                .and_modify(|owner| *owner = None)
+                .or_insert(Some((class.name.clone(), m.clone())));
+        }
+    }
+    for class in env.plans.rewritten.values() {
+        if let Some(owner) = generated.get_mut(&format!("{}__new", class.name)) {
+            *owner = None;
+        }
+    }
     let mut uses = Uses {
         env,
         prov,
@@ -57,8 +60,8 @@ pub(crate) fn check_and_rewrite(
 struct Uses<'e, 'a> {
     env: &'e Env<'a>,
     prov: &'e Provenance,
-    /// Generated method name `C__m` → `(C, m)`.
-    generated: BTreeMap<String, (String, String)>,
+    /// Generated method name `C__m` → `(C, m)`; `None` when two classes generate it.
+    generated: BTreeMap<String, Option<(String, String)>>,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -338,7 +341,7 @@ impl Uses<'_, '_> {
     fn call_arg(&mut self, class: &str, callee: &Expression, index: usize, cx: &Cx) {
         match strip(callee) {
             Expression::Identifier(name) => {
-                if let Some((owner, method)) = self.generated.get(name).cloned() {
+                if let Some(Some((owner, method))) = self.generated.get(name).cloned() {
                     if index == 0 {
                         if owner != class {
                             let place = format!("the receiver of `{owner}.{method}`");
