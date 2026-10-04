@@ -15,7 +15,7 @@ mod program;
 
 pub use analysis::arena_gate::{compute_arena_table, FunctionArenaFacts, LoopArenaFacts};
 pub use binding::{BorrowedLifetime, MirBinding, MirBindingKind};
-pub use env_plan::{derive_env_plans, iteration_label, CapturedRef, EnvCell, EnvPlan};
+pub use env_plan::{derive_env_plans, iteration_label, repr_owner, CapturedRef, EnvCell, EnvPlan};
 pub use function::{MirFunction, MirFunctionKind};
 pub use layout::LayoutDescriptor;
 pub use lower::MirLowerer;
