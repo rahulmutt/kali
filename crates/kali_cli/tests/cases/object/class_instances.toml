@@ -14,6 +14,12 @@ class Stack{ constructor(){ this.n=0; } add(x){ this.n=this.n+x; } } function ma
 "ctor_arg.js" = '''
 class C{ constructor(v){ this.n=v; } get(){ return this.n+1; } } const s=new C(4); console.log(s.get(), s.n);
 '''
+"method_instance_flow.js" = '''
+class P{ constructor(x){ this.x=x; } } class C{ constructor(){ this.n=0; } take(p){ return p.x; } self(){ return this; } } const c=new C(); const d=c.self(); console.log(c.take(new P(7)), d.n);
+'''
+"init_then_ctor.js" = '''
+class C{ n=2; constructor(){ this.m=this.n*3; } } const c=new C(); console.log(c.n, c.m);
+'''
 
 "14a.js" = '''
 class S { push(v){ return v+1; } } console.log(new S().push(1));
@@ -698,3 +704,17 @@ args = ["check", "captured_by_nested_fn.js"]
 exit = "failure"
 stdout = ""
 stderr_contains = ["E5506", "a value captured from an enclosing function"]
+
+[[case]]
+name = "an_instance_passes_to_a_method_and_returns_from_one"
+rationale = """Not a baseline probe (added in the Task 11 fix round to pin the maturity row). node v26.10.0 prints `7 0`. An instance of `P` is passed to a method of `C`, and a method returns `this`, which is read through the returned binding."""
+args = ["run", "method_instance_flow.js"]
+exit = "success"
+stdout = "7 0\n"
+
+[[case]]
+name = "a_field_initializer_runs_before_the_constructor"
+rationale = """Not a baseline probe (added in the Task 11 fix round to pin the maturity row). node v26.10.0 prints `2 6`: the initializer `n = 2` runs, then the constructor reads it."""
+args = ["run", "init_then_ctor.js"]
+exit = "success"
+stdout = "2 6\n"
