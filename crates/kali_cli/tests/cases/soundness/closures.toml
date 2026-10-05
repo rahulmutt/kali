@@ -50,7 +50,7 @@
 [source]
 "sync_scalar_capture_write_is_visible_to_owner.js" = """function outer(){ let c = 0; function inc(){ c += 1; } inc(); inc(); console.log(c); } outer();
 """
-"capture_gate_owner_f64_compound_assign_rejects_not_miscompiles.js" = """function outer(){ let c = 0.5; function inc(){ c += 1; } inc(); inc(); console.log(c); } outer();
+"capture_gate_owner_f64_compound_assign_lowers_not_miscompiles.js" = """function outer(){ let c = 0.5; function inc(){ c += 1; } inc(); inc(); console.log(c); } outer();
 """
 "capture_gate_owner_f64_update_expr_rejects_not_miscompiles.js" = """function outer(){ let c = 0.5; function inc(){ c++; } inc(); console.log(c); } outer();
 """
@@ -235,17 +235,19 @@ exit = "success"
 stdout = "2\n"
 
 [[case]]
-name = "capture_gate_owner_f64_compound_assign_rejects_not_miscompiles"
+name = "capture_gate_owner_f64_compound_assign_lowers_not_miscompiles"
 rationale = """Stage C (closures) C1 — synchronous scalar capture end-to-end.
 
 A nested function that shares an enclosing scalar local with its owner must read and write the SAME storage cell as the owner (JS captures variables, not values). Before C1 the write path hard-failed E5506 and the read path silently produced `0`; these tests pin the sound behavior byte-for-byte against node.
 
 C1 review Finding 1 (owner-repr capture gate). The OWNER declares an `F64` scalar (`let c = 0.5`), so `lower.rs` does NOT promote it to an env cell (it stays an f64 WASM local). A nested `c += 1` must therefore be REJECTED, not silently routed to a phantom i64 env cell the owner never allocated. Before the fix the capturer gated on ITS OWN repr namespace — where the undeclared name `c` defaults to `I64` — and emitted a cell write the owner never read, printing `0.5` (node: `2.5`). The owner's F64 verdict now decides: E5506.
 
-Assert the program is REJECTED with `E5506` (the reject-don't-miscompile contract) rather than silently producing a value."""
-args = ["run", "capture_gate_owner_f64_compound_assign_rejects_not_miscompiles.js"]
-exit = "failure"
-stderr_contains = ["E5506"]
+Assert the program is REJECTED with `E5506` (the reject-don't-miscompile contract) rather than silently producing a value.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 12; class: wanted, refused → node-equal; renamed from `capture_gate_owner_f64_compound_assign_rejects_not_miscompiles`, whose name would now lie): phase 2 gives an owner-`F64` local a real F64 closure cell (spec amendment A-4, ruling R14), so the owner and the capturer now share ONE cell and the capturer's `c += 1` is a cell load → f64 add → store. The phantom-i64-cell miscompile this case guarded against is still impossible: the program prints node's value instead of being refused. node prints `2.5`. kali at baseline `2ddf18c66` and at phase 1 (`d640fbf26`) exited 1 with E5506; HEAD exits 0 and prints `2.5`, and `check` exits 0. The case now pins node's stdout byte-for-byte. The `c++` sibling below stays refused (an update expression on a captured F64 is not lowered, A-4)."""
+args = ["run", "capture_gate_owner_f64_compound_assign_lowers_not_miscompiles.js"]
+exit = "success"
+stdout = "2.5\n"
 
 [[case]]
 name = "capture_gate_owner_f64_update_expr_rejects_not_miscompiles"

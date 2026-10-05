@@ -367,7 +367,10 @@ and `env_chain_owning_capturer_parent_walk` (depth-1, owning capturer, env-walk
 - **Owner-repr capture gate (F64 phantom-cell)**:
   `capture_gate_owner_f64_compound_assign_rejects_not_miscompiles` /
   `..._update_expr..` — an owner-`F64` capture must reject (E5506), not write a
-  phantom i64 cell.
+  phantom i64 cell. (2026-10-05: captured-bindings phase 2 gave owner-`F64`
+  locals a real F64 cell; the compound-assign case is renamed
+  `capture_gate_owner_f64_compound_assign_lowers_not_miscompiles` and pins
+  node's `2.5`. The `c++` case still rejects.)
 - **F-AB-2 string/growable in exotic body**:
   `exotic_string_capture_in_array_element_fails_closed` (E3200) /
   `exotic_growable_capture_in_array_element_fails_closed` (E5506) — the
