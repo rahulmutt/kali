@@ -835,6 +835,13 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let Some(name) = self.assignment_target_name(node, left) else {
+            // Captured-bindings ruling R13: the member store fallback (no
+            // lane stored it) for a member rooted at any capture of this
+            // function — `return false` would drop the store.
+            if let Some(message) = self.capture_member_fallback_refusal(self.node(left)) {
+                self.deny_e5506(function, &message);
+                return true;
+            }
             if op == "=" {
                 return false;
             }

@@ -244,16 +244,13 @@ fn a_rewritten_parameter_without_a_proof_is_refused() {
 }
 
 #[test]
-fn a_user_written_copy_of_an_object_parameter_is_refused() {
-    // ol2: `const o=p` takes the parameter's TaggedVal layout too.
+fn a_user_written_copy_of_an_object_parameter_is_admitted() {
+    // Ruling R13: only the `{p}` spelling is keyed; `const o=p` (d6/e2 shape,
+    // lowered by `run`'s C2) stays admitted — the A-2.6 residue for ol2.
     let found = refusals_after_rewrite(
-        "function f(p){ const o=p; const g=()=>o.a; return g(); } const x={a:1}; console.log(f(x));",
+        "function outer(p){ let obj = p; function rd(){ return obj.n; } console.log(rd()); } const x={n:4}; outer(x);",
     );
-    assert_eq!(found.len(), 1, "{found:?}");
-    assert!(
-        found[0].contains("its value type has no closure cell"),
-        "{found:?}"
-    );
+    assert!(found.is_empty(), "{found:?}");
 }
 
 #[test]

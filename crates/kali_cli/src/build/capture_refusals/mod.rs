@@ -92,10 +92,9 @@ pub(super) struct Recorder {
     /// MIR gives them an `Array` / `Struct` / `TaggedVal` / `Closure` layout,
     /// never `Scalar` (`kali_mir::analysis::infer::infer_layout`).
     non_scalar: BTreeSet<(usize, String)>,
-    /// Locals whose initializer is a bare parameter of their own function:
-    /// Task 7's rewritten `let k = k{p}` and a user-written `let n = k`
-    /// (ruling R9 (c')). MIR gives them the parameter's `TaggedVal` layout.
-    param_copies: BTreeSet<(usize, String)>,
+    /// Task 7 rewritten-parameter locals: `let k = k{p}`, whose initializer
+    /// is the bare identifier spelled `<name>{p}` (rulings R9 (c'), R13).
+    rewritten_params: BTreeSet<(usize, String)>,
 }
 
 impl Hooks for Recorder {
@@ -171,16 +170,13 @@ impl Hooks for Recorder {
         if let (true, Some(binding)) = (non_scalar, self.last_bind.clone()) {
             self.non_scalar.insert(binding);
         }
-        // A local initialized from a parameter of its own function: a Task 7
-        // rewritten parameter (`let k = k{p}`) or a user-written copy
-        // (`let n = k`). Both take the parameter's `TaggedVal` layout.
+        // A Task 7 rewritten-parameter local: `let k = k{p}`, whose
+        // initializer is the bare identifier spelled `<name>{p}` (ruling R13
+        // keys on the spelling alone; a user-written `let n = p` stays
+        // admitted, the A-2.6 residue).
         if let (Expression::Identifier(source), Some(binding)) = (init, self.last_bind.clone()) {
-            let current = *self.stack.last().expect("initializer inside a scope");
-            let from_own_param = self.resolve(current, source).is_some_and(|(scope, kind)| {
-                kind == BindKind::Param && self.scopes[scope].frame == self.scopes[binding.0].frame
-            });
-            if from_own_param {
-                self.param_copies.insert(binding);
+            if *source == format!("{}{{p}}", binding.1) {
+                self.rewritten_params.insert(binding);
             }
         }
     }
@@ -298,8 +294,8 @@ struct Capture {
     kind: BindKind,
     /// The binding's initializer is an array, object or function literal.
     non_scalar: bool,
-    /// The binding is initialized from its function's own parameter.
-    param_copy: bool,
+    /// The binding is a Task 7 rewritten-parameter local (`let k = k{p}`).
+    rewritten_param: bool,
 }
 
 /// Captured-bindings §3.4 / A-2.6: one E5506 per (capturing function,
@@ -343,7 +339,7 @@ pub(crate) fn capture_refusals(
             name: u.name.clone(),
             kind,
             non_scalar: recorder.non_scalar.contains(&(scope, u.name.clone())),
-            param_copy: recorder.param_copies.contains(&(scope, u.name.clone())),
+            rewritten_param: recorder.rewritten_params.contains(&(scope, u.name.clone())),
         });
     }
     // Owners of a captured binding outside every iteration record, as MIR's
@@ -370,7 +366,7 @@ pub(crate) fn capture_refusals(
             Some(CaptureRefusal::Depth)
         } else if phase == Phase::One && c.kind == BindKind::Param {
             Some(CaptureRefusal::Parameter { owner: owner_key })
-        } else if (c.param_copy && !param_copy_has_a_cell(repr_table, owner_key, &c.name))
+        } else if (c.rewritten_param && !rewritten_param_has_a_cell(repr_table, owner_key, &c.name))
             || !repr_has_a_cell(repr_table, owner_key, &c.name, c.non_scalar, phase)
         {
             Some(CaptureRefusal::ValueType)
@@ -404,13 +400,19 @@ fn structural_depth(frames: &[Frame], from: usize, to: usize, owners: &BTreeSet<
     depth
 }
 
-/// Ruling R9 (c'): a local copied from a parameter (rewritten or user-written)
-/// is a `TaggedVal` cell, which
-/// codegen promotes only as a proven-numeric `I64` (A-1 point 3; an Object
-/// repr is excluded, spec §1.1). Mirrors `cell_is_promotable`'s tagged branch.
-fn param_copy_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> bool {
-    // Task 9: F64 with proof
-    table.scalar(owner, name) == Repr::I64 && table.binding_is_proven_numeric(owner, name)
+/// Rulings R9 (c') / R13: a rewritten-parameter local is a `TaggedVal` cell.
+/// Codegen promotes it as a proven-numeric `I64` (A-1 point 3) or, on either
+/// side of the scalar bit, as an abort handle (`cell_is_promotable`'s first
+/// arm). An `Object` repr is refused here although C2 promotes it: spec §1.1
+/// does not widen Object parameters, and `run` refuses the member access no
+/// lane resolves (ruling R13).
+fn rewritten_param_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> bool {
+    match table.scalar(owner, name) {
+        Repr::AbortHandle => true,
+        // Task 9: F64 with proof
+        Repr::I64 => table.binding_is_proven_numeric(owner, name),
+        _ => false,
+    }
 }
 
 /// Mirrors `kali_codegen::closure::cell_is_promotable`: a non-scalar cell

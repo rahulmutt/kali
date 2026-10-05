@@ -61,8 +61,6 @@ pub(crate) fn env_save_local_name() -> String {
 ///   `!is_scalar`) is what keeps `LayoutDescriptor::Closure`/`Array`/`TaggedVal`
 ///   heap cells OUT — their repr is never `Object`, so a closure-as-value
 ///   capture (`nested-wrapper-pruning`) stays byte-identical to baseline.
-///   Under [`Widening::CapturedBindings`] with `is_tagged`, an Object-repr
-///   `TaggedVal` cell is excluded (ruling R9; spec §1.1, no Object parameters).
 ///
 /// - **A-1 tagged-i64** (captured-bindings): a NON-scalar cell whose MIR
 ///   layout is `TaggedVal` (a parameter's layout, and a local copied from
@@ -91,11 +89,7 @@ pub(crate) fn cell_is_promotable(
         return repr == kali_common::Repr::I64;
     }
     if matches!(repr, kali_common::Repr::Object(_)) {
-        // Captured-bindings ruling R9: an Object-repr `TaggedVal` cell (a
-        // rewritten parameter, or a local copied from one) is not a C2
-        // fixed-shape object — its promoted member reads measured `0` where
-        // node reads the field. Spec §1.1: Object parameters are not widened.
-        return !widening.admits_tagged();
+        return true;
     }
     // Captured-bindings A-1: a TaggedVal cell promotes only on positive
     // numeric evidence, and only where the widening applies.

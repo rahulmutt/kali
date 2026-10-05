@@ -48,12 +48,12 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_string_valued(arg) || self.string_result_render_taint(arg) {
             return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
         }
-        // Captured-bindings ruling R9: `o.a++` on a capture this function did
-        // not lower is refused, as the read and the store are.
-        if let Some(message) = self.unlowered_capture_member_refusal(self.node(arg)) {
-            return self.deny_e5506(function, &message);
-        }
         let Some(name) = self.assignment_target_name(node, arg) else {
+            // Captured-bindings rulings R9/R13: no lane lowers a member update,
+            // so one rooted at a capture is refused with the §3.1 message.
+            if let Some(message) = self.capture_member_fallback_refusal(self.node(arg)) {
+                return self.deny_e5506(function, &message);
+            }
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 "update expression lowering is unavailable unless the target is a mutable local binding; use a mutable variable or the later compatibility path",
@@ -788,10 +788,10 @@ impl<'a> FunctionEmitter<'a> {
                 // silently and wrongly. The REJECT-DON'T-MISCOMPILE arms above
                 // are the shape a fix for it would take.
                 //
-                // Captured-bindings ruling R9 (spec §3.1): a member read off a
-                // capture this function did not lower is refused here, after
-                // every specific member lane had its chance to deny or lower it.
-                if let Some(message) = self.unlowered_capture_member_refusal(node) {
+                // Captured-bindings rulings R9/R13 (spec §3.1): a member read
+                // off any capture of this function that reaches here (no lane
+                // resolved it) is refused rather than read as the placeholder.
+                if let Some(message) = self.capture_member_fallback_refusal(node) {
                     return self.deny_e5506(function, &message);
                 }
                 self.diagnostics.push(Diagnostic::warning(

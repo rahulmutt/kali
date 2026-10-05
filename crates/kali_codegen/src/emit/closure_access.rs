@@ -256,25 +256,16 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    /// Captured-bindings ruling R9: the refusal for a static member access
-    /// (`o.a`, `o.a.b`) whose root object is a bare identifier this function
-    /// captures but did not lower. The member lanes resolve the receiver by
-    /// name and never emit the identifier, so they bypass the read choke and
-    /// used to read the zero placeholder. `None` when `member` is not a
-    /// static member chain rooted at such a capture.
-    pub(crate) fn unlowered_capture_member_refusal(&self, member: &LirNode) -> Option<String> {
+    /// The root identifier of a static member chain (`o.a`, `o.a.b`), or
+    /// `None` when `member` is not one (a bare identifier, an operator, a
+    /// call, a computed access).
+    fn static_member_chain_root<'n>(&'n self, member: &'n LirNode) -> Option<&'n str> {
         let mut node = member;
         let mut depth = 0;
         loop {
             let text = node.text.as_deref()?;
             if node.children.is_empty() {
-                // A childless node is the root identifier; `member` itself
-                // being childless is a bare read, which the read choke owns.
-                return if depth == 0 || text.is_empty() {
-                    None
-                } else {
-                    self.unlowered_capture_refusal(text)
-                };
+                return (depth > 0 && !text.is_empty()).then_some(text);
             }
             if node.kind != LirNodeKind::Value
                 || node.children.len() != 1
@@ -286,6 +277,37 @@ impl<'a> FunctionEmitter<'a> {
             node = self.node(node.children[0]);
             depth += 1;
         }
+    }
+
+    /// Captured-bindings ruling R9: the refusal for a static member access
+    /// whose root is a capture this function did not lower. The member lanes
+    /// resolve the receiver by name and never emit the identifier, so they
+    /// bypass the read choke and used to read the zero placeholder.
+    pub(crate) fn unlowered_capture_member_refusal(&self, member: &LirNode) -> Option<String> {
+        self.unlowered_capture_refusal(self.static_member_chain_root(member)?)
+    }
+
+    /// Captured-bindings ruling R13: the refusal at the member read / store /
+    /// update FALLBACK (no lane resolved the shape) for a static member chain
+    /// rooted at ANY capture of this function, lowered or not — a promoted C2
+    /// cell whose member no lane resolves used to read the zero placeholder
+    /// (`function mk(){return {a:1};} function f(){ let o=mk(); const g=()=>o.a;
+    /// return g(); }` printed `0`). An unlowered capture keeps its §3.1 reason;
+    /// a lowered one takes the value-type reason. `None` for this function's
+    /// own local or cell, and for a non-capture.
+    pub(crate) fn capture_member_fallback_refusal(&self, member: &LirNode) -> Option<String> {
+        let name = self.static_member_chain_root(member)?;
+        if self.locals.contains_key(name) || self.env_plan.cell_for(name).is_some() {
+            return None;
+        }
+        self.env_plan.captured_for(name)?;
+        Some(self.unlowered_capture_refusal(name).unwrap_or_else(|| {
+            kali_common::captured_binding_unavailable_message(
+                &self.function_name,
+                name,
+                kali_common::CaptureRefusal::ValueType,
+            )
+        }))
     }
 
     /// Captured-bindings spec §3.1 (A-2.3, A-2.5): the refusal for a name
