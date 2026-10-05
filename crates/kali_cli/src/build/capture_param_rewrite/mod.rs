@@ -20,8 +20,9 @@
 //!   for variant (no `_ =>` arm anywhere, so a new AST variant fails to
 //!   compile here) and advances its frame counter at exactly the nodes where
 //!   `walk.rs` calls `enter(ScopeKind::Module | ScopeKind::Function, …)`, in
-//!   the same order. A debug build asserts both passes counted the same
-//!   number of frames.
+//!   the same order. Every build (release included) asserts both passes
+//!   counted the same number of frames, so a desync panics instead of
+//!   rewriting the wrong frame's parameters.
 //!
 //! The pass is idempotent: the body reads `k`, never `k{p}`, so a `{p}`
 //! parameter is never captured.
@@ -53,12 +54,12 @@ pub fn rewrite_captured_params(statements: &mut [Statement]) -> usize {
         rewritten: 0,
     };
     rewriter.program(statements);
-    debug_assert_eq!(
+    assert_eq!(
         rewriter.next_frame,
         recorder.frame_count(),
         "capture_param_rewrite: pass B must count the frames pass A counted"
     );
-    debug_assert!(
+    assert!(
         rewriter.captured.is_empty(),
         "every captured frame is visited"
     );

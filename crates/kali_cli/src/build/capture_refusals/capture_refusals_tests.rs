@@ -192,7 +192,8 @@ fn a_captured_object_literal_local_is_refused_unless_its_repr_is_an_object() {
     assert!(found[0].contains("that captures `o`"), "{found:?}");
 }
 
-/// The `run`/`check` pipeline order: the Task 7 rewrite, then repr inference.
+/// The `run`/`check` pipeline order: the captured-parameter rewrite (spec
+/// §3.2, A-1), then repr inference.
 fn refusals_after_rewrite(source: &str) -> Vec<String> {
     let mut statements = parse(source);
     crate::build::name_anon_functions::name_anonymous_functions(&mut statements);
@@ -204,8 +205,8 @@ fn refusals_after_rewrite(source: &str) -> Vec<String> {
         .collect()
 }
 
-// Ruling R9 (c'): a rewritten parameter local has a cell only as a proven
-// numeric I64.
+// A rewritten parameter local has a cell only as a proven numeric I64
+// (captured-bindings followups §6 CB-9, CB-13).
 #[test]
 fn a_rewritten_object_parameter_is_refused_by_value_type() {
     let found = refusals_after_rewrite(
@@ -221,7 +222,8 @@ fn a_rewritten_object_parameter_is_refused_by_value_type() {
 
 #[test]
 fn a_rewritten_boolean_parameter_with_a_numeric_proof_is_admitted() {
-    // R11: the numeric proof admits `f(true)`; `run` promotes the cell.
+    // The numeric proof admits `f(true)`; `run` promotes the cell and renders
+    // `1`, as uncaptured (followups §6 CB-11, spec A-2.1).
     let found = refusals_after_rewrite("function f(b){ const g=()=>b; return g(); } f(true);");
     assert!(found.is_empty(), "{found:?}");
 }
@@ -245,7 +247,7 @@ fn a_rewritten_parameter_without_a_proof_is_refused() {
 
 #[test]
 fn a_user_written_copy_of_an_object_parameter_is_admitted() {
-    // Ruling R13: only the `{p}` spelling is keyed; `const o=p` (d6/e2 shape,
+    // Only the `{p}` spelling is keyed (followups §6 CB-13); `const o=p` (d6/e2 shape,
     // lowered by `run`'s C2) stays admitted — the A-2.6 residue for ol2.
     let found = refusals_after_rewrite(
         "function outer(p){ let obj = p; function rd(){ return obj.n; } console.log(rd()); } const x={n:4}; outer(x);",
@@ -261,7 +263,7 @@ fn a_user_written_copy_of_a_numeric_parameter_is_admitted() {
     assert!(found.is_empty(), "{found:?}");
 }
 
-// Captured-bindings Task 9 (A-4, ruling R14): a capturer may only write a
+// Captured-bindings A-4 (followups §6 CB-14, CB-15): a capturer may only write a
 // captured F64, as an assignment statement (`= += -= *= /=`); any other
 // reference to it is a read codegen refuses.
 fn is_value_type_refusal(found: &[String]) -> bool {
@@ -327,7 +329,7 @@ fn a_boolean_const_capture_is_admitted_in_phase_two() {
 
 #[test]
 fn a_rewritten_f64_parameter_is_refused_even_with_a_numeric_proof() {
-    // Ruling R14: the `{p}` rule stays I64-with-proof only, even for a
+    // The `{p}` rule stays I64-with-proof only (spec A-4), even for a
     // write-only capturer.
     let found = refusals_after_rewrite(
         "function f(x){ const g=()=>{ x=2.5; }; g(); return x; } console.log(f(1.5));",

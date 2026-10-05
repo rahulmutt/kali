@@ -8,7 +8,7 @@
 //! Residue (A-2.6): a TaggedVal local codegen does not promote is admitted
 //! here, because MIR layouts are not visible before MIR. MIR's non-scalar
 //! layouts are mirrored only for a syntactic array, object or function
-//! initializer (ruling R7); a non-scalar layout reached any other way (for
+//! initializer (captured-bindings followups §6 CB-7); a non-scalar layout reached any other way (for
 //! example `let a = makeArr()`) is admitted here while `run` refuses it.
 //!
 //! Iteration records (A-2.5, §3.4) are out of this pass: a capture of a
@@ -33,10 +33,16 @@ mod capture_refusals_tests;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Phase {
     /// Before the parameter rewrite: a captured parameter is refused.
+    /// Test-only: no production caller passes it since the parameter rewrite
+    /// landed (the compile pipeline always passes `Two`). The unit tests keep
+    /// it to pin the refusal reasons that do not depend on the rewrite
+    /// (depth, value type) on un-rewritten sources, and the parameter reason
+    /// itself.
     One,
-    /// After the parameter rewrite (Task 7), so parameters no longer occur.
-    /// A captured F64 that its capturer only writes (assignment statements,
-    /// rulings R14/R15) is admitted in both phases.
+    /// After the parameter rewrite (captured-bindings spec §3.2, A-1), so
+    /// parameters no longer occur. A captured F64 that its capturer only
+    /// writes (assignment statements; spec A-4, followups §6 CB-14/CB-15) is
+    /// admitted in both phases.
     Two,
 }
 
@@ -74,7 +80,7 @@ struct Use {
     scope: usize,
     name: String,
     /// The target of an assignment statement whose value codegen discards,
-    /// with an operator an F64 cell lowers from a capturer (ruling R14).
+    /// with an operator an F64 cell lowers from a capturer (spec A-4).
     f64_write: bool,
 }
 
@@ -94,11 +100,12 @@ pub(super) struct Recorder {
     /// MIR gives them an `Array` / `Struct` / `TaggedVal` / `Closure` layout,
     /// never `Scalar` (`kali_mir::analysis::infer::infer_layout`).
     non_scalar: BTreeSet<(usize, String)>,
-    /// Task 7 rewritten-parameter locals: `let k = k{p}`, whose initializer
-    /// is the bare identifier spelled `<name>{p}` (rulings R9 (c'), R13).
+    /// Rewritten-parameter locals (spec §3.2, A-1): `let k = k{p}`, whose
+    /// initializer is the bare identifier spelled `<name>{p}` (followups §6
+    /// CB-9, CB-13).
     rewritten_params: BTreeSet<(usize, String)>,
     /// The identifier target of the assignment statement being walked, when
-    /// its operator is one ruling R14 lowers on a captured F64 cell; the next
+    /// its operator is one spec A-4 lowers on a captured F64 cell; the next
     /// reference (the left-hand side, walked first) is that write.
     pending_f64_write: Option<String>,
 }
@@ -176,9 +183,9 @@ impl Hooks for Recorder {
         if let (true, Some(binding)) = (non_scalar, self.last_bind.clone()) {
             self.non_scalar.insert(binding);
         }
-        // A Task 7 rewritten-parameter local: `let k = k{p}`, whose
-        // initializer is the bare identifier spelled `<name>{p}` (ruling R13
-        // keys on the spelling alone; a user-written `let n = p` stays
+        // A rewritten-parameter local (spec §3.2): `let k = k{p}`, whose
+        // initializer is the bare identifier spelled `<name>{p}` (followups
+        // §6 CB-13: keyed on the spelling alone; a user-written `let n = p` stays
         // admitted, the A-2.6 residue).
         if let (Expression::Identifier(source), Some(binding)) = (init, self.last_bind.clone()) {
             if *source == format!("{}{{p}}", binding.1) {
@@ -234,7 +241,9 @@ impl Hooks for Recorder {
             _ => false,
         };
         if registers {
-            // Every open loop textually contains the call (MIR ruling R8).
+            // Every open loop textually contains the call, so each may own a
+            // per-iteration record (wider than MIR's registration rule; see
+            // followups §3 Notes).
             for &id in &self.open_loops {
                 self.loops[id].registers = true;
             }
@@ -314,7 +323,7 @@ struct Capture {
     kind: BindKind,
     /// The binding's initializer is an array, object or function literal.
     non_scalar: bool,
-    /// The binding is a Task 7 rewritten-parameter local (`let k = k{p}`).
+    /// The binding is a rewritten-parameter local (`let k = k{p}`, spec §3.2).
     rewritten_param: bool,
     /// This reference is a discarded `=` / `+=` / `-=` / `*=` / `/=` target.
     f64_write: bool,
@@ -370,7 +379,7 @@ pub(crate) fn capture_refusals(
     let mut env_owners = cell_owners;
     env_owners.extend(captures.iter().map(|c| c.owner));
 
-    // Ruling R14: a capturer that reads a captured binding anywhere other
+    // Spec A-4: a capturer that reads a captured binding anywhere other
     // than as a discarded write target. Codegen refuses such a read of an F64
     // cell; the writes alone lower.
     let reads: BTreeSet<(usize, &str)> = captures
@@ -438,16 +447,18 @@ fn structural_depth(frames: &[Frame], from: usize, to: usize, owners: &BTreeSet<
     depth
 }
 
-/// Rulings R9 (c') / R13: a rewritten-parameter local is a `TaggedVal` cell.
+/// A rewritten-parameter local is a `TaggedVal` cell (followups §6 CB-9,
+/// CB-13).
 /// Codegen promotes it as a proven-numeric `I64` (A-1 point 3) or, on either
 /// side of the scalar bit, as an abort handle (`cell_is_promotable`'s first
 /// arm). An `Object` repr is refused here although C2 promotes it: spec §1.1
 /// does not widen Object parameters, and `run` refuses the member access no
-/// lane resolves (ruling R13).
+/// lane resolves (followups §6 CB-13).
 fn rewritten_param_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> bool {
     match table.scalar(owner, name) {
         Repr::AbortHandle => true,
-        // Ruling R14: an F64 capture is refused by `repr_has_a_cell`.
+        // An F64 parameter capture is refused (spec A-4: the `{p}` rule is
+        // I64-with-proof only).
         Repr::I64 => table.binding_is_proven_numeric(owner, name),
         _ => false,
     }
@@ -455,7 +466,7 @@ fn rewritten_param_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> boo
 
 /// Mirrors `kali_codegen::closure::cell_is_promotable`: a non-scalar cell
 /// promotes only as `Object(_)` (or an abort handle), a scalar one as `I64`
-/// or `F64`. Ruling R14 (A-4): codegen lowers only a capturer's discarded
+/// or `F64`. Spec A-4: codegen lowers only a capturer's discarded
 /// `=` / `+=` / `-=` / `*=` / `/=` on an F64 cell and refuses every other read,
 /// so an F64 capture is admitted only when `writes_only` (the capturer never
 /// reads it otherwise). An assignment statement is the one discarded shape
