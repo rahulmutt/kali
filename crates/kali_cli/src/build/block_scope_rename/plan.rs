@@ -1,6 +1,6 @@
 //! Pass B, step 1: decide which bindings get a new spelling.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use super::table::{Binding, ScopeId, ScopeTable};
 
@@ -43,26 +43,42 @@ pub(crate) fn plan_renames(table: &ScopeTable) -> RenamePlan {
         (s.frame_level, s.depth, ordinal)
     };
 
+    // A scope binds a name at most once, so "a rival in another scope ranks
+    // lower" only needs the two lowest-ranked bindings of each key: if the
+    // lowest is `b` itself, the second lowest is the best rival.
+    let mut by_frame: HashMap<(ScopeId, &str), Lowest2<VariableRank>> = HashMap::new();
+    let mut program_wide: HashMap<&str, Lowest2<(bool, u32)>> = HashMap::new();
+    for &(s, name, b) in &all {
+        by_frame
+            .entry((table.scopes[s].frame, name))
+            .or_default()
+            .offer(rank(s, b.ordinal), s);
+        if b.kind.is_program_wide() {
+            program_wide
+                .entry(name)
+                .or_default()
+                .offer((s != 0, b.ordinal), s);
+        }
+    }
+
+    let mut chains: HashMap<ScopeId, Vec<ScopeId>> = HashMap::new();
     let mut chosen: Vec<(u32, ScopeId, &str)> = Vec::new();
     for &(s, name, b) in &all {
         if s == 0 {
             continue;
         }
-        let chain = frame_chain(table, s);
+        let frame = table.scopes[s].frame;
+        let chain = chains.entry(frame).or_insert_with(|| frame_chain(table, s));
         let mine = rank(s, b.ordinal);
-        let variable_rival = all.iter().any(|&(o, n, ob)| {
-            n == name
-                && o != s
-                && chain.contains(&table.scopes[o].frame)
-                && rank(o, ob.ordinal) < mine
+        let variable_rival = chain.iter().any(|f| {
+            by_frame
+                .get(&(*f, name))
+                .is_some_and(|lowest| lowest.has_rival_below(s, &mine))
         });
         let program_rival = b.kind.is_program_wide()
-            && all.iter().any(|&(o, n, ob)| {
-                n == name
-                    && o != s
-                    && ob.kind.is_program_wide()
-                    && (o != 0, ob.ordinal) < (true, b.ordinal)
-            });
+            && program_wide
+                .get(name)
+                .is_some_and(|lowest| lowest.has_rival_below(s, &(true, b.ordinal)));
         if variable_rival || program_rival {
             chosen.push((b.ordinal, s, name));
         }
@@ -73,6 +89,45 @@ pub(crate) fn plan_renames(table: &ScopeTable) -> RenamePlan {
         .enumerate()
         .map(|(n, (_, s, name))| ((s, name.to_string()), format!("{name}{{b{n}}}")))
         .collect()
+}
+
+/// The variable rule's rank: `(frame_level, depth, ordinal)`, lower wins.
+type VariableRank = (u32, u32, u32);
+
+/// The two lowest `(rank, scope)` entries offered, lowest first.
+#[derive(Debug)]
+struct Lowest2<R> {
+    entries: Vec<(R, ScopeId)>,
+}
+
+impl<R> Default for Lowest2<R> {
+    fn default() -> Self {
+        Self {
+            entries: Vec::with_capacity(2),
+        }
+    }
+}
+
+impl<R: Ord + Copy> Lowest2<R> {
+    fn offer(&mut self, rank: R, scope: ScopeId) {
+        let at = self
+            .entries
+            .iter()
+            .position(|entry| (rank, scope) < *entry)
+            .unwrap_or(self.entries.len());
+        if at < 2 {
+            self.entries.insert(at, (rank, scope));
+            self.entries.truncate(2);
+        }
+    }
+
+    /// Whether an entry from a scope other than `scope` ranks below `bound`.
+    fn has_rival_below(&self, scope: ScopeId, bound: &R) -> bool {
+        self.entries
+            .iter()
+            .find(|(_, other)| *other != scope)
+            .is_some_and(|(rank, _)| rank < bound)
+    }
 }
 
 /// The frame of `s` and the frames of every enclosing scope.

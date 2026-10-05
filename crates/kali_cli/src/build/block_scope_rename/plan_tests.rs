@@ -92,3 +92,84 @@ fn numbering_follows_declaration_order() {
         ]
     );
 }
+
+/// The original quadratic statement of the two rules (review I-3): every
+/// binding scans every other binding. `plan_renames` must agree with it.
+fn reference_plan(table: &ScopeTable) -> RenamePlan {
+    let all: Vec<(ScopeId, &str, &Binding)> = table
+        .scopes
+        .iter()
+        .enumerate()
+        .flat_map(|(id, scope)| {
+            scope
+                .bindings
+                .iter()
+                .map(move |(name, binding)| (id, name.as_str(), binding))
+        })
+        .collect();
+    let rank = |scope: ScopeId, ordinal: u32| {
+        let s = &table.scopes[scope];
+        (s.frame_level, s.depth, ordinal)
+    };
+    let mut chosen: Vec<(u32, ScopeId, &str)> = Vec::new();
+    for &(s, name, b) in &all {
+        if s == 0 {
+            continue;
+        }
+        let chain = frame_chain(table, s);
+        let mine = rank(s, b.ordinal);
+        let variable_rival = all.iter().any(|&(o, n, ob)| {
+            n == name
+                && o != s
+                && chain.contains(&table.scopes[o].frame)
+                && rank(o, ob.ordinal) < mine
+        });
+        let program_rival = b.kind.is_program_wide()
+            && all.iter().any(|&(o, n, ob)| {
+                n == name
+                    && o != s
+                    && ob.kind.is_program_wide()
+                    && (o != 0, ob.ordinal) < (true, b.ordinal)
+            });
+        if variable_rival || program_rival {
+            chosen.push((b.ordinal, s, name));
+        }
+    }
+    chosen.sort();
+    chosen
+        .into_iter()
+        .enumerate()
+        .map(|(n, (_, s, name))| ((s, name.to_string()), format!("{name}{{b{n}}}")))
+        .collect()
+}
+
+#[test]
+fn the_indexed_plan_matches_the_quadratic_reference() {
+    let sources = [
+        "let x=1; { let x=2; { let x=3; } } function f(x){ { let x=4; } function x2(){ let x=5; { const x=6; } } }",
+        "function f(){ { let a=1; } { let a=\"s\"; } { function g(){} } { function g(){} } } function g(){}",
+        "class C {} { class C {} } function h(){ class C {} { let C=1; } }",
+        "for(let i=0;i<2;i++){ let i2=i; { let i=7; } } function k(i){ for(let i=0;i<1;i++){ { let i=2; } } }",
+        "var v=1; function a(){ var v=2; { let v=3; } } function b(){ { var w=1; } { let w=2; } }",
+    ];
+    for source in sources {
+        let table = table_of(source);
+        assert_eq!(plan_renames(&table), reference_plan(&table), "{source}");
+    }
+}
+
+#[test]
+fn the_indexed_plan_matches_the_reference_on_many_frames() {
+    // 300 functions, each shadowing a module binding, a parameter and a
+    // sibling block, plus a block function per function (program-wide rule).
+    let mut source = String::from("let a=0; function g(){} ");
+    for n in 0..300 {
+        source.push_str(&format!(
+            "function f{n}(p){{ let a=p; {{ let a=1; {{ const p=2; }} }} {{ let q=3; }} {{ let q=4; }} {{ function g(){{}} }} }} "
+        ));
+    }
+    let table = table_of(&source);
+    let plan = plan_renames(&table);
+    assert!(plan.len() > 900, "{}", plan.len());
+    assert_eq!(plan, reference_plan(&table));
+}
