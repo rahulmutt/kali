@@ -80,6 +80,10 @@ console.log(f());
 "ns4.js" = """function f(){ let o={a:1}; const g=()=>o.a; return g(); }
 console.log(f());
 """
+"rt1.ts" = """const f=(k):Foo=>()=>k;
+"""
+"rt2.ts" = """const f=(k):Foo=>k;
+"""
 "ns5.js" = """function f(){ let h=function(){ return 2; }; const g=()=>h; return g() ? 1 : 0; }
 console.log(f());
 """
@@ -575,3 +579,20 @@ rationale = """§3.4, ruling R7 (Task 5 fix round 1): `check` refuses a captured
 args = ["check", "ns5.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `h`", "its value type has no closure cell"]
+
+# --- Task 7 fix round 1: the rewrite keeps an arrow's return-type annotation ---
+
+[[case]]
+name = "check_keeps_the_return_type_of_an_arrow_whose_parameter_is_captured"
+rationale = """§3.2 ("only the parameter's spelling changes"): the rewrite turns the expression-bodied arrow `(k):Foo=>()=>k` into a block-bodied one and must keep `:Foo`, so the resolver still reports the undefined type. node (type stripping) prints nothing at exit 0; baseline check exited 1 with `error[E3100]: undefined type reference 'Foo'`.
+Task 7 fix round 1 (2026-10-05): before the fix HEAD `check` printed `Checked 1 file(s)` at exit 0, because the conversion dropped `returnType`."""
+args = ["check", "rt1.ts"]
+exit = "failure"
+stderr_contains = ["E3100", "undefined type reference 'Foo'"]
+
+[[case]]
+name = "check_reports_the_return_type_of_an_uncaptured_arrow"
+rationale = """Control for the case above: no capture, no rewrite. node (type stripping) prints nothing at exit 0; baseline and HEAD check exit 1 with `error[E3100]: undefined type reference 'Foo'`."""
+args = ["check", "rt2.ts"]
+exit = "failure"
+stderr_contains = ["E3100", "undefined type reference 'Foo'"]

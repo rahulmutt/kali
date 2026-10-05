@@ -94,3 +94,18 @@ fn frames_are_counted_in_the_walks_enter_order() {
     };
     assert_eq!(f.params[0].name, "a{p}");
 }
+
+#[test]
+fn an_arrow_return_type_annotation_survives_the_block_conversion() {
+    // Only the parameter's spelling changes (spec §3.2): the converted arrow
+    // keeps its annotation, so the resolver still checks it (E3100).
+    let (n, got) = rewritten("const f=(k):Foo=>()=>k;");
+    assert_eq!(n, 1);
+    let Statement::VariableDeclaration(d) = &got[0] else {
+        panic!()
+    };
+    let Some(Expression::FunctionExpression(f)) = &d.declarations[0].init else {
+        panic!("{:?}", d.declarations[0].init)
+    };
+    assert_eq!(f.returnType.as_deref(), Some("Foo"));
+}

@@ -450,7 +450,7 @@ impl Rewriter {
 
 /// `(k{p}) => e` becomes `(k{p}) => { let k = k{p}; return e; }`, a
 /// block-bodied arrow (`FunctionExpression { is_arrow: true }`, the parser's
-/// shape for `(…) => { … }`).
+/// shape for `(…) => { … }`). The return-type annotation is carried over.
 fn block_arrow(arrow: &mut ArrowFunctionExpression, prologue: Vec<Statement>) -> Expression {
     let body = std::mem::replace(&mut arrow.body, Expression::ThisExpression);
     let mut statements = prologue;
@@ -458,6 +458,7 @@ fn block_arrow(arrow: &mut ArrowFunctionExpression, prologue: Vec<Statement>) ->
         argument: Some(body),
     }));
     Expression::FunctionExpression(Box::new(FunctionExpression {
+        returnType: arrow.returnType.take(),
         id: arrow.id.take(),
         params: std::mem::take(&mut arrow.params),
         body: Some(Box::new(BlockStatement { body: statements })),

@@ -737,6 +737,7 @@ impl Parser {
         };
         Some(Expression::FunctionExpression(Box::new(
             FunctionExpression {
+                returnType: None,
                 id: None,
                 params: params
                     .into_iter()
@@ -825,6 +826,7 @@ impl Parser {
         };
 
         Expression::FunctionExpression(Box::new(FunctionExpression {
+            returnType: None,
             id,
             params,
             body: func_body,

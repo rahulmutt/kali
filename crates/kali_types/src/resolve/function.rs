@@ -48,6 +48,11 @@ impl TypeContext {
                 }
             }
         }
+        // Set only on an arrow the captured-parameter rewrite gave a block
+        // body; resolved as `resolve_arrow_function` resolves it.
+        if let Some(return_type) = &expr.returnType {
+            self.resolve_type_annotation_text(return_type);
+        }
         if let Some(body) = &expr.body {
             self.resolve_block_body(body);
         }
