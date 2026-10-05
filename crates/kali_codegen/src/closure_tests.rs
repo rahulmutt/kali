@@ -41,10 +41,35 @@ fn a_non_tagged_heap_cell_does_not_promote_even_with_a_proof() {
 }
 
 #[test]
-fn a_tagged_f64_cell_does_not_promote() {
-    let mut t = table(true);
-    t.set_scalar("f", "k", Repr::F64);
-    assert!(!cell_is_promotable(&t, "f", "k", false, TAGGED));
+fn an_f64_scalar_cell_promotes_and_a_tagged_f64_needs_a_proof() {
+    // Captured-bindings Task 9 (A-4): an F64 cell stores the double's bits.
+    let mut t = kali_common::ReprTable::default();
+    t.set_scalar("f", "x", Repr::F64);
+    let scalar = Widening::CapturedBindings { is_tagged: false };
+    assert!(cell_is_promotable(&t, "f", "x", true, scalar));
+    assert!(!cell_is_promotable(&t, "f", "x", false, TAGGED));
+    t.set_numeric_bindings([("f".to_string(), "x".to_string())].into());
+    assert!(cell_is_promotable(&t, "f", "x", false, TAGGED));
+}
+
+#[test]
+fn baseline_widening_refuses_an_f64_cell() {
+    // Ruling R1: iteration-record cells and the deferred lane keep refusing
+    // F64 (spec §1.1), scalar or tagged, with or without a proof.
+    let mut t = kali_common::ReprTable::default();
+    t.set_scalar("f", "x", Repr::F64);
+    t.set_numeric_bindings([("f".to_string(), "x".to_string())].into());
+    assert!(!cell_is_promotable(&t, "f", "x", true, Widening::Baseline));
+    assert!(!cell_is_promotable(&t, "f", "x", false, Widening::Baseline));
+}
+
+#[test]
+fn a_non_tagged_heap_f64_cell_does_not_promote() {
+    let mut t = table(false);
+    t.set_scalar("f", "x", Repr::F64);
+    t.set_numeric_bindings([("f".to_string(), "x".to_string())].into());
+    let widening = Widening::CapturedBindings { is_tagged: false };
+    assert!(!cell_is_promotable(&t, "f", "x", false, widening));
 }
 
 #[test]

@@ -551,3 +551,44 @@ Measured at HEAD `b57e79e97` against baseline `2ddf18c66`, node run as
    triage (plan Task 12) settles them.
 4. **Numbering.** The plan's Task 9 amendment ("F64 writes are `=`, `+=`,
    `-=`, `*=`, `/=`") is renumbered A-4.
+
+### A-4 (2026-10-05, plan Task 9): F64 writes are `=`, `+=`, `-=`, `*=`, `/=`
+
+An F64 cell stores the double's bits through `i64.reinterpret_f64` /
+`f64.reinterpret_i64`, so the 8-byte slot and the store/load helpers stay
+untyped. `cell_is_promotable` admits it (scalar, or `TaggedVal` with the
+numeric proof) only under `Widening::CapturedBindings`; iteration records and
+the deferred allowlist (`Widening::Baseline`) keep refusing F64 (§1.1).
+
+Ruling R14 narrows what lowers:
+
+* The **owner** reads and writes its own F64 cell like an F64 local.
+* A **capturer** lowers `=` (whose right-hand side does not read the cell) and
+  `+= -= *= /=` (cell load, f64 operation, store), each as an assignment
+  statement. Any other capturer read of an F64 cell is refused with E5506 and
+  the value-type reason: a bare read, a read inside a right-hand side, a read
+  as an argument, and an assignment used as a value. The reason is that
+  `repr_infer` types a free identifier in a nested function by that function's
+  own scalar node. That node defaults to `I64` and is never joined to the
+  owner's binding, so an f64 read would reach integer-typed wasm places
+  (result, local and parameter types) and fail validation (E4201).
+* `%=` (wasm has no f64 remainder), the bitwise compound operators and `++` /
+  `--` on an F64 cell keep E5506.
+
+§3.3's "compound assignment and update" sentence and "the read returns the
+float shape" are narrowed to the above. §1 item 2's "F64 parameter or local,
+read or written" becomes: written from a closure, read and written by its
+owner. F64 parameters stay refused when captured: §3.4's `{p}` rule admits a
+rewritten parameter only as a proven-numeric `I64`.
+
+**`check`** runs in `Phase::Two`. `run` passes through the same pass before
+codegen, so the pass cannot be stricter than `run` on the shapes `run`
+lowers without refusing them in `run` too. It therefore mirrors the write
+rule. A captured F64 is admitted only when every reference to it in the
+capturer is the target of an assignment statement with one of the five
+operators. Codegen lowers a superset of that (it cannot tell a statement's
+dropped value from a used one), so `check` stays the stricter of the two.
+
+**Recorded for later.** Full F64 reads from a closure need `repr_infer` to join
+the closure's node to the owner's binding. That requires parent edges for
+arrows and function expressions, which `repr_infer` does not record today.

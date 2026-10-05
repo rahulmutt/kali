@@ -198,7 +198,7 @@ fn refusals_after_rewrite(source: &str) -> Vec<String> {
     crate::build::name_anon_functions::name_anonymous_functions(&mut statements);
     crate::build::capture_param_rewrite::rewrite_captured_params(&mut statements);
     let table = kali_types::infer_reprs(&statements);
-    capture_refusals(&mut statements, &table, Phase::One)
+    capture_refusals(&mut statements, &table, Phase::Two)
         .into_iter()
         .map(|d| d.message)
         .collect()
@@ -259,4 +259,82 @@ fn a_user_written_copy_of_a_numeric_parameter_is_admitted() {
     let found =
         refusals_after_rewrite("function f(k){ let n=k; const g=()=>n; return g(); } f(5);");
     assert!(found.is_empty(), "{found:?}");
+}
+
+// Captured-bindings Task 9 (A-4, ruling R14): a capturer may only write a
+// captured F64, as an assignment statement (`= += -= *= /=`); any other
+// reference to it is a read codegen refuses.
+fn is_value_type_refusal(found: &[String]) -> bool {
+    found.len() == 1 && found[0].contains("its value type has no closure cell")
+}
+
+#[test]
+fn an_f64_capture_read_is_refused_in_both_phases() {
+    let source = "function f(){ let x=1.5; const g=()=>x; return g(); } f();";
+    for phase in [Phase::One, Phase::Two] {
+        assert!(is_value_type_refusal(&refusals(source, phase)), "{phase:?}");
+    }
+}
+
+#[test]
+fn an_f64_capture_written_by_assignment_statements_is_admitted() {
+    let found = refusals(
+        "function f(){ let x=1.5; const g=()=>{ x=2.5; x+=1; x-=0.5; x*=2; x/=4; }; g(); return x; } f();",
+        Phase::Two,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn an_f64_write_whose_right_hand_side_reads_the_capture_is_refused() {
+    let found = refusals(
+        "function f(){ let x=1.5; const g=()=>{ x=x+1.25; }; g(); return x; } f();",
+        Phase::Two,
+    );
+    assert!(is_value_type_refusal(&found), "{found:?}");
+}
+
+#[test]
+fn an_f64_assignment_used_as_a_value_is_refused() {
+    let found = refusals(
+        "function f(){ let x=1.5; const g=()=>{ console.log(x=2.5); }; g(); return x; } f();",
+        Phase::Two,
+    );
+    assert!(is_value_type_refusal(&found), "{found:?}");
+}
+
+#[test]
+fn an_f64_remainder_or_update_is_refused() {
+    for body in ["x%=2;", "x++;", "x|=1;"] {
+        let source =
+            format!("function f(){{ let x=1.5; const g=()=>{{ {body} }}; g(); return x; }} f();");
+        assert!(
+            is_value_type_refusal(&refusals(&source, Phase::Two)),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn a_boolean_const_capture_is_still_refused_in_phase_two() {
+    // Task 10 lifts it; until then both phases refuse it.
+    let found = refusals(
+        "function f(){ const b=true; const g=()=>b; return g(); } f();",
+        Phase::Two,
+    );
+    assert!(found[0].contains("that captures `b`"), "{found:?}");
+}
+
+#[test]
+fn a_rewritten_f64_parameter_is_refused_even_with_a_numeric_proof() {
+    // Ruling R14: the `{p}` rule stays I64-with-proof only, even for a
+    // write-only capturer.
+    let found = refusals_after_rewrite(
+        "function f(x){ const g=()=>{ x=2.5; }; g(); return x; } console.log(f(1.5));",
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("its value type has no closure cell"),
+        "{found:?}"
+    );
 }

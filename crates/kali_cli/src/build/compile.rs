@@ -905,7 +905,7 @@ fn analyze_source_file_inner(
         diagnostics.extend(crate::build::capture_refusals::capture_refusals(
             &mut parsed.statements,
             &repr_table,
-            crate::build::capture_refusals::Phase::One,
+            crate::build::capture_refusals::Phase::Two,
         ));
         if has_errors(&diagnostics) {
             return Err(diagnostics);

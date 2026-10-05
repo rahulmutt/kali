@@ -51,10 +51,10 @@ pub(crate) fn env_save_local_name() -> String {
 /// namespace whose repr decides promotion — the ancestor that actually holds
 /// the cell (see [`CapturedRef::owner`](kali_mir::env_plan::CapturedRef)).
 ///
-/// Three promotable shapes:
+/// Promotable shapes:
 /// - **C1 scalar-i64**: a scalar cell whose repr is the default `I64` (a raw
-///   8-byte slot + i64 arithmetic). An `F64`/`String`/bool scalar is NOT
-///   promoted (it would corrupt the value) — baseline.
+///   8-byte slot + i64 arithmetic). A `String`/bool scalar is NOT promoted (it
+///   would corrupt the value), nor an `F64` one at `Baseline` — see A-4 below.
 /// - **C2 fixed-shape object**: a NON-scalar (heap-pointer) cell whose repr is
 ///   `Repr::Object(_)`. The cell holds the object's i64 base pointer, stored and
 ///   loaded exactly like a scalar-i64 cell. Gating on `Repr::Object` (not merely
@@ -68,6 +68,12 @@ pub(crate) fn env_save_local_name() -> String {
 ///   (`ReprTable::binding_is_proven_numeric`). It applies only under
 ///   [`Widening::CapturedBindings`] with `is_tagged: true`; `Struct`, `Array`
 ///   and `Closure` heap cells (`is_tagged: false`) stay out.
+/// - **A-4 F64** (captured-bindings Task 9): under any
+///   [`Widening::CapturedBindings`], an `F64` repr is admitted wherever `I64`
+///   is (a scalar cell, or a proven-numeric `TaggedVal` cell). The cell holds
+///   the double's bits (`i64.reinterpret_f64` / `f64.reinterpret_i64`), so the
+///   slot and the load/store helpers stay untyped. `Baseline` (iteration
+///   records, the deferred allowlist) keeps refusing F64 (spec §1.1).
 ///
 /// Everything else falls through to the pre-Stage-C local/fold/placeholder
 /// path: no new machinery, no new E5506.
@@ -85,17 +91,20 @@ pub(crate) fn cell_is_promotable(
         // side of the coarse `is_scalar` bit (the pointee outlives every frame).
         return true;
     }
+    // Captured-bindings Task 9 (A-4, ruling R1): an F64 cell stores the
+    // double's bits, and only under the captured-bindings widening.
+    let numeric = repr == kali_common::Repr::I64
+        || (repr == kali_common::Repr::F64
+            && matches!(widening, Widening::CapturedBindings { .. }));
     if is_scalar {
-        return repr == kali_common::Repr::I64;
+        return numeric;
     }
     if matches!(repr, kali_common::Repr::Object(_)) {
         return true;
     }
     // Captured-bindings A-1: a TaggedVal cell promotes only on positive
     // numeric evidence, and only where the widening applies.
-    widening.admits_tagged()
-        && repr == kali_common::Repr::I64
-        && repr_table.binding_is_proven_numeric(owner, name)
+    widening.admits_tagged() && numeric && repr_table.binding_is_proven_numeric(owner, name)
 }
 
 /// Which promotion rules apply at a call site (captured-bindings R1).

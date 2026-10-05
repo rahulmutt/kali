@@ -63,6 +63,9 @@ pub(crate) trait Hooks {
     /// The initializer of the declarator just reported to `bind`, seen before
     /// it is walked.
     fn initializer(&mut self, _init: &Expression) {}
+    /// An expression statement that is an assignment (its value is
+    /// discarded), seen before it is walked.
+    fn assignment_statement(&mut self, _assign: &kali_ast::AssignmentExpression) {}
 }
 
 pub(crate) fn walk_program(statements: &mut [Statement], hooks: &mut impl Hooks) {
@@ -146,7 +149,12 @@ fn walk_super_class(super_class: Option<&mut String>, hooks: &mut impl Hooks) {
 
 fn walk_statement(statement: &mut Statement, hooks: &mut impl Hooks) {
     match statement {
-        Statement::ExpressionStatement(s) => walk_expression(&mut s.expression, hooks),
+        Statement::ExpressionStatement(s) => {
+            if let Expression::AssignmentExpression(assign) = &*s.expression {
+                hooks.assignment_statement(assign);
+            }
+            walk_expression(&mut s.expression, hooks)
+        }
         Statement::BreakStatement(_) => {}
         Statement::ContinueStatement(_) => {}
         Statement::DebuggerStatement(_) => {}

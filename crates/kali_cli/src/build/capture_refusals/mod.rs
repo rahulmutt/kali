@@ -31,13 +31,12 @@ use super::block_scope_rename::walk::{self, BindKind, Hooks, ScopeKind};
 mod capture_refusals_tests;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // `Two` is selected by Tasks 9 and 10.
 pub(crate) enum Phase {
-    /// Before the parameter rewrite and the widening: parameters, F64 and
-    /// boolean consts are refused.
+    /// Before the parameter rewrite: a captured parameter is refused.
     One,
-    /// After Tasks 7-10: F64 and boolean consts are admitted; parameters no
-    /// longer occur.
+    /// After the parameter rewrite (Task 7), so parameters no longer occur.
+    /// F64 stays refused in both phases (ruling R14); Task 10 admits boolean
+    /// consts here.
     Two,
 }
 
@@ -74,6 +73,9 @@ struct ScopeEntry {
 struct Use {
     scope: usize,
     name: String,
+    /// The target of an assignment statement whose value codegen discards,
+    /// with an operator an F64 cell lowers from a capturer (ruling R14).
+    f64_write: bool,
 }
 
 /// Shared with the captured-parameter rewrite's pass A
@@ -95,6 +97,10 @@ pub(super) struct Recorder {
     /// Task 7 rewritten-parameter locals: `let k = k{p}`, whose initializer
     /// is the bare identifier spelled `<name>{p}` (rulings R9 (c'), R13).
     rewritten_params: BTreeSet<(usize, String)>,
+    /// The identifier target of the assignment statement being walked, when
+    /// its operator is one ruling R14 lowers on a captured F64 cell; the next
+    /// reference (the left-hand side, walked first) is that write.
+    pending_f64_write: Option<String>,
 }
 
 impl Hooks for Recorder {
@@ -183,10 +189,24 @@ impl Hooks for Recorder {
 
     fn reference(&mut self, name: &mut String) {
         let scope = *self.stack.last().expect("reference inside a scope");
+        let f64_write = self.pending_f64_write.take().as_ref() == Some(name);
         self.uses.push(Use {
             scope,
             name: name.clone(),
+            f64_write,
         });
+    }
+
+    fn assignment_statement(&mut self, assign: &kali_ast::AssignmentExpression) {
+        use kali_ast::AssignmentOperator as Op;
+        let lowered = matches!(
+            assign.operator,
+            Op::Assign | Op::AddAssign | Op::SubtractAssign | Op::MultiplyAssign | Op::DivideAssign
+        );
+        self.pending_f64_write = match &assign.left {
+            Expression::Identifier(target) if lowered => Some(target.clone()),
+            _ => None,
+        };
     }
 
     fn enter_loop(&mut self) {
@@ -296,6 +316,8 @@ struct Capture {
     non_scalar: bool,
     /// The binding is a Task 7 rewritten-parameter local (`let k = k{p}`).
     rewritten_param: bool,
+    /// This reference is a discarded `=` / `+=` / `-=` / `*=` / `/=` target.
+    f64_write: bool,
 }
 
 /// Captured-bindings §3.4 / A-2.6: one E5506 per (capturing function,
@@ -340,12 +362,22 @@ pub(crate) fn capture_refusals(
             kind,
             non_scalar: recorder.non_scalar.contains(&(scope, u.name.clone())),
             rewritten_param: recorder.rewritten_params.contains(&(scope, u.name.clone())),
+            f64_write: u.f64_write,
         });
     }
     // Owners of a captured binding outside every iteration record, as MIR's
     // `env_owners` after the iteration cells moved out.
     let mut env_owners = cell_owners;
     env_owners.extend(captures.iter().map(|c| c.owner));
+
+    // Ruling R14: a capturer that reads a captured binding anywhere other
+    // than as a discarded write target. Codegen refuses such a read of an F64
+    // cell; the writes alone lower.
+    let reads: BTreeSet<(usize, &str)> = captures
+        .iter()
+        .filter(|c| !c.f64_write)
+        .map(|c| (c.capturer, c.name.as_str()))
+        .collect();
 
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
@@ -367,7 +399,13 @@ pub(crate) fn capture_refusals(
         } else if phase == Phase::One && c.kind == BindKind::Param {
             Some(CaptureRefusal::Parameter { owner: owner_key })
         } else if (c.rewritten_param && !rewritten_param_has_a_cell(repr_table, owner_key, &c.name))
-            || !repr_has_a_cell(repr_table, owner_key, &c.name, c.non_scalar, phase)
+            || !repr_has_a_cell(
+                repr_table,
+                owner_key,
+                &c.name,
+                c.non_scalar,
+                !reads.contains(&(c.capturer, c.name.as_str())),
+            )
         {
             Some(CaptureRefusal::ValueType)
         } else {
@@ -409,7 +447,7 @@ fn structural_depth(frames: &[Frame], from: usize, to: usize, owners: &BTreeSet<
 fn rewritten_param_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> bool {
     match table.scalar(owner, name) {
         Repr::AbortHandle => true,
-        // Task 9: F64 with proof
+        // Ruling R14: an F64 capture is refused by `repr_has_a_cell`.
         Repr::I64 => table.binding_is_proven_numeric(owner, name),
         _ => false,
     }
@@ -417,15 +455,21 @@ fn rewritten_param_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> boo
 
 /// Mirrors `kali_codegen::closure::cell_is_promotable`: a non-scalar cell
 /// promotes only as `Object(_)` (or an abort handle), a scalar one as `I64`
-/// (and `F64` in phase 2).
+/// or `F64`. Ruling R14 (A-4): codegen lowers only a capturer's discarded
+/// `=` / `+=` / `-=` / `*=` / `/=` on an F64 cell and refuses every other read,
+/// so an F64 capture is admitted only when `writes_only` (the capturer never
+/// reads it otherwise). An assignment statement is the one discarded shape
+/// recognized here; codegen may lower more, so `check` stays the stricter.
 fn repr_has_a_cell(
     table: &ReprTable,
     owner: &str,
     name: &str,
     non_scalar: bool,
-    phase: Phase,
+    writes_only: bool,
 ) -> bool {
-    if phase == Phase::One && table.binding_is_boolean_const(owner, name) {
+    // Task 10: a captured boolean `const` is refused in both phases until its
+    // capture read carries `ValueShape::Boolean` (A-2.1).
+    if table.binding_is_boolean_const(owner, name) {
         return false;
     }
     if non_scalar {
@@ -436,7 +480,7 @@ fn repr_has_a_cell(
     }
     match table.scalar(owner, name) {
         Repr::I64 | Repr::Object(_) | Repr::AbortHandle => true,
-        Repr::F64 => phase == Phase::Two,
+        Repr::F64 => writes_only,
         _ => false,
     }
 }

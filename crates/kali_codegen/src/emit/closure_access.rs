@@ -356,6 +356,54 @@ impl<'a> FunctionEmitter<'a> {
             .then_some(owner)
     }
 
+    /// Captured-bindings Task 9: the owner repr of a name the capture lane
+    /// lowers, so a read can carry its float shape.
+    pub(crate) fn captured_cell_repr(&self, name: &str) -> Option<kali_common::Repr> {
+        self.resolve_capture_access(name)?;
+        let owner = self.scalar_capture_owner(name)?;
+        Some(self.repr_table.scalar(&owner, name))
+    }
+
+    /// Whether the lowered capture `name` is an F64 cell (A-4): its slot holds
+    /// the double's bits, read through `f64.reinterpret_i64` and written
+    /// through `i64.reinterpret_f64`.
+    fn captured_cell_is_f64(&self, name: &str) -> bool {
+        self.captured_cell_repr(name) == Some(kali_common::Repr::F64)
+    }
+
+    /// Ruling R14 (A-4): `name` is an F64 cell this function reaches as a
+    /// capturer, not as its owner. `repr_infer` types a free identifier in a
+    /// nested function by that function's own node (default `I64`, never
+    /// joined to the owner's binding), so an f64 read here would flow into
+    /// integer-typed wasm places (E4201). Only `=` (whose right-hand side
+    /// does not read the cell) and `+= -= *= /=` lower; every other read is
+    /// refused with the value-type reason.
+    fn captured_f64_in_capturer(&self, name: &str) -> bool {
+        self.env_plan.cell_for(name).is_none() && self.captured_cell_is_f64(name)
+    }
+
+    fn captured_f64_read_refusal(&mut self, function: &mut Function, name: &str) -> EmittedValue {
+        let message = kali_common::captured_binding_unavailable_message(
+            &self.function_name,
+            name,
+            kali_common::CaptureRefusal::ValueType,
+        );
+        self.deny_e5506(function, &message)
+    }
+
+    /// Captured-bindings A-4: leave `value` on the stack as the bits of an
+    /// f64 for an F64 cell store: `F64Const(0.0)` when nothing was produced,
+    /// `f64.convert_i64_s` for an integer-valued value, then
+    /// `i64.reinterpret_f64`.
+    fn emit_f64_cell_bits(&mut self, function: &mut Function, value: LirNodeId, produced: bool) {
+        if !produced {
+            function.instruction(&Instruction::F64Const(0.0.into()));
+        } else if !self.is_float_valued(value) {
+            function.instruction(&Instruction::F64ConvertI64S);
+        }
+        function.instruction(&Instruction::I64ReinterpretF64);
+    }
+
     /// Read site: load a captured scalar. `None` when `name` is not a
     /// C1-promoted capture (caller falls through to its own resolution).
     pub(crate) fn try_emit_captured_read(
@@ -373,8 +421,18 @@ impl<'a> FunctionEmitter<'a> {
                 ),
             ));
         }
+        if self.captured_f64_in_capturer(name) {
+            return Some(self.captured_f64_read_refusal(function, name));
+        }
         let (depth, offset) = self.resolve_capture_access(name)?;
         crate::closure::emit_cell_load(function, self.current_env_global(), depth, offset);
+        if self.captured_cell_is_f64(name) {
+            function.instruction(&Instruction::F64ReinterpretI64);
+            return Some(EmittedValue {
+                produced: true,
+                shape: ValueShape::Float,
+            });
+        }
         Some(EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
@@ -395,7 +453,9 @@ impl<'a> FunctionEmitter<'a> {
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
         let produced = self.emit_node(function, init, true);
-        if !produced.produced {
+        if self.captured_cell_is_f64(name) {
+            self.emit_f64_cell_bits(function, init, produced.produced);
+        } else if !produced.produced {
             function.instruction(&Instruction::I64Const(0));
         }
         crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
@@ -420,6 +480,9 @@ impl<'a> FunctionEmitter<'a> {
             "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>=" | ">>>="
         ) {
             return None;
+        }
+        if self.captured_cell_is_f64(name) {
+            return self.try_emit_captured_f64_assign(function, op, name, right);
         }
         // Scalar-only: a captured OBJECT cell (C2) keeps its baseline write path
         // — `=`/compound-assign through the capture is out of C2's read scope.
@@ -570,6 +633,62 @@ impl<'a> FunctionEmitter<'a> {
         }
         // Assignment expression value: re-load the freshly stored cell.
         crate::closure::emit_cell_load(function, env_global, depth, offset);
+        Some(true)
+    }
+
+    /// Captured-bindings A-4: `=`, `+=`, `-=`, `*=`, `/=` on an F64 cell, with
+    /// f64 arithmetic over the reinterpreted bits. Leaves the stored double on
+    /// the stack, as the local F64 assignment lane does. `%=` (wasm has no f64
+    /// remainder) and the bitwise operators return `None`, so they keep the
+    /// caller's existing E5506.
+    ///
+    /// Ruling R14: in a capturer the stored double left on the stack is an
+    /// f64 the capturer's `repr_infer` types do not expect. Codegen cannot
+    /// tell a discarded statement value from a used one (statements are
+    /// emitted with a value and dropped), so the `check` pass
+    /// (`build/capture_refusals`, which `run` passes through first) admits a
+    /// capturer's F64 write only as an assignment statement and refuses an
+    /// assignment used as a value.
+    fn try_emit_captured_f64_assign(
+        &mut self,
+        function: &mut Function,
+        op: &str,
+        name: &str,
+        right: LirNodeId,
+    ) -> Option<bool> {
+        let arithmetic = match op {
+            "=" => None,
+            "+=" => Some(Instruction::F64Add),
+            "-=" => Some(Instruction::F64Sub),
+            "*=" => Some(Instruction::F64Mul),
+            "/=" => Some(Instruction::F64Div),
+            _ => return None,
+        };
+        let (depth, offset) = self.resolve_capture_access(name)?;
+        let env_global = self.current_env_global();
+        let scratch = self.locals.len() as u32;
+        match arithmetic {
+            None => {
+                let rhs = self.emit_node(function, right, true);
+                self.emit_f64_cell_bits(function, right, rhs.produced);
+            }
+            Some(instruction) => {
+                crate::closure::emit_cell_load(function, env_global, depth, offset);
+                function.instruction(&Instruction::F64ReinterpretI64);
+                let rhs = self.emit_node(function, right, true);
+                if !rhs.produced {
+                    function.instruction(&Instruction::F64Const(0.0.into()));
+                } else if !self.is_float_valued(right) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+                function.instruction(&instruction);
+                function.instruction(&Instruction::I64ReinterpretF64);
+            }
+        }
+        crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
+        // Assignment expression value: the stored double.
+        crate::closure::emit_cell_load(function, env_global, depth, offset);
+        function.instruction(&Instruction::F64ReinterpretI64);
         Some(true)
     }
 

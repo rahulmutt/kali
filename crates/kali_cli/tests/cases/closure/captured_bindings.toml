@@ -9,6 +9,20 @@
 [source]
 "a1.js" = """function f(){ let s="hi"; const g=()=>s; return g(); } console.log(f());
 """
+"vf.js" = """function f(){ let x=1.5; setTimeout(()=>console.log(x),0); } f();
+"""
+"fops.js" = """function f(){ let x=1.5; const g=()=>{ x-=0.25; x*=4; x/=2; }; g(); return x; } console.log(f());
+"""
+"fdbl.js" = """function f(){ let x=1.5; function g(){ x *= 2; } g(); g(); return x; } console.log(f());
+"""
+"frem.js" = """function f(){ let x=7.5; const g=()=>{ x%=2; }; g(); return x; } console.log(f());
+"""
+"finc.js" = """function f(){ let x=1.5; const g=()=>{ x++; }; g(); return x; } console.log(f());
+"""
+"fexpr.js" = """function f(){ let x=1.5; const g=()=>{ console.log(x=2.5); }; g(); return x; } console.log(f());
+"""
+"fcls.js" = """function f(){ let x=1.5; const C = class { static m(){ return x; } }; return C.m(); } console.log(f());
+"""
 "a2.js" = """function f(){ let x=1.5; const g=()=>x; return g(); } console.log(f());
 """
 "a3.js" = """function f(k){ const g=()=>k; k=k+1; return g(); } console.log(f(5));
@@ -166,7 +180,8 @@ stdout = "6\n"
 [[case]]
 name = "a_closure_over_a_fractional_parameter_is_refused"
 rationale = """§3.1, A-1: a parameter is refused whatever its repr (here F64). node prints `1.5`; baseline printed `0` at exit 0 (row `cb_a6 SILENT 1.5 0 0`).
-Task 7 (2026-10-05): the rewrite makes `x` a local; it is refused by value type (F64 in phase 1, an unpromoted TaggedVal cell in codegen) until Tasks 8-9. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `x` a local; it is refused by value type (F64 in phase 1, an unpromoted TaggedVal cell in codegen) until Tasks 8-9. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`.
+Task 9 (2026-10-05): ruling R14 (A-4): F64 cells now promote under `Widening::CapturedBindings`, but a capturer may only write one (an assignment statement `=` / `+=` / `-=` / `*=` / `/=` whose right-hand side does not read it). `repr_infer` types the closure's `x` by its own node, which defaults to I64 and is not joined to the owner's, so an f64 read would reach integer-typed wasm places (E4201). Here the closure reads `x` (and the `{p}` check rule stays I64-with-proof only). node prints `1.5`; HEAD still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
 args = ["run", "a6.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
@@ -232,7 +247,8 @@ stderr_contains = ["E5506", "that captures `s`", "its value type has no closure 
 
 [[case]]
 name = "a_closure_over_a_fractional_local_is_refused"
-rationale = """§3.1: an F64 cell is not promotable in phase 1. node prints `1.5`; baseline printed `0` at exit 0 (row `cb_a2 SILENT 1.5 0 0`)."""
+rationale = """§3.1: an F64 cell is not promotable in phase 1. node prints `1.5`; baseline printed `0` at exit 0 (row `cb_a2 SILENT 1.5 0 0`).
+Task 9 (2026-10-05): ruling R14 (A-4): F64 cells now promote under `Widening::CapturedBindings`, but a capturer may only write one (an assignment statement `=` / `+=` / `-=` / `*=` / `/=` whose right-hand side does not read it). `repr_infer` types the closure's `x` by its own node, which defaults to I64 and is not joined to the owner's, so an f64 read would reach integer-typed wasm places (E4201). Here the closure reads `x`. node prints `1.5`; HEAD still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
 args = ["run", "a2.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
@@ -245,22 +261,25 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
 
 [[case]]
-name = "a_closure_writing_a_fractional_local_is_refused"
-rationale = """§3.1: a plain `=` to an unpromoted F64 capture used to emit invalid wasm. node prints `2.5`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_w2 OTHER 2.5 error[E4201]... 0`)."""
+name = "a_closure_writing_a_fractional_local_updates_the_owner"
+rationale = """§3.1: a plain `=` to an unpromoted F64 capture used to emit invalid wasm. node prints `2.5`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_w2 OTHER 2.5 error[E4201]... 0`).
+Task 9 (2026-10-05): cc1458493 exited 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell` (run and check). Ruling R14 (A-4): the F64 cell promotes and the capturer's `x=2.5` assignment statement stores the double's bits (`i64.reinterpret_f64`); the owner reads them back with `f64.reinterpret_i64`. node prints `2.5`; HEAD prints `2.5` at exit 0."""
 args = ["run", "w2.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+exit = "success"
+stdout = "2.5\n"
 
 [[case]]
 name = "a_closure_computing_with_a_fractional_local_is_refused"
-rationale = """§3.1: the closure reads an F64 capture in `x*2+0.5`. node prints `3.5`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_fa OTHER 3.5 error[E4201]... 0`), not silently."""
+rationale = """§3.1: the closure reads an F64 capture in `x*2+0.5`. node prints `3.5`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_fa OTHER 3.5 error[E4201]... 0`), not silently.
+Task 9 (2026-10-05): ruling R14 (A-4): F64 cells now promote under `Widening::CapturedBindings`, but a capturer may only write one (an assignment statement `=` / `+=` / `-=` / `*=` / `/=` whose right-hand side does not read it). `repr_infer` types the closure's `x` by its own node, which defaults to I64 and is not joined to the owner's, so an f64 read would reach integer-typed wasm places (E4201). Here the closure reads `x` in `x*2+0.5`. node prints `3.5`; HEAD still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
 args = ["run", "fa.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
 name = "a_closure_incrementing_a_fractional_local_is_refused"
-rationale = """§3.1: the closure's `x=x+1.25` on an F64 capture. node prints `2.75`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_fw OTHER 2.75 error[E4201]... 0`), not silently."""
+rationale = """§3.1: the closure's `x=x+1.25` on an F64 capture. node prints `2.75`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_fw OTHER 2.75 error[E4201]... 0`), not silently.
+Task 9 (2026-10-05): ruling R14 (A-4): F64 cells now promote under `Widening::CapturedBindings`, but a capturer may only write one (an assignment statement `=` / `+=` / `-=` / `*=` / `/=` whose right-hand side does not read it). `repr_infer` types the closure's `x` by its own node, which defaults to I64 and is not joined to the owner's, so an f64 read would reach integer-typed wasm places (E4201). Here the right-hand side `x+1.25` reads `x`. node prints `2.75`; HEAD still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
 args = ["run", "fw.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
@@ -298,12 +317,13 @@ stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures aw
 # --- existing refusals keep their messages ---
 
 [[case]]
-name = "a_compound_assignment_to_a_capture_keeps_its_refusal"
+name = "a_compound_assignment_to_a_fractional_capture_lowers"
 rationale = """§3.1: compound assignment is unchanged. node prints `2.5`; baseline refused (row `cb_w3 REFUSES 2.5 error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') ... 0`).
-Task 5 (2026-10-05): the check pass now refuses first, as the captured F64 `x` has no closure cell; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell` and no longer prints the compound-assignment message. Still E5506."""
+Task 5 (2026-10-05): the check pass now refuses first, as the captured F64 `x` has no closure cell; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell` and no longer prints the compound-assignment message. Still E5506.
+Task 9 (2026-10-05): cc1458493 exited 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell` (run and check). Ruling R14 (A-4): the capturer's `x+=1` statement loads the F64 cell, adds in f64 (the integer right-hand side through `f64.convert_i64_s`) and stores the bits. node prints `2.5`; HEAD prints `2.5` at exit 0."""
 args = ["run", "w3.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+exit = "success"
+stdout = "2.5\n"
 
 [[case]]
 name = "an_update_expression_on_a_captured_parameter_lowers"
@@ -424,7 +444,8 @@ exit = "success"
 [[case]]
 name = "check_refuses_a_closure_over_a_fractional_parameter"
 rationale = """§3.4, A-2.6: node prints `1.5`; baseline check exited 0 (row `cb_a6`).
-Task 7 (2026-10-05): the rewrite makes `x` a `let` local, so the parameter reason no longer applies; F64 has no cell in phase 1, so `check` refuses it by value type, as `run` does. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `x` a `let` local, so the parameter reason no longer applies; F64 has no cell in phase 1, so `check` refuses it by value type, as `run` does. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`.
+Task 9 (2026-10-05): ruling R14 (A-4): `check` admits a captured F64 only when every reference to it in the capturer is the target of an assignment statement (`=` / `+=` / `-=` / `*=` / `/=`), which is what codegen lowers; the rewritten `let x = x{p}` is also refused by the `{p}` rule (I64 with proof only). HEAD check still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
 args = ["check", "a6.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
@@ -469,7 +490,8 @@ stderr_contains = ["E5506", "that captures `s`", "its value type has no closure 
 
 [[case]]
 name = "check_refuses_a_closure_over_a_fractional_local"
-rationale = """§3.4, A-2.6: node prints `1.5`; baseline check exited 0 (row `cb_a2`)."""
+rationale = """§3.4, A-2.6: node prints `1.5`; baseline check exited 0 (row `cb_a2`).
+Task 9 (2026-10-05): ruling R14 (A-4): `check` admits a captured F64 only when every reference to it in the capturer is the target of an assignment statement (`=` / `+=` / `-=` / `*=` / `/=`), which is what codegen lowers; the closure reads `x`. HEAD check still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
 args = ["check", "a2.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
@@ -482,22 +504,24 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
 
 [[case]]
-name = "check_refuses_a_closure_writing_a_fractional_local"
-rationale = """§3.4, A-2.6: node prints `2.5`; baseline check exited 0 (row `cb_w2`)."""
+name = "check_admits_a_closure_writing_a_fractional_local"
+rationale = """§3.4, A-2.6: node prints `2.5`; baseline check exited 0 (row `cb_w2`).
+Task 9 (2026-10-05): ruling R14 (A-4): `check` admits a captured F64 only when every reference to it in the capturer is the target of an assignment statement (`=` / `+=` / `-=` / `*=` / `/=`), which is what codegen lowers; `x=2.5` is one. `run` passes through this same pass before codegen (spec §3.4), so pinning `check` as refusing here (R14's "check is the stricter") would also make `run` refuse; the pass mirrors codegen's write rule instead. HEAD check prints `Checked 1 file(s)`, exit 0, as `run` prints node's output."""
 args = ["check", "w2.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+exit = "success"
 
 [[case]]
 name = "check_refuses_a_closure_computing_with_a_fractional_local"
-rationale = """§3.4, A-2.6: node prints `3.5`; baseline check exited 0 (row `cb_fa`)."""
+rationale = """§3.4, A-2.6: node prints `3.5`; baseline check exited 0 (row `cb_fa`).
+Task 9 (2026-10-05): ruling R14 (A-4): `check` admits a captured F64 only when every reference to it in the capturer is the target of an assignment statement (`=` / `+=` / `-=` / `*=` / `/=`), which is what codegen lowers; the closure reads `x`. HEAD check still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
 args = ["check", "fa.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
 name = "check_refuses_a_closure_incrementing_a_fractional_local"
-rationale = """§3.4, A-2.6: node prints `2.75`; baseline check exited 0 (row `cb_fw`)."""
+rationale = """§3.4, A-2.6: node prints `2.75`; baseline check exited 0 (row `cb_fw`).
+Task 9 (2026-10-05): ruling R14 (A-4): `check` admits a captured F64 only when every reference to it in the capturer is the target of an assignment statement (`=` / `+=` / `-=` / `*=` / `/=`), which is what codegen lowers; the right-hand side reads `x`. HEAD check still exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
 args = ["check", "fw.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
@@ -531,11 +555,11 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures away"]
 
 [[case]]
-name = "check_refuses_a_compound_assignment_to_a_fractional_capture_as_value_type"
-rationale = """§3.4, A-2.6: Task 5: `x` is F64, so check refuses it as value type before codegen's compound-assignment refusal. node prints `2.5`; baseline check exited 0 (row `cb_w3`)."""
+name = "check_admits_a_compound_assignment_to_a_fractional_capture"
+rationale = """§3.4, A-2.6: Task 5: `x` is F64, so check refuses it as value type before codegen's compound-assignment refusal. node prints `2.5`; baseline check exited 0 (row `cb_w3`).
+Task 9 (2026-10-05): ruling R14 (A-4): `check` admits a captured F64 only when every reference to it in the capturer is the target of an assignment statement (`=` / `+=` / `-=` / `*=` / `/=`), which is what codegen lowers; `x+=1` is one. `run` passes through this same pass before codegen (spec §3.4), so pinning `check` as refusing here (R14's "check is the stricter") would also make `run` refuse; the pass mirrors codegen's write rule instead. HEAD check prints `Checked 1 file(s)`, exit 0, as `run` prints node's output."""
 args = ["check", "w3.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+exit = "success"
 
 [[case]]
 name = "check_admits_an_update_expression_on_a_parameter"
@@ -762,3 +786,70 @@ name = "check_admits_an_arrow_reading_a_field_of_a_promoted_object_capture_the_k
 rationale = """A-2.6 residue (ruling R13, 2026-10-05): `check` has no model of codegen's member lanes, so it admits what `run` refuses at the member fallback. node prints `1`; baseline check exited 0. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "c1.js"]
 exit = "success"
+
+# --- Task 9: F64 cells (A-4, ruling R14) ---
+
+[[case]]
+name = "captured_float_arithmetic_in_the_closure"
+rationale = """Review Focus 3 (Task 9, 2026-10-05): the risk is E4201. The closure's `x*2+0.5` over a captured F64 either selects f64 instructions over the raw i64 cell bits, or (once the read reinterprets them) returns an f64 from a closure whose result type `repr_infer` made i64. The baseline failed exactly so (`error[E4201]: failed to load WASM module`, row `cb_fa OTHER 3.5 error[E4201]... 0`), and an unrefused Task 9 draft did too. Ruling R14: a capturer's read of an F64 cell is refused with the value-type reason, so the JSON envelope reports E5506 and no wasm is emitted. node prints `3.5`; cc1458493 refused it the same way."""
+args = ["run", "--output", "json", "fa.js"]
+exit = "failure"
+json = { schemaVersion = 1, command = "run", success = false, exitCode = 1 }
+stdout_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+stdout_absent = ["E4201"]
+
+[[case]]
+name = "f64_compound_subtract_multiply_divide_lower"
+rationale = """A-4, ruling R14 (Task 9, 2026-10-05): `-=`, `*=` and `/=` statements in a capturer lower with f64 arithmetic on the F64 cell: (1.5-0.25)*4/2. node prints `2.5`; cc1458493 exited 1 with E5506 (value type), as for every captured F64; HEAD prints `2.5` at exit 0."""
+args = ["run", "fops.js"]
+exit = "success"
+stdout = "2.5\n"
+
+[[case]]
+name = "check_admits_f64_compound_subtract_multiply_divide"
+rationale = """A-4, ruling R14 (Task 9, 2026-10-05): every reference to `x` in the capturer is an assignment statement's target, so `check` admits it, as `run` lowers it. cc1458493 check exited 1; HEAD check prints `Checked 1 file(s)`, exit 0."""
+args = ["check", "fops.js"]
+exit = "success"
+
+[[case]]
+name = "a_function_declaration_doubling_an_f64_local_twice"
+rationale = """A-4, ruling R14 (Task 9, 2026-10-05): a named function capturer's `x *= 2` statement, called twice; the owner reads the result. node prints `6`; cc1458493 exited 1 with E5506 (value type); HEAD prints `6` at exit 0."""
+args = ["run", "fdbl.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "f64_assignment_used_as_a_value_in_the_capturer_is_refused"
+rationale = """Ruling R14 (Task 9, 2026-10-05): an assignment's value is the stored double, a read of the cell in the capturer. Codegen emits every statement with a value and drops it, so it cannot tell `console.log(x=2.5)` from `x=2.5;`; the check pass refuses the capture unless the assignment is a statement. node prints `2.5` then `2.5`; cc1458493 exited 1 with E5506 (value type); HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "fexpr.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "f64_remainder_assignment_keeps_its_refusal"
+rationale = """A-4 (Task 9, 2026-10-05): wasm has no f64 remainder, so `%=` on an F64 cell is not lowered (codegen keeps its compound-assignment E5506); the check pass refuses first because `%=` is not one of R14's writes. node prints `1.5`; cc1458493 and HEAD exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "frem.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "f64_update_expression_keeps_its_refusal"
+rationale = """A-4 (Task 9, 2026-10-05): `++` / `--` on an F64 cell are not lowered (codegen keeps its update-expression E5506); the check pass refuses first. node prints `2.5`; cc1458493 and HEAD exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "finc.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_deferred_callback_over_an_f64_local_stays_refused"
+rationale = """Spec §1.1, ruling R1 (Task 9, 2026-10-05): the deferred-registration allowlist keeps `Widening::Baseline`, which refuses F64, and the callback reads `x` (R14), so a deferred callback over an F64 binding stays refused (`v2`'s shape). node prints `1.5`; cc1458493 and HEAD exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "vf.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+
+[[case]]
+name = "a_method_of_an_anonymous_class_reading_an_f64_capture_is_refused_by_codegen"
+rationale = """Ruling R14 (Task 9, 2026-10-05): the codegen backstop. A method of an anonymous class expression has no plan key, so the check pass admits it (A-2.6 residue, followups §3); codegen's capture read (`try_emit_captured_read`) refuses a capturer's read of an F64 cell itself, keyed on "F64 cell and this function is not the owner". node prints `1.5`; cc1458493 exited 1 with the same message (the F64 cell was not promoted then); HEAD exits 1 with `error[E5506]: a closure `m` that captures `x` is unavailable in the current phase: its value type has no closure cell`, not E4201."""
+args = ["run", "fcls.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `m` that captures `x`", "its value type has no closure cell"]
+stderr_absent = ["E4201"]
