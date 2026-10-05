@@ -308,7 +308,58 @@ a captured parameter reaches the deferred lane as a local.
 
 ## §4. Left for later
 
-(Empty. Task 13 fills it.)
+Filled by Task 13 from the ledger's rulings. Each item is refused today (or
+renders as its uncaptured twin does), and none is claimed by the maturity row.
+
+**Capabilities not built:**
+- **A closure's read of a captured F64** (ruling R14, option A). `repr_infer`
+  types a free identifier in a nested function by that function's own scalar
+  node, which defaults to `I64` and is never joined to the owner's binding
+  node. Its `parents` map records only `FunctionDeclaration` nesting, so it
+  needs arrow parent edges first. This is the path to full F64 captures: `a2`,
+  `a6`, `fa`, `fw`, `cl3` and `p09` all wait on it. Today they are refused
+  (E5506, value type).
+- **The other A-4 F64 operators.** `%=` (wasm has no f64 remainder), the
+  bitwise compound operators and `++` / `--` on a captured F64 are refused in a
+  closure (`frem`, `finc`; the bitwise and `--` forms were measured, and no
+  case pins them).
+- **String captures.** Arena handles cross G5 and the N1 arena-escape family
+  (spec §1.1).
+- **Object parameters.** A captured Object parameter becomes an Object local
+  after the rewrite, and is refused (R9; `ob3`, `ob8`, `ol3`, `ol4`).
+- **The depth-2 lowering**, together with block-scoping §4 (R-71).
+- **Deferred F64.** The deferred allowlist keeps `Widening::Baseline` (spec
+  §1.1, R1).
+- **A captured `let` boolean**, and a captured boolean parameter: both render
+  `1`, as uncaptured (A-2.1, R11). They need a boolean proof for non-`const`
+  bindings.
+- **The numeric proof for const-bound arrows** (R12, `v9`). An arrow bound to a
+  `const` and called by name has no call edge, so its parameter gets no
+  numeric proof and stays refused.
+- **Boolean literal inflow should veto the numeric proof** (R11). `a7`
+  (`f(true)`) passes the proof and renders `1`. A `kali_types` veto would turn
+  that into a refusal, or into `true` once a boolean proof exists.
+
+**`check` / `run` agreement:**
+- **Frames with no plan key in `check`.** Methods of an anonymous class
+  expression and of an anonymous `export default class` get no plan key, so
+  `capture_refusals` admits them, and codegen alone decides (§3).
+- **The A-2.6 residue** (§3): deferred callbacks over a rewritten parameter
+  (`cb_v2`, R3), user-written parameter copies with a non-scalar or unproven
+  layout (`ol2`), non-scalar layouts from non-literal initializers (R7
+  remainder), member access that reaches the generic fallback (R13, `c1`), and
+  write-only deferred F64 captures.
+
+**Minor items from the ledger:**
+- On the owner's side, `x %= 2` and `x |= 1` on a promoted F64 cell now give
+  the generic compound-assignment message instead of the specific
+  "'%=' on floating-point binding" one (still E5506).
+- `do x += 1; while (x < 3);` over a captured F64 is refused by `run`. That is
+  an over-refusal: it is correct or refused, and it should lower.
+- `b||6` and `b?b:0` on a captured boolean `const` print `1`, as the uncaptured
+  forms do.
+- The case `closure/captured_bindings::a_captured_boolean_const_returned_still_renders_one`
+  (`kb_ret`) pins `1`. It must flip to `true` when R-34 lands.
 
 ---
 

@@ -6721,6 +6721,118 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   `addEventListener` use the same predicate but have no end-to-end case, so
   they are not claimed. See `block-scoping-discovered-defects.md` §3-§7.
 
+### R-70: A captured binding without a closure cell reads `0` (or drops the store) — **CLOSED 2026-10-05: FIXED for the shapes below, FAIL_CLOSED for the rest**
+
+- **Added**: 2026-10-05, by the **captured-bindings** project
+  (`docs/superpowers/specs/2026-10-05-captured-bindings-design.md` §2.1-§2.2),
+  for `block-scoping-discovered-defects.md` §7.11 item 1, and retired in the
+  same edit for the lanes named under **Status**.
+- **Numbering note**: filed in **§7**, not §2, for the reason R-69 gives:
+  `parse_register` reads a `### R-` header after a non-tier `## ` heading as
+  outside §2's tier table, so the entry has no ranking row, no catalogue
+  record and no count in §1's severity table. It was a silent miscompile
+  (exit 0, a wrong value) all the same.
+- **Verification**: `CONFIRMED-BY-CONTROLLER`. The node and baseline columns
+  come from `tools/array-return-probes/baseline-cb.tsv` (kali at `2ddf18c66`);
+  node v26.10.0, run as `env -u FORCE_COLOR node`.
+- **Root-cause group**: **unclustered**. Stage C deliberately sends a capture
+  it does not promote to the identifier's zero placeholder
+  (`emit/closure_access.rs`). MIR gives every parameter the layout
+  `TaggedVal`, so a captured parameter's cell was never promoted (spec A-1).
+- **Repro** (probes `cb_p1`, `cb_a1`, `cb_a2`, `cb_kb2`, `cb_w1`; all exit 0
+  at the baseline, `check` 0):
+
+  | probe | source | node | kali at `2ddf18c66` | HEAD (`20e169122`) |
+  |---|---|---|---|---|
+  | `p1` | `function f(k){ const g=()=>k; return g(); } console.log(f(5));` | `5` | `0` | `5` |
+  | `a1` | `function f(){ let s="hi"; const g=()=>s; return g(); } console.log(f());` | `hi` | `0` | E5506, value type |
+  | `a2` | `function f(){ let x=1.5; const g=()=>x; return g(); } console.log(f());` | `1.5` | `0` | E5506, value type |
+  | `kb2` | `function f(){ const b=true; const g=()=>{ console.log(b); }; g(); } f();` | `true` | `1` | `true` |
+  | `w1` | `function f(){ let s="a"; const g=()=>{ s="b"; }; g(); return s; } console.log(f());` | `b` | `a` (the store is dropped) | E5506, value type |
+
+  The other lanes of spec §2.1-§2.2 had the same cause: `p2`, `v4`, `v7`, `v8`,
+  `v9`, `a3`, `a4`, `a6`, `a7`, `rw1`, `e5` read `0` or a stale value. `w2`
+  (an F64 write) was invalid wasm (E4201), and `w3`/`w4` were refused, so they
+  were not silent.
+- **Severity**: silent-wrong-value.
+- **Status (2026-10-05)**, by lane. Cases are in
+  `closure/captured_bindings.toml` unless named otherwise.
+  - **FAIL_CLOSED** at `a1d1ea70e` and `6671be28a` (phase 1): every capture the
+    closure lane cannot lower is refused with E5506
+    (`captured_binding_unavailable_message`, `specs/15-errors.md`) under `run`
+    and `check`, instead of reading the placeholder. That still holds at HEAD
+    for:
+    - a captured string: `a1`, `w1`, `v7`
+      (`a_closure_over_a_string_local_is_refused`,
+      `a_closure_writing_a_string_local_is_refused`,
+      `a_closure_over_a_string_parameter_is_refused`, and their `check_*` twins);
+    - a closure's read of a captured F64, including an F64 parameter: `a2`,
+      `a6`, `fa`, `fw` (`a_closure_over_a_fractional_local_is_refused`,
+      `a_closure_over_a_fractional_parameter_is_refused`,
+      `a_closure_computing_with_a_fractional_local_is_refused`,
+      `a_closure_incrementing_a_fractional_local_is_refused`, and their twins);
+    - a rewritten parameter without a numeric proof: `v9`, a const-bound arrow
+      with no call edge (`a_closure_over_an_arrow_parameter_is_refused`), and
+      object parameters (`a_closure_reading_a_field_of_an_object_parameter_is_refused`
+      and its siblings, ruling R9);
+    - a capture two or more closures away: R-71.
+  - **FIXED** at `e433285c3` and `cc1458493` (phase 2, with the parameter
+    rewrite at `4e1fa99bd`): an integer parameter whose every call site passes
+    an integer, and a `let` copied from one, read and written by the closure
+    and by its owner. `p1`, `p2`, `v4`, `v8`, `a3`, `a4`, `rw1`, `e5`, `w4`
+    (`a_closure_over_a_parameter_reads_it`,
+    `a_closure_over_a_local_copied_from_a_parameter_reads_it`,
+    `a_closure_writing_a_parameter_updates_the_owner`,
+    `owner_reads_what_the_closure_wrote`, …).
+  - **FIXED** at `b605fbfd1` and `97a30e2a8` (spec A-4): an F64 local gets an
+    F64 cell. The owner reads and writes it, and a closure lowers `=` (when
+    the right-hand side does not read the capture) and `+= -= *= /=` as
+    statements. `w2`, `w3` (`a_closure_writing_a_fractional_local_updates_the_owner`,
+    `a_compound_assignment_to_a_fractional_capture_lowers`,
+    `f64_compound_subtract_multiply_divide_lower`,
+    `soundness/closures::capture_gate_owner_f64_compound_assign_lowers_not_miscompiles`).
+    These lanes were invalid wasm or refused at the baseline, not silent; they
+    are listed so the F64 lane's state is in one place.
+  - **FIXED** at `d5a487005` (spec A-2.1): a captured `const` initialized with a
+    boolean literal or a comparison reads as a boolean. `kb2`, `kb3`
+    (`a_closure_over_a_boolean_literal_const_prints_true`,
+    `a_closure_over_a_comparison_const_prints_true`).
+  - **NOT FIXED, rendering only**: a captured `let` boolean (`w5`, `lb1`) and a
+    captured boolean parameter (`a7`) print `1`, exactly as the uncaptured
+    binding does (R-30's `let` lane, ruling R11). A captured boolean `const`
+    returned from a function and logged prints `1` (`kb_ret`, R-34).
+  - **Not covered**: `run` refuses some captures that `check` admits (the A-2.6
+    residue). The deferred lane keeps its own allowlist. Both are listed in
+    `captured-bindings-discovered-defects.md` §3, and the open work in §4.
+
+### R-71: A synchronous capture two or more closures away reads `0` or a stale value — **CLOSED 2026-10-05 (FAIL_CLOSED)**
+
+- **Added**: 2026-10-05, by the **captured-bindings** project (spec §2.3), for
+  `block-scoping-discovered-defects.md` §7.11 item 2. Filed in §7 for the
+  reason R-70 gives.
+- **Verification**: `CONFIRMED-BY-CONTROLLER`. The baseline columns come from
+  `tools/array-return-probes/baseline-cb.tsv`; node v26.10.0.
+- **Root-cause group**: **unclustered**. `env_walk_depth_for` returns `None`
+  for a MIR depth other than 1, so the read fell through to the older
+  lowering. `stageC-closures-triage.md` item 6 said this shape fails closed,
+  and it did not.
+- **Repro** (probes `cb_d02`, `cb_w6`; exit 0 at the baseline, `check` 0):
+
+  | probe | source | node | kali at `2ddf18c66` | HEAD (`20e169122`) |
+  |---|---|---|---|---|
+  | `d02` | `function m() { let a = 5; setTimeout(() => { let z = 10; const h = () => z + a; console.log(h()); }, 0); } m();` | `15` | `10` | E5506 `` `a` is two or more closures away`` |
+  | `w6` | `function m() { let a = 5; const o = () => { let z = 10; const h = () => z + a; return h(); }; return o(); } console.log(m());` | `15` | `10` | E5506, as `d02` |
+
+- **Severity**: silent-wrong-value.
+- **Status (2026-10-05): FAIL_CLOSED** at `a1d1ea70e` and `6671be28a`: `run`
+  and `check` refuse a capture two or more closures away. Cases
+  `closure/captured_bindings::a_capture_two_closures_away_in_a_deferred_callback_is_refused`,
+  `a_capture_two_closures_away_is_refused`,
+  `a_capture_past_an_owner_of_a_captured_function_declaration_is_refused`,
+  and their `check_*` twins. The depth-2 lowering itself is not built
+  (`captured-bindings-discovered-defects.md` §4, block-scoping §4). Captures
+  across a per-iteration record keep block-scoping's own refusals.
+
 ---
 
 ## 7.9 Stage P5 sightings (2026-07-23)
