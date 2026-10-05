@@ -1,5 +1,6 @@
 # Block-scoping Task 8: per-iteration env records (spec §3.3, A-3..A-6).
-# Probe sources match tools/array-return-probes/probes/bs_*.js verbatim.
+# Probe sources match tools/array-return-probes/probes/bs_*.js verbatim; the
+# final-review sources (`cl*`, `d06`, `h4`) match the review's `rv/` probes.
 # "baseline" in a rationale is kali at 6345f082b; node is v26.10.0.
 
 [source]
@@ -58,6 +59,26 @@
 "no_update_for.js" = """function m(){ for(let i=0;i<3;){ setTimeout(()=>console.log(i),0); i++; } } m();
 """
 "placeholder_add.js" = """function m(){ for(let i=0;i<2;i++){ const s = new Set(); setTimeout(()=>{ s.add(i); console.log(i); },0); } } m();
+"""
+"cl1.js" = """function tick() { console.log("t"); }
+function m() { let c = 0; const inc = () => { c++; };
+  for (let i = 0; i < 3; i++) { const k = i * 2; const g = () => k; console.log(g()); inc(); setTimeout(tick, 0); }
+  console.log(c); }
+m();
+"""
+"cl3.js" = """function tick() { console.log("t"); }
+function m() { let total = 100;
+  for (let i = 0; i < 2; i++) { const k = i; const g = () => k + total; console.log(g()); setTimeout(tick, 0); } }
+m();
+"""
+"cl6.js" = """function m() { let done = 0; const finish = () => { done++; };
+  for (let i = 0; i < 3; i++) { const msg = 7; setTimeout(() => console.log(msg), 0); finish(); }
+  console.log(done); }
+m();
+"""
+"d06.js" = """function m(){ for (let i = 0; i < 2; i++) { const k = i * 7; queueMicrotask(function cb() { let z = 1; function h() { return z + k; } console.log(h()); }); } } m();
+"""
+"h4.js" = """function m(){ let a=10; for(let i=0;i<2;i++){ const r=()=>{ setTimeout(()=>console.log(i),0); }; const g=()=>a+i; console.log(g()); } } m();
 """
 
 [[case]]
@@ -261,3 +282,45 @@ rationale = """Spec A-5: a `for…of` over a literal is unrolled, so `x` has no 
 args = ["run", "r_defer4.js"]
 exit = "failure"
 stderr_contains = ["E5506", "compile-time iterable"]
+
+[[case]]
+name = "an_unrelated_registration_does_not_make_an_owner"
+rationale = """Spec A-9 (ruling H5(a)): `setTimeout(tick, 0)` registers a function from outside the loop, so the loop is not an owner and its synchronous closure `g` keeps the baseline lowering; `inc()` reads `c` in `m`'s record as before. node prints `0 2 4 3 t t t`; baseline printed the same at exit 0. The pre-fix branch refused it (E5506, `invoking the capturing function … from 'm'`)."""
+args = ["run", "cl1.js"]
+exit = "success"
+stdout = "0\n2\n4\n3\nt\nt\nt\n"
+
+[[case]]
+name = "an_unrelated_registration_keeps_a_two_level_capture_on_the_baseline_lowering"
+rationale = """Spec A-9 (ruling H5(a)): `tick` is not a loop closure, so `g`, which reads the loop's `k` and `m`'s `total`, is an ordinary depth-1 closure of `m`. node prints `100 101 t t`; baseline printed the same at exit 0. The pre-fix branch refused it (E5506, ``captures `total` through a per-iteration record``)."""
+args = ["run", "cl3.js"]
+exit = "success"
+stdout = "100\n101\nt\nt\n"
+
+[[case]]
+name = "a_call_from_an_owner_loop_to_a_closure_of_the_function_switches_the_env"
+rationale = """Spec A-9 (ruling H5(b)): the registered arrow captures `msg`, so the loop is an owner; `finish()` captures `m`'s `done`, and codegen sets `g8` to the env the loop was entered with around the call and restores the iteration record after it. node prints `3 7 7 7`; baseline printed the same at exit 0. The pre-fix branch refused it (E5506, `invoking the capturing function … from 'm'`)."""
+args = ["run", "cl6.js"]
+exit = "success"
+stdout = "3\n7\n7\n7\n"
+
+[[case]]
+name = "a_depth_two_capture_owned_by_an_iteration_record_is_refused"
+rationale = """Spec A-9 (ruling R13): `h` reads `k`, which lives in the loop's record, through `cb`'s own env (depth 2). Depth-2 walks are not lowered, so it is refused instead of reading a stale value. node prints `1 8`; baseline printed `1 1` at exit 0, as did the pre-fix branch."""
+args = ["run", "d06.js"]
+exit = "failure"
+stderr_contains = ["E5506", "captures `k` through a per-iteration record"]
+
+[[case]]
+name = "a_never_called_registering_function_still_makes_an_owner"
+rationale = """Ruling H4 / spec A-9: `r` registers a loop closure that captures `i`, so the loop is an owner although `r` is never called; `g` then reads `m`'s `a` two records away and is refused (spec A-4). This is the one capability loss the maturity row names. node prints `10 11`; baseline printed `10 11` at exit 0 (with an E3100 warning)."""
+args = ["run", "h4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "captures `a` through a per-iteration record"]
+
+[[case]]
+name = "a_for_in_key_capture_stays_refused_under_check"
+rationale = """The `check` twin of `a_for_in_key_capture_stays_refused`: the `kali_types` for..in key-value gate runs before codegen, so `check` refuses too (spec A-8). node prints `a b`; baseline `check` refused with the same E5506."""
+args = ["check", "for_in.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a for..in key value ('k')"]
