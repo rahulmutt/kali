@@ -831,7 +831,7 @@ fn analyze_source_file_inner(
     if compat_eval && rewritten_params > 0 {
         return Err(vec![Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
-            kali_common::block_scope_eval_refused_message(),
+            kali_common::captured_parameter_eval_refused_message(),
         )]);
     }
 

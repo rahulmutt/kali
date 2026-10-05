@@ -25,6 +25,17 @@ fn captured_binding_message_shows_written_names() {
 }
 
 #[test]
+fn captured_parameter_eval_message_names_the_rewrite_not_shadowing() {
+    let message = captured_parameter_eval_refused_message();
+    assert_eq!(
+        message,
+        "a closure that captures a parameter is unavailable with `--compat eval` in the current phase: kali gives the captured parameter a renamed local so a closure can share it, and `eval` code could name the parameter"
+    );
+    assert!(!message.contains("shadow"));
+    assert_ne!(message, block_scope_eval_refused_message());
+}
+
+#[test]
 fn test_async_class_method_lowering_unavailable_message_is_stable() {
     assert_eq!(
         async_class_method_lowering_unavailable_message(),

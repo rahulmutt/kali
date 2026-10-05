@@ -362,6 +362,13 @@ pub const fn block_scope_eval_refused_message() -> &'static str {
     "a block-scoped binding that shadows another binding is unavailable with `--compat eval` in the current phase: `eval` code could name the shadowed binding, and kali gives block-scoped bindings separate storage"
 }
 
+/// Captured-bindings followups §2 and §6 CB-19: `--compat eval` with a
+/// parameter a closure captures. The rewrite that gives that parameter a
+/// closure cell renames it, and `eval` code could name the original.
+pub const fn captured_parameter_eval_refused_message() -> &'static str {
+    "a closure that captures a parameter is unavailable with `--compat eval` in the current phase: kali gives the captured parameter a renamed local so a closure can share it, and `eval` code could name the parameter"
+}
+
 /// Block-scoping spec A-4.
 pub fn iteration_capture_through_record_message(name: &str, capturer: &str) -> String {
     format!(
