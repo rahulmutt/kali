@@ -18,7 +18,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{LayoutDescriptor, MirFunctionKind, MirProgram};
+use crate::{LayoutDescriptor, MirBindingKind, MirFunctionKind, MirProgram};
 
 /// One promoted binding: it lives in an env cell because a nested function
 /// captures it. `offset` is its byte offset within the owning env record,
@@ -28,6 +28,10 @@ pub struct EnvCell {
     pub name: String,
     pub offset: u32,
     pub is_scalar: bool,
+    /// The owner's MIR binding is a parameter (captured-bindings A-1).
+    pub is_parameter: bool,
+    /// The binding's layout is `TaggedVal` (captured-bindings A-1).
+    pub is_tagged: bool,
 }
 
 /// A reference, from inside function F, to a binding owned by an ancestor
@@ -44,6 +48,10 @@ pub struct CapturedRef {
     pub depth: u32,
     pub offset: u32,
     pub is_scalar: bool,
+    /// The owner's MIR binding is a parameter (captured-bindings A-1).
+    pub is_parameter: bool,
+    /// The binding's layout is `TaggedVal` (captured-bindings A-1).
+    pub is_tagged: bool,
     /// Plan key of the function that OWNS this binding (the ancestor whose env
     /// record holds the cell). Codegen must consult the OWNER's repr namespace
     /// (not the capturer's) when deciding whether the cell was promoted — the
@@ -104,6 +112,15 @@ fn is_scalar_cell(layout: &LayoutDescriptor) -> bool {
     }
 }
 
+/// What a reference to an env cell needs to know about it.
+#[derive(Debug, Clone, Copy)]
+struct CellFacts {
+    offset: u32,
+    is_scalar: bool,
+    is_parameter: bool,
+    is_tagged: bool,
+}
+
 /// The reserved plan key for the module root (see [`EnvPlan`]).
 fn function_key(name: &Option<String>) -> String {
     name.clone().unwrap_or_default()
@@ -142,6 +159,15 @@ fn path_crosses_iteration(
         cursor = parents.get(&label).cloned().flatten();
     }
     false
+}
+
+fn cell_facts(cell: &EnvCell) -> CellFacts {
+    CellFacts {
+        offset: cell.offset,
+        is_scalar: cell.is_scalar,
+        is_parameter: cell.is_parameter,
+        is_tagged: cell.is_tagged,
+    }
 }
 
 /// Sort cells by name and pack them at 8 bytes each.
@@ -206,8 +232,8 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
     let parents = &program.parent_labels;
 
     let mut plans: BTreeMap<String, EnvPlan> = BTreeMap::new();
-    // fn key -> (binding name -> (offset, is_scalar)) for its promoted cells.
-    let mut cell_offsets: BTreeMap<String, BTreeMap<String, (u32, bool)>> = BTreeMap::new();
+    // fn key -> (binding name -> facts) for its promoted cells.
+    let mut cell_offsets: BTreeMap<String, BTreeMap<String, CellFacts>> = BTreeMap::new();
 
     // Pass 1: each function's own promoted cells.
     for function in &program.functions {
@@ -230,13 +256,15 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
         if !is_module {
             for (index, binding) in owned.iter().enumerate() {
                 let offset = index as u32 * 8;
-                let is_scalar = is_scalar_cell(&binding.layout);
-                cells.push(EnvCell {
+                let cell = EnvCell {
                     name: binding.name.clone(),
                     offset,
-                    is_scalar,
-                });
-                offsets.insert(binding.name.clone(), (offset, is_scalar));
+                    is_scalar: is_scalar_cell(&binding.layout),
+                    is_parameter: binding.kind == MirBindingKind::Parameter,
+                    is_tagged: matches!(binding.layout, LayoutDescriptor::TaggedVal),
+                };
+                offsets.insert(binding.name.clone(), cell_facts(&cell));
+                cells.push(cell);
             }
         }
 
@@ -267,6 +295,8 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                     name: b.name.clone(),
                     offset: 0,
                     is_scalar: is_scalar_cell(&b.layout),
+                    is_parameter: b.kind == MirBindingKind::Parameter,
+                    is_tagged: matches!(b.layout, LayoutDescriptor::TaggedVal),
                 })
                 .collect()
         } else {
@@ -307,7 +337,7 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
             let offsets = plan
                 .cells
                 .iter()
-                .map(|c| (c.name.clone(), (c.offset, c.is_scalar)))
+                .map(|c| (c.name.clone(), cell_facts(c)))
                 .collect();
             (key.clone(), offsets)
         })
@@ -333,7 +363,7 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                 .get(&(function_name.clone(), binding.name.clone()))
                 .cloned()
                 .unwrap_or_else(|| function_name.clone());
-            let Some(&(offset, is_scalar)) = cell_offsets
+            let Some(&facts) = cell_offsets
                 .get(&owner_key)
                 .and_then(|offsets| offsets.get(&binding.name))
             else {
@@ -350,8 +380,10 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                         .push(CapturedRef {
                             name: binding.name.clone(),
                             depth,
-                            offset,
-                            is_scalar,
+                            offset: facts.offset,
+                            is_scalar: facts.is_scalar,
+                            is_parameter: facts.is_parameter,
+                            is_tagged: facts.is_tagged,
                             owner: owner_key.clone(),
                             through_iteration,
                         });

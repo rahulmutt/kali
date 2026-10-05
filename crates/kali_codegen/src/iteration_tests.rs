@@ -299,6 +299,8 @@ fn an_iteration_plan_no_loop_declares_is_refused_by_the_backstop() {
                         name: "nowhere".to_string(),
                         offset: 0,
                         is_scalar: true,
+                        is_parameter: false,
+                        is_tagged: false,
                     }],
                     captured: Vec::new(),
                     iteration_of: Some("m".to_string()),
