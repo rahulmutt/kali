@@ -86,6 +86,16 @@ console.log(f());
 """
 "sib.js" = """function outer(k){ function inc(){ return k; } function sib(){ let d=7; const h=()=>d; h(); return inc(); } return sib(); } console.log(outer(5));
 """
+"ob3.js" = """function f(o){ const g=()=>o.a; return g(); } const x={a:1}; console.log(f(x));
+"""
+"ob8.js" = """function f(o){ const g=()=>{ o.a=o.a+1; }; g(); return o.a; } const x={a:1}; console.log(f(x));
+"""
+"ol4.js" = """function f(o){ console.log(o.a); const g=()=>o.a; return g(); } const x={a:1}; console.log(f(x));
+"""
+"ol2.js" = """function f(p){ const o=p; const g=()=>o.a; return g(); } const x={a:1}; console.log(f(x));
+"""
+"ol3.js" = """function f(o){ const g=()=>o; return g().a; } const x={a:1}; console.log(f(x));
+"""
 "ns5.js" = """function f(){ let h=function(){ return 2; }; const g=()=>h; return g() ? 1 : 0; }
 console.log(f());
 """
@@ -380,12 +390,14 @@ args = ["check", "v8.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_closure_over_an_arrow_parameter_the_known_residue"
+name = "check_refuses_a_closure_over_an_arrow_parameter_without_a_proof"
 rationale = """§3.4, A-2.6: node prints `5`; baseline check exited 0 (row `cb_v9`).
 Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
-Task 8 (2026-10-05): ruling R12: `run` still refuses (no call edge to the const-bound arrow, so no numeric proof); `check` admits it. This is A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 8 (2026-10-05): ruling R12: `run` still refuses (no call edge to the const-bound arrow, so no numeric proof); `check` admits it. This is A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0.
+R9 fix (2026-10-05): `check` now refuses a captured local initialized from its own parameter (here the rewritten `let k = k{p}`) unless it is a proven-numeric I64, as codegen's tagged branch requires; no call edge reaches the const-bound arrow, so there is no proof. `check` now agrees with `run`; v9 leaves the A-2.6 residue. HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_1` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
 args = ["check", "v9.js"]
-exit = "success"
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
 
 [[case]]
 name = "check_admits_a_closure_over_a_parameter_the_owner_reassigns"
@@ -632,3 +644,75 @@ rationale = """Ruling R10 (Task 8, 2026-10-05): `inc` captures the parameter `k`
 args = ["run", "sib.js"]
 exit = "failure"
 stderr_contains = ["E5506", "invoking the capturing function 'inc' from 'sib' is unavailable"]
+
+# --- ruling R9: an Object-repr parameter capture is refused (spec §1.1), run and check ---
+
+[[case]]
+name = "a_closure_reading_a_field_of_an_object_parameter_is_refused"
+rationale = """Ruling R9 (2026-10-05), spec §1.1 (no Object parameters), §3.1: node prints `1`; baseline printed `0` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 (Task 7) printed `0` at exit 0 and check exited 0: the rewrite removed the parameter reason, C2 promoted the Object-repr TaggedVal cell, and the closure's `o.a` read `0`. HEAD: an Object-repr TaggedVal cell is excluded from C2 promotion (`cell_is_promotable` under `CapturedBindings { is_tagged: true }`), and a member access off an unlowered capture goes through `unlowered_capture_refusal`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "ob3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_reading_a_field_of_an_object_parameter"
+rationale = """Ruling R9 (c') (2026-10-05), §3.4: `check` refuses a captured local initialized from its own parameter (the Task 7 `let o = o{p}` or a user-written `const o=p`) unless it is a proven-numeric I64 (`// Task 9: F64 with proof`). node prints `1`; baseline printed `0` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 (Task 7) printed `0` at exit 0 and check exited 0: the rewrite removed the parameter reason, C2 promoted the Object-repr TaggedVal cell, and the closure's `o.a` read `0`. HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
+args = ["check", "ob3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_writing_a_field_of_an_object_parameter_is_refused"
+rationale = """Ruling R9 (2026-10-05), spec §1.1 (no Object parameters), §3.1: node prints `2`; baseline printed `1` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 printed `1` at exit 0 (the closure's store was lost) and check exited 0. HEAD: an Object-repr TaggedVal cell is excluded from C2 promotion (`cell_is_promotable` under `CapturedBindings { is_tagged: true }`), and a member access off an unlowered capture goes through `unlowered_capture_refusal`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "ob8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_writing_a_field_of_an_object_parameter"
+rationale = """Ruling R9 (c') (2026-10-05), §3.4: `check` refuses a captured local initialized from its own parameter (the Task 7 `let o = o{p}` or a user-written `const o=p`) unless it is a proven-numeric I64 (`// Task 9: F64 with proof`). node prints `2`; baseline printed `1` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 printed `1` at exit 0 (the closure's store was lost) and check exited 0. HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
+args = ["check", "ob8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_reading_a_field_the_owner_also_reads_is_refused"
+rationale = """Ruling R9 (2026-10-05), spec §1.1 (no Object parameters), §3.1: node prints `1` then `1`; baseline printed `1` then `0` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 printed `1` then `0` at exit 0 and check exited 0. HEAD: an Object-repr TaggedVal cell is excluded from C2 promotion (`cell_is_promotable` under `CapturedBindings { is_tagged: true }`), and a member access off an unlowered capture goes through `unlowered_capture_refusal`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "ol4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_reading_a_field_the_owner_also_reads"
+rationale = """Ruling R9 (c') (2026-10-05), §3.4: `check` refuses a captured local initialized from its own parameter (the Task 7 `let o = o{p}` or a user-written `const o=p`) unless it is a proven-numeric I64 (`// Task 9: F64 with proof`). node prints `1` then `1`; baseline printed `1` then `0` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 printed `1` then `0` at exit 0 and check exited 0. HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
+args = ["check", "ol4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_local_copied_from_an_object_parameter_is_refused"
+rationale = """Ruling R9 (2026-10-05), spec §1.1 (no Object parameters), §3.1: node prints `1`; baseline printed `0` at exit 0, check exit 0; Task 6 (d640fbf26) printed `0` at exit 0, check exit 0 (the pre-existing A-2.6 residue: a non-literal initializer); 04ed5a4b8 printed `0` at exit 0 and check exited 0. HEAD: an Object-repr TaggedVal cell is excluded from C2 promotion (`cell_is_promotable` under `CapturedBindings { is_tagged: true }`), and a member access off an unlowered capture goes through `unlowered_capture_refusal`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "ol2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_local_copied_from_an_object_parameter"
+rationale = """Ruling R9 (c') (2026-10-05), §3.4: `check` refuses a captured local initialized from its own parameter (the Task 7 `let o = o{p}` or a user-written `const o=p`) unless it is a proven-numeric I64 (`// Task 9: F64 with proof`). node prints `1`; baseline printed `0` at exit 0, check exit 0; Task 6 (d640fbf26) printed `0` at exit 0, check exit 0 (the pre-existing A-2.6 residue: a non-literal initializer); 04ed5a4b8 printed `0` at exit 0 and check exited 0. HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
+args = ["check", "ol2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_returning_an_object_parameter_is_refused"
+rationale = """Ruling R9 (2026-10-05), spec §1.1 (no Object parameters), §3.1: node prints `1`; baseline printed `0` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 printed `0` at exit 0 and check exited 0. The `.a` here is read off a call result, which reads `0` even uncaptured (`function f(o){ return o; } … f(x).a` prints `0` at baseline and HEAD, a pre-existing lane), but the capture itself is now refused first, so the case pins the refusal. HEAD: an Object-repr TaggedVal cell is excluded from C2 promotion (`cell_is_promotable` under `CapturedBindings { is_tagged: true }`), and a member access off an unlowered capture goes through `unlowered_capture_refusal`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "ol3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_returning_an_object_parameter"
+rationale = """Ruling R9 (c') (2026-10-05), §3.4: `check` refuses a captured local initialized from its own parameter (the Task 7 `let o = o{p}` or a user-written `const o=p`) unless it is a proven-numeric I64 (`// Task 9: F64 with proof`). node prints `1`; baseline printed `0` at exit 0, check exit 0; Task 6 (d640fbf26) refused with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: `o` is a parameter of `f`` (run and check exit 1); 04ed5a4b8 printed `0` at exit 0 and check exited 0. The `.a` here is read off a call result, which reads `0` even uncaptured (`function f(o){ return o; } … f(x).a` prints `0` at baseline and HEAD, a pre-existing lane), but the capture itself is now refused first, so the case pins the refusal. HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`, as `run` does."""
+args = ["check", "ol3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]

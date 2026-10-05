@@ -92,6 +92,10 @@ pub(super) struct Recorder {
     /// MIR gives them an `Array` / `Struct` / `TaggedVal` / `Closure` layout,
     /// never `Scalar` (`kali_mir::analysis::infer::infer_layout`).
     non_scalar: BTreeSet<(usize, String)>,
+    /// Locals whose initializer is a bare parameter of their own function:
+    /// Task 7's rewritten `let k = k{p}` and a user-written `let n = k`
+    /// (ruling R9 (c')). MIR gives them the parameter's `TaggedVal` layout.
+    param_copies: BTreeSet<(usize, String)>,
 }
 
 impl Hooks for Recorder {
@@ -166,6 +170,18 @@ impl Hooks for Recorder {
         );
         if let (true, Some(binding)) = (non_scalar, self.last_bind.clone()) {
             self.non_scalar.insert(binding);
+        }
+        // A local initialized from a parameter of its own function: a Task 7
+        // rewritten parameter (`let k = k{p}`) or a user-written copy
+        // (`let n = k`). Both take the parameter's `TaggedVal` layout.
+        if let (Expression::Identifier(source), Some(binding)) = (init, self.last_bind.clone()) {
+            let current = *self.stack.last().expect("initializer inside a scope");
+            let from_own_param = self.resolve(current, source).is_some_and(|(scope, kind)| {
+                kind == BindKind::Param && self.scopes[scope].frame == self.scopes[binding.0].frame
+            });
+            if from_own_param {
+                self.param_copies.insert(binding);
+            }
         }
     }
 
@@ -282,6 +298,8 @@ struct Capture {
     kind: BindKind,
     /// The binding's initializer is an array, object or function literal.
     non_scalar: bool,
+    /// The binding is initialized from its function's own parameter.
+    param_copy: bool,
 }
 
 /// Captured-bindings §3.4 / A-2.6: one E5506 per (capturing function,
@@ -325,6 +343,7 @@ pub(crate) fn capture_refusals(
             name: u.name.clone(),
             kind,
             non_scalar: recorder.non_scalar.contains(&(scope, u.name.clone())),
+            param_copy: recorder.param_copies.contains(&(scope, u.name.clone())),
         });
     }
     // Owners of a captured binding outside every iteration record, as MIR's
@@ -351,7 +370,9 @@ pub(crate) fn capture_refusals(
             Some(CaptureRefusal::Depth)
         } else if phase == Phase::One && c.kind == BindKind::Param {
             Some(CaptureRefusal::Parameter { owner: owner_key })
-        } else if !repr_has_a_cell(repr_table, owner_key, &c.name, c.non_scalar, phase) {
+        } else if (c.param_copy && !param_copy_has_a_cell(repr_table, owner_key, &c.name))
+            || !repr_has_a_cell(repr_table, owner_key, &c.name, c.non_scalar, phase)
+        {
             Some(CaptureRefusal::ValueType)
         } else {
             None
@@ -381,6 +402,15 @@ fn structural_depth(frames: &[Frame], from: usize, to: usize, owners: &BTreeSet<
         current = parent;
     }
     depth
+}
+
+/// Ruling R9 (c'): a local copied from a parameter (rewritten or user-written)
+/// is a `TaggedVal` cell, which
+/// codegen promotes only as a proven-numeric `I64` (A-1 point 3; an Object
+/// repr is excluded, spec §1.1). Mirrors `cell_is_promotable`'s tagged branch.
+fn param_copy_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> bool {
+    // Task 9: F64 with proof
+    table.scalar(owner, name) == Repr::I64 && table.binding_is_proven_numeric(owner, name)
 }
 
 /// Mirrors `kali_codegen::closure::cell_is_promotable`: a non-scalar cell

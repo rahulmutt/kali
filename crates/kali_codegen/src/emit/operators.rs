@@ -48,6 +48,11 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_string_valued(arg) || self.string_result_render_taint(arg) {
             return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
         }
+        // Captured-bindings ruling R9: `o.a++` on a capture this function did
+        // not lower is refused, as the read and the store are.
+        if let Some(message) = self.unlowered_capture_member_refusal(self.node(arg)) {
+            return self.deny_e5506(function, &message);
+        }
         let Some(name) = self.assignment_target_name(node, arg) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -782,6 +787,13 @@ impl<'a> FunctionEmitter<'a> {
                 // statically-known shape; this is the only one that answers
                 // silently and wrongly. The REJECT-DON'T-MISCOMPILE arms above
                 // are the shape a fix for it would take.
+                //
+                // Captured-bindings ruling R9 (spec §3.1): a member read off a
+                // capture this function did not lower is refused here, after
+                // every specific member lane had its chance to deny or lower it.
+                if let Some(message) = self.unlowered_capture_member_refusal(node) {
+                    return self.deny_e5506(function, &message);
+                }
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported unary operator '{}'", op),

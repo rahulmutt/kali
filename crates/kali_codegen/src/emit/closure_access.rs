@@ -256,6 +256,38 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    /// Captured-bindings ruling R9: the refusal for a static member access
+    /// (`o.a`, `o.a.b`) whose root object is a bare identifier this function
+    /// captures but did not lower. The member lanes resolve the receiver by
+    /// name and never emit the identifier, so they bypass the read choke and
+    /// used to read the zero placeholder. `None` when `member` is not a
+    /// static member chain rooted at such a capture.
+    pub(crate) fn unlowered_capture_member_refusal(&self, member: &LirNode) -> Option<String> {
+        let mut node = member;
+        let mut depth = 0;
+        loop {
+            let text = node.text.as_deref()?;
+            if node.children.is_empty() {
+                // A childless node is the root identifier; `member` itself
+                // being childless is a bare read, which the read choke owns.
+                return if depth == 0 || text.is_empty() {
+                    None
+                } else {
+                    self.unlowered_capture_refusal(text)
+                };
+            }
+            if node.kind != LirNodeKind::Value
+                || node.children.len() != 1
+                || crate::lower::is_unary_operator_text(text)
+                || matches!(text, "await" | "?")
+            {
+                return None;
+            }
+            node = self.node(node.children[0]);
+            depth += 1;
+        }
+    }
+
     /// Captured-bindings spec §3.1 (A-2.3, A-2.5): the refusal for a name
     /// this function captures but `resolve_capture_access` did not lower.
     /// `None` when `name` is this function's own local, is not one of its

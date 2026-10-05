@@ -374,6 +374,14 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
+        // Captured-bindings ruling R9 (spec §3.1): a store (plain or compound)
+        // to a member of a capture this function did not lower is refused
+        // rather than written through the placeholder.
+        if let Some(message) = self.unlowered_capture_member_refusal(self.node(left)) {
+            self.deny_e5506(function, &message);
+            return true;
+        }
+
         // Stage P5 T-new-E: a bare-identifier reassignment `s = String(1n)`
         // makes `s` hold a String() coercion result whose repr stays `I64`
         // (F-newB-1). The provenance is now computed STRUCTURALLY in

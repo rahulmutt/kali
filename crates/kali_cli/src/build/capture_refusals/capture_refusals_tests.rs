@@ -191,3 +191,75 @@ fn a_captured_object_literal_local_is_refused_unless_its_repr_is_an_object() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(found[0].contains("that captures `o`"), "{found:?}");
 }
+
+/// The `run`/`check` pipeline order: the Task 7 rewrite, then repr inference.
+fn refusals_after_rewrite(source: &str) -> Vec<String> {
+    let mut statements = parse(source);
+    crate::build::name_anon_functions::name_anonymous_functions(&mut statements);
+    crate::build::capture_param_rewrite::rewrite_captured_params(&mut statements);
+    let table = kali_types::infer_reprs(&statements);
+    capture_refusals(&mut statements, &table, Phase::One)
+        .into_iter()
+        .map(|d| d.message)
+        .collect()
+}
+
+// Ruling R9 (c'): a rewritten parameter local has a cell only as a proven
+// numeric I64.
+#[test]
+fn a_rewritten_object_parameter_is_refused_by_value_type() {
+    let found = refusals_after_rewrite(
+        "function f(o){ const g=()=>o.a; return g(); } const x={a:1}; console.log(f(x));",
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("that captures `o`")
+            && found[0].contains("its value type has no closure cell"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_rewritten_boolean_parameter_with_a_numeric_proof_is_admitted() {
+    // R11: the numeric proof admits `f(true)`; `run` promotes the cell.
+    let found = refusals_after_rewrite("function f(b){ const g=()=>b; return g(); } f(true);");
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_rewritten_numeric_parameter_is_admitted() {
+    let found = refusals_after_rewrite("function f(k){ const g=()=>k; return g(); } f(5);");
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_rewritten_parameter_without_a_proof_is_refused() {
+    // v9: no call edge to the const-bound arrow, so no numeric proof.
+    let found = refusals_after_rewrite("const f=(k)=>{ const g=()=>k; return g(); }; f(5);");
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("its value type has no closure cell"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_user_written_copy_of_an_object_parameter_is_refused() {
+    // ol2: `const o=p` takes the parameter's TaggedVal layout too.
+    let found = refusals_after_rewrite(
+        "function f(p){ const o=p; const g=()=>o.a; return g(); } const x={a:1}; console.log(f(x));",
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("its value type has no closure cell"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_user_written_copy_of_a_numeric_parameter_is_admitted() {
+    // p2: proven numeric, so `run` promotes it.
+    let found =
+        refusals_after_rewrite("function f(k){ let n=k; const g=()=>n; return g(); } f(5);");
+    assert!(found.is_empty(), "{found:?}");
+}

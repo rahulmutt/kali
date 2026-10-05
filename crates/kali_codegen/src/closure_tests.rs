@@ -48,11 +48,22 @@ fn a_tagged_f64_cell_does_not_promote() {
 }
 
 #[test]
-fn the_scalar_and_object_verdicts_ignore_the_widening() {
+fn the_scalar_and_untagged_object_verdicts_ignore_the_widening() {
     let mut t = table(false);
     t.set_scalar("f", "o", Repr::Object(kali_common::ShapeId(0)));
     for widening in [Widening::Baseline, TAGGED] {
         assert!(cell_is_promotable(&t, "f", "k", true, widening));
+    }
+    let untagged = Widening::CapturedBindings { is_tagged: false };
+    for widening in [Widening::Baseline, untagged] {
         assert!(cell_is_promotable(&t, "f", "o", false, widening));
     }
+}
+
+#[test]
+fn a_tagged_object_cell_does_not_promote() {
+    // Ruling R9: a rewritten Object parameter (`let o = o{p}`) is TaggedVal.
+    let mut t = table(true);
+    t.set_scalar("f", "o", Repr::Object(kali_common::ShapeId(0)));
+    assert!(!cell_is_promotable(&t, "f", "o", false, TAGGED));
 }
