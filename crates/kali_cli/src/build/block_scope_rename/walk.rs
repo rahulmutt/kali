@@ -60,6 +60,9 @@ pub(crate) trait Hooks {
     fn exit_loop(&mut self) {}
     /// A call expression, seen before its callee and arguments are walked.
     fn call(&mut self, _callee: &Expression) {}
+    /// The initializer of the declarator just reported to `bind`, seen before
+    /// it is walked.
+    fn initializer(&mut self, _init: &Expression) {}
 }
 
 pub(crate) fn walk_program(statements: &mut [Statement], hooks: &mut impl Hooks) {
@@ -89,6 +92,7 @@ fn walk_var_decl(decl: &mut VariableDeclaration, hooks: &mut impl Hooks) {
     for declarator in decl.declarations.iter_mut() {
         hooks.bind(&mut declarator.id, kind);
         if let Some(init) = declarator.init.as_mut() {
+            hooks.initializer(init);
             walk_expression(init, hooks);
         }
     }

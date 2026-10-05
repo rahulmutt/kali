@@ -71,6 +71,18 @@
 """
 "w6.js" = """function m() { let a = 5; const o = () => { let z = 10; const h = () => z + a; return h(); }; return o(); } console.log(m());
 """
+"fn4.js" = """function m(){ let a=5; function o(){ function h2(){ return 1; } function h(){ return a+h2(); } return h(); } return o(); }
+console.log(m());
+"""
+"ns2.js" = """function f(){ let arr=[1,2,3]; const g=()=>arr.length; return g(); }
+console.log(f());
+"""
+"ns4.js" = """function f(){ let o={a:1}; const g=()=>o.a; return g(); }
+console.log(f());
+"""
+"ns5.js" = """function f(){ let h=function(){ return 2; }; const g=()=>h; return g() ? 1 : 0; }
+console.log(f());
+"""
 
 # --- a captured parameter (A-1): reason "is a parameter of" ---
 
@@ -481,7 +493,7 @@ stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
 
 [[case]]
 name = "check_admits_a_local_copied_from_a_parameter_the_known_residue"
-rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. Recorded in the followups gap table."""
+rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5`; baseline `check` exited 0. Recorded in the followups gap table."""
 args = ["check", "p2.js"]
 exit = "success"
 
@@ -490,3 +502,61 @@ name = "check_admits_a_parameter_copy_the_owner_also_logs_the_known_residue"
 rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5` then `5`. Recorded in the followups gap table."""
 args = ["check", "e5.js"]
 exit = "success"
+
+# --- Task 5 fix round 1: captured declarations as env owners, non-scalar initializers ---
+
+[[case]]
+name = "a_capture_past_an_owner_of_a_captured_function_declaration_is_refused"
+rationale = """§3.1: `o` owns a cell for the captured declaration `h2`, so `h` reads `a` across two env-owning functions (MIR depth 2). node prints `6`; baseline printed `1` at exit 0."""
+args = ["run", "fn4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `h` that captures `a`", "`a` is two or more closures away"]
+
+[[case]]
+name = "check_counts_a_captured_function_declaration_as_an_env_owner"
+rationale = """§3.4, A-2.6 (Task 5 fix round 1): MIR gives the captured function declaration `h2` a cell in `o`, so `check` counts `o` in the structural depth and refuses as `run` does. node prints `6`; baseline `check` exited 0."""
+args = ["check", "fn4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `h` that captures `a`", "`a` is two or more closures away"]
+
+[[case]]
+name = "a_closure_over_a_local_initialised_with_array_literal_is_refused"
+rationale = """§3.1: `arr` is initialised with an array literal, so its MIR layout is not Scalar and its repr is not `Object(_)`; codegen's `cell_is_promotable` does not promote it. node prints `3`; baseline refused with `error[E5506]: `.length` is unavailable in the current phase for this receiver: no lane proves its length…` (exit 1)."""
+args = ["run", "ns2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `arr`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_local_initialised_with_array_literal"
+rationale = """§3.4, ruling R7 (Task 5 fix round 1): `check` refuses a captured binding initialised with an array literal unless its repr is `Object(_)`, as codegen does. node prints `3`; baseline `check` exited 0."""
+args = ["check", "ns2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `arr`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_local_initialised_with_object_literal_is_refused"
+rationale = """§3.1: `o` is initialised with an object literal, so its MIR layout is not Scalar and its repr is not `Object(_)`; codegen's `cell_is_promotable` does not promote it. node prints `1`; baseline printed `0` at exit 0."""
+args = ["run", "ns4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_local_initialised_with_object_literal"
+rationale = """§3.4, ruling R7 (Task 5 fix round 1): `check` refuses a captured binding initialised with an object literal unless its repr is `Object(_)`, as codegen does. node prints `1`; baseline `check` exited 0."""
+args = ["check", "ns4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_local_initialised_with_function_expression_is_refused"
+rationale = """§3.1: `h` is initialised with a function expression, so its MIR layout is not Scalar and its repr is not `Object(_)`; codegen's `cell_is_promotable` does not promote it. node prints `1`; baseline printed `0` at exit 0."""
+args = ["run", "ns5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `h`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_local_initialised_with_function_expression"
+rationale = """§3.4, ruling R7 (Task 5 fix round 1): `check` refuses a captured binding initialised with a function expression unless its repr is `Object(_)`, as codegen does. node prints `1`; baseline `check` exited 0."""
+args = ["check", "ns5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `h`", "its value type has no closure cell"]

@@ -6,7 +6,10 @@
 //! one captured binding (`kali_mir::env_plan::env_owning_hops`).
 //!
 //! Residue (A-2.6): a TaggedVal local codegen does not promote is admitted
-//! here, because MIR layouts are not visible before MIR.
+//! here, because MIR layouts are not visible before MIR. MIR's non-scalar
+//! layouts are mirrored only for a syntactic array, object or function
+//! initializer (ruling R7); a non-scalar layout reached any other way (for
+//! example `let a = makeArr()`) is admitted here while `run` refuses it.
 //!
 //! Iteration records (A-2.5, §3.4) are out of this pass: a capture of a
 //! binding declared in a loop that may own a per-iteration record, or whose
@@ -81,6 +84,12 @@ struct Recorder {
     uses: Vec<Use>,
     loops: Vec<Loop>,
     open_loops: Vec<usize>,
+    /// The binding `bind` last reported, as (scope, name).
+    last_bind: Option<(usize, String)>,
+    /// Bindings whose initializer is an array, object or function literal:
+    /// MIR gives them an `Array` / `Struct` / `TaggedVal` / `Closure` layout,
+    /// never `Scalar` (`kali_mir::analysis::infer::infer_layout`).
+    non_scalar: BTreeSet<(usize, String)>,
 }
 
 impl Hooks for Recorder {
@@ -103,11 +112,18 @@ impl Hooks for Recorder {
             ScopeKind::Block => parent_frame.unwrap_or(0),
         };
         let innermost_loop = self.open_loops_of(Some(frame)).last();
+        let mut bindings = BTreeMap::new();
+        if let (ScopeKind::Function, Some(label)) = (kind, label) {
+            // MIR binds every function's own name inside its own scope
+            // (`walk.rs`, `FunctionDecl` / `FunctionExpr` arms), so a nested
+            // reference to it is owned by the function itself.
+            bindings.insert(label.to_string(), BindKind::FunctionDecl);
+        }
         self.scopes.push(ScopeEntry {
             frame,
             parent,
             innermost_loop,
-            bindings: BTreeMap::new(),
+            bindings,
         });
         self.stack.push(scope);
     }
@@ -124,10 +140,31 @@ impl Hooks for Recorder {
         } else {
             current
         };
-        self.scopes[target]
-            .bindings
-            .entry(name.clone())
-            .or_insert(kind);
+        let bindings = &mut self.scopes[target].bindings;
+        if kind == BindKind::Param {
+            // A parameter shadows the function's own name.
+            bindings.insert(name.clone(), kind);
+        } else {
+            bindings.entry(name.clone()).or_insert(kind);
+        }
+        self.last_bind = Some((target, name.clone()));
+    }
+
+    fn initializer(&mut self, init: &Expression) {
+        let mut init = init;
+        while let Expression::ParenthesizedExpression(inner) = init {
+            init = &inner.expression;
+        }
+        let non_scalar = matches!(
+            init,
+            Expression::ArrayExpression(_)
+                | Expression::ObjectExpression(_)
+                | Expression::FunctionExpression(_)
+                | Expression::ArrowFunctionExpression(_)
+        );
+        if let (true, Some(binding)) = (non_scalar, self.last_bind.clone()) {
+            self.non_scalar.insert(binding);
+        }
     }
 
     fn reference(&mut self, name: &mut String) {
@@ -226,6 +263,8 @@ struct Capture {
     owner: usize,
     name: String,
     kind: BindKind,
+    /// The binding's initializer is an array, object or function literal.
+    non_scalar: bool,
 }
 
 /// Captured-bindings §3.4 / A-2.6: one E5506 per (capturing function,
@@ -240,6 +279,7 @@ pub(crate) fn capture_refusals(
     walk::walk_program(statements, &mut recorder);
 
     let mut captures = Vec::new();
+    let mut cell_owners = BTreeSet::new();
     for u in &recorder.uses {
         let Some((scope, kind)) = recorder.resolve(u.scope, &u.name) else {
             continue;
@@ -249,11 +289,17 @@ pub(crate) fn capture_refusals(
         if owner == capturer || recorder.frames[owner].is_module {
             continue;
         }
-        // Function and class names are program-wide downstream (not cells).
-        if kind.is_program_wide() {
+        if recorder.in_iteration_record(scope, kind) {
             continue;
         }
-        if recorder.in_iteration_record(scope, kind) {
+        // Function and class names are program-wide downstream, so they are
+        // never refused here, but MIR still gives a captured function or
+        // class declaration (or a function's own name) a cell, which makes
+        // its owner an env owner. A class expression's name is no MIR binding.
+        if kind.is_program_wide() {
+            if kind != BindKind::ClassExprId {
+                cell_owners.insert(owner);
+            }
             continue;
         }
         captures.push(Capture {
@@ -261,11 +307,13 @@ pub(crate) fn capture_refusals(
             owner,
             name: u.name.clone(),
             kind,
+            non_scalar: recorder.non_scalar.contains(&(scope, u.name.clone())),
         });
     }
     // Owners of a captured binding outside every iteration record, as MIR's
     // `env_owners` after the iteration cells moved out.
-    let env_owners: BTreeSet<usize> = captures.iter().map(|c| c.owner).collect();
+    let mut env_owners = cell_owners;
+    env_owners.extend(captures.iter().map(|c| c.owner));
 
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
@@ -286,7 +334,7 @@ pub(crate) fn capture_refusals(
             Some(CaptureRefusal::Depth)
         } else if phase == Phase::One && c.kind == BindKind::Param {
             Some(CaptureRefusal::Parameter { owner: owner_key })
-        } else if !repr_has_a_cell(repr_table, owner_key, &c.name, phase) {
+        } else if !repr_has_a_cell(repr_table, owner_key, &c.name, c.non_scalar, phase) {
             Some(CaptureRefusal::ValueType)
         } else {
             None
@@ -318,9 +366,24 @@ fn structural_depth(frames: &[Frame], from: usize, to: usize, owners: &BTreeSet<
     depth
 }
 
-fn repr_has_a_cell(table: &ReprTable, owner: &str, name: &str, phase: Phase) -> bool {
+/// Mirrors `kali_codegen::closure::cell_is_promotable`: a non-scalar cell
+/// promotes only as `Object(_)` (or an abort handle), a scalar one as `I64`
+/// (and `F64` in phase 2).
+fn repr_has_a_cell(
+    table: &ReprTable,
+    owner: &str,
+    name: &str,
+    non_scalar: bool,
+    phase: Phase,
+) -> bool {
     if phase == Phase::One && table.binding_is_boolean_const(owner, name) {
         return false;
+    }
+    if non_scalar {
+        return matches!(
+            table.scalar(owner, name),
+            Repr::Object(_) | Repr::AbortHandle
+        );
     }
     match table.scalar(owner, name) {
         Repr::I64 | Repr::Object(_) | Repr::AbortHandle => true,

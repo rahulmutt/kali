@@ -124,3 +124,70 @@ fn a_loop_without_a_registration_owns_no_record() {
         "{found:?}"
     );
 }
+
+#[test]
+fn a_captured_function_declaration_makes_its_owner_an_env_owner() {
+    // MIR gives the captured `h2` a cell in `o`, so `o` owns an env record
+    // and `a` is two env records away from `h`.
+    let found = refusals(
+        "function m(){ let a=5; function o(){ function h2(){return 1;} function h(){ return a+h2(); } return h(); } return o(); } m();",
+        Phase::One,
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("a closure `h` that captures `a`")
+            && found[0].contains("`a` is two or more closures away"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_captured_class_declaration_makes_its_owner_an_env_owner() {
+    let found = refusals(
+        "function m(){ let a=5; function o(){ class K { static v(){ return 1; } } const h=()=>a+K.v(); return h(); } return o(); } m();",
+        Phase::One,
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("`a` is two or more closures away"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_captured_array_literal_local_is_refused() {
+    let found = refusals(
+        "function f(){ let arr=[1,2,3]; const g=()=>arr.length; return g(); } f();",
+        Phase::One,
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("that captures `arr`")
+            && found[0].contains("its value type has no closure cell"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_captured_function_expression_local_is_refused() {
+    let found = refusals(
+        "function f(){ let h=function(){ return 2; }; const g=()=>h; return g() ? 1 : 0; } f();",
+        Phase::One,
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(
+        found[0].contains("that captures `h`")
+            && found[0].contains("its value type has no closure cell"),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_captured_object_literal_local_is_refused_unless_its_repr_is_an_object() {
+    let found = refusals(
+        "function f(){ let o={a:1}; const g=()=>o.a; return g(); } f();",
+        Phase::One,
+    );
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].contains("that captures `o`"), "{found:?}");
+}
