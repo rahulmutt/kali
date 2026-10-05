@@ -396,8 +396,8 @@ before and after, and triages every moved trial into one of:
 * **wanted:** silent → refused (phase 1) or silent / refused → node-equal
   (phase 2);
 * **capability loss:** a program that exited 0 with node's output and is now
-  refused. Phase 1 expects none, because every refused lane read a placeholder,
-  a zeroed cell or a dropped store. Any found is reported to the human partner
+  refused. Phase 1 expects none, because every refused lane read a placeholder
+  or a dropped store. Any found is reported to the human partner
   before the phase continues;
 * **other:** anything else, explained one by one.
 
@@ -458,3 +458,63 @@ reads `5` (a local copied from a local stays `Scalar`); `let n=0; n=k;` reads
    `check` too.
 6. **Phase 1 (§3.1) is unchanged.** It refuses every unpromoted capture,
    whatever the reason.
+
+### A-2 (2026-10-05, while writing the plan): what the code turned out to be
+
+Each point was measured or read at `2ddf18c66`, and the human partner chose
+point 1.
+
+1. **Boolean is narrowed to a captured `const`.** kali has no boolean proof for
+   any binding. `let b=true; console.log(b)` prints `1` uncaptured (the register
+   records it at `kali-silent-miscompile-register.md:5250`). Only a fold-lane
+   `const` renders `true`, because its reads re-emit the literal. Measured:
+   `const b=true` logged directly prints `true`; logged from a closure it
+   prints `1`. That is the one capture-specific boolean defect. So:
+   * A new positive proof, `ReprTable::boolean_consts: HashSet<(scope, name)>`,
+     is written by `repr_infer` for a `const` whose initializer is a boolean
+     literal, a comparison (`== === != !== < > <= >=`) or a `!` expression,
+     parenthesized or not. Its hook is `note_fn_alias` (`repr_infer.rs:3207`),
+     and `emit_table` installs it next to `numeric_bindings` (`:7427`).
+   * Phase 1 refuses a capture read of such a `const`, with reason
+     *value type*. Phase 2 lets the capture read return `ValueShape::Boolean`
+     for it.
+   * A `let` boolean, captured or not, keeps rendering `1`. That is the
+     register's lane, not this project's. §1 item 2's boolean bullet, §3.3's
+     boolean paragraph and A-1 point 3's third bullet are replaced by this
+     point.
+2. **There are no unrewritten parameter forms.** Default, rest and
+   destructuring parameters are refused by the parser ("kali functions take a
+   fixed list of plain named parameters"), and `arguments` is E3100. Every
+   captured parameter is a simple identifier and is rewritten. §1.1's
+   "other parameter forms" bullet, §3.2's "when it does not apply" list and the
+   §5.2 cases for those forms are dropped.
+3. **The owner side is never refused.** An unpromoted captured binding keeps a
+   WASM local in its owner, so the owner's own reads and writes are correct.
+   §3.1 refuses only in the capturing function. The table row "read or write
+   of a captured parameter … by the closure or by the owner" becomes "by the
+   closure".
+4. **The capturer is named by its plan key** with `display_names_in` applied:
+   a named function shows its name, and an anonymous closure shows
+   `__kali_fn_N`, as block-scoping's A-4 message already does. §3.1's display
+   name sentence is replaced.
+5. **The refusal skips refs owned by block-scoping.** A ref with
+   `through_iteration`, or whose owner plan is an iteration plan, keeps
+   `iteration::iteration_capture_diagnostics`'s refusal and is not refused
+   again.
+6. **`check` lives in `kali_cli`, not `kali_types`.** repr_infer's `parents`
+   records only `FunctionDeclaration` nesting (`repr_infer.rs:924-936`), so it
+   cannot see an arrow's owner. The `check` pass reuses the block-scope rename
+   walk instead: `walk::Hooks::enter` gains the function's plan key, and a new
+   `build/capture_refusals` pass runs after repr_infer. MIR's scopes are
+   function-level (`kali_mir/src/analysis/scope.rs:8-33`), and its depth counts
+   ancestors that own at least one captured binding, so `check` computes the
+   same structural depth exactly. The residue is the `TaggedVal` local that
+   codegen does not promote (`let n = k` in phase 1, an unproven number in
+   phase 2): `check` cannot see MIR layouts and admits it, while `run` refuses
+   it. The §5.2 differential case lists those programs by name as the known
+   residue rather than asserting the property over them. A method's plan key
+   is `<Class>__<method>`. Where `check` cannot form a key it admits, and the
+   followups record it.
+7. **Probes run with `FORCE_COLOR` unset.** It is `3` in the measuring
+   environment, and node then colours numbers, which breaks every probe
+   comparison.
