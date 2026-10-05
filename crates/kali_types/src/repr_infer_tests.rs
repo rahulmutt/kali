@@ -2309,3 +2309,20 @@ fn infer_reprs_records_host_derived_classes() {
     assert!(!t.is_host_derived_class("A"));
     assert!(!t.is_host_derived_class("B"));
 }
+
+#[test]
+fn a_const_with_a_boolean_initializer_is_a_boolean_const() {
+    let t =
+        reprs("function f(){ const a=true; const b=1<2; const c=!a; const d=(a===b); return 0; }");
+    for name in ["a", "b", "c", "d"] {
+        assert!(t.binding_is_boolean_const("f", name), "{name}");
+    }
+}
+
+#[test]
+fn let_and_non_boolean_consts_are_not_boolean_consts() {
+    let t = reprs("function f(){ let a=true; const n=1; const s=\"x\"; const c=a&&a; return 0; }");
+    for name in ["a", "n", "s", "c"] {
+        assert!(!t.binding_is_boolean_const("f", name), "{name}");
+    }
+}

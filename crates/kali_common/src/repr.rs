@@ -342,6 +342,11 @@ pub struct ReprTable {
     /// binding itself and parameters with a proven scalar inflow, and the
     /// binding carries no array/growable/object taint.
     numeric_bindings: HashSet<(String, String)>,
+    /// `(scope, binding)` pairs of a `const` whose initializer is a boolean
+    /// literal, a comparison or `!` (captured-bindings A-2.1). Positive
+    /// evidence only: `scalar(..)` is `I64` for a boolean, so the repr cannot
+    /// say this.
+    boolean_consts: HashSet<(String, String)>,
     /// `(scope, binding)` pairs that provably carry a `String()` intrinsic
     /// coercion RESULT (Stage P5 T-new-E). Unlike the numeric_* allowlists
     /// above, this is a DENY taint: `repr_infer` seeds no `Repr::String` for a
@@ -923,6 +928,15 @@ impl ReprTable {
     /// the default `Repr::I64` cannot carry.
     pub fn binding_is_proven_numeric(&self, scope: &str, binding: &str) -> bool {
         self.numeric_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    pub fn set_boolean_consts(&mut self, consts: HashSet<(String, String)>) {
+        self.boolean_consts = consts;
+    }
+
+    pub fn binding_is_boolean_const(&self, scope: &str, binding: &str) -> bool {
+        self.boolean_consts
             .contains(&(scope.to_string(), binding.to_string()))
     }
 
