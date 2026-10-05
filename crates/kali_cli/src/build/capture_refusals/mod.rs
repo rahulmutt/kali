@@ -35,7 +35,8 @@ pub(crate) enum Phase {
     /// Before the parameter rewrite: a captured parameter is refused.
     One,
     /// After the parameter rewrite (Task 7), so parameters no longer occur.
-    /// F64 stays refused in both phases (ruling R14); Task 10 admits boolean
+    /// A captured F64 that its capturer only writes (assignment statements,
+    /// rulings R14/R15) is admitted in both phases; Task 10 admits boolean
     /// consts here.
     Two,
 }
@@ -459,7 +460,9 @@ fn rewritten_param_has_a_cell(table: &ReprTable, owner: &str, name: &str) -> boo
 /// `=` / `+=` / `-=` / `*=` / `/=` on an F64 cell and refuses every other read,
 /// so an F64 capture is admitted only when `writes_only` (the capturer never
 /// reads it otherwise). An assignment statement is the one discarded shape
-/// recognized here; codegen may lower more, so `check` stays the stricter.
+/// recognized here; codegen's `discarded_value_node` (any child of
+/// `emit_aggregate_literal`'s sequence loop) may cover more, so for a keyed
+/// capturer `check` stays the stricter.
 fn repr_has_a_cell(
     table: &ReprTable,
     owner: &str,

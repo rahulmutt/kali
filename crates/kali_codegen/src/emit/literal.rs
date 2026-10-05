@@ -30,7 +30,10 @@ impl<'a> FunctionEmitter<'a> {
             }
         } else {
             for child in &node.children {
+                // Each child's value is dropped below (`discarded_value_node`).
+                let outer = self.discarded_value_node.replace(*child);
                 let produced = self.emit_node(function, *child, true);
+                self.discarded_value_node = outer;
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
                 }
@@ -1001,7 +1004,7 @@ impl<'a> FunctionEmitter<'a> {
             // its env cell (read-modify-write for compound ops). `Some` iff
             // `name` is in this function's env plan (handled or E5506-rejected);
             // only genuinely unresolvable names fall through to the E5506 below.
-            if let Some(handled) = self.try_emit_captured_assign(function, op, &name, right) {
+            if let Some(handled) = self.try_emit_captured_assign(function, id, op, &name, right) {
                 return handled;
             }
         }

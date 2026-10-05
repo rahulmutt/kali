@@ -533,6 +533,12 @@ pub(crate) struct FunctionEmitter<'a> {
     /// keyed by NAME ONLY, for the same reason
     /// `captured_cell_bigint_targets` is.
     pub(crate) captured_cell_float_targets: &'a HashSet<String>,
+    /// Captured-bindings fix round 1 (ruling R14): the child node
+    /// `emit_aggregate_literal`'s sequence loop is emitting, whose value is
+    /// dropped by construction (an expression statement). A capturer's
+    /// assignment to an F64 cell lowers only when it is this node; anywhere
+    /// else its value is a read of the cell and is refused.
+    pub(crate) discarded_value_node: Option<LirNodeId>,
     /// R-11 T6 review Important 1: whole-program FLOAT-taint set for promoted
     /// MODULE-GLOBAL scalars (`collect_float_tainted_module_scalars`) — the
     /// module-global twin of `captured_cell_float_targets`, and the only guard
@@ -779,6 +785,7 @@ impl<'a> FunctionEmitter<'a> {
             .collect(),
             active_iterations: Vec::new(),
             emitted_iterations: BTreeSet::new(),
+            discarded_value_node: None,
         }
     }
 

@@ -391,17 +391,96 @@ impl<'a> FunctionEmitter<'a> {
         self.deny_e5506(function, &message)
     }
 
-    /// Captured-bindings A-4: leave `value` on the stack as the bits of an
-    /// f64 for an F64 cell store: `F64Const(0.0)` when nothing was produced,
-    /// `f64.convert_i64_s` for an integer-valued value, then
-    /// `i64.reinterpret_f64`.
-    fn emit_f64_cell_bits(&mut self, function: &mut Function, value: LirNodeId, produced: bool) {
-        if !produced {
-            function.instruction(&Instruction::F64Const(0.0.into()));
-        } else if !self.is_float_valued(value) {
-            function.instruction(&Instruction::F64ConvertI64S);
+    /// Captured-bindings A-4: turn the just-emitted `value` into an f64 on
+    /// the stack for an F64 cell, choosing from what was emitted (fix
+    /// round 1):
+    /// - an emitted `ValueShape::Float` is already an f64;
+    /// - otherwise `is_float_valued` decides, as on the local F64 lane, and
+    ///   an integer is converted with `f64.convert_i64_s`.
+    ///
+    /// `false` (the caller refuses) when nothing was produced, or when the
+    /// emitter produced a non-float shape that `is_float_valued` calls float
+    /// for a literal: `1e20` is interned as a string handle (an i64), which
+    /// would be invalid wasm (E4201) or, converted, a wrong value.
+    fn emit_f64_operand(
+        &mut self,
+        function: &mut Function,
+        value: LirNodeId,
+        emitted: EmittedValue,
+    ) -> bool {
+        if !emitted.produced {
+            return false;
         }
-        function.instruction(&Instruction::I64ReinterpretF64);
+        if emitted.shape == ValueShape::Float {
+            return true;
+        }
+        let literal = self.node(self.unwrap_transparent(value)).kind == LirNodeKind::Literal;
+        if self.is_float_valued(value) {
+            return !literal;
+        }
+        function.instruction(&Instruction::F64ConvertI64S);
+        true
+    }
+
+    /// Captured-bindings fix round 1: the f64 a right-hand side denotes when
+    /// it is a numeric literal (`1e20`, `1e300`, which the generic literal
+    /// lane interns as a string handle), a global `NaN` / `Infinity`
+    /// resolved by no other lane (it reads a placeholder there), or a unary
+    /// `-` / `+` over one of those.
+    fn f64_constant_rhs(&self, value: LirNodeId) -> Option<f64> {
+        let node = self.node(self.unwrap_transparent(value));
+        match node.kind {
+            LirNodeKind::Literal => {
+                parse_numeric_literal_value(node.text.as_deref()?).filter(|v| !v.is_nan())
+            }
+            LirNodeKind::Value if node.children.is_empty() => {
+                let name = node.text.as_deref()?;
+                let global = match name {
+                    "NaN" => f64::NAN,
+                    "Infinity" => f64::INFINITY,
+                    _ => return None,
+                };
+                let unclaimed = matches!(
+                    self.resolve_identifier_kind(name),
+                    IdentifierResolution::CapturedCellOrPlaceholder
+                ) && self.env_plan.cell_for(name).is_none()
+                    && self.env_plan.captured_for(name).is_none();
+                unclaimed.then_some(global)
+            }
+            LirNodeKind::Value if node.children.len() == 1 => {
+                let operand = self.f64_constant_rhs(node.children[0])?;
+                match node.text.as_deref() {
+                    Some("-") => Some(-operand),
+                    Some("+") => Some(operand),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    /// Emit `value` as an f64 for an F64 cell (`f64_constant_rhs`, else
+    /// `emit_node` + `emit_f64_operand`). `false` when the caller must refuse.
+    fn emit_f64_rhs(&mut self, function: &mut Function, value: LirNodeId) -> bool {
+        if let Some(constant) = self.f64_constant_rhs(value) {
+            function.instruction(&Instruction::F64Const(constant.into()));
+            return true;
+        }
+        let emitted = self.emit_node(function, value, true);
+        self.emit_f64_operand(function, value, emitted)
+    }
+
+    /// Whether `id` is the node whose value `emit_aggregate_literal`'s
+    /// sequence loop drops (an expression statement), looking through
+    /// transparent wrappers.
+    fn value_is_discarded(&self, id: LirNodeId) -> bool {
+        self.discarded_value_node
+            .is_some_and(|node| self.unwrap_transparent(node) == self.unwrap_transparent(id))
+    }
+
+    fn captured_f64_value_refusal(&mut self, function: &mut Function, name: &str) {
+        self.captured_f64_read_refusal(function, name);
+        function.instruction(&Instruction::I64Const(0));
     }
 
     /// Read site: load a captured scalar. `None` when `name` is not a
@@ -452,10 +531,17 @@ impl<'a> FunctionEmitter<'a> {
         let (depth, offset) = self.resolve_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
-        let produced = self.emit_node(function, init, true);
         if self.captured_cell_is_f64(name) {
-            self.emit_f64_cell_bits(function, init, produced.produced);
-        } else if !produced.produced {
+            if !self.emit_f64_rhs(function, init) {
+                self.captured_f64_value_refusal(function, name);
+                return Some(());
+            }
+            function.instruction(&Instruction::I64ReinterpretF64);
+            crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
+            return Some(());
+        }
+        let produced = self.emit_node(function, init, true);
+        if !produced.produced {
             function.instruction(&Instruction::I64Const(0));
         }
         crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
@@ -471,6 +557,7 @@ impl<'a> FunctionEmitter<'a> {
     pub(crate) fn try_emit_captured_assign(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         op: &str,
         name: &str,
         right: LirNodeId,
@@ -482,7 +569,7 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         if self.captured_cell_is_f64(name) {
-            return self.try_emit_captured_f64_assign(function, op, name, right);
+            return self.try_emit_captured_f64_assign(function, id, op, name, right);
         }
         // Scalar-only: a captured OBJECT cell (C2) keeps its baseline write path
         // — `=`/compound-assign through the capture is out of C2's read scope.
@@ -643,15 +730,14 @@ impl<'a> FunctionEmitter<'a> {
     /// caller's existing E5506.
     ///
     /// Ruling R14: in a capturer the stored double left on the stack is an
-    /// f64 the capturer's `repr_infer` types do not expect. Codegen cannot
-    /// tell a discarded statement value from a used one (statements are
-    /// emitted with a value and dropped), so the `check` pass
-    /// (`build/capture_refusals`, which `run` passes through first) admits a
-    /// capturer's F64 write only as an assignment statement and refuses an
-    /// assignment used as a value.
+    /// f64 the capturer's `repr_infer` types do not expect, so the assignment
+    /// lowers only as an expression statement, whose value is dropped
+    /// (`id` is `discarded_value_node`); used as a value it is a read of the
+    /// cell and is refused. The `check` pass mirrors the rule.
     fn try_emit_captured_f64_assign(
         &mut self,
         function: &mut Function,
+        id: LirNodeId,
         op: &str,
         name: &str,
         right: LirNodeId,
@@ -664,27 +750,26 @@ impl<'a> FunctionEmitter<'a> {
             "/=" => Some(Instruction::F64Div),
             _ => return None,
         };
+        if self.captured_f64_in_capturer(name) && !self.value_is_discarded(id) {
+            self.captured_f64_value_refusal(function, name);
+            return Some(true);
+        }
         let (depth, offset) = self.resolve_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
-        match arithmetic {
-            None => {
-                let rhs = self.emit_node(function, right, true);
-                self.emit_f64_cell_bits(function, right, rhs.produced);
+        if let Some(instruction) = &arithmetic {
+            crate::closure::emit_cell_load(function, env_global, depth, offset);
+            function.instruction(&Instruction::F64ReinterpretI64);
+            if !self.emit_f64_rhs(function, right) {
+                self.captured_f64_value_refusal(function, name);
+                return Some(true);
             }
-            Some(instruction) => {
-                crate::closure::emit_cell_load(function, env_global, depth, offset);
-                function.instruction(&Instruction::F64ReinterpretI64);
-                let rhs = self.emit_node(function, right, true);
-                if !rhs.produced {
-                    function.instruction(&Instruction::F64Const(0.0.into()));
-                } else if !self.is_float_valued(right) {
-                    function.instruction(&Instruction::F64ConvertI64S);
-                }
-                function.instruction(&instruction);
-                function.instruction(&Instruction::I64ReinterpretF64);
-            }
+            function.instruction(instruction);
+        } else if !self.emit_f64_rhs(function, right) {
+            self.captured_f64_value_refusal(function, name);
+            return Some(true);
         }
+        function.instruction(&Instruction::I64ReinterpretF64);
         crate::closure::emit_cell_store(function, env_global, depth, offset, scratch);
         // Assignment expression value: the stored double.
         crate::closure::emit_cell_load(function, env_global, depth, offset);

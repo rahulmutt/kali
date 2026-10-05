@@ -23,6 +23,16 @@
 """
 "fcls.js" = """function f(){ let x=1.5; const C = class { static m(){ return x; } }; return C.m(); } console.log(f());
 """
+"cm25.js" = """function f(){ let x=1.5; const C = class { static m(){ console.log(x = 2.5); } }; C.m(); return x; } console.log(f());
+"""
+"cm26.js" = """function f(){ let x=1.5; const C = class { static m(){ return x += 1; } }; console.log(C.m()); return x; } console.log(f());
+"""
+"cmw3.js" = """function f(){ let x=1.5; const C = class { static m(){ if ((x += 1) > 2) console.log("big"); } }; C.m(); return x; } console.log(f());
+"""
+"fnan.js" = """function f(){ let x=1.5; const g=()=>{ x = NaN; }; g(); return x; } console.log(f());
+"""
+"fbig.js" = """function f(){ let x=1.5; const g=()=>{ x *= 1e20; }; g(); return x; } console.log(f());
+"""
 "a2.js" = """function f(){ let x=1.5; const g=()=>x; return g(); } console.log(f());
 """
 "a3.js" = """function f(k){ const g=()=>k; k=k+1; return g(); } console.log(f(5));
@@ -853,3 +863,43 @@ args = ["run", "fcls.js"]
 exit = "failure"
 stderr_contains = ["E5506", "a closure `m` that captures `x`", "its value type has no closure cell"]
 stderr_absent = ["E4201"]
+
+# --- Task 9 fix round 1: discarded assignment values, literal right-hand sides ---
+
+[[case]]
+name = "an_f64_assignment_logged_from_an_unkeyed_method_is_refused"
+rationale = """Task 9 fix round 1 (2026-10-05), reviewer p25: an anonymous class method has no plan key, so the check pass admits it (A-2.6); codegen alone decides. `console.log(x = 2.5)` uses the assignment's value, a read of the F64 cell in a capturer (R14). Codegen now knows a discarded value: `emit_aggregate_literal`'s sequence loop records the child it drops (`discarded_value_node`), and a capturer's F64 assignment lowers only as that node. node prints `2.5` then `2.5`; cc1458493 exited 1 with `error[E5506]: a closure `m` that captures `x` is unavailable in the current phase: its value type has no closure cell`; b605fbfd1 (Task 9 first commit) failed with `error[E4201]: failed to load WASM module: failed to compile: …` — invalid wasm, which spec §3.1 forbids; HEAD exits 1 with `error[E5506]: a closure `m` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "cm25.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `m` that captures `x`", "its value type has no closure cell"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "an_f64_compound_assignment_returned_from_an_unkeyed_method_is_refused"
+rationale = """Task 9 fix round 1 (2026-10-05), reviewer p26: `return x += 1` in an anonymous class method uses the assignment's value (R14). node prints `2.5` then `2.5`; cc1458493 exited 1 with `error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') …`; b605fbfd1 (Task 9 first commit) failed with `error[E4201]: failed to load WASM module: failed to compile: …` — invalid wasm, which spec §3.1 forbids; HEAD exits 1 with `error[E5506]: a closure `m` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "cm26.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `m` that captures `x`", "its value type has no closure cell"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "an_f64_compound_assignment_in_a_condition_of_an_unkeyed_method_is_refused"
+rationale = """Task 9 fix round 1 (2026-10-05), reviewer w3: `if ((x += 1) > 2)` in an anonymous class method compares the assignment's value (R14). node prints `big` then `2.5`; cc1458493 exited 1 with `error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') …`; b605fbfd1 (Task 9 first commit) failed with `error[E4201]: failed to load WASM module: failed to compile: …` — invalid wasm, which spec §3.1 forbids; HEAD exits 1 with `error[E5506]: a closure `m` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "cmw3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `m` that captures `x`", "its value type has no closure cell"]
+stderr_absent = ["E4201"]
+
+[[case]]
+name = "a_closure_assigning_nan_to_an_f64_capture"
+rationale = """Task 9 fix round 1 (2026-10-05), reviewer z12: the F64 cell's right-hand side is a global `NaN` that no other lane claims; it lowers as `f64.const nan` (`f64_constant_rhs`), not through the identifier lane (which reads a placeholder, and whose shape made the cell arm emit `f64.convert_i64_s` over an f64). node prints `NaN`; cc1458493 exited 1 with E5506 (value type); b605fbfd1 (Task 9 first commit) failed with `error[E4201]: failed to load WASM module: failed to compile: …` — invalid wasm, which spec §3.1 forbids; HEAD prints `NaN` at exit 0."""
+args = ["run", "fnan.js"]
+exit = "success"
+stdout = "NaN\n"
+
+[[case]]
+name = "a_closure_multiplying_an_f64_capture_by_a_large_literal"
+rationale = """Task 9 fix round 1 (2026-10-05), reviewer y7: `1e20` is an integer-valued literal outside i64, which the generic literal lane interns as a string handle (an i64) while `is_float_valued` calls it float; the F64 cell arm now emits the literal's value as `f64.const` (`f64_constant_rhs`). node prints `150000000000000000000`; cc1458493 exited 1 with E5506 (value type); b605fbfd1 (Task 9 first commit) failed with `error[E4201]: failed to load WASM module: failed to compile: …` — invalid wasm, which spec §3.1 forbids; HEAD prints `150000000000000000000` at exit 0."""
+args = ["run", "fbig.js"]
+exit = "success"
+stdout = "150000000000000000000\n"

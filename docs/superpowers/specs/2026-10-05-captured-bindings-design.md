@@ -586,8 +586,16 @@ codegen, so the pass cannot be stricter than `run` on the shapes `run`
 lowers without refusing them in `run` too. It therefore mirrors the write
 rule. A captured F64 is admitted only when every reference to it in the
 capturer is the target of an assignment statement with one of the five
-operators. Codegen lowers a superset of that (it cannot tell a statement's
-dropped value from a used one), so `check` stays the stricter of the two.
+operators. For capturers that have a plan key, outside the deferred lane,
+`check` stays the stricter of the two. Codegen applies the same rule itself:
+a capturer's F64 assignment lowers only as the node whose value
+`emit_aggregate_literal`'s statement loop drops, so a capturer `check` cannot
+key (a method of an anonymous class expression, A-2.6) is refused by codegen
+when it uses the value. A right-hand side that is a numeric literal or a
+global `NaN` / `Infinity` is stored as its f64 constant. A right-hand side that
+produces nothing, or that the emitter produced as a non-float literal while
+`is_float_valued` calls it float, is refused (E5506, value type) rather than
+stored as a placeholder or as invalid wasm.
 
 **Recorded for later.** Full F64 reads from a closure need `repr_infer` to join
 the closure's node to the owner's binding. That requires parent edges for
