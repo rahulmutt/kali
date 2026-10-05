@@ -78,12 +78,12 @@ fn an_i64_local_capture_is_admitted() {
 }
 
 #[test]
-fn a_boolean_const_capture_is_refused_in_phase_one() {
+fn a_boolean_const_capture_is_admitted_in_phase_one() {
     let found = refusals(
         "function f(){ const b=true; const g=()=>b; return g(); } f();",
         Phase::One,
     );
-    assert!(found[0].contains("that captures `b`"), "{found:?}");
+    assert!(found.is_empty(), "{found:?}");
 }
 
 #[test]
@@ -316,13 +316,13 @@ fn an_f64_remainder_or_update_is_refused() {
 }
 
 #[test]
-fn a_boolean_const_capture_is_still_refused_in_phase_two() {
-    // Task 10 lifts it; until then both phases refuse it.
+fn a_boolean_const_capture_is_admitted_in_phase_two() {
+    // A-2.1: the capture read carries `ValueShape::Boolean`.
     let found = refusals(
         "function f(){ const b=true; const g=()=>b; return g(); } f();",
         Phase::Two,
     );
-    assert!(found[0].contains("that captures `b`"), "{found:?}");
+    assert!(found.is_empty(), "{found:?}");
 }
 
 #[test]

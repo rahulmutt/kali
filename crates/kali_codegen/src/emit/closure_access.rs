@@ -343,8 +343,8 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Captured-bindings A-2.1: the owner namespace of a lowered capture of a
-    /// boolean `const`, or `None`. Phase 1 refuses the read; phase 2 (Task 10)
-    /// gives it `ValueShape::Boolean`.
+    /// boolean `const`, or `None`. The read carries
+    /// `ValueShape::Boolean`.
     pub(crate) fn captured_boolean_const_owner(&self, name: &str) -> Option<String> {
         if self.locals.contains_key(name) || self.env_plan.cell_for(name).is_some() {
             return None;
@@ -490,19 +490,10 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         name: &str,
     ) -> Option<EmittedValue> {
-        if self.captured_boolean_const_owner(name).is_some() {
-            return Some(self.deny_e5506(
-                function,
-                &kali_common::captured_binding_unavailable_message(
-                    &self.function_name,
-                    name,
-                    kali_common::CaptureRefusal::ValueType,
-                ),
-            ));
-        }
         if self.captured_f64_in_capturer(name) {
             return Some(self.captured_f64_read_refusal(function, name));
         }
+        let boolean = self.captured_boolean_const_owner(name).is_some();
         let (depth, offset) = self.resolve_capture_access(name)?;
         crate::closure::emit_cell_load(function, self.current_env_global(), depth, offset);
         if self.captured_cell_is_f64(name) {
@@ -514,7 +505,11 @@ impl<'a> FunctionEmitter<'a> {
         }
         Some(EmittedValue {
             produced: true,
-            shape: ValueShape::Scalar,
+            shape: if boolean {
+                ValueShape::Boolean
+            } else {
+                ValueShape::Scalar
+            },
         })
     }
 

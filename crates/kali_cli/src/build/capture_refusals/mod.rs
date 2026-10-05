@@ -36,8 +36,7 @@ pub(crate) enum Phase {
     One,
     /// After the parameter rewrite (Task 7), so parameters no longer occur.
     /// A captured F64 that its capturer only writes (assignment statements,
-    /// rulings R14/R15) is admitted in both phases; Task 10 admits boolean
-    /// consts here.
+    /// rulings R14/R15) is admitted in both phases.
     Two,
 }
 
@@ -470,11 +469,6 @@ fn repr_has_a_cell(
     non_scalar: bool,
     writes_only: bool,
 ) -> bool {
-    // Task 10: a captured boolean `const` is refused in both phases until its
-    // capture read carries `ValueShape::Boolean` (A-2.1).
-    if table.binding_is_boolean_const(owner, name) {
-        return false;
-    }
     if non_scalar {
         return matches!(
             table.scalar(owner, name),

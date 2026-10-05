@@ -61,6 +61,8 @@
 """
 "kb3.js" = """function f(){ const b=1<2; const g=()=>{ console.log(b); }; g(); } f();
 """
+"kb_ret.js" = """function f(){ const b=true; const g=()=>b; return g(); } console.log(f());
+"""
 "lb1.js" = """function f(){ let b=true; const g=()=>{ console.log(b); }; g(); } f();
 """
 "ok_v6.js" = """function f(k){ let n=k+0; const g=()=>n; return g(); } console.log(f(5));
@@ -295,18 +297,20 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
-name = "a_closure_over_a_boolean_literal_const_is_refused"
-rationale = """A-2.1: a captured boolean `const` reads its promoted I64 cell and rendered `1`; phase 1 refuses it (phase 2 lifts it). node prints `true`; baseline printed `1` at exit 0 (row `cb_kb2 SILENT true 1 0`)."""
+name = "a_closure_over_a_boolean_literal_const_prints_true"
+rationale = """A-2.1: a captured boolean `const` reads its promoted I64 cell and rendered `1`; phase 1 refused it. node prints `true`; baseline printed `1` at exit 0 (row `cb_kb2 SILENT true 1 0`).
+Task 10 (2026-10-05): the capture read carries ValueShape::Boolean, so HEAD prints `true`, node's output."""
 args = ["run", "kb2.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+exit = "success"
+stdout = "true\n"
 
 [[case]]
-name = "a_closure_over_a_comparison_const_is_refused"
-rationale = """A-2.1: `const b=1<2` is a boolean `const` by its comparison initializer. node prints `true`; baseline printed `1` at exit 0 (row `cb_kb3 SILENT true 1 0`)."""
+name = "a_closure_over_a_comparison_const_prints_true"
+rationale = """A-2.1: `const b=1<2` is a boolean `const` by its comparison initializer. node prints `true`; baseline printed `1` at exit 0 (row `cb_kb3 SILENT true 1 0`).
+Task 10 (2026-10-05): the capture read carries ValueShape::Boolean, so HEAD prints `true`, node's output."""
 args = ["run", "kb3.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+exit = "success"
+stdout = "true\n"
 
 # --- MIR depth >= 2: reason "is two or more closures away" ---
 
@@ -384,6 +388,13 @@ rationale = """Control (A-2.1): an uncaptured boolean `const` folds and renders 
 args = ["run", "kb1.js"]
 exit = "success"
 stdout = "true\n"
+
+[[case]]
+name = "a_captured_boolean_const_returned_still_renders_one"
+rationale = """A-2.1: the closure read is a boolean, but `console.log(f())` renders a user function's return through R-34's lane, so it stays `1`; not this project's. node prints `true`."""
+args = ["run", "kb_ret.js"]
+exit = "success"
+stdout = "1\n"
 
 [[case]]
 name = "a_captured_let_boolean_returned_renders_as_uncaptured"
@@ -537,18 +548,18 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
-name = "check_refuses_a_closure_over_a_boolean_literal_const"
-rationale = """§3.4, A-2.6: A-2.1. node prints `true`; baseline check exited 0 (row `cb_kb2`)."""
+name = "check_admits_a_closure_over_a_boolean_literal_const"
+rationale = """§3.4, A-2.6: A-2.1. node prints `true`; baseline check exited 0 (row `cb_kb2`).
+Task 10 (2026-10-05): check admits it, matching run, which prints `true`."""
 args = ["check", "kb2.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+exit = "success"
 
 [[case]]
-name = "check_refuses_a_closure_over_a_comparison_const"
-rationale = """§3.4, A-2.6: A-2.1. node prints `true`; baseline check exited 0 (row `cb_kb3`)."""
+name = "check_admits_a_closure_over_a_comparison_const"
+rationale = """§3.4, A-2.6: A-2.1. node prints `true`; baseline check exited 0 (row `cb_kb3`).
+Task 10 (2026-10-05): check admits it, matching run, which prints `true`."""
 args = ["check", "kb3.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+exit = "success"
 
 [[case]]
 name = "check_refuses_a_capture_two_closures_away_in_a_deferred_callback"
