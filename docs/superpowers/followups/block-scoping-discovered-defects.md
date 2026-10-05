@@ -29,8 +29,10 @@ worktree (`/home/dev/kali-bs-baseline`). Probe rows come from
   (`queueMicrotask` or `setTimeout` are the end-to-end-tested callees) over
   its own bindings gets one record per iteration, so each callback sees its
   iteration's bindings (register R-69, FIXED for those shapes). The loop is
-  an owner when the registration is textually anywhere inside it, including
-  inside a function or arrow function defined in the loop (ruling R8). The
+  an owner when a registration textually anywhere inside it, including
+  inside a function or arrow function defined in the loop (ruling R8),
+  registers a closure of the loop that captures one of the loop's bindings
+  (ruling H5(a), spec A-9). The
   records cover a loop's body bindings and a `for` loop's head bindings. They
   do not cover the head binding of a growable `for…of` or a `for…in` key
   (spec A-8, §2 and §7.5).
@@ -211,8 +213,9 @@ assert `{FIXED}` and R-26's assert `{SILENT}`, matching §0.2, so the gate
 
 ## §2. Measured capability loss
 
-**None in any trial, case, fixture or corpus program; one constructed program found by hand (§7.8).** Capability loss here means a program that exited 0 with
-node-correct output at `6345f082b` and is refused at HEAD.
+**None in any trial, case, fixture or corpus program; one constructed shape
+found by hand (§7.8).** Capability loss here means a program that exited 0
+with node-correct output at `6345f082b` and is refused at HEAD.
 
 * The 60 moved trials (§1): none is a capability loss of class 1, 2 or 3.
 * The 6,423-trial sweep (§1.1): 7 trials carry one of the new refusals, and
@@ -227,7 +230,26 @@ node-correct output at `6345f082b` and is refused at HEAD.
   (`a_for_in_key_capture_stays_refused`). The spec had claimed both; ruling R9
   narrowed it (spec A-8, §7.5).
 
-The one constructed loss is §7.8: a function declared but never called in a loop makes the loop an owner (ruling R8), and a synchronous closure in that loop that captures a binding of the enclosing function is then refused where the baseline was node-correct. No trial, case or corpus program has that shape.
+The one constructed loss is §7.8: a function in a loop that registers a
+closure capturing a loop binding makes the loop an owner even when it is
+never called (rulings R8, H4), and a synchronous closure in that loop that
+captures a binding of the enclosing function is then refused where the
+baseline was node-correct. No trial, case or corpus program has that shape.
+
+The final review found a wider class (review finding I-1): before the
+final fix wave, *any* registration in a loop, of any callback, made the loop
+an owner, and two refusals then hit node-correct programs: the A-4 refusal
+(`rv/cl3.js`, node and baseline `100 101 t t`) and the env_safety call-site
+refusal for a call from the loop to a closure of the enclosing function
+(`rv/cl1.js`, node and baseline `0 2 4 3 t t t`; `rv/cl6.js`, node and
+baseline `3 7 7 7`). The final fix wave removed both (spec A-9): the owner
+rule now requires the registered callback to be a closure of the loop that
+captures a loop binding, and a call from an owner loop to a closure of the
+enclosing function runs with `g8` switched back to the function's record.
+All three now print node's output, pinned by
+`scope/per_iteration::an_unrelated_registration_does_not_make_an_owner`,
+`…::an_unrelated_registration_keeps_a_two_level_capture_on_the_baseline_lowering`
+and `…::a_call_from_an_owner_loop_to_a_closure_of_the_function_switches_the_env`.
 
 What this does not say: a program that no case, fixture or corpus program
 exercises was not measured. The five silent-to-refused moves above cost an
@@ -389,13 +411,20 @@ per-iteration record is unavailable …: `i` belongs to the enclosing function,
 two records away``. For a nested owner loop (`nested_loops`, §4) `i` belongs
 to the outer loop's record, not to the enclosing function. The refusal is
 right; the text is not. A message-text follow-up. Neither code nor message
-changed in this project's docs task.
+changed in this project's docs task. The final fix wave's R13 refusal (spec A-9,
+`d06`) reuses the same message, as ruled, and is a second such shape: `k`
+lives in the loop's own record, one record away from the callback, and
+"move `k` into the loop" is advice it already follows.
 
 ### §7.8 The textual R8 rule over-approximates owners
 
-Ruling R8 makes a loop an owner when a deferred registration appears anywhere
-textually inside it, including inside a function defined in the loop and
-never invoked. That is a capability loss in one constructed shape:
+Ruling R8 counts a registration anywhere textually inside a loop, including
+inside a function defined in the loop and never invoked. Spec A-9 (ruling
+H5(a)) narrowed what is registered: the callback must be a closure of the
+loop that captures one of the loop's own bindings, or a name bound to one. A
+callback the MIR walk cannot resolve to a function (a parameter, a member, a
+call result) still counts, conservatively. What remains is a capability loss
+in one constructed shape (ruling H4):
 
 ```js
 function m(){ let a=10; for(let i=0;i<2;i++){ const r=()=>{ setTimeout(()=>console.log(i),0); }; const g=()=>a+i; console.log(g()); } } m();
@@ -403,12 +432,22 @@ function m(){ let a=10; for(let i=0;i<2;i++){ const r=()=>{ setTimeout(()=>conso
 
 `r` is never called. node prints `10` then `11`, and so did `6345f082b`. At
 HEAD `run` refuses it with E5506 (`a closure … captures `a` through a
-per-iteration record`), because `r` makes the loop an owner and `g` then reads
-`a` two records away (§3). Without `r` the program runs (`10`, `11`). A precise
-rule would need to know whether the registering function is called from the
-loop. Outside a closure that captures an enclosing-function binding, the cost
-is only a record per iteration that nothing needs (§5). Not found in any
-trial, case or corpus program (§2).
+per-iteration record`), because `r` registers a loop closure over `i`, which
+makes the loop an owner, and `g` then reads `a` two records away (§3). Without
+`r` the program runs (`10`, `11`). A precise rule would need to know whether
+the registering function is called from the loop. Pinned by
+`scope/per_iteration::a_never_called_registering_function_still_makes_an_owner`.
+
+Before the final fix wave the class was wider (review finding I-1, §2): any
+registration of any callback in the loop made an owner, and a call from an
+owner loop to a closure of the enclosing function was refused by
+`env_safety`. Both are gone (spec A-9). The conservative unresolved-callback
+case can still make a false owner, for example `setTimeout(f, 0)` with a
+parameter `f` in a loop whose synchronous closure captures a binding of the
+enclosing function (`function m(f){ let a=1; for(…){ const k=i; const g=()=>k+a; console.log(g()); setTimeout(f,0); } } m(cb);`).
+That is not a capability loss: HEAD refuses it with the A-4 message, and
+`6345f082b` refused it too (`a setTimeout callback must resolve through
+stable provenance to a compiled function`).
 
 ### §7.9 A new capability with no pinning case
 
@@ -438,3 +477,51 @@ shadowed spelling in `unresolved-member-call-discovered-defects.md` §6 item 9
 was refused at the baseline with E5506 and now prints the same `0`, because the
 rename removed the shadow the refusal keyed on and exposed this defect. It is
 a silent wrong value that does not depend on scope. Not filed in the register.
+
+### §7.11 Found during final review: three pre-existing silent miscompiles
+
+The final review listed these under "Declined to judge" (ruling R12): none is
+caused by this project, all three are silent wrong values at exit 0, and none
+is in the register. Each is recommended for a register entry. Measured on the
+final-fix-wave binary and on `6345f082b`; node v26.10.0.
+
+1. **A captured parameter, or a `let` initialized from one, reads `0` in a
+   closure.**
+
+   ```js
+   function f(k){ const g=()=>k; return g(); } console.log(f(5));
+   function f(k){ let n=k; const g=()=>n; return g(); } console.log(f(5));
+   ```
+
+   node prints `5` for both; `6345f082b` and HEAD print `0` for both. The
+   rename only changes which wrong value a shadowing program shows (review
+   probes `u13`/`u14`: baseline `1`, HEAD `0`). Recommend a register entry.
+
+2. **A depth-2 synchronous capture reads `0` (or a stale value) outside
+   loops** (review probe `rv/d02.js`):
+
+   ```js
+   function m() { let a = 5; setTimeout(() => { let z = 10; const h = () => z + a; console.log(h()); }, 0); } m();
+   ```
+
+   node prints `15`; `6345f082b` and HEAD print `10`. This corrects
+   `stageC-closures-triage.md` item 6, which says `mir_depth >= 2` "fails
+   closed / unchanged": it does not fail closed, the access falls through to
+   the older lowering and reads a wrong value. The per-iteration slice (a
+   closure nested in a registered callback that reads a loop binding) is
+   refused since the final fix wave (spec A-9, ruling R13,
+   `scope/per_iteration::a_depth_two_capture_owned_by_an_iteration_record_is_refused`);
+   this function-scope shape is not. Recommend a register entry.
+
+3. **A named import read across modules reads `0`** (review probe
+   `rv/mm/m2.js`, an ES-module package with `b.js` exporting
+   `export const x = 1; export function f() { let y = 1; return y; }`):
+
+   ```js
+   import { x, f } from './b.js';
+   console.log(x, f());
+   ```
+
+   node prints `1 1`; `6345f082b` and HEAD print `0 0`. Shadowing an import
+   is now correct (`rv/mm/m3.js`), but the unshadowed read is not. Recommend
+   a register entry.
