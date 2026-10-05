@@ -506,7 +506,8 @@ it names.
   `kali_codegen/src/env_safety.rs:158-179` into one
   `kali_common::is_deferred_registration_callee`, which both MIR and
   `env_safety` call. `Kali.test` is not on the list, and a loop registering
-  only `Kali.test` callbacks keeps the baseline lowering.
+  only `Kali.test` callbacks keeps the baseline lowering. Part (b) is
+  narrowed by A-9: the registered callback must be a closure of the loop.
 * **A-3. No `await` / `yield` refusal (§1.1, §3.4).** `await` is lowered as a
   synchronous pass-through (`kali_codegen/src/emit/control_flow.rs:2341`), so
   nothing suspends inside a loop and `g8` cannot be observed mid-iteration.
@@ -527,7 +528,8 @@ it names.
   rule refuses **nested owner loops** whose closure reads the outer loop's
   binding (`nested_loops`: node `0 0` / `0 1` / `1 0` / `1 1`). That binding
   is two records away, through the inner one, so §1 item 5 does not claim
-  this shape. Lowering walks of depth 2 or more is a future item.
+  this shape. Lowering walks of depth 2 or more is a future item. A-9
+  extends the refusal to references whose owner is itself a record.
 * **A-5. Two more run-only refusals (§3.4).**
   - **An iteration-owner `for` whose body contains a `continue`** (not one in a
     nested loop or function). The copy into the next iteration's record sits
@@ -592,3 +594,47 @@ it names.
   `10 20`). Widening promotion to non-scalar (`TaggedVal`) loop-head cells
   would lift both refusals; it is a future item
   (`block-scoping-discovered-defects.md` §7.5).
+* **A-9. A loop is an owner only when it registers one of its own closures;
+  calls out of an owner loop switch `g8`; depth-2 captures of a record refuse
+  (§3.3, A-2(b), A-4).** Found by the final review (findings I-1, I-2);
+  rulings R8, H5 and R13. Overrides A-2(b) and extends A-4.
+  - **Owner rule (H5(a), R8).** A loop is an iteration owner when A-2(a) holds
+    and a deferred-registration call (`kali_common::is_deferred_registration_callee`)
+    textually inside the loop, including one inside a function nested in the
+    loop (R8), has a callback argument (the first argument of `queueMicrotask`
+    / `setTimeout` / `setInterval`, the second of `addEventListener`) that is
+    either a closure created in the loop that captures, directly or through a
+    nested closure, a `let` / `const` declared directly in the loop, or a name
+    that resolves to such a closure. Registering a function from outside the
+    loop (`setTimeout(tick, 0)`) no longer makes an owner, so a loop whose
+    only loop-capturing closures are called synchronously keeps the baseline
+    lowering, as §3.3 promised. A callback argument the MIR walk cannot
+    resolve to a function (a parameter, a member, a call result) is treated
+    as such a closure: a false owner only costs a refusal, a missed owner a
+    wrong value. The cells are unchanged: the loop-declared `let` / `const`
+    captured by closures created in the loop. LIR matches plans by cell name
+    only (A-6), so codegen's loop matching needs no change.
+  - **The `g8` switch (H5(b)).** Inside an owner loop `g8` is the iteration
+    record. A direct call made there to a capturer whose lowered captures
+    (depth 1, promotable cell) are all owned by functions, not by iteration
+    records, runs with `g8` set to the outermost active owner loop's save
+    local (the env the loop was entered with, i.e. the enclosing function's
+    record), and the iteration record is restored after the call
+    (`FunctionEmitter::emit_direct_call`). `env_safety` admits such a call
+    site against the caller's body context only because codegen performs the
+    switch; both decide it with `iteration::call_leaves_iteration_record`.
+    Registrations are not switched (the host restores the registration-site
+    `g8`). A loop whose plan has no promotable cell gets no records, and
+    `env_safety` no longer treats its call sites as running in a record.
+  - **Depth-2 captures of a record (R13).** A captured reference of depth 2
+    or more whose owner IS an iteration record (a closure inside a callback
+    that reads the loop's binding through the callback's own env) is refused
+    with the A-4 E5506 message, like one whose path crosses a record. At the
+    baseline and before this amendment it read a stale value at exit 0
+    (`d06`: node `1 8`, kali `1 1`). Lowering depth-2 walks stays a future
+    item.
+  - What stays refused: a function in the loop that registers a loop closure
+    still makes the loop an owner when it is never called (ruling H4), and a
+    synchronous closure in that loop that captures a binding of the enclosing
+    function is then refused (A-4). Pinned by
+    `scope/per_iteration::a_never_called_registering_function_still_makes_an_owner`.
