@@ -65,11 +65,18 @@ assignments and `++` / `--` keep their existing E5506.
   strips it.
 - **One predicate.** `closure::cell_is_promotable` stays the single promotion
   predicate. Promotion (`lower.rs`) and access (`closure_access.rs`) call it
-  with identical arguments.
-  - **Iteration-plan call sites** pass `allow_tagged = false`, so block-scoping
+  with identical arguments. Its fifth parameter is a `Widening` enum, not the
+  `allow_tagged: bool` the task steps below were written against
+  (captured-bindings followups §6 CB-1: a bool cannot express "function site,
+  scalar F64" without widening the iteration and deferred sites).
+  - **Iteration-plan call sites** pass `Widening::Baseline`, so block-scoping
     is unchanged (spec §1.1).
   - **The deferred-registration allowlist** (`host.rs:1746`) passes
-    `allow_tagged = false` too, so the deferred lane is unchanged.
+    `Widening::Baseline` too, so the deferred lane is unchanged.
+  - **Function-plan cells** (promotion in `lower.rs`, the own-cell branch of
+    `resolve_capture_access_inner`) pass `Widening::CapturedBindings {
+    is_tagged }`; a captured reference passes `Widening::for_captured_ref`,
+    which is what its owner's promotion site passed (CB-10).
 - **Not widened:** `String` cells, `Object` parameters, `TaggedVal` cells
   without a numeric proof, MIR depth ≥ 2, and iteration-record cells.
 - **Byte identity.** A program with no captured parameter, no captured F64

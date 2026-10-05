@@ -6,7 +6,10 @@ convention `block-scoping-discovered-defects.md` uses: a project that measures
 more than it fixes writes down what it left, so the silence is not read as
 absence. Task 6 wrote the phase-1 triage (§1.1), §2, §3 and §5. Task 12 added
 the phase-2 triage (§1.2), the phase-2 audit (§2.1), the new §3 rows and
-§5.4–§5.11. Task 13 fills §4.
+§5.4–§5.11. Task 13 fills §4. The final-review fix wave (2026-10-05, §6
+CB-19) added §2.2, the "Added at the final review" rows of §3, the §4 items
+marked CB-19, §5.12, the corrections to §5.6 and §5.10, and §6, the committed
+record of the execution rulings that code comments cite as `CB-n`.
 
 **Oracle:** `node v26.10.0`, always run as `env -u FORCE_COLOR node` (spec A-2.7).
 **Measured at:** HEAD `b57e79e97` (branch `captured-bindings`), on
@@ -232,6 +235,22 @@ reasoning:
 | p09 | `function f(){ let x=1.5; const g=()=>{ x = x; }; g(); return x; } console.log(f());` | `1.5` | exit 0, `1.5` / 0 | exit 1, E5506 value type / 1 | exit 1, E5506 value type / 1. The right-hand side reads the captured F64, which R14 refuses. |
 | acu | `function f(){ let x=1.5; const C = class { static m(){ const y = x * 2; return 1; } }; console.log(C.m()); return x; } console.log(f());` | `1⏎1.5` | exit 0, `1⏎1.5` / 0 | exit 1, E5506 `a closure `m` that captures `x` …: value type` / 0 | exit 1, same / 0. The unused read of the captured F64 is still a read (R14). `check` admits it, because the frame has no plan key (§3). |
 
+### §2.2 Under `--compat eval` (final review, CB-19)
+
+Measured at HEAD `baf9454aa` and after the fix wave, node and baseline as
+above. The captured-parameter rewrite (spec §3.2) renames the parameter, and
+`eval` code could name it, so `--compat eval` refuses any program the rewrite
+touches. This is an accepted loss: cl2 is lifted (§2.1) only without
+`--compat eval`.
+
+| program | node | baseline `run --compat eval` | HEAD `baf9454aa` | after the fix wave |
+|---|---|---|---|---|
+| `function f(k){ const g=()=>k; return k; } console.log(f(5)); console.log(eval("1+1"));` | `5⏎2` | exit 0, `5⏎2` | exit 1, E5506 `a block-scoped binding that shadows another binding is unavailable with `--compat eval` …` (the wrong message: nothing shadows) | exit 1, E5506 `a closure that captures a parameter is unavailable with `--compat eval` in the current phase: …` (`captured_parameter_eval_refused_message`) |
+
+Pinned by `closure/captured_bindings::a_captured_parameter_under_compat_eval_is_refused_with_its_own_message`.
+Without `--compat eval`, the same program is refused because `eval` is a
+compatibility feature, on all three binaries.
+
 ---
 
 ## §3. The `check` / `run` gap
@@ -277,6 +296,24 @@ Measured at HEAD `c7d7f22f0`, with node, the baseline `2ddf18c66` and phase 1 `d
 |---|---|---|---|---|
 | A deferred callback over a captured parameter, on every registration surface: the three `soundness/events::deferred_{settimeout,queuemicrotask,event_listener}_captured_param_fails_closed` cases, which join `cb_v2` (R3) | e.g. `function main(i){ setTimeout(function(){ console.log("i=" + i); }, 5); } main(6);` | `i=6` | exit 1, E5506 `` `i` is a parameter of `main` `` / 1 | exit 1, E5506 `a captured local binding without closure lowering would read a placeholder …` / **0** |
 | A write-only deferred F64 capture (Task 9 minor, beside R3) | `function f(){ let x=1.5; setTimeout(()=>{ x = 2.5; },0); return x; } console.log(f());` | `1.5` | exit 1, E5506 value type / 1 | exit 1, E5506 `a captured float binding without closure lowering …` / **0**. R15 admits a capturer whose every use of the F64 is an assignment statement, and the deferred allowlist (`Widening::Baseline`) refuses F64. The baseline `check` also exited 0. |
+
+### Added at the final review (CB-19)
+
+Measured at HEAD `baf9454aa` and after the fix wave (node, baseline as above).
+Each is pinned by a `run` case and a `check` twin in
+`closure/captured_bindings.toml`.
+
+| shape | program | node | baseline `run` / `check` | after the fix wave `run` / `check` |
+|---|---|---|---|---|
+| A closure over a `for…of` loop `const` (an unrolled loop over a literal array; the same over `"ab"` and over a `const` array) | `function f(){ for (const x of [1,2]) { const g=()=>x; console.log(g()); } } f();` | `1⏎2` | exit 0, `0⏎0` / 0 | exit 1, E5506 value type (`x`) / **0** (HEAD `baf9454aa` the same) |
+| A capturer storing a non-number into a captured F64 (spec A-5 item 1) | `function f(){ let x=1.5; const g=()=>{ x = "s"; }; g(); return x; } console.log(f());` | `s` | exit 0, `1.5` / 0 | exit 1, E5506 value type (`x`) / **0** (HEAD printed `-9223354444668731000`) |
+| Same, a handle-interned `const` | `… const q=1e20; const g=()=>{ x += q; }; …` | `100000000000000000000` | exit 1, E5506 compound assignment / 0 | exit 1, E5506 value type / **0** (HEAD printed `-9223354444668731000`) |
+| Same, arithmetic over it | `… const q=1e20; const g=()=>{ x = q + 0; }; …` | `100000000000000000000` | exit 0, `1.5` / 0 | exit 1, E5506 value type / **0** (HEAD printed `-9223354444668731000`) |
+| A capturer storing a float into a promoted integer parameter or copy (spec A-5 item 2) | `function f(k){ const g=()=>{ k += 0.5; }; g(); return k; } console.log(f(3));`; `function f(k){ let n=k; const g=()=>{ n = 2.5; }; g(); return n; } console.log(f(3));` | `3.5`; `2.5` | E5506 compound assignment / 0; E4201 / 0 | exit 1, E5506 value type / **0** (HEAD gave E4201 for both) |
+
+`check` admits every capturer assignment statement to an F64 (spec A-4) and
+its `{p}` rule sees an `I64` with a numeric proof; neither models the
+right-hand side, so `run` alone refuses these.
 
 **A class field initializer is not treated as a capture** (Task 7 minor). The
 rename walk visits field initializers in the enclosing frame, so in
@@ -344,6 +381,25 @@ renders as its uncaptured twin does), and none is claimed by the maturity row.
 - **Boolean literal inflow should veto the numeric proof** (R11). `a7`
   (`f(true)`) passes the proof and renders `1`. A `kali_types` veto would turn
   that into a refusal, or into `true` once a boolean proof exists.
+
+- **A copy of a captured binding stored into a captured F64** (CB-19). The
+  numeric proof does not reach `let t = k` in the capturer when `k` is a
+  capture, so `function f(k){ let x=1.5; const g=()=>{ let t = k; x = t; };
+  g(); return x; } console.log(f(3));` (node `3`) is refused (E5506, value
+  type). HEAD `baf9454aa` printed `3`; the baseline printed `1.5` and phase 1
+  refused it. A local numeric proof over captured operands would lower it.
+- **Any binding or call stored into a captured F64 in a program that holds a
+  handle-interned or BigInt literal** (CB-19) is refused, wherever that
+  literal is. A data-flow taint instead of the whole-program test would narrow
+  this.
+- **Objects passed through a `const` copy of a parameter** (CB-19, from §5.10):
+  `e1` and `m6` print `0` while their direct-parameter twins are refused
+  (`… function rd(){ return show(p); } …` and `const g=()=>p["a"]`: E5506
+  value type at HEAD). The copy's capture is lowered as a C2 object cell, and
+  the read goes through a lane (a call argument, a computed key) that does not
+  reach the member fallback refusal. Not extended in this project: a refusal
+  keyed on how the object is read needs every such lane to consult the
+  capture, which is follow-up work.
 
 **`check` / `run` agreement:**
 - **Frames with no plan key in `check`.** Methods of an anonymous class
@@ -416,22 +472,28 @@ Task 13 maturity row must not claim any of them.
   - phase 1 refused it;
   - HEAD prints `0`, as the uncaptured program does.
 
-### §5.6 Large literals and non-literal right-hand sides (R16 extended)
+### §5.6 Large literals and non-literal right-hand sides (§6 CB-16, corrected by CB-19)
 
-`repr_infer` does not seed a literal such as `1e20` as a float. A binding
-initialized from one is `I64`, so a store or read through it emits invalid wasm
-(E4201) or reinterprets saturated integer bits.
+`repr_infer` does not seed a literal such as `1e20` as a float, and the literal
+lane interns it as a string handle. A binding initialized from one is `I64` and
+proven numeric while it holds a handle, so a store or read through it emits
+invalid wasm (E4201). The garbage `-9223354444668731000` in the capturer rows
+was not that seeding alone: CB-17(2) attributed it to the seeding, but the
+capturer converted the handle with `f64.convert_i64_s` (spec A-5). After the
+fix wave those rows are refused (E5506, value type), and a `const` bound to the
+literal inside the capturer is stored as its f64 constant. The "after the fix
+wave" column below was measured on 2026-10-05 against HEAD `baf9454aa`.
 
-| program | node | baseline | phase 1 | HEAD | uncaptured twin (all three binaries) |
-|---|---|---|---|---|---|
-| `let x=1.5; const g=()=>{ x = 1e20 + 1; }; g(); return x;` | `100000000000000000000` | E4201 | E5506 | E4201 | `let x=1.5; x = 1e20 + 1;` → E4201 |
-| `let x=1.5; const g=()=>{ const q = 1e20; x = q; }; g(); return x;` | same | `1.5` | E5506 | E4201 | `const q = 1e20; x = q;` → E4201 |
-| `let x=1.5; const g=()=>{ let q = 1e20; x = q; }; g(); return x;` | same | `1.5` | E5506 | `-9223354444668731000` | `let q = 1e20; x = q;` → `-9223354444668731000` |
-| `let x=1.5; let q=1e20; const g=()=>{ x = q; }; g(); return x;` | same | `1.5` | E5506 | `-9223354444668731000` | as above |
-| `let x=1.5; const q=1e20; const g=()=>{ x = q; }; g(); return x;` | same | `1.5` | E5506 | `-9223354444668731000` | `const q = 1e20; x = q;` → E4201 (the captured `const` takes the `let` path's garbage, not E4201) |
-| `let x=1.5; let NaN=3; const g=()=>{ x = NaN; }; g(); return x;` | `3` | `1.5` | E5506 | E4201 | `let NaN=3; x = NaN;` → E4201 |
-| `let x=1.5; console.log((x = 2.5, 7)); return x;` (comma expression) | `7⏎2.5` | `2⏎1.5` | `2⏎1.5` | `2⏎1.5` | (this is the uncaptured program) |
-| the same comma expression in a static method of an anonymous class expression capturing `x` | `7⏎2.5` | `2⏎1.5` | `2⏎1.5` | `2⏎1.5` | as above |
+| program | node | baseline | phase 1 | HEAD `c7d7f22f0` | after the fix wave | uncaptured twin (all three binaries) |
+|---|---|---|---|---|---|---|
+| `let x=1.5; const g=()=>{ x = 1e20 + 1; }; g(); return x;` | `100000000000000000000` | E4201 | E5506 | E4201 | E4201 | `let x=1.5; x = 1e20 + 1;` → E4201 |
+| `let x=1.5; const g=()=>{ const q = 1e20; x = q; }; g(); return x;` | same | `1.5` | E5506 | E4201 | **node-equal** | `const q = 1e20; x = q;` → E4201 |
+| `let x=1.5; const g=()=>{ let q = 1e20; x = q; }; g(); return x;` | same | `1.5` | E5506 | `-9223354444668731000` | E5506 value type | `let q = 1e20; x = q;` → `-9223354444668731000` |
+| `let x=1.5; let q=1e20; const g=()=>{ x = q; }; g(); return x;` | same | `1.5` | E5506 | `-9223354444668731000` | E5506 value type | as above |
+| `let x=1.5; const q=1e20; const g=()=>{ x = q; }; g(); return x;` | same | `1.5` | E5506 | `-9223354444668731000` | E5506 value type | `const q = 1e20; x = q;` → E4201 |
+| `let x=1.5; let NaN=3; const g=()=>{ x = NaN; }; g(); return x;` | `3` | `1.5` | E5506 | E4201 | E5506 value type | `let NaN=3; x = NaN;` → E4201 |
+| `let x=1.5; console.log((x = 2.5, 7)); return x;` (comma expression) | `7⏎2.5` | `2⏎1.5` | `2⏎1.5` | `2⏎1.5` | `2⏎1.5` | (this is the uncaptured program) |
+| the same comma expression in a static method of an anonymous class expression capturing `x` | `7⏎2.5` | `2⏎1.5` | `2⏎1.5` | `2⏎1.5` | `2⏎1.5` | as above |
 
 Each program is wrapped as `function f(){ … } console.log(f());`. When a capturer's
 comma expression is used as a value, as in `const g=()=>(x = 2.5, 7)`, it is
@@ -462,9 +524,15 @@ for it.
 
 ### §5.10 Captured objects read through a call, an argument or a computed key are silent `0`
 
-These are the same at all three binaries, with `check` 0. None involves a captured
-parameter, so phase 1 had nothing to refuse. R13's member-fallback refusal covers
-only a static member chain rooted at the capture.
+These are the same at all three binaries, with `check` 0. Each capture is a
+plan-listed local that the capture lane lowers (a C2 object cell, or a `const`
+copy of a parameter), so phase 1's rule for unlowered captures (§3.1) did not
+apply. The read goes through a lane that never reaches the member-fallback
+refusal (§6 CB-13), which covers only a static member chain rooted at the
+capture. `e1` and `m6` read through a `const` copy of a parameter, and their
+direct-parameter twins (`function rd(){ return show(p); }`,
+`const g=()=>p["a"]`) are refused (E5506, value type) at HEAD; the copies stay
+silent. That asymmetry is recorded in §4, not refused here.
 
 | id | program | node | kali |
 |---|---|---|---|
@@ -480,3 +548,116 @@ only a static member chain rooted at the capture.
 - node prints `5`.
 - kali prints `0` at exit 0 at all three binaries, with `check` 0.
 - Field initializers are walked in the enclosing frame, so this is not a capture (§3). Construction is not involved, so the class-construction gate does not refuse it either.
+
+### §5.12 Integer `/=` on a captured integer truncates
+
+`function f(){ let k=3; const g=()=>{ k /= 2; }; g(); return k; } console.log(f());`
+- node prints `1.5`.
+- The baseline, HEAD `baf9454aa` and the fix wave print `1` at exit 0, with `check` 0.
+- The uncaptured `function f(){ let k=3; k /= 2; return k; } console.log(f());` prints `1.5`.
+- The capturer's `/=` on an `I64` cell is `i64.div_s`. Spec A-5 item 2 refuses a float-valued right-hand side only, so this stays: refusing `/=` outright would also refuse exact divisions that print node's value today. Pinned by `closure/captured_bindings::integer_division_assignment_on_a_captured_integer_still_truncates`. The maturity row does not claim `/=` on an integer capture.
+
+---
+
+## §6. Execution rulings (CB-1…CB-19)
+
+The decisions the controller took while executing the plan, committed here so
+that code comments and specs can cite them as `captured-bindings followups §6
+CB-n`. They were kept in an untracked ledger as R1–R19; CB-n is Rn. Earlier
+sections of this file still say "R11", "R14" and so on: read those as CB-11,
+CB-14. They are not the defect register's R-numbers (for example the
+register's R13 is the array-return item, unrelated to CB-13).
+
+**The human partner's decision (spec A-3, plan Task 6).** Phase 1 refuses a
+capture that is never read at run time (code that never runs, a closure never
+called), although the baseline printed node's output for it. The partner chose
+to accept that loss rather than defer the refusal to run time; §2 lists the
+programs, and phase 2 lifted cl2.
+
+- **CB-1.** The promotion predicate's fifth parameter is an enum:
+  `Widening::Baseline` (iteration-plan cells, the deferred allowlist, the
+  active-iteration branch of capture access) or `Widening::CapturedBindings {
+  is_tagged }` (function-plan cells). Why: the plan's `allow_tagged: bool`
+  cannot express "function site, scalar F64" without widening the iteration
+  and deferred sites, which spec §1.1 forbids.
+- **CB-2.** A task that moves `run` behaviour also re-pins the `check` twin of
+  every case it moves, with a dated rationale. Why: the plan listed only the
+  `run` flips, and its own `check` cases would otherwise fail.
+- **CB-3.** A deferred callback over a captured parameter (`cb_v2`): after the
+  rewrite `check` admits it and `run` refuses it with the deferred-lane
+  message. Recorded as a named §3 gap, not fixed. Why: the deferred lane is
+  out of scope (spec §1.1).
+- **CB-4.** The plan's named stop rules (differing baseline row, phase gate,
+  proof failure, byte diff, more than 50 movers or a capability loss) are
+  honoured as stops. Why: they are the human partner's explicit instructions.
+- **CB-5.** `cb_two`'s baseline is already a refusal (E5506, string and number
+  conflict); its cases pin that refusal. `fa` and `fw` were E4201 at the
+  baseline, not silent.
+- **CB-6.** `capture_refusals` runs in `analyze_source_file`, so `run` meets
+  it before codegen. `run` cases whose message changes because the front end
+  now refuses first are re-pinned (still E5506); codegen's refusal stays as
+  the backstop.
+- **CB-7.** `check` refuses (value type) an `I64`, non-`Object` captured
+  binding whose initializer is syntactically an array, object or function
+  literal: those MIR layouts are never `Scalar` and never promoted. Other
+  non-scalar layouts (call results, `new Map()`) are §3 residue. Why: the
+  common shapes get covered without guessing at MIR.
+- **CB-8.** The plan's "A-3 (F64 writes)" amendment is renumbered A-4, since
+  A-3 became the never-read-capture amendment.
+- **CB-9.** Codegen routes a member read or write on a captured name through
+  the unlowered-capture refusal (spec §3.1; also closes `ol2`), and `check`
+  refuses (value type) a captured local initialized from a bare `<name>{p}`
+  unless it is `I64` with a numeric proof. Its predicate change was
+  superseded by CB-13.
+- **CB-10.** `lowered_capture_owners` and the captured-reference branch of
+  capture access use `Widening::for_captured_ref`: `Baseline` when the
+  owner's plan is an iteration plan, else `CapturedBindings`. Why: that is the
+  owner's own promotion argument; `Baseline` there gave a silent `0` (`sib`).
+- **CB-11.** `a7` (a captured boolean parameter, `f(true)`) prints `1`, as its
+  uncaptured owner does; accepted and pinned (A-2.1, the R-34 lane).
+- **CB-12.** `v9` (a parameter of a `const`-bound arrow: no call edge, no
+  proof) stays refused (§4); a captured BigInt parameter prints `7` for `7n`,
+  as uncaptured (§5.4).
+- **CB-13.** Supersedes CB-9's predicate change: C2 is restored (the `Object`
+  arm returns true as at the baseline; excluding tagged objects lost `d3`,
+  `e3`, `d6`, `e2` and broke byte identity). Instead the generic member read,
+  store and update fallbacks refuse when the static member-chain root is any
+  plan-listed capture. `check`'s parameter-copy rule keys on the `{p}`
+  spelling only.
+- **CB-14.** F64 cells lower for the owner's reads and writes and for a
+  capturer's assignment statements: `=` whose right-hand side does not read
+  the cell, and `+= -= *= /=`. Any other capturer read is refused (value
+  type). Why: `repr_infer` types a free identifier in a nested function by
+  that function's own node (default `I64`, never joined to the owner's), so an
+  f64 read reaches integer-typed wasm places. Joining the nodes (option A) is
+  in §4.
+- **CB-15.** Supersedes CB-14's `check` clause: `check` admits a captured F64
+  only when every capturer use is an assignment statement with one of the
+  five operators. Why: `run` runs the `check` pass, so refusing all F64 in
+  `check` would have refused `w2` and `w3` in `run` too.
+- **CB-16.** Outcomes equal to the uncaptured twin's are recorded, not refused
+  in the capture lane: `Math.PI` / `Math.E` read `0`, the owner's
+  `Math.floor` on an F64 is E4201, large literals inside a non-literal
+  right-hand side are E4201, `let NaN=3`, and the comma expression (§5.5,
+  §5.6, §5.9). CB-19 refuses the rows of §5.6 that were capturer
+  conversions.
+- **CB-17.** (1) `cb_kb_ret` printing `1` is "other", not a capability loss:
+  the plan mandated that pin and the uncaptured twin prints `1`. (2)
+  **Corrected by CB-19:** it attributed the garbage from a captured
+  `const q=1e20` stored into a captured F64 to the `1e20` seeding. The cause
+  was the capturer's `f64.convert_i64_s` over the handle; that store is now
+  refused.
+- **CB-18.** A maturity-row claim without a pinning case is a defect (AGENTS:
+  do not overclaim), so the unpinned claims got cases (`const false`, a
+  closure writing a parameter copy, two-way visibility, `check` twins of
+  `fexpr` / `frem` / `finc`).
+- **CB-19.** The final-review fix wave. A capturer's store into an F64 cell
+  takes only an emitted f64 or a proven plain integer (spec A-5 item 1); a
+  float into an integer capture cell is refused (A-5 item 2); `--compat eval`
+  with a captured parameter gets its own message (A-5 item 3, §2.2); the
+  `for…of` row joins §3; these rulings are committed here and code cites them
+  as CB-n; §5.10 is corrected; CB-17(2) is corrected; and the minors (stale
+  comments, `Phase::One` documented as test-only, the rewrite's frame-count
+  check made a hard `assert!`, the plan's Global Constraints updated to
+  `Widening`). Why: each restores spec §3.1 or AGENTS' no-overclaim rule, and
+  refusing is safer than new lowering this late.
