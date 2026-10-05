@@ -1,0 +1,307 @@
+# Captured-bindings phase 1 (spec docs/superpowers/specs/2026-10-05-captured-bindings-design.md
+# §3.1, as amended by §6 A-1/A-2): a binding a closure captures is lowered
+# through its env cell or refused with E5506; it never reads a zero placeholder.
+# Probe sources match tools/array-return-probes/probes/cb_*.js verbatim (key
+# `<id>.js` for `cb_<id>.js`). "baseline" in a rationale is kali at 2ddf18c66,
+# quoted from tools/array-return-probes/baseline-cb.tsv (name verdict node_out
+# kali_out check_exit); node is v26.10.0 run with FORCE_COLOR unset.
+
+[source]
+"a1.js" = """function f(){ let s="hi"; const g=()=>s; return g(); } console.log(f());
+"""
+"a2.js" = """function f(){ let x=1.5; const g=()=>x; return g(); } console.log(f());
+"""
+"a3.js" = """function f(k){ const g=()=>k; k=k+1; return g(); } console.log(f(5));
+"""
+"a4.js" = """function f(k){ const g=()=>{ k=k+1; }; g(); return k; } console.log(f(5));
+"""
+"a6.js" = """function f(x){ const g=()=>x; return g(); } console.log(f(1.5));
+"""
+"a7.js" = """function f(b){ const g=()=>b; return g(); } console.log(f(true));
+"""
+"d02.js" = """function m() { let a = 5; setTimeout(() => { let z = 10; const h = () => z + a; console.log(h()); }, 0); } m();
+"""
+"e1.js" = """function f(){ let k=5; let n=k; const g=()=>n; return g(); } console.log(f());
+"""
+"e4.js" = """function f(k){ let n=0; n=k; const g=()=>n; return g(); } console.log(f(5));
+"""
+"e5.js" = """function f(k){ let n=k; const g=()=>n; console.log(n); return g(); } console.log(f(5));
+"""
+"fa.js" = """function f(){ let x=1.5; const g=()=>x*2+0.5; return g(); } console.log(f());
+"""
+"fw.js" = """function f(){ let x=1.5; const g=()=>{ x=x+1.25; }; g(); return x; } console.log(f());
+"""
+"kb1.js" = """function f(){ const b=true; console.log(b); } f();
+"""
+"kb2.js" = """function f(){ const b=true; const g=()=>{ console.log(b); }; g(); } f();
+"""
+"kb3.js" = """function f(){ const b=1<2; const g=()=>{ console.log(b); }; g(); } f();
+"""
+"lb1.js" = """function f(){ let b=true; const g=()=>{ console.log(b); }; g(); } f();
+"""
+"ok_v6.js" = """function f(k){ let n=k+0; const g=()=>n; return g(); } console.log(f(5));
+"""
+"p1.js" = """function f(k){ const g=()=>k; return g(); } console.log(f(5));
+"""
+"p2.js" = """function f(k){ let n=k; const g=()=>n; return g(); } console.log(f(5));
+"""
+"rw1.js" = """function f(k){ const g=()=>{ k=k*2; return k; }; const a=g(); return a+k; } console.log(f(3));
+"""
+"two.js" = """function f(k){ const g=()=>k; return g(); } console.log(f(1)); console.log(f("a"));
+"""
+"v2.js" = """function f(k){ setTimeout(()=>console.log(k),0); } f(5);
+"""
+"v4.js" = """function f(k){ const g=()=>k+1; console.log(g(), k); } f(5);
+"""
+"v7.js" = """function f(s){ const g=()=>s; return g(); } console.log(f("hi"));
+"""
+"v8.js" = """function f(k){ function g(){ return k; } return g(); } console.log(f(5));
+"""
+"v9.js" = """const f=(k)=>{ const g=()=>k; return g(); }; console.log(f(5));
+"""
+"w1.js" = """function f(){ let s="a"; const g=()=>{ s="b"; }; g(); return s; } console.log(f());
+"""
+"w2.js" = """function f(){ let x=1.5; const g=()=>{ x=2.5; }; g(); return x; } console.log(f());
+"""
+"w3.js" = """function f(){ let x=1.5; const g=()=>{ x+=1; }; g(); return x; } console.log(f());
+"""
+"w4.js" = """function f(k){ const g=()=>{ k++; }; g(); return k; } console.log(f(5));
+"""
+"w5.js" = """function f(){ let b=true; const g=()=>b; return g(); } console.log(f());
+"""
+"w6.js" = """function m() { let a = 5; const o = () => { let z = 10; const h = () => z + a; return h(); }; return o(); } console.log(m());
+"""
+
+# --- a captured parameter (A-1): reason "is a parameter of" ---
+
+[[case]]
+name = "a_closure_over_a_parameter_is_refused"
+rationale = """Spec §3.1, A-1: a parameter's cell is TaggedVal and unpromoted, so the closure read fell to the zero placeholder. node prints `5`; baseline printed `0` at exit 0 (row `cb_p1 SILENT 5 0 0`)."""
+args = ["run", "p1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_over_a_parameter_used_in_arithmetic_is_refused"
+rationale = """§3.1, A-1: `g` reads the captured parameter `k` in `k+1`. node prints `6 5`; baseline printed `1 5` at exit 0 (row `cb_v4 SILENT 6 5 1 5 0`)."""
+args = ["run", "v4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "a_nested_function_declaration_over_a_parameter_is_refused"
+rationale = """§3.1, A-1: the capturer is a `function g(){}` declaration, not an arrow. node prints `5`; baseline printed `0` at exit 0 (row `cb_v8 SILENT 5 0 0`)."""
+args = ["run", "v8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_over_an_arrow_parameter_is_refused"
+rationale = """§3.1, A-1: the owner is an arrow bound to `const f`. node prints `5`; baseline printed `0` at exit 0 (row `cb_v9 SILENT 5 0 0`)."""
+args = ["run", "v9.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "is a parameter of"]
+
+[[case]]
+name = "a_closure_over_a_parameter_the_owner_reassigns_is_refused"
+rationale = """§3.1, A-1, A-2.3: the owner's own `k=k+1` stays on its WASM local; the closure's read is refused. node prints `6`; baseline printed `0` at exit 0 (row `cb_a3 SILENT 6 0 0`)."""
+args = ["run", "a3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_writing_a_parameter_is_refused"
+rationale = """§3.1, A-1: the closure's `k=k+1` reaches the read choke (the right-hand `k`) or the `=` choke; both refuse with the parameter reason. node prints `6`; baseline printed `5` at exit 0 (row `cb_a4 SILENT 6 5 0`)."""
+args = ["run", "a4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_over_a_fractional_parameter_is_refused"
+rationale = """§3.1, A-1: a parameter is refused whatever its repr (here F64). node prints `1.5`; baseline printed `0` at exit 0 (row `cb_a6 SILENT 1.5 0 0`)."""
+args = ["run", "a6.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "`x` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_over_a_boolean_parameter_is_refused"
+rationale = """§3.1, A-1: a boolean parameter is a parameter first. node prints `true`; baseline printed `0` at exit 0 (row `cb_a7 SILENT true 0 0`)."""
+args = ["run", "a7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `b`", "`b` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_over_a_string_parameter_is_refused"
+rationale = """§3.1, A-1: a string parameter is a parameter first. node prints `hi`; baseline printed `0` at exit 0 (row `cb_v7 SILENT hi 0 0`)."""
+args = ["run", "v7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "`s` is a parameter of `f`"]
+
+[[case]]
+name = "a_closure_reading_and_writing_a_parameter_is_refused"
+rationale = """§3.1, A-1: the closure reads and writes `k` (`k=k*2; return k`). node prints `12`; baseline printed `3` at exit 0 (row `cb_rw1 SILENT 12 3 0`)."""
+args = ["run", "rw1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "a_parameter_called_with_a_number_and_a_string_stays_refused"
+rationale = """Already refused at baseline by the string/number conflict E5506, which fires first; the captured-parameter refusal does not replace it. node prints `1` then `a`; baseline refused with `binding `k` in `f` is used as both a string and a number`, check exit 1 (row `cb_two REFUSES 1|a ... 1`)."""
+args = ["run", "two.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+# --- a TaggedVal or non-promotable value type: reason "its value type has no closure cell" ---
+
+[[case]]
+name = "a_closure_over_a_local_copied_from_a_parameter_is_refused"
+rationale = """A-1: `let n=k` copies the TaggedVal layout. node prints `5`; baseline printed `0` at exit 0 (row `cb_p2 SILENT 5 0 0`)."""
+args = ["run", "p2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `n`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_parameter_copy_the_owner_also_logs_is_refused"
+rationale = """A-1, A-2.3: the owner's `console.log(n)` reads its own WASM local and is correct; the closure's read of the TaggedVal `n` is refused. node prints `5` then `5`; baseline printed `5` then `0` at exit 0 (row `cb_e5 SILENT 5|5 5|0 0`)."""
+args = ["run", "e5.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `n`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_string_local_is_refused"
+rationale = """§3.1: a String cell is not promotable. node prints `hi`; baseline printed `0` at exit 0 (row `cb_a1 SILENT hi 0 0`)."""
+args = ["run", "a1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_fractional_local_is_refused"
+rationale = """§3.1: an F64 cell is not promotable in phase 1. node prints `1.5`; baseline printed `0` at exit 0 (row `cb_a2 SILENT 1.5 0 0`)."""
+args = ["run", "a2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_writing_a_string_local_is_refused"
+rationale = """§3.1: a plain `=` to an unpromoted String capture used to drop the store. node prints `b`; baseline printed `a` at exit 0 (row `cb_w1 SILENT b a 0`)."""
+args = ["run", "w1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_writing_a_fractional_local_is_refused"
+rationale = """§3.1: a plain `=` to an unpromoted F64 capture used to emit invalid wasm. node prints `2.5`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_w2 OTHER 2.5 error[E4201]... 0`)."""
+args = ["run", "w2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_computing_with_a_fractional_local_is_refused"
+rationale = """§3.1: the closure reads an F64 capture in `x*2+0.5`. node prints `3.5`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_fa OTHER 3.5 error[E4201]... 0`), not silently."""
+args = ["run", "fa.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_incrementing_a_fractional_local_is_refused"
+rationale = """§3.1: the closure's `x=x+1.25` on an F64 capture. node prints `2.75`; baseline failed with `error[E4201]: failed to load WASM module` (row `cb_fw OTHER 2.75 error[E4201]... 0`), not silently."""
+args = ["run", "fw.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_boolean_literal_const_is_refused"
+rationale = """A-2.1: a captured boolean `const` reads its promoted I64 cell and rendered `1`; phase 1 refuses it (phase 2 lifts it). node prints `true`; baseline printed `1` at exit 0 (row `cb_kb2 SILENT true 1 0`)."""
+args = ["run", "kb2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_closure_over_a_comparison_const_is_refused"
+rationale = """A-2.1: `const b=1<2` is a boolean `const` by its comparison initializer. node prints `true`; baseline printed `1` at exit 0 (row `cb_kb3 SILENT true 1 0`)."""
+args = ["run", "kb3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+
+# --- MIR depth >= 2: reason "is two or more closures away" ---
+
+[[case]]
+name = "a_capture_two_closures_away_in_a_deferred_callback_is_refused"
+rationale = """§3.1: `h` reads `a` across two env-owning closures. node prints `15`; baseline printed `10` at exit 0 (row `cb_d02 SILENT 15 10 0`)."""
+args = ["run", "d02.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures away"]
+
+[[case]]
+name = "a_capture_two_closures_away_is_refused"
+rationale = """§3.1: the synchronous form of `d02`. node prints `15`; baseline printed `10` at exit 0 (row `cb_w6 SILENT 15 10 0`)."""
+args = ["run", "w6.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures away"]
+
+# --- existing refusals keep their messages ---
+
+[[case]]
+name = "a_compound_assignment_to_a_capture_keeps_its_refusal"
+rationale = """§3.1: compound assignment is unchanged. node prints `2.5`; baseline refused (row `cb_w3 REFUSES 2.5 error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') ... 0`)."""
+args = ["run", "w3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "compound assignment lowering is unavailable"]
+
+[[case]]
+name = "an_update_expression_on_a_capture_keeps_its_refusal"
+rationale = """§3.1: update expressions are unchanged. node prints `6`; baseline refused (row `cb_w4 REFUSES 6 error[E5506]: update expression lowering is unavailable for binding 'k' ... 0`)."""
+args = ["run", "w4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "update expression lowering is unavailable"]
+
+[[case]]
+name = "a_deferred_callback_over_a_parameter_keeps_its_refusal"
+rationale = """§3.1: the deferred-registration lane keeps its own allowlist and message. node prints `5`; baseline refused (row `cb_v2 REFUSES 5 error[E5506]: a captured param binding without closure lowering would read a placeholder ... 0`)."""
+args = ["run", "v2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "captured param binding without closure lowering"]
+
+# --- controls: lowered at baseline and still lowered ---
+
+[[case]]
+name = "a_local_from_arithmetic_still_works"
+rationale = """Control: `let n=k+0` is a Scalar cell and was lowered at baseline. node and baseline print `5` (row `cb_ok_v6 CORRECT 5 5 0`)."""
+args = ["run", "ok_v6.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "a_local_copied_from_a_local_still_works"
+rationale = """Control (A-1): a local copied from a local stays Scalar and promotes. node and baseline print `5` (row `cb_e1 CORRECT 5 5 0`)."""
+args = ["run", "e1.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "a_local_assigned_from_a_parameter_still_works"
+rationale = """Control (A-1): `let n=0; n=k` keeps `n` Scalar. node and baseline print `5` (row `cb_e4 CORRECT 5 5 0`)."""
+args = ["run", "e4.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "an_uncaptured_boolean_const_still_prints_true"
+rationale = """Control (A-2.1): an uncaptured boolean `const` folds and renders `true`. node and baseline print `true` (row `cb_kb1 CORRECT true true 0`)."""
+args = ["run", "kb1.js"]
+exit = "success"
+stdout = "true\n"
+
+[[case]]
+name = "a_captured_let_boolean_returned_renders_as_uncaptured"
+rationale = """A captured `let` boolean renders `1` as the uncaptured one does (A-2.1); not this project's lane. node prints `true`; baseline printed `1` at exit 0 (row `cb_w5 SILENT true 1 0`)."""
+args = ["run", "w5.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_captured_let_boolean_logged_renders_as_uncaptured"
+rationale = """A captured `let` boolean renders `1` as the uncaptured one does (A-2.1); not this project's lane. node prints `true`; baseline printed `1` at exit 0 (row `cb_lb1 SILENT true 1 0`)."""
+args = ["run", "lb1.js"]
+exit = "success"
+stdout = "1\n"

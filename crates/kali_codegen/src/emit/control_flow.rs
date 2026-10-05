@@ -2632,6 +2632,11 @@ impl<'a> FunctionEmitter<'a> {
                             if let Some(value) = self.try_emit_captured_read(function, text) {
                                 return value;
                             }
+                            // Captured-bindings spec §3.1: a capture the lane
+                            // could not lower never reads the placeholder.
+                            if let Some(message) = self.unlowered_capture_refusal(text) {
+                                return self.deny_e5506(function, &message);
+                            }
                             self.push_placeholder_fallback_diagnostic("identifier", text);
                             function.instruction(&Instruction::I64Const(0));
                             EmittedValue {

@@ -990,6 +990,17 @@ impl<'a> FunctionEmitter<'a> {
                 return handled;
             }
         }
+        // Captured-bindings spec §3.1: a plain `=` to a capture the lane could
+        // not lower used to drop the store (or emit invalid wasm). Compound
+        // and update keep their existing messages below.
+        if op == "=" {
+            if let Some(message) = self.unlowered_capture_refusal(&name) {
+                self.diagnostics
+                    .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
+            }
+        }
         let Some(index) = self.locals.get(&name).copied() else {
             if op == "=" {
                 return false;

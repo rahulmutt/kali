@@ -9,14 +9,12 @@
 //! single-level, scalar `i64` binding — and `None` for everything else.
 //!
 //! `None` means "not a C1 capture": the caller keeps its existing
-//! local/global/module/placeholder resolution, so every out-of-scope shape
-//! (heap/closure captures — the C2 surface — non-`i64` scalars, multi-level
-//! chains, captured params) stays byte-identical to the pre-Stage-C compiler.
-//! This deliberately does NOT emit a fresh E5506 for those shapes: doing so
-//! turned a main-green benchmark red (`nested-wrapper-pruning`, which compiles
-//! closure-as-value captures), and their existing behavior (a captured
-//! compound-assign still hits the local-miss E5506; a captured read still hits
-//! the identifier placeholder) is preserved unchanged.
+//! local/global/module resolution. Captured-bindings phase 1 (spec §3.1)
+//! closes the placeholder end of that fallthrough: a read or plain `=` of a
+//! name this function captures that `resolve_capture_access` did not lower is
+//! refused with E5506 by [`FunctionEmitter::unlowered_capture_refusal`]
+//! instead of reading (or dropping a store to) the zero placeholder. Captured
+//! compound-assign and update expressions keep their existing local-miss E5506.
 
 use crate::*;
 
@@ -240,6 +238,52 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
+    /// Captured-bindings spec §3.1 (A-2.3, A-2.5): the refusal for a name
+    /// this function captures but `resolve_capture_access` did not lower.
+    /// `None` when `name` is this function's own local, is not one of its
+    /// captures, or is a capture block-scoping's iteration refusals own.
+    pub(crate) fn unlowered_capture_refusal(&self, name: &str) -> Option<String> {
+        if self.locals.contains_key(name) {
+            return None;
+        }
+        let reference = self.env_plan.captured_for(name)?;
+        let owned_by_iteration = self
+            .env_plans
+            .get(&reference.owner)
+            .is_some_and(|plan| plan.iteration_of.is_some());
+        if reference.through_iteration || owned_by_iteration {
+            return None;
+        }
+        let reason = if reference.depth >= 2 {
+            kali_common::CaptureRefusal::Depth
+        } else if reference.is_parameter {
+            kali_common::CaptureRefusal::Parameter {
+                owner: &reference.owner,
+            }
+        } else {
+            kali_common::CaptureRefusal::ValueType
+        };
+        Some(kali_common::captured_binding_unavailable_message(
+            &self.function_name,
+            name,
+            reason,
+        ))
+    }
+
+    /// Captured-bindings A-2.1: the owner namespace of a lowered capture of a
+    /// boolean `const`, or `None`. Phase 1 refuses the read; phase 2 (Task 10)
+    /// gives it `ValueShape::Boolean`.
+    pub(crate) fn captured_boolean_const_owner(&self, name: &str) -> Option<String> {
+        if self.locals.contains_key(name) || self.env_plan.cell_for(name).is_some() {
+            return None;
+        }
+        self.resolve_capture_access(name)?;
+        let owner = self.scalar_capture_owner(name)?;
+        self.repr_table
+            .binding_is_boolean_const(&owner, name)
+            .then_some(owner)
+    }
+
     /// Read site: load a captured scalar. `None` when `name` is not a
     /// C1-promoted capture (caller falls through to its own resolution).
     pub(crate) fn try_emit_captured_read(
@@ -247,6 +291,16 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         name: &str,
     ) -> Option<EmittedValue> {
+        if self.captured_boolean_const_owner(name).is_some() {
+            return Some(self.deny_e5506(
+                function,
+                &kali_common::captured_binding_unavailable_message(
+                    &self.function_name,
+                    name,
+                    kali_common::CaptureRefusal::ValueType,
+                ),
+            ));
+        }
         let (depth, offset) = self.resolve_capture_access(name)?;
         crate::closure::emit_cell_load(function, self.current_env_global(), depth, offset);
         Some(EmittedValue {
