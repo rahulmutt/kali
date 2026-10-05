@@ -1,6 +1,30 @@
 use crate::*;
 
 #[test]
+fn captured_binding_message_names_capturer_binding_and_reason() {
+    assert_eq!(
+        captured_binding_unavailable_message("g", "s", CaptureRefusal::ValueType),
+        "a closure `g` that captures `s` is unavailable in the current phase: its value type has no closure cell"
+    );
+    assert_eq!(
+        captured_binding_unavailable_message("h", "a", CaptureRefusal::Depth),
+        "a closure `h` that captures `a` is unavailable in the current phase: `a` is two or more closures away"
+    );
+    assert_eq!(
+        captured_binding_unavailable_message("__kali_fn_0", "k", CaptureRefusal::Parameter { owner: "f" }),
+        "a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: `k` is a parameter of `f`"
+    );
+}
+
+#[test]
+fn captured_binding_message_shows_written_names() {
+    assert_eq!(
+        captured_binding_unavailable_message("g{b2}", "k{p}", CaptureRefusal::Parameter { owner: "f{b1}" }),
+        "a closure `g` that captures `k` is unavailable in the current phase: `k` is a parameter of `f`"
+    );
+}
+
+#[test]
 fn test_async_class_method_lowering_unavailable_message_is_stable() {
     assert_eq!(
         async_class_method_lowering_unavailable_message(),

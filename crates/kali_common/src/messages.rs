@@ -387,3 +387,34 @@ pub fn iteration_record_unplaced_message(label: &str) -> String {
         "the per-iteration closure record `{label}` was planned but no loop declared its bindings; kali refuses rather than let callbacks share one record. This is unavailable in the current phase"
     )
 }
+
+/// Why a closure's capture is refused (captured-bindings spec §3.1, A-2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureRefusal<'a> {
+    /// The binding's repr has no env-cell lane (string, an unproven
+    /// `TaggedVal`, a boolean `const`, …).
+    ValueType,
+    /// The binding is two or more env records away (MIR depth >= 2).
+    Depth,
+    /// The binding is a parameter of `owner` (phase 1 only; phase 2 rewrites
+    /// every captured parameter into a local).
+    Parameter { owner: &'a str },
+}
+
+/// Captured-bindings spec §3.1. `capturer` and `owner` are plan keys; the
+/// written spelling is shown (`display_names_in`).
+pub fn captured_binding_unavailable_message(
+    capturer: &str,
+    name: &str,
+    reason: CaptureRefusal<'_>,
+) -> String {
+    let why = match reason {
+        CaptureRefusal::ValueType => "its value type has no closure cell".to_string(),
+        CaptureRefusal::Depth => format!("`{name}` is two or more closures away"),
+        CaptureRefusal::Parameter { owner } => format!("`{name}` is a parameter of `{owner}`"),
+    };
+    let text = format!(
+        "a closure `{capturer}` that captures `{name}` is unavailable in the current phase: {why}"
+    );
+    crate::display_names_in(&text).into_owned()
+}
