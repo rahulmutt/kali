@@ -518,3 +518,36 @@ point 1.
 7. **Probes run with `FORCE_COLOR` unset.** It is `3` in the measuring
    environment, and node then colours numbers, which breaks every probe
    comparison.
+
+### A-3 (2026-10-05, plan Task 6, chosen by the human partner): phase 1 refuses a capture that is never read
+
+**Measured.** Phase 1 refuses at compile time, wherever the capture appears.
+A closure capture in code that never runs, or in a closure that is never
+called, is therefore refused, although the baseline printed node's output.
+Measured at HEAD `b57e79e97` against baseline `2ddf18c66`, node run as
+`env -u FORCE_COLOR node`:
+
+| id | program | node | baseline `run` / `check` | HEAD `run` / `check` |
+|---|---|---|---|---|
+| cl1 | `function f(k){ const g=()=>k; return g(); } console.log(1);` | `1` | exit 0, `1` / 0 | exit 1, E5506 `` `k` is a parameter of `f` `` / 1 |
+| cl2 | `function f(k){ const g=()=>k; return k; } console.log(f(5));` | `5` | exit 0, `5` / 0 | exit 1, E5506 `` `k` is a parameter of `f` `` / 1 |
+| cl3 | `function f(){ let x=1.5; const g=()=>x; return g(); } console.log(1);` | `1` | exit 0, `1` / 0 | exit 1, E5506 `its value type has no closure cell` / 1 |
+| cl4 | `export default function(k){ const g=()=>k; return g(); } console.log(1);` | `1` | exit 0, `1` / 0 | exit 1, E5506 `` `k` is a parameter of `__kali_fn_0` `` / 1 |
+
+**What it overrides.**
+
+1. **§5.4.** "Phase 1 expects none" is narrowed to "none among programs that
+   read the capture". A program whose unlowerable capture is never read at run
+   time is a capability loss phase 1 accepts. The followups file lists the
+   measured programs in its §2.
+2. **Precedent.** The deferred lane already refused this way at the baseline:
+   `function f(k){ setTimeout(()=>console.log(k),0); } console.log(1);` prints
+   `1` under node, and the baseline `run` exits 1 with E5506
+   (`a captured param binding without closure lowering …`).
+3. **Phase 2.** Phase 2 is expected to lift the parameter and number cases
+   that have a numeric proof (cl2, whose only call site passes a number). The
+   rest stay refused: a parameter with no numeric call site (cl1, cl4) has no
+   proof, and every other unpromoted capture keeps §3.1's refusal. Whether
+   Task 9's F64 cells lift cl3 is measured there, not claimed here.
+4. **Numbering.** The plan's Task 9 amendment ("F64 writes are `=`, `+=`,
+   `-=`, `*=`, `/=`") is renumbered A-4.

@@ -335,10 +335,12 @@ A silently-skipped call is worse than a wrong value: it takes the wrong branch. 
 
 node: lay=5. Pre-fix kali: lay=0 at exit 0 — the whole `nested-wrapper-pruning` benchmark fixture had been compiling to a program whose layers never ran. See the report's follow-up: this shape IS statically resolvable and is the best candidate for real support.
 
-A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee."""
+A call-through-a-value must fail closed with `E5506` — never exit 0 having silently evaluated the call to `0` without running the callee.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the closure's capture of the arrow-valued `const layer0` (a function-expression initializer has no closure cell) before codegen's first-class-call refusal is reached; the call still fails closed. node prints `lay=5`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: calling 'layer0' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_1` that captures `layer0` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "calling_a_const_bound_arrow_by_name_fails_closed.ts"]
 exit = "failure"
-stderr_contains = ["E5506", "first-class function value"]
+stderr_contains = ["E5506", "that captures `layer0`", "its value type has no closure cell"]
 
 # --- Sibling SPELLINGS. ---
 
