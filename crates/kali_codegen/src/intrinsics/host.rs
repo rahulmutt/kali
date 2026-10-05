@@ -1743,11 +1743,13 @@ impl<'a> FunctionEmitter<'a> {
             // restores soundly.
             let by_value_scalar = reference.is_scalar
                 && reference.depth == 1
+                // the deferred lane is unchanged (captured-bindings §1.1)
                 && crate::closure::cell_is_promotable(
                     self.repr_table,
                     owner,
                     &reference.name,
                     reference.is_scalar,
+                    crate::closure::Widening::Baseline,
                 );
             if by_value_scalar {
                 return None;

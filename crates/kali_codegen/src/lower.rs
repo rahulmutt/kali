@@ -1438,6 +1438,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                         &function.name,
                         &cell.name,
                         cell.is_scalar,
+                        crate::closure::Widening::CapturedBindings {
+                            is_tagged: cell.is_tagged,
+                        },
                     )
                 })
                 .map(|cell| cell.name.as_str())
@@ -1468,11 +1471,13 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 .cells
                 .iter()
                 .filter(|cell| {
+                    // iteration cells are not widened (captured-bindings §1.1)
                     crate::closure::cell_is_promotable(
                         &ctx.repr_table,
                         namespace,
                         &cell.name,
                         cell.is_scalar,
+                        crate::closure::Widening::Baseline,
                     )
                 })
                 .map(|cell| cell.name.as_str())

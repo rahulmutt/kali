@@ -84,6 +84,8 @@ console.log(f());
 """
 "rt2.ts" = """const f=(k):Foo=>k;
 """
+"sib.js" = """function outer(k){ function inc(){ return k; } function sib(){ let d=7; const h=()=>d; h(); return inc(); } return sib(); } console.log(outer(5));
+"""
 "ns5.js" = """function f(){ let h=function(){ return 2; }; const g=()=>h; return g() ? 1 : 0; }
 console.log(f());
 """
@@ -92,52 +94,58 @@ console.log(f());
 # `run` refuses it by value type until Task 8 promotes the cell ---
 
 [[case]]
-name = "a_closure_over_a_parameter_is_refused"
+name = "a_closure_over_a_parameter_reads_it"
 rationale = """Spec §3.1, A-1: a parameter's cell is TaggedVal and unpromoted, so the closure read fell to the zero placeholder. node prints `5`; baseline printed `0` at exit 0 (row `cb_p1 SILENT 5 0 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `5`; HEAD prints `5` at exit 0."""
 args = ["run", "p1.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+exit = "success"
+stdout = "5\n"
 
 [[case]]
-name = "a_closure_over_a_parameter_used_in_arithmetic_is_refused"
+name = "a_closure_over_a_parameter_used_in_arithmetic_reads_it"
 rationale = """§3.1, A-1: `g` reads the captured parameter `k` in `k+1`. node prints `6 5`; baseline printed `1 5` at exit 0 (row `cb_v4 SILENT 6 5 1 5 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `6 5`; HEAD prints `6 5` at exit 0."""
 args = ["run", "v4.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+exit = "success"
+stdout = "6 5\n"
 
 [[case]]
-name = "a_nested_function_declaration_over_a_parameter_is_refused"
+name = "a_nested_declaration_reads_the_parameter"
 rationale = """§3.1, A-1: the capturer is a `function g(){}` declaration, not an arrow. node prints `5`; baseline printed `0` at exit 0 (row `cb_v8 SILENT 5 0 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `g` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `g` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `5`; HEAD prints `5` at exit 0."""
 args = ["run", "v8.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+exit = "success"
+stdout = "5\n"
 
 [[case]]
 name = "a_closure_over_an_arrow_parameter_is_refused"
 rationale = """§3.1, A-1: the owner is an arrow bound to `const f`. node prints `5`; baseline printed `0` at exit 0 (row `cb_v9 SILENT 5 0 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_1` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_1` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): still refused, ruling R12: repr_infer records no call edge from `f(5)` to the const-bound arrow `__kali_fn_0`, so its parameter has no scalar inflow and `let k = k{p}` has no numeric proof; the TaggedVal cell is not promoted. HEAD prints the same E5506, exit 1."""
 args = ["run", "v9.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
 
 [[case]]
-name = "a_closure_over_a_parameter_the_owner_reassigns_is_refused"
+name = "a_closure_over_a_parameter_the_owner_reassigns_reads_the_new_value"
 rationale = """§3.1, A-1, A-2.3: the owner's own `k=k+1` stays on its WASM local; the closure's read is refused. node prints `6`; baseline printed `0` at exit 0 (row `cb_a3 SILENT 6 0 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `6`; HEAD prints `6` at exit 0."""
 args = ["run", "a3.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+exit = "success"
+stdout = "6\n"
 
 [[case]]
-name = "a_closure_writing_a_parameter_is_refused"
+name = "a_closure_writing_a_parameter_updates_the_owner"
 rationale = """§3.1, A-1: the closure's `k=k+1` reaches the read choke (the right-hand `k`) or the `=` choke; both refuse with the parameter reason. node prints `6`; baseline printed `5` at exit 0 (row `cb_a4 SILENT 6 5 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `6`; HEAD prints `6` at exit 0."""
 args = ["run", "a4.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+exit = "success"
+stdout = "6\n"
 
 [[case]]
 name = "a_closure_over_a_fractional_parameter_is_refused"
@@ -148,12 +156,13 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
-name = "a_closure_over_a_boolean_parameter_is_refused"
+name = "a_captured_boolean_parameter_renders_as_uncaptured"
 rationale = """§3.1, A-1: a boolean parameter is a parameter first. node prints `true`; baseline printed `0` at exit 0 (row `cb_a7 SILENT true 0 0`).
-Task 7 (2026-10-05): the rewrite makes `b` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `b` is unavailable in the current phase: its value type has no closure cell`."""
+Task 7 (2026-10-05): the rewrite makes `b` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `b` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): a captured boolean parameter renders `1` like its uncaptured owner (A-2.1, the R-34 lane), ruling R11; node prints `true`. The numeric-binding proof admits `f(true)` (scalar inflow accepts a boolean literal), so the cell promotes; the uncaptured `function f(b){ console.log(b); } f(true)` prints `1` at baseline and HEAD. HEAD prints `1` at exit 0."""
 args = ["run", "a7.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+exit = "success"
+stdout = "1\n"
 
 [[case]]
 name = "a_closure_over_a_string_parameter_is_refused"
@@ -164,16 +173,18 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
 
 [[case]]
-name = "a_closure_reading_and_writing_a_parameter_is_refused"
-rationale = """§3.1, A-1: the closure reads and writes `k` (`k=k*2; return k`). node prints `12`; baseline printed `3` at exit 0 (row `cb_rw1 SILENT 12 3 0`).
-Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+name = "owner_reads_what_the_closure_wrote"
+rationale = """Review Focus 1: the owner's `return a+k` reads the cell the closure wrote. §3.1, A-1: the closure reads and writes `k` (`k=k*2; return k`). node prints `12`; baseline printed `3` at exit 0 (row `cb_rw1 SILENT 12 3 0`).
+Task 7 (2026-10-05): the rewrite makes `k` a local; it is refused as a TaggedVal until Task 8. HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`.
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `12`; HEAD prints `12` at exit 0."""
 args = ["run", "rw1.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+exit = "success"
+stdout = "12\n"
 
 [[case]]
-name = "a_parameter_called_with_a_number_and_a_string_stays_refused"
-rationale = """Already refused at baseline by the string/number conflict E5506, which fires first; the captured-parameter refusal does not replace it. node prints `1` then `a`; baseline refused with `binding `k` in `f` is used as both a string and a number`, check exit 1 (row `cb_two REFUSES 1|a ... 1`)."""
+name = "a_parameter_called_with_two_types_never_reads_zero"
+rationale = """Already refused at baseline by the string/number conflict E5506, which fires first; the captured-parameter refusal does not replace it. node prints `1` then `a`; baseline refused with `binding `k` in `f` is used as both a string and a number`, check exit 1 (row `cb_two REFUSES 1|a ... 1`).
+Task 8 (2026-10-05): Review Focus 2: `f(1)` and `f("a")` — either node's output or a refusal, never `0`. HEAD refuses with the same E5506 (ruling R5), exit 1: the string/number conflict fires before the cell is considered."""
 args = ["run", "two.js"]
 exit = "failure"
 stderr_contains = ["E5506", "used as both a string and a number"]
@@ -181,18 +192,20 @@ stderr_contains = ["E5506", "used as both a string and a number"]
 # --- a TaggedVal or non-promotable value type: reason "its value type has no closure cell" ---
 
 [[case]]
-name = "a_closure_over_a_local_copied_from_a_parameter_is_refused"
-rationale = """A-1: `let n=k` copies the TaggedVal layout. node prints `5`; baseline printed `0` at exit 0 (row `cb_p2 SILENT 5 0 0`)."""
+name = "a_closure_over_a_local_copied_from_a_parameter_reads_it"
+rationale = """A-1: `let n=k` copies the TaggedVal layout. node prints `5`; baseline printed `0` at exit 0 (row `cb_p2 SILENT 5 0 0`).
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `5`; HEAD prints `5` at exit 0."""
 args = ["run", "p2.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `n`", "its value type has no closure cell"]
+exit = "success"
+stdout = "5\n"
 
 [[case]]
-name = "a_closure_over_a_parameter_copy_the_owner_also_logs_is_refused"
-rationale = """A-1, A-2.3: the owner's `console.log(n)` reads its own WASM local and is correct; the closure's read of the TaggedVal `n` is refused. node prints `5` then `5`; baseline printed `5` then `0` at exit 0 (row `cb_e5 SILENT 5|5 5|0 0`)."""
+name = "a_closure_over_a_parameter_copy_the_owner_also_logs_reads_it"
+rationale = """A-1, A-2.3: the owner's `console.log(n)` reads its own WASM local and is correct; the closure's read of the TaggedVal `n` is refused. node prints `5` then `5`; baseline printed `5` then `0` at exit 0 (row `cb_e5 SILENT 5|5 5|0 0`).
+Task 8 (2026-10-05): the cell is a TaggedVal I64 with a numeric proof (A-1 point 3), so it promotes and the closure reads it. node prints `5` then `5`; HEAD prints `5` then `5` at exit 0."""
 args = ["run", "e5.js"]
-exit = "failure"
-stderr_contains = ["E5506", "that captures `n`", "its value type has no closure cell"]
+exit = "success"
+stdout = "5\n5\n"
 
 [[case]]
 name = "a_closure_over_a_string_local_is_refused"
@@ -277,22 +290,24 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
-name = "an_update_expression_on_a_capture_keeps_its_refusal"
+name = "an_update_expression_on_a_captured_parameter_lowers"
 rationale = """§3.1: update expressions are unchanged. node prints `6`; baseline refused (row `cb_w4 REFUSES 6 error[E5506]: update expression lowering is unavailable for binding 'k' ... 0`).
 Task 5 (2026-10-05): the check pass now refuses first, as `k` is a captured parameter; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: `k` is a parameter of `f`` and no longer prints the update-expression message. Still E5506.
-Task 7 (2026-10-05): the rewrite makes `k` a local; `check` admits it (A-2.6 TaggedVal residue until Task 8), so codegen's update-expression refusal fires again, as at baseline. HEAD prints `error[E5506]: update expression lowering is unavailable for binding 'k' unless it is a mutable local binding; use a mutable variable or the later compatibility path`."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; `check` admits it (A-2.6 TaggedVal residue until Task 8), so codegen's update-expression refusal fires again, as at baseline. HEAD prints `error[E5506]: update expression lowering is unavailable for binding 'k' unless it is a mutable local binding; use a mutable variable or the later compatibility path`.
+Task 8 (2026-10-05): the cell promotes (TaggedVal I64 with a numeric proof), so the update lane (`try_emit_captured_assign` → `resolve_scalar_capture_access` → `promotable_scalar_cell_in`) lowers `k++`. node prints `6`; HEAD prints `6` at exit 0."""
 args = ["run", "w4.js"]
-exit = "failure"
-stderr_contains = ["E5506", "update expression lowering is unavailable for binding 'k'"]
+exit = "success"
+stdout = "6\n"
 
 [[case]]
 name = "a_deferred_callback_over_a_parameter_keeps_its_refusal"
 rationale = """§3.1: the deferred-registration lane keeps its own allowlist and message. node prints `5`; baseline refused (row `cb_v2 REFUSES 5 error[E5506]: a captured param binding without closure lowering would read a placeholder ... 0`).
 Task 5 (2026-10-05): the check pass now refuses first, as `k` is a captured parameter, before the deferred lane in codegen is reached; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: `k` is a parameter of `f`` and no longer prints the deferred-lane message. Still E5506.
-Task 7 (2026-10-05): the rewrite makes `k` a local; `check` admits it (A-2.6 residue) and the deferred lane refuses it as a local, followed by the capture refusal. HEAD prints `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires …` then `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`. Known gap (ruling R3): `check` admits what `run` refuses here; not Task 7's fix."""
+Task 7 (2026-10-05): the rewrite makes `k` a local; `check` admits it (A-2.6 residue) and the deferred lane refuses it as a local, followed by the capture refusal. HEAD prints `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires …` then `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`. Known gap (ruling R3): `check` admits what `run` refuses here; not Task 7's fix.
+Task 8 (2026-10-05): the TaggedVal cell now promotes, so the capture refusal no longer follows; the deferred lane (unchanged, `Widening::Baseline`, spec §1.1) refuses alone. HEAD prints only `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires …`, exit 1."""
 args = ["run", "v2.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured local binding without closure lowering would read a placeholder", "that captures `k`", "its value type has no closure cell"]
+stderr_contains = ["E5506", "a captured local binding without closure lowering would read a placeholder"]
 
 # --- controls: lowered at baseline and still lowered ---
 
@@ -341,44 +356,50 @@ stdout = "1\n"
 # --- `check` mirror (spec §3.4, A-2.6): the front-end pass refuses what codegen refuses ---
 
 [[case]]
-name = "check_admits_a_closure_over_a_parameter_until_task_8"
+name = "check_admits_a_closure_over_a_parameter"
 rationale = """§3.4, A-2.6: node prints `5`; baseline check exited 0 (row `cb_p1`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `5` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "p1.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_closure_over_a_parameter_used_in_arithmetic_until_task_8"
+name = "check_admits_a_closure_over_a_parameter_used_in_arithmetic"
 rationale = """§3.4, A-2.6: node prints `6 5`; baseline check exited 0 (row `cb_v4`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `6 5` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "v4.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_nested_function_declaration_over_a_parameter_until_task_8"
+name = "check_admits_a_nested_function_declaration_over_a_parameter"
 rationale = """§3.4, A-2.6: the capturer is keyed `g`. node prints `5`; baseline check exited 0 (row `cb_v8`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `5` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "v8.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_closure_over_an_arrow_parameter_until_task_8"
+name = "check_admits_a_closure_over_an_arrow_parameter_the_known_residue"
 rationale = """§3.4, A-2.6: node prints `5`; baseline check exited 0 (row `cb_v9`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): ruling R12: `run` still refuses (no call edge to the const-bound arrow, so no numeric proof); `check` admits it. This is A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "v9.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_closure_over_a_parameter_the_owner_reassigns_until_task_8"
+name = "check_admits_a_closure_over_a_parameter_the_owner_reassigns"
 rationale = """§3.4, A-2.6: node prints `6`; baseline check exited 0 (row `cb_a3`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `6` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "a3.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_closure_writing_a_parameter_until_task_8"
+name = "check_admits_a_closure_writing_a_parameter"
 rationale = """§3.4, A-2.6: node prints `6`; baseline check exited 0 (row `cb_a4`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `6` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "a4.js"]
 exit = "success"
 
@@ -391,9 +412,10 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
-name = "check_admits_a_closure_over_a_boolean_parameter_until_task_8"
+name = "check_admits_a_closure_over_a_boolean_parameter"
 rationale = """§3.4, A-2.6: node prints `true`; baseline check exited 0 (row `cb_a7`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): ruling R11: `run` now prints `1` (the uncaptured rendering, R-34 lane), so `check` admitting it agrees with `run`. node prints `true`. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "a7.js"]
 exit = "success"
 
@@ -406,9 +428,10 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
 
 [[case]]
-name = "check_admits_a_closure_reading_and_writing_a_parameter_until_task_8"
+name = "check_admits_a_closure_reading_and_writing_a_parameter"
 rationale = """§3.4, A-2.6: node prints `12`; baseline check exited 0 (row `cb_rw1`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `12` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "rw1.js"]
 exit = "success"
 
@@ -497,28 +520,32 @@ exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
-name = "check_admits_an_update_expression_on_a_parameter_until_task_8"
+name = "check_admits_an_update_expression_on_a_parameter"
 rationale = """§3.4, A-2.6: Task 5: `k` is a captured parameter. node prints `6`; baseline check exited 0 (row `cb_w4`).
-Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes the parameter a `let` local with an I64 repr and no literal initializer, so `check` admits it: the A-2.6 TaggedVal residue until Task 8 (`run` still refuses it as value type). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): `run` now prints node's `6` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "w4.js"]
 exit = "success"
 
 [[case]]
 name = "check_admits_a_deferred_callback_over_a_parameter_a_known_gap"
 rationale = """§3.4, A-2.6: Task 5: `k` is a captured parameter; the pass does not distinguish the deferred lane. node prints `5`; baseline check exited 0 (row `cb_v2`).
-Task 7 (2026-10-05): the rewrite makes `k` a `let` local with an I64 repr and no literal initializer, so `check` admits it (A-2.6 TaggedVal residue) while `run` refuses it through the deferred lane. Known gap (ruling R3), not Task 7's fix. HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 7 (2026-10-05): the rewrite makes `k` a `let` local with an I64 repr and no literal initializer, so `check` admits it (A-2.6 TaggedVal residue) while `run` refuses it through the deferred lane. Known gap (ruling R3), not Task 7's fix. HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 8 (2026-10-05): unchanged: `run` refuses through the deferred lane only; `check` admits it (R3 known gap, A-2.6 residue). HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "v2.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_local_copied_from_a_parameter_the_known_residue"
-rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5`; baseline `check` exited 0. Recorded in the followups gap table."""
+name = "check_admits_a_local_copied_from_a_parameter"
+rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5`; baseline `check` exited 0. Recorded in the followups gap table.
+Task 8 (2026-10-05): `run` now prints node's `5` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "p2.js"]
 exit = "success"
 
 [[case]]
-name = "check_admits_a_parameter_copy_the_owner_also_logs_the_known_residue"
-rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5` then `5`. Recorded in the followups gap table."""
+name = "check_admits_a_parameter_copy_the_owner_also_logs"
+rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5` then `5`. Recorded in the followups gap table.
+Task 8 (2026-10-05): `run` now prints node's `5` then `5` too, so `check` admitting it agrees with `run`; it is no longer A-2.6 residue. HEAD check prints `Checked 1 file(s)`, exit 0."""
 args = ["check", "e5.js"]
 exit = "success"
 
@@ -596,3 +623,12 @@ rationale = """Control for the case above: no capture, no rewrite. node (type st
 args = ["check", "rt2.ts"]
 exit = "failure"
 stderr_contains = ["E3100", "undefined type reference 'Foo'"]
+
+# --- Task 8: a promoted tagged cell engages env-safety (ruling R10) ---
+
+[[case]]
+name = "a_promoted_parameter_capture_called_from_a_sibling_env_owner_is_refused"
+rationale = """Ruling R10 (Task 8, 2026-10-05): `inc` captures the parameter `k` of `outer`, whose TaggedVal cell now promotes; `sib` owns its own record (`d`), so calling `inc` from `sib` would address `k` in the wrong record. `lowered_capture_owners` uses `Widening::for_captured_ref`, so env-safety sees the lowered capture and refuses. node prints `5`; baseline printed `0` at exit 0; with `Widening::Baseline` at `lowered_capture_owners` (measured, not committed) HEAD printed `0` at exit 0. HEAD exits 1 with `error[E5506]: invoking the capturing function 'inc' from 'sib' is unavailable: 'inc' captures binding(s) owned by 'outer', but the environment record active at this call/registration site cannot be proven to be 'outer''s …`."""
+args = ["run", "sib.js"]
+exit = "failure"
+stderr_contains = ["E5506", "invoking the capturing function 'inc' from 'sib' is unavailable"]

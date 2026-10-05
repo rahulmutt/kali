@@ -1250,13 +1250,21 @@ impl<'a> FunctionEmitter<'a> {
     /// owner's decision: an owner F64 that did NOT promote leaves no cell, yet the
     /// capturer would read/write one — a silent miscompile of a shape that was
     /// E5506 pre-Stage-C.
+    ///
+    /// Captured-bindings A-1: under [`crate::closure::Widening::CapturedBindings`]
+    /// with `is_tagged`, a proven-numeric `TaggedVal` i64 cell is admitted too —
+    /// the same tagged-i64 shape `cell_is_promotable` promotes.
     pub(crate) fn promotable_scalar_cell_in(
         &self,
         owner: &str,
         name: &str,
         is_scalar: bool,
+        widening: crate::closure::Widening,
     ) -> bool {
-        is_scalar && self.repr_table.scalar(owner, name) == kali_common::Repr::I64
+        self.repr_table.scalar(owner, name) == kali_common::Repr::I64
+            && (is_scalar
+                || (widening.admits_tagged()
+                    && self.repr_table.binding_is_proven_numeric(owner, name)))
     }
 
     /// True when THIS function owns a promotable env — i.e. `lower.rs` reserved

@@ -194,11 +194,18 @@ impl<'a> FunctionEmitter<'a> {
     /// on the owner's verdict, not its own namespace (where an outer name
     /// defaults to `I64`).
     fn resolve_capture_access_inner(&self, name: &str, scalar_only: bool) -> Option<(u32, u32)> {
-        let promotable = |owner: &str, is_scalar: bool| -> bool {
+        use crate::closure::Widening;
+        let promotable = |owner: &str, is_scalar: bool, widening: Widening| -> bool {
             if scalar_only {
-                self.promotable_scalar_cell_in(owner, name, is_scalar)
+                self.promotable_scalar_cell_in(owner, name, is_scalar, widening)
             } else {
-                crate::closure::cell_is_promotable(self.repr_table, owner, name, is_scalar)
+                crate::closure::cell_is_promotable(
+                    self.repr_table,
+                    owner,
+                    name,
+                    is_scalar,
+                    widening,
+                )
             }
         };
         // Block-scoping §3.3: a cell of an active owner loop lives in that
@@ -209,7 +216,9 @@ impl<'a> FunctionEmitter<'a> {
             if let Some(cell) = active.plan.cell_for(name) {
                 let namespace =
                     crate::iteration::owner_repr_namespace(self.env_plans, &active.label);
-                return promotable(namespace, cell.is_scalar).then_some((k as u32, cell.offset));
+                // iteration cells are not widened (captured-bindings §1.1)
+                return promotable(namespace, cell.is_scalar, Widening::Baseline)
+                    .then_some((k as u32, cell.offset));
             }
         }
         // Every active loop record sits between `g8` and this function's own
@@ -218,7 +227,12 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(cell) = self.env_plan.cell_for(name) {
             // An own cell resolves in THIS function's namespace (it is the owner)
             // at env-walk depth 0, plus the active loop records.
-            return promotable(&self.function_name, cell.is_scalar).then_some((extra, cell.offset));
+            // The same arguments `lower.rs` promoted this function-plan cell with.
+            let widening = Widening::CapturedBindings {
+                is_tagged: cell.is_tagged,
+            };
+            return promotable(&self.function_name, cell.is_scalar, widening)
+                .then_some((extra, cell.offset));
         }
         if let Some(reference) = self.env_plan.captured_for(name) {
             // A capture through the parent chain: gate on the OWNER's promotion
@@ -228,7 +242,11 @@ impl<'a> FunctionEmitter<'a> {
             // (depth 0) and the genuine one-hop walk from an env-owning capturer
             // (depth 1); deeper chains fall through to baseline unchanged.
             let owner = crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner);
-            if promotable(owner, reference.is_scalar) {
+            // The owner plan decides the widening (`Widening::for_captured_ref`):
+            // a function plan's cell under captured-bindings, an iteration
+            // plan's at baseline — what the owner's promotion site passed.
+            let widening = Widening::for_captured_ref(self.env_plans, reference);
+            if promotable(owner, reference.is_scalar, widening) {
                 if let Some(walk) = self.env_walk_depth_for(reference.depth) {
                     return Some((walk + extra, reference.offset));
                 }
