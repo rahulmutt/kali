@@ -42,10 +42,11 @@ baseline a captured binding that Stage C did not lower falls through to the
 identifier's zero placeholder (`emit/control_flow.rs:2623-2640`), so the
 closure reads `0` at exit 0. Stage C chose that on purpose, to keep
 `nested-wrapper-pruning` green (`emit/closure_access.rs:11-19`). A captured
-`i64` parameter is a second hole: MIR plans a cell for it and codegen promotes
-it (`lower.rs:1426-1450`), but nothing stores the incoming argument into that
-cell, so the closure reads a zeroed cell while the owner reads its real WASM
-parameter (§2.1, `v4`).
+parameter is in the same class (corrected by A-1, §6): MIR gives every
+parameter the layout `TaggedVal`, so its cell is a heap cell, and
+`cell_is_promotable` promotes a heap cell only with an `Object` repr. The cell
+is never promoted, and the closure's read reaches the placeholder while the
+owner reads its real WASM parameter (§2.1, `v4`).
 
 After this project:
 
@@ -116,12 +117,12 @@ in Task 0 (§5.1). Exit codes were measured separately from the output. Every
 | `a7` | `function f(b){ const g=()=>b; return g(); } console.log(f(true));` | `true` | `0`, exit 0 |
 | `v2` | `function f(k){ setTimeout(()=>console.log(k),0); } f(5);` | `5` | E5506 (`a captured param binding without closure lowering …`), the deferred lane |
 
-`v4` locates the hole: the closure reads `k`'s cell (`0`, plus one), while the
-owner's own `k` resolves to its WASM parameter first (`5`).
+`v4` locates the hole: the closure's `k` reaches the zero placeholder (`0`,
+plus one), while the owner's own `k` resolves to its WASM parameter (`5`).
 
-`p2` against `v6` says a `let` initialized from a bare parameter takes a
-different path from one initialized from an expression. That path is not
-traced (§3.2, Task 1).
+`p2` against `v6`: a `let` initialized from a bare parameter copies the
+parameter's MIR layout, `TaggedVal`, while one initialized from `k+0` gets
+`Scalar("number")` (A-1). Only the scalar cell promotes.
 
 ### 2.2 The wider class: captured locals that Stage C does not promote
 
@@ -166,7 +167,7 @@ arithmetic write path) returned `Some`. Every other outcome is a refusal.
 |---|---|---|
 | read of a plan-listed name whose repr is not promotable (String, F64, `TaggedVal`, …) | zero placeholder | refuse, reason *value type* |
 | read of a plan-listed name at MIR depth ≥ 2 | zero placeholder | refuse, reason *depth* |
-| read or write of a captured **parameter**, any repr, by the closure or by the owner | closure: zeroed cell; owner: its WASM parameter | refuse, reason *parameter* |
+| read or write of a captured **parameter**, any repr, by the closure or by the owner | closure: zero placeholder (A-1); owner: its WASM parameter | refuse, reason *parameter* |
 | plain `=` to a plan-listed name that is not promoted, from the closure or the owner | dropped store, or invalid wasm | refuse, reason *value type* or *depth* |
 | a read of a promoted `I64` cell whose owner binding is proven boolean | renders `1` / `0` | refuse, reason *value type* (phase 2 lifts it, §3.3) |
 | compound assignment, update expression | E5506 | unchanged |
@@ -406,4 +407,54 @@ The triage tables go in the followups file (§3.5), one per phase.
 
 ## 6. Amendments
 
-None yet.
+### A-1 (2026-10-05, before the plan): a captured parameter's cell is not promoted
+
+**Measured.** A throwaway `kali_mir` unit test (deleted afterwards) printed the
+MIR layouts and `derive_env_plans` output:
+
+| program | binding | layout | cell |
+|---|---|---|---|
+| `function f(k){ const g=()=>k; return g(); }` | `k` (Parameter) | `TaggedVal` | `is_scalar: false` |
+| `function f(k){ let n=k; const g=()=>n; return g(); }` | `n` (Local) | `TaggedVal` | `is_scalar: false` |
+| `function f(k){ let n=k+0; const g=()=>n; return g(); }` | `n` (Local) | `Scalar("number")` | `is_scalar: true` |
+| `function f(x){ const g=()=>x; return g(); } f(1.5);` | `x` (Parameter) | `TaggedVal` | `is_scalar: false` |
+
+Probes measured by hand at the same binary: `function f(){ let k=5; let n=k; … }`
+reads `5` (a local copied from a local stays `Scalar`); `let n=0; n=k;` reads
+`5`; `let n=k;` with the owner also logging `n` prints `5` then `0`.
+
+**What it overrides.**
+
+1. **§1 and §2.1.** The spec said a captured `i64` parameter's cell is
+   promoted but never initialized. It is not promoted: its layout is
+   `TaggedVal`, its cell is a heap cell, and `cell_is_promotable`
+   (`closure.rs:67`) admits a heap cell only with an `Object` repr. The
+   closure's read reaches the placeholder. §1 and §2.1 are corrected in place.
+2. **§3.2 alone fixes nothing.** `let k = k{p}` is the `let n = k` shape and is
+   also `TaggedVal`. The rewrite stays, because it gives `k` a declaration
+   store and makes the owner's reads go through the cell (once the cell
+   promotes, that is the uninitialized-cell bug the spec described). But it
+   only takes effect together with point 3.
+3. **§3.3 gains a gated widening.** `cell_is_promotable` also admits a
+   non-scalar cell when the owner's MIR layout for it is `TaggedVal` and:
+   * the owner repr is `I64` and `ReprTable::binding_is_proven_numeric(owner, name)`
+     holds, or
+   * the owner repr is `F64` and the same numeric proof holds, or
+   * the owner repr is `I64` and the binding is proven boolean (§3.3's proof).
+
+   Without the proof the cell stays unpromoted and §3.1 refuses it. Codegen
+   cannot see the MIR layout, so `EnvCell` and `CapturedRef` gain
+   `is_tagged: bool` beside `is_scalar` and `is_parameter`. `Struct`, `Array`
+   and `Closure` cells are unchanged. The promotion site
+   (`lower.rs:1426-1450`) and the access gate still call the one predicate.
+4. **Open question, resolved by plan Task 1.** `write_value_is_numeric`
+   (`repr_infer.rs:2061-2072`) treats a parameter on the right of a write as
+   numeric on condition that every call site passes a number. Task 1 measures
+   whether `binding_is_proven_numeric` then holds for `let k = k{p}` with
+   numeric call sites, and fails without them. If it does not hold, extending
+   the proof is in phase 2. If it cannot be extended soundly, the lane stays
+   refused and the followups record why.
+5. **§3.4** uses the same gate: a captured binding with no proof is refused by
+   `check` too.
+6. **Phase 1 (§3.1) is unchanged.** It refuses every unpromoted capture,
+   whatever the reason.
