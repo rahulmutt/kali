@@ -11,6 +11,7 @@ use crate::{
 pub mod arena_gate;
 pub(crate) mod escape_flow;
 mod infer;
+mod iteration;
 mod resolve;
 mod scope;
 mod walk;
@@ -257,6 +258,14 @@ impl ScopeState {
     }
 }
 
+/// Everything the ownership walk produces.
+pub(crate) struct AnalysisOutput {
+    pub(crate) functions: Vec<MirFunction>,
+    pub(crate) arena_facts: Vec<arena_gate::FunctionArenaFacts>,
+    pub(crate) parent_labels: BTreeMap<String, Option<String>>,
+    pub(crate) iteration_scopes: Vec<crate::IterationScope>,
+}
+
 pub(crate) struct OwnershipAnalyzer<'a> {
     pub(crate) nodes: &'a [HirNode],
     pub(crate) function_flavors: &'a [(HirNodeId, FunctionFlavor)],
@@ -275,6 +284,7 @@ pub(crate) struct OwnershipAnalyzer<'a> {
     pub(crate) parent_labels: BTreeMap<String, Option<String>>,
     pub(crate) arena: arena_gate::ArenaCollector,
     pub(crate) flow: escape_flow::FlowCollector,
+    pub(crate) iteration: iteration::IterationCollector,
 }
 
 impl<'a> OwnershipAnalyzer<'a> {
@@ -291,28 +301,28 @@ impl<'a> OwnershipAnalyzer<'a> {
             parent_labels: BTreeMap::new(),
             arena: arena_gate::ArenaCollector::default(),
             flow: escape_flow::FlowCollector::default(),
+            iteration: iteration::IterationCollector::default(),
         }
     }
 
     /// Run the ownership walk, returning the finalized functions and the raw
     /// arena facts collected during the same walk (see [`arena_gate`]).
-    pub(crate) fn analyze_program_with_arena(
-        mut self,
-        root: HirNodeId,
-    ) -> (
-        Vec<MirFunction>,
-        Vec<arena_gate::FunctionArenaFacts>,
-        BTreeMap<String, Option<String>>,
-    ) {
+    pub(crate) fn analyze_program_with_arena(mut self, root: HirNodeId) -> AnalysisOutput {
         self.push_scope("<module>", MirFunctionKind::Module, None);
         self.precollect_scope_bindings(root);
         self.walk_scope_node(root, UseContext::Normal);
         self.pop_scope_and_record();
+        self.iteration.relabel(&mut self.parent_labels);
         let flow = std::mem::take(&mut self.flow);
         let solution = escape_flow::solve(&flow);
         escape_flow::apply_escape_verdicts(&mut self.functions, &solution);
         let facts = std::mem::take(&mut self.arena).into_facts(&flow, &solution);
-        (self.functions, facts, self.parent_labels)
+        AnalysisOutput {
+            functions: self.functions,
+            arena_facts: facts,
+            parent_labels: self.parent_labels,
+            iteration_scopes: self.iteration.into_scopes(),
+        }
     }
 
     pub(crate) fn function_flavor(&self, node_id: HirNodeId) -> Option<FunctionFlavor> {

@@ -158,10 +158,10 @@ fn is_kali_test_callee(nodes: &[LirNode], callee_id: LirNodeId) -> bool {
 fn is_scheduling_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bool {
     nodes.get(callee.0 as usize).is_some_and(|node| {
         node.children.is_empty()
-            && matches!(
-                node.text.as_deref(),
-                Some("queueMicrotask") | Some("setTimeout") | Some("setInterval")
-            )
+            && node
+                .text
+                .as_deref()
+                .is_some_and(|name| kali_common::is_deferred_registration_callee(name, false))
     })
 }
 
@@ -174,7 +174,11 @@ fn is_scheduling_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bo
 /// over-approximation (this analysis only ever REJECTS more).
 fn is_event_registration_callee(nodes: &[LirNode], callee: LirNodeId) -> bool {
     nodes.get(callee.0 as usize).is_some_and(|node| {
-        !node.children.is_empty() && node.text.as_deref() == Some("addEventListener")
+        !node.children.is_empty()
+            && node
+                .text
+                .as_deref()
+                .is_some_and(|name| kali_common::is_deferred_registration_callee(name, true))
     })
 }
 
@@ -196,25 +200,12 @@ pub(crate) fn env_capture_safety_diagnostics(
     //    Refs that are NOT lowered (depth >= 2, non-promotable cells) keep
     //    their pre-Stage-C baseline behavior and impose no constraint here.
     let mut capture_owners: BTreeMap<&str, BTreeSet<&str>> = BTreeMap::new();
-    for (name, plan) in env_plans {
+    for name in env_plans.keys() {
         if name.is_empty() {
             // Module-root plan key: the root never captures through the chain.
             continue;
         }
-        let owners: BTreeSet<&str> = plan
-            .captured
-            .iter()
-            .filter(|reference| {
-                reference.depth == 1
-                    && crate::closure::cell_is_promotable(
-                        repr_table,
-                        &reference.owner,
-                        &reference.name,
-                        reference.is_scalar,
-                    )
-            })
-            .map(|reference| reference.owner.as_str())
-            .collect();
+        let owners = crate::iteration::lowered_capture_owners(env_plans, repr_table, name);
         if !owners.is_empty() {
             capture_owners.insert(name.as_str(), owners);
         }
@@ -319,13 +310,29 @@ pub(crate) fn env_capture_safety_diagnostics(
 
     // 5. Call + registration edges, attributed to the ENCLOSING function
     //    (nested function subtrees are opaque; their calls belong to their
-    //    own plan's walk).
-    let mut edges: BTreeSet<(&str, &str)> = BTreeSet::new();
+    //    own plan's walk). Each edge carries the env active at its site when
+    //    that is not the caller's body context: inside an iteration-owner loop
+    //    (block-scoping §3.3) the loop's per-iteration record is `g8`, so a
+    //    call or registration there runs with `Record(label)` — only for a
+    //    loop that carries records (a plan with a promotable cell). The one
+    //    exception is a direct call to a capturer whose captures are all
+    //    owned by functions: codegen switches `g8` back to the env the
+    //    outermost owner loop was entered with around it
+    //    (`FunctionEmitter::emit_direct_call`, spec A-9), so that site runs
+    //    with the caller's body context.
+    let mut edges: BTreeSet<(&str, &str, Option<&str>)> = BTreeSet::new();
     for plan in &source_fns {
         let caller = plan.name.as_str();
-        let mut stack = vec![plan.body];
+        let iteration_plans: Vec<(&str, &kali_mir::EnvPlan)> =
+            crate::iteration::iteration_plans_of(env_plans, crate::iteration::plan_key(caller))
+                .into_iter()
+                .filter(|(label, _)| {
+                    crate::iteration::iteration_plan_has_records(env_plans, repr_table, label)
+                })
+                .collect();
+        let mut stack: Vec<(LirNodeId, Option<&str>)> = vec![(plan.body, None)];
         let mut seen: HashSet<LirNodeId> = HashSet::new();
-        while let Some(id) = stack.pop() {
+        while let Some((id, site_record)) = stack.pop() {
             if !seen.insert(id) {
                 continue;
             }
@@ -342,14 +349,14 @@ pub(crate) fn env_capture_safety_diagnostics(
                     // from the registering function. Every other call: any
                     // function a callee-subtree name may denote is a
                     // potential direct-call target.
-                    let target_root = if is_kali_test_callee(&lir.nodes, callee) {
-                        node.children.get(2).copied()
+                    let (target_root, is_direct_call) = if is_kali_test_callee(&lir.nodes, callee) {
+                        (node.children.get(2).copied(), false)
                     } else if is_scheduling_registration_callee(&lir.nodes, callee) {
-                        node.children.get(1).copied()
+                        (node.children.get(1).copied(), false)
                     } else if is_event_registration_callee(&lir.nodes, callee) {
-                        node.children.get(2).copied()
+                        (node.children.get(2).copied(), false)
                     } else {
-                        Some(callee)
+                        (Some(callee), true)
                     };
                     if let Some(root) = target_root {
                         let mut texts = BTreeSet::new();
@@ -357,27 +364,44 @@ pub(crate) fn env_capture_safety_diagnostics(
                         for text in texts {
                             if let Some(set) = denotes.get(text) {
                                 for target in set {
-                                    edges.insert((caller, target));
+                                    let record = site_record.filter(|_| {
+                                        !(is_direct_call
+                                            && crate::iteration::call_leaves_iteration_record(
+                                                env_plans, repr_table, target,
+                                            ))
+                                    });
+                                    edges.insert((caller, target, record));
                                 }
                             }
                         }
                     }
                 }
             }
-            stack.extend(node.children.iter().copied());
+            let child_record =
+                crate::iteration::iteration_label_for_loop(&lir.nodes, id, &iteration_plans)
+                    .or(site_record);
+            stack.extend(node.children.iter().map(|child| (*child, child_record)));
         }
     }
 
     // 6. Reachability + body-context fixpoint over the edge graph.
-    let mut successors: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-    for (from, to) in &edges {
-        successors.entry(from).or_default().push(to);
+    let mut successors: BTreeMap<&str, Vec<(&str, Option<&str>)>> = BTreeMap::new();
+    for (from, to, site_record) in &edges {
+        successors.entry(from).or_default().push((to, *site_record));
     }
     let body_ctx = |name: &str, incoming: &EnvCtx| -> EnvCtx {
         if promotable_owner(name) {
             EnvCtx::Record(name.to_string())
         } else {
             incoming.clone()
+        }
+    };
+    // The env at a call site: the enclosing iteration record, else the
+    // caller's body context.
+    let site_ctx = |from: &str, site_record: Option<&str>, incoming: &EnvCtx| -> EnvCtx {
+        match site_record {
+            Some(label) => EnvCtx::Record(label.to_string()),
+            None => body_ctx(from, incoming),
         }
     };
     let mut ctx: BTreeMap<&str, EnvCtx> = BTreeMap::new();
@@ -392,14 +416,14 @@ pub(crate) fn env_capture_safety_diagnostics(
         let Some(incoming) = ctx.get(from).cloned() else {
             continue;
         };
-        let out = body_ctx(from, &incoming);
         let Some(next) = successors.get(from).cloned() else {
             continue;
         };
-        for to in next {
+        for (to, site_record) in next {
+            let out = site_ctx(from, site_record, &incoming);
             let updated = match ctx.get(to) {
                 Some(existing) => join(existing, &out),
-                None => out.clone(),
+                None => out,
             };
             if ctx.get(to) != Some(&updated) {
                 ctx.insert(to, updated);
@@ -412,14 +436,14 @@ pub(crate) fn env_capture_safety_diagnostics(
     //    exactly its owner's record. Unreachable callers impose nothing (their
     //    bodies never run — e.g. an escaped-but-never-invoked closure).
     let mut diagnostics = Vec::new();
-    for (from, to) in &edges {
+    for (from, to, site_record) in &edges {
         let Some(owners) = capture_owners.get(to) else {
             continue;
         };
         let Some(incoming) = ctx.get(from) else {
             continue;
         };
-        let caller_env = body_ctx(from, incoming);
+        let caller_env = site_ctx(from, *site_record, incoming);
         for owner in owners {
             if caller_env != EnvCtx::Record((*owner).to_string()) {
                 diagnostics.push(Diagnostic::error(

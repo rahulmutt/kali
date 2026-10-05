@@ -10189,7 +10189,13 @@ fn build_artifacts_are_deterministic_across_repeated_invocations() {
     let dir = tempdir().expect("tempdir");
 
     let executable_source = dir.path().join("main.ts");
-    fs::write(&executable_source, "console.log(1);").expect("write executable source");
+    fs::write(
+        &executable_source,
+        "console.log(1);\n\
+         function shadowed(n: number): number { let r = n; { let r = n * 2; n = r; } return r + n; }\n\
+         console.log(shadowed(3));\n",
+    )
+    .expect("write executable source");
     let executable_output = dir.path().join("main.wasm");
 
     let output = Command::new(kali_bin())

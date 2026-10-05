@@ -478,34 +478,44 @@ exit = "failure"
 stderr_contains = ["E5506", "${COMPUTED}"]
 
 [[case]]
-name = "check_refuses_a_shadowed_fold_name_read"
+name = "check_admits_a_read_through_a_block_shadowed_fold_name"
 rationale = """CONTROLLER RULING R16, a refusal shape the plan's refused matrix did not carry. A name declared more than once in the same function does not fold, in either checker pass: `repr_infer`'s `const_index_names` is keyed (func, binding) and codegen's `bindings` map is flat per FunctionEmitter, so a block-scoped shadow collapses onto one key and the LAST insert wins.
 
-Measured before `3ef65ef785`: `const k = "b"; const o = {a:1,b:2}; if (true) { const k = "a"; } console.log(o[k]);` printed `1` -- field `a`, the shadow's value -- at exit 0 with `check` clean, against node's `2`. A name that hits a real, WRONG property is R-59's own defining symptom, on the lane this project opened. Measured at `3ef65ef785` against node v26.8.1: node prints 2, kali refuses with the shared message at exit 1 under BOTH twins. The order-sensitivity is deliberate and has its own control case above."""
+Measured before `3ef65ef785`: `const k = "b"; const o = {a:1,b:2}; if (true) { const k = "a"; } console.log(o[k]);` printed `1` -- field `a`, the shadow's value -- at exit 0 with `check` clean, against node's `2`. A name that hits a real, WRONG property is R-59's own defining symptom, on the lane this project opened. Measured at `3ef65ef785` against node v26.8.1: node prints 2, kali refuses with the shared message at exit 1 under BOTH twins. The order-sensitivity is deliberate and has its own control case above.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the rec…); at HEAD `kali check` exits 0; the program runs node-correct under `kali run` (node v26.10.0 prints `2`; so does kali). Renamed from `check_refuses_a_shadowed_fold_name_read`."""
 args = ["check", "shadowed_key_read.js"]
-exit = "failure"
-stderr_contains = ["E5506", "${COMPUTED}"]
+exit = "success"
+stdout_contains = ["Checked 1 file(s)"]
 
 [[case]]
-name = "run_refuses_a_shadowed_fold_name_read"
-rationale = "Twin of the check case. Both passes must decline together: a gate that admitted here while `repr_infer` declined would leave the store with no materialization evidence and make `check` clean where `run` refuses. Measured at `3ef65ef785`."
+name = "run_reads_through_a_block_shadowed_fold_name"
+rationale = """Twin of the check case. Both passes must decline together: a gate that admitted here while `repr_infer` declined would leave the store with no materialization evidence and make `check` clean where `run` refuses. Measured at `3ef65ef785`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the rec…); at HEAD kali prints `2`; node v26.10.0 prints the same. Renamed from `run_refuses_a_shadowed_fold_name_read`."""
 args = ["run", "shadowed_key_read.js"]
-exit = "failure"
-stderr_contains = ["E5506", "${COMPUTED}"]
+exit = "success"
+stdout = """2
+"""
 
 [[case]]
-name = "check_refuses_a_shadowed_fold_name_store"
-rationale = "Ruling R16's write half. Measured before `3ef65ef785`: this program stored to field `a` and the `.b` read-back printed `2` at exit 0, against node's `8` -- the store landed on the wrong field and the program looked internally consistent. Measured at `3ef65ef785`: node prints 8, kali refuses with the shared message at exit 1 under both twins."
+name = "check_admits_a_store_through_a_block_shadowed_fold_name"
+rationale = """Ruling R16's write half. Measured before `3ef65ef785`: this program stored to field `a` and the `.b` read-back printed `2` at exit 0, against node's `8` -- the store landed on the wrong field and the program looked internally consistent. Measured at `3ef65ef785`: node prints 8, kali refuses with the shared message at exit 1 under both twins.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the rec…); at HEAD `kali check` exits 0; the program runs node-correct under `kali run` (node v26.10.0 prints `8`; so does kali). Renamed from `check_refuses_a_shadowed_fold_name_store`."""
 args = ["check", "shadowed_key_store.js"]
-exit = "failure"
-stderr_contains = ["E5506", "${COMPUTED}"]
+exit = "success"
+stdout_contains = ["Checked 1 file(s)"]
 
 [[case]]
-name = "run_refuses_a_shadowed_fold_name_store"
-rationale = "Twin of the check case. Measured at `3ef65ef785`."
+name = "run_stores_through_a_block_shadowed_fold_name"
+rationale = """Twin of the check case. Measured at `3ef65ef785`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: computed member access `o[k]` is unavailable in the current phase unless the index is a literal or a compile-time-constant `const` binding, or the rec…); at HEAD kali prints `8`; node v26.10.0 prints the same. Renamed from `run_refuses_a_shadowed_fold_name_store`."""
 args = ["run", "shadowed_key_store.js"]
-exit = "failure"
-stderr_contains = ["E5506", "${COMPUTED}"]
+exit = "success"
+stdout = """8
+"""
 
 [[case]]
 name = "check_refuses_a_string_receiver_literal_index"

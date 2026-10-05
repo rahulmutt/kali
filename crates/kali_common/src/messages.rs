@@ -356,3 +356,34 @@ pub const fn runtime_array_length_write_unavailable_message() -> &'static str {
 pub const fn runtime_array_index_out_of_bounds_message() -> &'static str {
     "kali: array index out of bounds: node reads undefined here (or grows the array on a write); kali refuses rather than read or write past the allocation"
 }
+
+/// Block-scoping spec §3.4: `--compat eval` with a renamed binding.
+pub const fn block_scope_eval_refused_message() -> &'static str {
+    "a block-scoped binding that shadows another binding is unavailable with `--compat eval` in the current phase: `eval` code could name the shadowed binding, and kali gives block-scoped bindings separate storage"
+}
+
+/// Block-scoping spec A-4.
+pub fn iteration_capture_through_record_message(name: &str, capturer: &str) -> String {
+    format!(
+        "a closure `{capturer}` in a loop that captures `{name}` through a per-iteration record is unavailable in the current phase: `{name}` belongs to the enclosing function, two records away; move `{name}` into the loop or pass it as an argument"
+    )
+}
+
+/// Block-scoping spec A-5, first bullet.
+pub const fn iteration_for_continue_message() -> &'static str {
+    "`continue` in a `for` loop whose bindings a registered callback captures is unavailable in the current phase: `continue` would skip the copy into the next iteration's record"
+}
+
+/// Block-scoping spec A-5, second bullet.
+pub fn iteration_unrolled_for_of_message(name: &str) -> String {
+    format!(
+        "a callback registered in a `for…of` over a compile-time iterable that captures `{name}` is unavailable in the current phase: kali unrolls this loop and `{name}` has no per-iteration storage"
+    )
+}
+
+/// Block-scoping spec A-6: the backstop.
+pub fn iteration_record_unplaced_message(label: &str) -> String {
+    format!(
+        "the per-iteration closure record `{label}` was planned but no loop declared its bindings; kali refuses rather than let callbacks share one record. This is unavailable in the current phase"
+    )
+}

@@ -9191,8 +9191,8 @@ fn run_supports_browser_web_crypto_get_random_values_result_length_in_ts_input()
 }
 
 #[test]
-fn run_rejects_crypto_random_result_shadowed_by_a_for_of_binding() {
-    assert_crypto_random_result_for_of_shadow_fails_closed("main.js");
+fn run_reads_a_for_of_binding_that_shadows_a_crypto_random_result() {
+    assert_crypto_random_result_for_of_shadow_reads_the_loop_binding("main.js");
 }
 
 #[test]

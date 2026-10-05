@@ -70,12 +70,22 @@ impl<'a> FunctionEmitter<'a> {
     /// returned `Some` for the same `name` — it does not re-verify
     /// promotability itself, only reads the same underlying plan data.
     fn scalar_capture_owner(&self, name: &str) -> Option<String> {
+        if let Some(active) = self
+            .active_iterations
+            .iter()
+            .rev()
+            .find(|active| active.plan.cell_for(name).is_some())
+        {
+            return Some(
+                crate::iteration::owner_repr_namespace(self.env_plans, &active.label).to_string(),
+            );
+        }
         if self.env_plan.cell_for(name).is_some() {
             return Some(self.function_name.clone());
         }
-        self.env_plan
-            .captured_for(name)
-            .map(|reference| reference.owner.clone())
+        self.env_plan.captured_for(name).map(|reference| {
+            crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner).to_string()
+        })
     }
 
     /// R-11 T4 review round 4: the shadow guard, now backed by the SHARED
@@ -177,6 +187,8 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Shared body of the two resolvers, returning `(env_walk_depth, offset)`.
+    /// A cell of an active owner loop (block-scoping §3.3) is searched first;
+    /// the other two branches add one link per active loop record.
     /// `scalar_only` selects the promotion predicate: the C1 scalar-i64 gate
     /// (write paths) or the unified C1/C2 gate (read/declaration paths). Both
     /// consult the OWNER's repr namespace (Finding 1): a captured cell was
@@ -191,10 +203,24 @@ impl<'a> FunctionEmitter<'a> {
                 crate::closure::cell_is_promotable(self.repr_table, owner, name, is_scalar)
             }
         };
+        // Block-scoping §3.3: a cell of an active owner loop lives in that
+        // loop's current record. `g8` is the innermost active loop's record
+        // and each record's parent is the `g8` its loop was entered with, so
+        // the `k`-th active loop from the innermost is `k` links up.
+        for (k, active) in self.active_iterations.iter().rev().enumerate() {
+            if let Some(cell) = active.plan.cell_for(name) {
+                let namespace =
+                    crate::iteration::owner_repr_namespace(self.env_plans, &active.label);
+                return promotable(namespace, cell.is_scalar).then_some((k as u32, cell.offset));
+            }
+        }
+        // Every active loop record sits between `g8` and this function's own
+        // record (or the record it was entered with).
+        let extra = self.active_iterations.len() as u32;
         if let Some(cell) = self.env_plan.cell_for(name) {
             // An own cell resolves in THIS function's namespace (it is the owner)
-            // at env-walk depth 0.
-            return promotable(&self.function_name, cell.is_scalar).then_some((0, cell.offset));
+            // at env-walk depth 0, plus the active loop records.
+            return promotable(&self.function_name, cell.is_scalar).then_some((extra, cell.offset));
         }
         if let Some(reference) = self.env_plan.captured_for(name) {
             // A capture through the parent chain: gate on the OWNER's promotion
@@ -203,9 +229,10 @@ impl<'a> FunctionEmitter<'a> {
             // covers both the single-level capture from a non-owning function
             // (depth 0) and the genuine one-hop walk from an env-owning capturer
             // (depth 1); deeper chains fall through to baseline unchanged.
-            if promotable(&reference.owner, reference.is_scalar) {
+            let owner = crate::iteration::owner_repr_namespace(self.env_plans, &reference.owner);
+            if promotable(owner, reference.is_scalar) {
                 if let Some(walk) = self.env_walk_depth_for(reference.depth) {
-                    return Some((walk, reference.offset));
+                    return Some((walk + extra, reference.offset));
                 }
             }
             return None;

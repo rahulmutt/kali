@@ -84,7 +84,7 @@
 #   R-08   `??` half                  r08nc_..._module_scope r08nc_..._in_function
 #   R-09   silent (exit 0) form       r09s_..._module_scope  r09s_..._in_function
 #   R-09   hang form                  r09h_..._module_scope  r09h_..._in_function
-#   R-10   --                         r10_..._module_scope   r10_..._in_function
+#   R-10   -- (FIXED 2026-10-04)      r10_..._module_scope   r10_..._in_function
 #   R-11   --                         r11_..._module_scope   r11_..._in_function
 #   R-12   --                         r12_..._module_scope   r12_..._in_function
 #   R-13   read repro                 r13r_..._module_scope  r13r_..._in_function
@@ -1379,26 +1379,30 @@ name = "r10_block_scope_shadowing_module_scope"
 kind = "oracle"
 register_entry = "R-10"
 program = "r10_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-10, module scope. §2's `Repro` verbatim: `let x = 1; { let x = 2; } console.log("r=" + x);`. The inner block declares its own `x`, the block ends, and the outer `x` is read.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2 records node `r=1` against kali `r=2` at exit 0, §0.2's row reads "R-10 block-scope shadowing | **SILENT** | 5/5 shapes alias the outer binding. Unchanged", and the entry is `CONFIRMED-BY-CONTROLLER` for this exact line, re-measured on `372a3f440` in 2026-07-25. SILENT.
 
 RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=2` at exit 0 with empty stderr; node prints `r=1` at exit 0. The inner declaration still aliases the outer binding.
 
-R-10 IS ONE OF THE THREE FRONTIER CANDIDATES §0.1's amendment named (with R-13 and R-14), so this verdict carries weight in the final ranking. It measures the entry's core repro -- the declaration-only shape, no assignment operator anywhere in the program, which is what makes it a binding-storage defect rather than an assignment one. The entry's four other block forms (`if` body, `for` body, `const` inner, and the "writes inside the block escape" variant) are different programs and are NOT what this case observes."""
+R-10 IS ONE OF THE THREE FRONTIER CANDIDATES §0.1's amendment named (with R-13 and R-14), so this verdict carries weight in the final ranking. It measures the entry's core repro -- the declaration-only shape, no assignment operator anywhere in the program, which is what makes it a binding-storage defect rather than an assignment one. The entry's four other block forms (`if` body, `for` body, `const` inner, and the "writes inside the block escape" variant) are different programs and are NOT what this case observes.
+
+FIXED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): kali prints `r=1`, node v26.10.0 prints `r=1`."""
 
 [[case]]
 name = "r10_block_scope_shadowing_in_function"
 kind = "oracle"
 register_entry = "R-10"
 program = "r10_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-10, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. As of `61c2d48ea9`, §2's R-10 records `Scopes affected: both, identically`.
 
-RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=2` at exit 0; node prints `r=1` at exit 0. Identical to the module scope, so "both, identically" still holds."""
+RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -- no reconciliation. kali prints `r=2` at exit 0; node prints `r=1` at exit 0. Identical to the module scope, so "both, identically" still holds.
+
+FIXED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): kali prints `r=1`, node v26.10.0 prints `r=1`."""
 
 [[case]]
 name = "r11_bitwise_compound_assignment_module_scope"

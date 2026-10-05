@@ -493,19 +493,23 @@ stdout = "25\n"
 
 [[case]]
 name = "r_ambiguous_is_refused_under_run"
-rationale = """Two same-named stateful classes in different scopes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_ambiguous`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0."""
+rationale = """Two same-named stateful classes in different scopes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_ambiguous`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The rename now gives the two `class P` declarations distinct names, so the `declared more than once and keeps state` guard no longer fires (with a variable receiver the program prints node's `1 2`). It is still refused, by the pre-existing guard on a field access whose receiver is a call result (`a().n`), which `6345f082b` also applies to a program with one class. The diagnostic is printed once per call site. The case name is kept: the program is still refused. HEAD's first diagnostic: E5506 `using an instance of class `P` as the receiver of a field access that is not a variable is unavailable in the current phase`."""
 args = ["run", "r_ambiguous.js"]
 exit = "failure"
 stdout = ""
-stderr_contains = ["E5506", "declared more than once and keeps state"]
+stderr_contains = ["E5506", "as the receiver of a field access that is not a variable"]
 
 [[case]]
 name = "r_ambiguous_is_refused_under_check"
-rationale = """Two same-named stateful classes in different scopes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_ambiguous`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0."""
+rationale = """Two same-named stateful classes in different scopes: refused with E5506 under run and check. node v26.10.0 prints `1 2`. At `7c4daa9f7` the baseline row `cls_r_ambiguous`: OTHER, kali printed `error[E4201]: failed to load WASM module: failed to parse WebAssembly module`, check exit 0.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The rename now gives the two `class P` declarations distinct names, so the `declared more than once and keeps state` guard no longer fires (with a variable receiver the program prints node's `1 2`). It is still refused, by the pre-existing guard on a field access whose receiver is a call result (`a().n`), which `6345f082b` also applies to a program with one class. The diagnostic is printed once per call site. The case name is kept: the program is still refused. HEAD's first diagnostic: E5506 `using an instance of class `P` as the receiver of a field access that is not a variable is unavailable in the current phase`."""
 args = ["check", "r_ambiguous.js"]
 exit = "failure"
 stdout = ""
-stderr_contains = ["E5506", "declared more than once and keeps state"]
+stderr_contains = ["E5506", "as the receiver of a field access that is not a variable"]
 
 [[case]]
 name = "r_array_is_refused_under_run"
@@ -1223,36 +1227,46 @@ stdout = ""
 stderr_contains = ["E5506", "reads a variable of an enclosing function"]
 
 [[case]]
-name = "r26_a4_initializer_names_ctor_param_is_refused_under_run"
-rationale = """Ruling R-26 (final review, repro a4_init_scope): a field initializer reads program-level `x` while the constructor has a parameter `x`; the factory ran the initializer inside the constructor's scope. node v26.10.0 prints `10` / `3`. At HEAD d75a10075 kali printed `3` / `3` at exit 0."""
+name = "r26_a4_initializer_naming_an_outer_binding_a_ctor_param_shadows_runs_under_run"
+rationale = """Ruling R-26 (final review, repro a4_init_scope): a field initializer reads program-level `x` while the constructor has a parameter `x`; the factory ran the initializer inside the constructor's scope. node v26.10.0 prints `10` / `3`. At HEAD d75a10075 kali printed `3` / `3` at exit 0.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: constructing class `C` is unavailable in the current phase: it has a field initializer that names a parameter or variable of its constructor; kali ref…); at HEAD kali prints `10` then `3`; node v26.10.0 prints the same. Renamed from `r26_a4_initializer_names_ctor_param_is_refused_under_run`."""
 args = ["run", "r26_a4_initializer_names_ctor_param.js"]
-exit = "failure"
-stdout = ""
-stderr_contains = ["E5506", "has a field initializer that names a parameter or variable of its constructor"]
+exit = "success"
+stdout = """10
+3
+"""
 
 [[case]]
-name = "r26_a4_initializer_names_ctor_param_is_refused_under_check"
-rationale = """Ruling R-26 (final review, repro a4_init_scope): a field initializer reads program-level `x` while the constructor has a parameter `x`; the factory ran the initializer inside the constructor's scope. node v26.10.0 prints `10` / `3`. At HEAD d75a10075 kali printed `3` / `3` at exit 0."""
+name = "r26_a4_initializer_naming_an_outer_binding_a_ctor_param_shadows_is_admitted_under_check"
+rationale = """Ruling R-26 (final review, repro a4_init_scope): a field initializer reads program-level `x` while the constructor has a parameter `x`; the factory ran the initializer inside the constructor's scope. node v26.10.0 prints `10` / `3`. At HEAD d75a10075 kali printed `3` / `3` at exit 0.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: constructing class `C` is unavailable in the current phase: it has a field initializer that names a parameter or variable of its constructor; kali ref…); at HEAD `kali check` exits 0; the program runs node-correct under `kali run` (node v26.10.0 prints `10` then `3`; so does kali). Renamed from `r26_a4_initializer_names_ctor_param_is_refused_under_check`."""
 args = ["check", "r26_a4_initializer_names_ctor_param.js"]
-exit = "failure"
-stdout = ""
-stderr_contains = ["E5506", "has a field initializer that names a parameter or variable of its constructor"]
+exit = "success"
+stdout_contains = ["Checked 1 file(s)"]
 
 [[case]]
 name = "r26_b4_initializer_names_ctor_param_in_fn_is_refused_under_run"
-rationale = """Ruling R-26 (and R-25) (final review, repro b4_init_scope_fn): the same inside a function: the initializer reads the function's `k`, which the constructor's parameter `k` shadowed after the rewrite. node v26.10.0 prints `15`. At HEAD d75a10075 kali printed `3` at exit 0."""
+rationale = """Ruling R-26 (and R-25) (final review, repro b4_init_scope_fn): the same inside a function: the initializer reads the function's `k`, which the constructor's parameter `k` shadowed after the rewrite. node v26.10.0 prints `15`. At HEAD d75a10075 kali printed `3` at exit 0.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The baseline's second reason, `has a field initializer that names a parameter or variable of its constructor`, was the name conflation: the initializer's `k` is the enclosing function's `k`, not the constructor parameter. HEAD drops it (pinned absent) and keeps the true reason, `reads a variable of an enclosing function`. HEAD's first diagnostic: E5506 `constructing class `C` is unavailable in the current phase: it reads a variable of an enclosing function; kali refuses rather than build an instance whose field`."""
 args = ["run", "r26_b4_initializer_names_ctor_param_in_fn.js"]
 exit = "failure"
 stdout = ""
-stderr_contains = ["E5506", "has a field initializer that names a parameter or variable of its constructor", "reads a variable of an enclosing function"]
+stderr_contains = ["E5506", "reads a variable of an enclosing function"]
+stderr_absent = ["has a field initializer that names a parameter or variable of its constructor"]
 
 [[case]]
 name = "r26_b4_initializer_names_ctor_param_in_fn_is_refused_under_check"
-rationale = """Ruling R-26 (and R-25) (final review, repro b4_init_scope_fn): the same inside a function: the initializer reads the function's `k`, which the constructor's parameter `k` shadowed after the rewrite. node v26.10.0 prints `15`. At HEAD d75a10075 kali printed `3` at exit 0."""
+rationale = """Ruling R-26 (and R-25) (final review, repro b4_init_scope_fn): the same inside a function: the initializer reads the function's `k`, which the constructor's parameter `k` shadowed after the rewrite. node v26.10.0 prints `15`. At HEAD d75a10075 kali printed `3` at exit 0.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The baseline's second reason, `has a field initializer that names a parameter or variable of its constructor`, was the name conflation: the initializer's `k` is the enclosing function's `k`, not the constructor parameter. HEAD drops it (pinned absent) and keeps the true reason, `reads a variable of an enclosing function`. HEAD's first diagnostic: E5506 `constructing class `C` is unavailable in the current phase: it reads a variable of an enclosing function; kali refuses rather than build an instance whose field`."""
 args = ["check", "r26_b4_initializer_names_ctor_param_in_fn.js"]
 exit = "failure"
 stdout = ""
-stderr_contains = ["E5506", "has a field initializer that names a parameter or variable of its constructor", "reads a variable of an enclosing function"]
+stderr_contains = ["E5506", "reads a variable of an enclosing function"]
+stderr_absent = ["has a field initializer that names a parameter or variable of its constructor"]
 
 [[case]]
 name = "r27_q1_ctor_field_named_like_method_is_refused_under_run"

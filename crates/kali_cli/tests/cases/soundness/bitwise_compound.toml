@@ -154,7 +154,7 @@ forin_key_and_assign_body = "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &
 "bitwise_compound_on_module_global_ushr.ts" = "let u = -1;\nfunction z() { u >>>= 0; }\nz();\nconsole.log(u);\n"
 "bitwise_compound_on_module_global_from_function.ts" = "let g = 6; function f(){ g &= 3; } f(); console.log(g);\n"
 "bitwise_compound_on_module_global_read_via_closure.ts" = "let x = 6; const g = () => x; x &= 3; console.log(x);\n"
-"bitwise_compound_fails_closed_on_module_global_shadowed_by_captured_local.ts" = "let n = 6; function f(){ let n = 9; const g = () => n; n &= 3; return n + g(); } f(); console.log(n);\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_global.ts" = "let n = 6; function f(){ let n = 9; const g = () => n; n &= 3; return n + g(); } f(); console.log(n);\n"
 "bitwise_compound_fails_closed_on_module_global_target_from_string_object_field.ts" = "let o = {a: \"3\"}; let s = o.a; let n = s; function f(){ n &= 3; } f(); console.log(n);\n"
 "bitwise_compound_fails_closed_on_module_global_target_from_array_element.ts" = "let a = [1, 2, 3]; let idx = a[1]; let n = idx; function f(){ n |= 1; } f(); console.log(n);\n"
 "bitwise_compound_fails_closed_on_bigint_initialized_module_global.ts" = "let n = 6n; function f(){ n &= 3; } f(); console.log(n);\n"
@@ -189,21 +189,21 @@ forin_key_and_assign_body = "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &
 "bitwise_compound_fails_closed_on_captured_target_from_object_or_array_element_object_field.ts" = "function outer(){ let o = { a: 6 }; function set(){ o.a &= 3; } set(); console.log(o.a); } outer();\n"
 "bitwise_compound_fails_closed_on_captured_target_from_object_or_array_element_array_element.ts" = "function outer(){ let a = [6, 1, 2]; function set(){ a[0] &= 3; } set(); console.log(a[0]); } outer();\n"
 "bitwise_compound_fails_closed_on_two_hop_captured_chain.ts" = "function outer(){\n  let x = 6;\n  function mid(){\n    let y = 1;\n    function h(){ return y; }\n    function inner(){ x &= 3; }\n    inner();\n    return h();\n  }\n  mid();\n  console.log(x);\n}\nouter();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_and_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_or_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n |= 16; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_xor_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n ^= 5; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shl_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n <<= 2; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shr_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n >>= 1; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_ushr_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n >>>= 1; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_different_value_and_op.ts" = "const n = 100;\nfunction f() { let n = 9; function s() { n &= 3; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_string_const.ts" = "const n = \"abc\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_float_const.ts" = "const n = 1.5;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_own_cell_double_read.ts" = "const n = 100;\nfunction f() { let n = 9; const g = () => n; n &= 3; console.log(n); console.log(g()); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_arrow_capturer.ts" = "const n = 6;\nfunction f() { let n = 12; const s = () => { n &= 7; }; s(); console.log(n); }\nf();\n"
-"bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); return n === 4; }\nconsole.log(f());\n"
-"bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_numeric.ts" = "let n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n"
-"bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_var_numeric.ts" = "var n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n"
-"bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_string.ts" = "let n = \"hi\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_and_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_or_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n |= 16; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_xor_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n ^= 5; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_shl_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n <<= 2; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_shr_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n >>= 1; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_ushr_assign.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n >>>= 1; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_different_value_and_op.ts" = "const n = 100;\nfunction f() { let n = 9; function s() { n &= 3; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_string_const.ts" = "const n = \"abc\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_float_const.ts" = "const n = 1.5;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_own_cell_double_read.ts" = "const n = 100;\nfunction f() { let n = 9; const g = () => n; n &= 3; console.log(n); console.log(g()); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_arrow_capturer.ts" = "const n = 6;\nfunction f() { let n = 12; const s = () => { n &= 7; }; s(); console.log(n); }\nf();\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_const_feeds_a_fold_sensitive_comparison.ts" = "const n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); return n === 4 ? 'yes' : 'no'; }\nconsole.log(f());\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_numeric.ts" = "let n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_var_numeric.ts" = "var n = 6;\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n"
+"bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_string.ts" = "let n = \"hi\";\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\nconsole.log(n);\n"
 "bitwise_compound_on_module_function_name_does_not_shadow_captured_cell.ts" = "function n() { return 99; }\nfunction f() { let n = 12; function s() { n &= 7; } s(); console.log(n); }\nf();\n"
 "bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function_sibling_function.ts" = "function o(){ let n=6; function w(){ n=6.5; } function s(){ n&=3; } w(); s(); console.log(n); } o();\n"
 "bitwise_compound_fails_closed_on_float_write_reaching_captured_target_from_sibling_function_deep_nested.ts" = "function o(){ let n=6; function mid(){ function w(){ n=6.5; } w(); } function s(){ n&=3; } mid(); s(); console.log(n); } o();\n"
@@ -214,12 +214,12 @@ forin_key_and_assign_body = "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &
 "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_map.ts" = "function f(){ let Map=12; function s(){ Map &= 7; } s(); console.log(Map); } f();\n"
 "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_infinity.ts" = "function f(){ let Infinity=12; function s(){ Infinity &= 7; } s(); console.log(Infinity); } f();\n"
 "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_nan.ts" = "function f(){ let NaN=12; function s(){ NaN &= 7; } s(); console.log(NaN); } f();\n"
-"bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event_target.ts" = "const t = new EventTarget(); function f(){ let t=12; function s(){ t &= 7; } s(); console.log(t); } f();\n"
-"bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_abort_controller.ts" = "const c = new AbortController(); function f(){ let c=12; function s(){ c &= 7; } s(); console.log(c); } f();\n"
-"bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url.ts" = "const u = new URL(\"https://a.b/\"); function f(){ let u=12; function s(){ u &= 7; } s(); console.log(u); } f();\n"
-"bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url_search_params.ts" = "const p = new URLSearchParams(\"a=1\"); function f(){ let p=12; function s(){ p &= 7; } s(); console.log(p); } f();\n"
-"bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_text_encoder.ts" = "const e = new TextEncoder(); function f(){ let e=12; function s(){ e &= 7; } s(); console.log(e); } f();\n"
-"bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event.ts" = "const ev = new Event(\"tick\"); function f(){ let ev=12; function s(){ ev &= 7; } s(); console.log(ev); } f();\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_event_target_handle.ts" = "const t = new EventTarget(); function f(){ let t=12; function s(){ t &= 7; } s(); console.log(t); } f();\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_abort_controller_handle.ts" = "const c = new AbortController(); function f(){ let c=12; function s(){ c &= 7; } s(); console.log(c); } f();\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_url_handle.ts" = "const u = new URL(\"https://a.b/\"); function f(){ let u=12; function s(){ u &= 7; } s(); console.log(u); } f();\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_url_search_params_handle.ts" = "const p = new URLSearchParams(\"a=1\"); function f(){ let p=12; function s(){ p &= 7; } s(); console.log(p); } f();\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_text_encoder_handle.ts" = "const e = new TextEncoder(); function f(){ let e=12; function s(){ e &= 7; } s(); console.log(e); } f();\n"
+"bitwise_compound_on_a_captured_local_shadowing_a_module_event_handle.ts" = "const ev = new Event(\"tick\"); function f(){ let ev=12; function s(){ ev &= 7; } s(); console.log(ev); } f();\n"
 "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_undefined.ts" = "function f(){ let undefined=12; function s(){ undefined &= 7; } s(); console.log(undefined); } f();\n"
 "bitwise_compound_on_object_field_shl.ts" = "const o = { a: 6 }; o.a <<= 2; console.log(o.a);\n"
 "bitwise_compound_on_object_field_and.ts" = "const o = { a: 6 }; o.a &= 3; console.log(o.a);\n"
@@ -274,9 +274,9 @@ forin_key_and_assign_body = "let o = { a: 6, b: 6 }; for (const k in o) { o[k] &
 "bitwise_compound_tripwire_object_reassignment_write_is_dropped_shl_assign.ts" = "let o = { a: 6 };\no = { a: 22 };\no.a <<= 3;\nconsole.log(o.a);\n"
 "bitwise_compound_tripwire_object_reassignment_write_is_dropped_shr_assign.ts" = "let o = { a: 6 };\no = { a: 22 };\no.a >>= 3;\nconsole.log(o.a);\n"
 "bitwise_compound_tripwire_object_reassignment_write_is_dropped_ushr_assign.ts" = "let o = { a: 6 };\no = { a: 22 };\no.a >>>= 3;\nconsole.log(o.a);\n"
-"bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow.ts" = "let flags = 6;\nfunction other() { let flags = 6.5; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
-"bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow.ts" = "let flags = 6;\nfunction other() { let flags = NaN; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
-"bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow.ts" = "let flags = 6;\nfunction other() { let flags = 6.5; return flags; }\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
+"bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow.ts" = "let flags = 6;\nfunction other() { let flags = 6.5; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
+"bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow.ts" = "let flags = 6;\nfunction other() { let flags = NaN; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
+"bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow.ts" = "let flags = 6;\nfunction other() { let flags = 6.5; return flags; }\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
 "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_integer_shadow_not_lost.ts" = "let flags = 6;\nfunction other() { let flags = 9; return flags; }\nother();\nfunction f() { flags |= 8; }\nf();\nconsole.log(flags);\n"
 "bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operator_compound_and.ts" = "let n = 7n;\nn &= 3;\nconsole.log(n);\n"
 "bitwise_compound_tripwire_local_scalar_bigint_target_matches_the_plain_operator_plain_and.ts" = "let n = 7n;\nlet m = n & 3;\nconsole.log(m);\n"
@@ -1085,17 +1085,20 @@ stdout = """2
 """
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_global_shadowed_by_captured_local"
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_global"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
 
 Every expected value here was captured from node v26.5.0.
 
-Task 3 review round 2, Important 2: a function-local `let` that a NESTED closure captures is promoted OUT of `self.locals` (Stage C env-cell storage), so the `!self.locals.contains_key` check guarding the `module_global_slots` lookup does not exclude it. A same-named MODULE global then silently absorbed the write meant for the function's own shadowing local. The read must happen AFTER the call (not folded into the same expression as the call, which would read the module `n` before `f` runs and hide the bug behind evaluation order) to actually observe the corruption: measured with the guard removed, `f(); console.log(n);` printed `1` where node prints `6` (the module `n`, never touched by a correct program, was silently written by `f`'s own unrelated local `n`). Pinned as a diagnostic (fail-closed), not that — or any — value."""
-args = ["run", "bitwise_compound_fails_closed_on_module_global_shadowed_by_captured_local.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Task 3 review round 2, Important 2: a function-local `let` that a NESTED closure captures is promoted OUT of `self.locals` (Stage C env-cell storage), so the `!self.locals.contains_key` check guarding the `module_global_slots` lookup does not exclude it. A same-named MODULE global then silently absorbed the write meant for the function's own shadowing local. The read must happen AFTER the call (not folded into the same expression as the call, which would read the module `n` before `f` runs and hide the bug behind evaluation order) to actually observe the corruption: measured with the guard removed, `f(); console.log(n);` printed `1` where node prints `6` (the module `n`, never touched by a correct program, was silently written by `f`'s own unrelated local `n`). Pinned as a diagnostic (fail-closed), not that — or any — value.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `6`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_global_shadowed_by_captured_local`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_global.ts"]
+exit = "success"
+stdout = """6
+"""
 
 [[case]]
 name = "bitwise_compound_fails_closed_on_module_global_target_from_string_object_field"
@@ -1620,7 +1623,7 @@ stderr_contains = ["E5506", "unless it is a mutable local binding"]
 # --- Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_and_assign"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_and_assign"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1629,13 +1632,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-node: 4. Pre-fix (135bc0904): printed `6` (the untouched module const)."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_and_assign.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+node: 4. Pre-fix (135bc0904): printed `6` (the untouched module const).
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_and_assign`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_and_assign.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_or_assign"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_or_assign"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1644,13 +1650,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_or_assign.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '|=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `28`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_or_assign`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_or_assign.ts"]
+exit = "success"
+stdout = """28
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_xor_assign"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_xor_assign"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1659,13 +1668,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_xor_assign.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '^=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `9`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_xor_assign`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_xor_assign.ts"]
+exit = "success"
+stdout = """9
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shl_assign"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_shl_assign"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1674,13 +1686,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shl_assign.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '<<=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; us…); at HEAD kali prints `48`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shl_assign`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_shl_assign.ts"]
+exit = "success"
+stdout = """48
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shr_assign"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_shr_assign"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1689,13 +1704,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shr_assign.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '>>=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; us…); at HEAD kali prints `6`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_shr_assign`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_shr_assign.ts"]
+exit = "success"
+stdout = """6
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_ushr_assign"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_ushr_assign"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1704,13 +1722,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_ushr_assign.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+All six ops through the same shadow shape. node: 28 / 9 / 48 / 6 / 6. Pre-fix: printed `6` (the const) for every one of them.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '>>>=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; u…); at HEAD kali prints `6`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_ushr_assign`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_ushr_assign.ts"]
+exit = "success"
+stdout = """6
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_different_value_and_op"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_different_value_and_op"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1719,13 +1740,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-A different const value/op pair. node: 1. Pre-fix: printed `100`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_different_value_and_op.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+A different const value/op pair. node: 1. Pre-fix: printed `100`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `1`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_different_value_and_op`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_different_value_and_op.ts"]
+exit = "success"
+stdout = """1
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_string_const"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_string_const"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1734,13 +1758,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-The module const is a STRING — the captured write still must not let a rendered string handle leak through. node: 4. Pre-fix: printed `abc`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_string_const.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+The module const is a STRING — the captured write still must not let a rendered string handle leak through. node: 4. Pre-fix: printed `abc`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_string_const`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_string_const.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_float_const"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_float_const"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1749,13 +1776,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-The module const is a FLOAT. node: 4. Pre-fix: printed `1.5`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_float_const.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+The module const is a FLOAT. node: 4. Pre-fix: printed `1.5`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_float_const`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_float_const.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_own_cell_double_read"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_own_cell_double_read"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1764,13 +1794,17 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-Own-cell write (T2/T4's `is_own_scope` admitted shape), read TWICE — directly and through a second closure `g`. Confirms the shadow is not merely a stale constant fold: a second, independent closure's read also loses to the const. node: 1 / 1. Pre-fix: printed `100` / `100`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_own_cell_double_read.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Own-cell write (T2/T4's `is_own_scope` admitted shape), read TWICE — directly and through a second closure `g`. Confirms the shadow is not merely a stale constant fold: a second, independent closure's read also loses to the const. node: 1 / 1. Pre-fix: printed `100` / `100`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `1` then `1`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_own_cell_double_read`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_own_cell_double_read.ts"]
+exit = "success"
+stdout = """1
+1
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_arrow_capturer"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_arrow_capturer"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1779,13 +1813,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-Arrow-function capturer instead of a `function` declaration. node: 4. Pre-fix: printed `6`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_arrow_capturer.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Arrow-function capturer instead of a `function` declaration. node: 4. Pre-fix: printed `6`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_arrow_capturer`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_arrow_capturer.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_feeds_a_fold_sensitive_comparison"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1794,13 +1831,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `var`) shadowing a captured cell must refuse the bitwise WRITE, not just the pre-existing (and already-guarded) `module_global_slots` case. A module-scope `const` is never in `module_global_slots` — it is compile-time INLINED at each read site from `module_const_inits`, a wholly separate table `emit_identifier` (`control_flow.rs:2238`) consults BEFORE `try_emit_captured_read` (`:2298`). Before this fix, denying the bitwise WRITE only when `module_global_slots.contains_key(name)` let the write to the captured cell through (correctly targeting the owner's cell) while a LATER read of the same name from the owning function's own body silently inlined the UNRELATED module `const` instead — a wrong value at exit 0, not a diagnostic. Confirmed non-vacuous: every row below reproduces the wrong value shown in its comment against the pre-fix build (commit `135bc0904`, this task's own first round) and now fails closed E5506 on this build.
 
-Read in a fold-sensitive `===` comparison position, matching the `invalidate_static_binding` fold-sensitivity check used elsewhere in this file's provenance suite. node: true. Pre-fix: printed `0` (`false`) — reading the module const `6`, not `4`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_const_shadowing_captured_cell_fold_sensitive_comparison.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Read in a fold-sensitive `===` comparison position, matching the `invalidate_static_binding` fold-sensitivity check used elsewhere in this file's provenance suite. node: true. Pre-fix: printed `0` (`false`) — reading the module const `6`, not `4`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the function's `n` is now a binding of its own, distinct from the module `const n`, so the shadow guard is gone and the write and the read both reach the captured cell. The program used to `return n === 4;` and log the boolean. At HEAD that computes `true`, as node does, but a boolean returned from a function renders `1` where node prints `true` (a pre-existing defect, register R-34's shape: `function f() { return 1 === 1; } console.log(f());` prints `1` on `6345f082b` too; filed in `docs/superpowers/followups/block-scoping-discovered-defects.md`), so it would have pinned a wrong value. The comparison now stays in the fold-sensitive `===` position but selects a string (`n === 4 ? 'yes' : 'no'`), so a read of the module const `6` would print `no`. node v26.10.0 prints `yes`; kali prints the same. At `6345f082b` this program was refused (E5506 `bitwise compound assignment '&=' on binding 'n' … shadowed by a same-named module-scope binding`)."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_const_feeds_a_fold_sensitive_comparison.ts"]
+exit = "success"
+stdout = """yes
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_numeric"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_numeric"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1811,13 +1851,17 @@ Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `v
 
 Round 3 review Minor 2: this is a MESSAGE pin, by design, not a wrong-value-prevention pin — all three rows below already failed closed (exit 1, E5506) on the PARENT too, before this task's shadow guard existed at all: the numeric `let`/`var` rows were always caught by the pre-existing `module_global_slots`-only guard (a numeric module scalar whose name recurs inside a function is ALWAYS promoted by `collect_module_scalar_globals`'s name-based, scope-blind reference scan — a necessary condition for a shadow to exist at all, so this sub-case never depended on the widening), and the STRING `let` row was independently caught by the pre-existing READ-side `module_binding_names` gate (`control_flow.rs:2243`, "reading module binding ... is only available for compile-time-constant `const`") even with the WRITE-side guard's original, narrower `module_global_slots`-only condition — measured directly: with only that original condition, the STRING row still exits 1, just via TWO diagnostics (the read-gate's own, plus nothing from the write guard) rather than one. So no row here demonstrates a value the fix prevented; each row only confirms the CHOKE POINT that catches the shadow (this task's own write-side guard, via its `identifier_read_resolves_only_through_captured_cell` needle) rather than some OTHER, coincidentally-safe pre-existing gate.
 
-Module `let`, numeric — promotes to `module_global_slots` (the pre-existing T3 guard's own case), still covered after the widening. node: 4 / 6."""
-args = ["run", "bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_numeric.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Module `let`, numeric — promotes to `module_global_slots` (the pre-existing T3 guard's own case), still covered after the widening. node: 4 / 6.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `4` then `6`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_numeric`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_numeric.ts"]
+exit = "success"
+stdout = """4
+6
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_var_numeric"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_var_numeric"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1828,13 +1872,17 @@ Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `v
 
 Round 3 review Minor 2: this is a MESSAGE pin, by design, not a wrong-value-prevention pin — all three rows below already failed closed (exit 1, E5506) on the PARENT too, before this task's shadow guard existed at all: the numeric `let`/`var` rows were always caught by the pre-existing `module_global_slots`-only guard (a numeric module scalar whose name recurs inside a function is ALWAYS promoted by `collect_module_scalar_globals`'s name-based, scope-blind reference scan — a necessary condition for a shadow to exist at all, so this sub-case never depended on the widening), and the STRING `let` row was independently caught by the pre-existing READ-side `module_binding_names` gate (`control_flow.rs:2243`, "reading module binding ... is only available for compile-time-constant `const`") even with the WRITE-side guard's original, narrower `module_global_slots`-only condition — measured directly: with only that original condition, the STRING row still exits 1, just via TWO diagnostics (the read-gate's own, plus nothing from the write guard) rather than one. So no row here demonstrates a value the fix prevented; each row only confirms the CHOKE POINT that catches the shadow (this task's own write-side guard, via its `identifier_read_resolves_only_through_captured_cell` needle) rather than some OTHER, coincidentally-safe pre-existing gate.
 
-Module `var`, numeric — same shape, `var` instead of `let`."""
-args = ["run", "bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_var_numeric.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Module `var`, numeric — same shape, `var` instead of `let`.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '&=' on binding 'n' is unavailable in the current phase (the binding is shadowed by a same-named module-scope binding; use…); at HEAD kali prints `4` then `6`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_var_numeric`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_var_numeric.ts"]
+exit = "success"
+stdout = """4
+6
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_string"
+name = "bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_string"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -1845,10 +1893,14 @@ Task 4 review Critical 1: a module-scope binding of ANY kind (`const`, `let`, `v
 
 Round 3 review Minor 2: this is a MESSAGE pin, by design, not a wrong-value-prevention pin — all three rows below already failed closed (exit 1, E5506) on the PARENT too, before this task's shadow guard existed at all: the numeric `let`/`var` rows were always caught by the pre-existing `module_global_slots`-only guard (a numeric module scalar whose name recurs inside a function is ALWAYS promoted by `collect_module_scalar_globals`'s name-based, scope-blind reference scan — a necessary condition for a shadow to exist at all, so this sub-case never depended on the widening), and the STRING `let` row was independently caught by the pre-existing READ-side `module_binding_names` gate (`control_flow.rs:2243`, "reading module binding ... is only available for compile-time-constant `const`") even with the WRITE-side guard's original, narrower `module_global_slots`-only condition — measured directly: with only that original condition, the STRING row still exits 1, just via TWO diagnostics (the read-gate's own, plus nothing from the write guard) rather than one. So no row here demonstrates a value the fix prevented; each row only confirms the CHOKE POINT that catches the shadow (this task's own write-side guard, via its `identifier_read_resolves_only_through_captured_cell` needle) rather than some OTHER, coincidentally-safe pre-existing gate.
 
-Module `let` holding a STRING — never promoted to `module_global_slots` (only `I64`/`F64` scalars promote), so only the write-side guard's `module_binding_names`-derived coverage (now folded into `identifier_read_resolves_only_through_captured_cell`) intercepts it at the WRITE. node: 4 / "hi"."""
-args = ["run", "bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_string.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
+Module `let` holding a STRING — never promoted to `module_global_slots` (only `I64`/`F64` scalars promote), so only the write-side guard's `module_binding_names`-derived coverage (now folded into `identifier_read_resolves_only_through_captured_cell`) intercepts it at the WRITE. node: 4 / "hi".
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: reading module binding 'n' from a function is only available for compile-time-constant `const` initializers in the current phase); at HEAD kali prints `4` then `hi`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_module_let_or_var_shadowing_captured_cell_let_string`."""
+args = ["run", "bitwise_compound_on_a_captured_cell_shadowing_a_module_let_or_var_let_string.ts"]
+exit = "success"
+stdout = """4
+hi
+"""
 
 [[case]]
 name = "bitwise_compound_on_module_function_name_does_not_shadow_captured_cell"
@@ -1996,7 +2048,7 @@ exit = "failure"
 stderr_contains = ["E5506", "shadowed by a same-named module-scope binding"]
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event_target"
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_event_target_handle"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2005,13 +2057,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them.
 
-`EventTarget` — already fail-closed on round 2 (a module-scope object handle is never an inlinable `const`, so the read-side module-binding gate already denied). node: 4."""
-args = ["run", "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event_target.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "&="]
+`EventTarget` — already fail-closed on round 2 (a module-scope object handle is never an inlinable `const`, so the read-side module-binding gate already denied). node: 4.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: reading module binding 't' from a function is only available for compile-time-constant `const` initializers in the current phase); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event_target`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_event_target_handle.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_abort_controller"
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_abort_controller_handle"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2020,13 +2075,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them.
 
-`AbortController` — already fail-closed on round 2 at RESOLVE (an AbortHandle-repr target is not a scalar `I64`/`F64`/`String`, so `compound_update_target_is_scalar` never admits it). node: 4."""
-args = ["run", "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_abort_controller.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "&="]
+`AbortController` — already fail-closed on round 2 at RESOLVE (an AbortHandle-repr target is not a scalar `I64`/`F64`/`String`, so `compound_update_target_is_scalar` never admits it). node: 4.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment ('&=') is recognized by the parser but has no codegen lowering yet for this target in the current phase; use the plain bin…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_abort_controller`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_abort_controller_handle.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url"
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_url_handle"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2035,26 +2093,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them.
 
-`URL` / `URLSearchParams` — same resolve-side reasoning as AbortController. node: 4 (both)."""
-args = ["run", "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "&="]
+`URL` / `URLSearchParams` — same resolve-side reasoning as AbortController. node: 4 (both).
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment ('&=') is recognized by the parser but has no codegen lowering yet for this target in the current phase; use the plain bin…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_url_handle.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url_search_params"
-rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
-
-All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
-
-Every expected value here was captured from node v26.5.0.
-
-Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them."""
-args = ["run", "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url_search_params.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "&="]
-
-[[case]]
-name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_text_encoder"
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_url_search_params_handle"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2063,13 +2111,14 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them.
 
-`TextEncoder` — same reasoning as EventTarget (module-binding read gate). node: 4."""
-args = ["run", "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_text_encoder.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "&="]
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment ('&=') is recognized by the parser but has no codegen lowering yet for this target in the current phase; use the plain bin…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_url_search_params`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_url_search_params_handle.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
-name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event"
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_text_encoder_handle"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2078,10 +2127,31 @@ Every expected value here was captured from node v26.5.0.
 
 Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them.
 
-`Event` — same resolve-side reasoning as AbortController. node: 4."""
-args = ["run", "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "&="]
+`TextEncoder` — same reasoning as EventTarget (module-binding read gate). node: 4.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: reading module binding 'e' from a function is only available for compile-time-constant `const` initializers in the current phase); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_text_encoder`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_text_encoder_handle.ts"]
+exit = "success"
+stdout = """4
+"""
+
+[[case]]
+name = "bitwise_compound_on_a_captured_local_shadowing_a_module_event_handle"
+rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
+
+All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
+
+Every expected value here was captured from node v26.5.0.
+
+Task 4 review rounds 3-4: the shadow guard (`FunctionEmitter::identifier_read_resolves_only_through_captured_cell`, `closure_access.rs`) now defers to the SHARED classifier (`control_flow.rs::resolve_identifier_kind`, returning `IdentifierResolution`) both it and `emit_identifier` match — see that classifier's own doc for why round 3's hand-mirrored `!(A || B || …)` version of this same idea was proven, not just suspected, to drift the moment a new arm was added to `emit_identifier` (the round-3 review's `"Reflect"` experiment). IMPORTANT — what THIS TEST does and does not prove: it enumerates arms that exist TODAY and checks each one denies TODAY. It does NOT, by itself, guarantee a FUTURE arm added to `emit_identifier` is caught — that guarantee now comes from the exhaustive `match` on `IdentifierResolution` at BOTH `emit_identifier`'s dispatch and (via equality against the one admitted variant) this guard, which the Rust compiler enforces independently of any test ever running. This test is a regression pin for the arms enumerated below, not the mechanism that makes new arms safe. Two arms in `emit_value`'s dispatch (`is_process_kill`, `is_supported_callable_reference`) are NOT included below: both require a member-expression or single-child-call node shape and structurally cannot match a bare 0-children identifier at all, so there is no repro to pin. Every row was measured against BOTH the round-2 build (commit `5e7dbb622`, before round 3's choke-point inversion) and the current build. ONLY the four `Set`/`Map`/`Infinity`/`NaN` rows are non-vacuous — they printed a WRONG VALUE at exit 0 on round 2 and now fail closed. Every OTHER row below (EventTarget, AbortController, URL, URLSearchParams, TextEncoder, Event, `undefined`) is caught by a completely UNRELATED, pre-existing diagnostic (byte-identical stderr confirmed against the parent) and would still pass with this task's guard deleted entirely — they are included as a REGRESSION PIN against those upstream gates ever loosening, not as evidence this guard is doing anything for them.
+
+`Event` — same resolve-side reasoning as AbortController. node: 4.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment ('&=') is recognized by the parser but has no codegen lowering yet for this target in the current phase; use the plain bin…); at HEAD kali prints `4`; node v26.10.0 prints the same. Renamed from `bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_event`."""
+args = ["run", "bitwise_compound_on_a_captured_local_shadowing_a_module_event_handle.ts"]
+exit = "success"
+stdout = """4
+"""
 
 [[case]]
 name = "bitwise_compound_fails_closed_on_every_emit_identifier_interception_arm_undefined"
@@ -2903,7 +2973,7 @@ stdout = """0
 """
 
 [[case]]
-name = "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow"
+name = "bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2918,13 +2988,16 @@ EVERY name-keyed taint set in R-11 (`module_global_bigint_targets`, `captured_ce
 
 Below, `flags` the module global only ever holds `6`; the float lives in a completely separate binding that happens to be spelled the same. node 14, pre-task `e416b22a1` 14, parent `e2578aa7e` 14, HEAD E5506 — so this IS a regression of a previously-correct program, in the fail-closed direction. It was not visible until a SHADOWING axis was added to the audit corpus; on that corpus 42 rows move MATCH -> E5506 (7 shadow forms x {float, NaN, Infinity} x 2 lanes) with zero `ok -> wrong`. That 42 is a property of the corpus, not a bound.
 
-The follow-up that recovers these rows is keying the taint sets by (owner, name) — for BOTH lanes at once, since they now share one implementation — NOT deleting the scan, which is load-bearing against the `E4201` it was added to close."""
-args = ["run", "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "module global"]
+The follow-up that recovers these rows is keying the taint sets by (owner, name) — for BOTH lanes at once, since they now share one implementation — NOT deleting the scan, which is load-bearing against the `E4201` it was added to close.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '|=' on a non-integer module global is unavailable in the current phase); at HEAD kali prints `14`; node v26.10.0 prints the same. Renamed from `bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow`."""
+args = ["run", "bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_float_shadow.ts"]
+exit = "success"
+stdout = """14
+"""
 
 [[case]]
-name = "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow"
+name = "bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2933,13 +3006,16 @@ Every expected value here was captured from node v26.5.0.
 
 Task 6 work item 2 / register: routes whose wrong value is entirely PRE-EXISTING and reproduces with NO bitwise operator in the program. Pinned as tripwires (current behavior, NOT certified correct) so that fixing the underlying bug is noticed here rather than silently changing an R-11 lane's output.
 
-Same shape, `NaN` instead of a float literal. node: 14."""
-args = ["run", "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "module global"]
+Same shape, `NaN` instead of a float literal. node: 14.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: warning[E3100]: undefined identifier 'NaN' reached codegen and was lowered through a zero placeholder compatibility fallback); at HEAD kali prints `14`; node v26.10.0 prints the same. Renamed from `bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow`."""
+args = ["run", "bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_nan_shadow.ts"]
+exit = "success"
+stdout = """14
+"""
 
 [[case]]
-name = "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow"
+name = "bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow"
 rationale = """Soundness pins for R-11: bitwise compound assignment (`&= |= ^= <<= >>= >>>=`).
 
 All six were silent no-ops on every assignment target (48/48 in the 2026-07-24 register re-derivation): `let n=6; n<<=2` returned the unmodified `6` at exit 0. The fix reuses the plain-operator int32 lowering (`emit_bitwise`) at every assignment target arm, lowering integer targets and failing closed (E5506) on float/string/unadmitted targets.
@@ -2948,10 +3024,13 @@ Every expected value here was captured from node v26.5.0.
 
 Task 6 work item 2 / register: routes whose wrong value is entirely PRE-EXISTING and reproduces with NO bitwise operator in the program. Pinned as tripwires (current behavior, NOT certified correct) so that fixing the underlying bug is noticed here rather than silently changing an R-11 lane's output.
 
-The shadow does not even have to be reachable — `other` is never called. node: 14."""
-args = ["run", "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow.ts"]
-exit = "failure"
-stderr_contains = ["E5506", "module global"]
+The shadow does not even have to be reachable — `other` is never called. node: 14.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: bitwise compound assignment '|=' on a non-integer module global is unavailable in the current phase); at HEAD kali prints `14`; node v26.10.0 prints the same. Renamed from `bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow`."""
+args = ["run", "bitwise_compound_admits_a_target_whose_name_is_shadowed_by_an_unrelated_float_unreachable_shadow.ts"]
+exit = "success"
+stdout = """14
+"""
 
 [[case]]
 name = "bitwise_compound_over_denies_a_target_whose_name_is_shadowed_by_an_unrelated_float_integer_shadow_not_lost"

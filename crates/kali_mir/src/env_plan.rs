@@ -16,7 +16,7 @@
 //!
 //! No codegen decisions live here; later Stage C tasks consume these plans.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{LayoutDescriptor, MirFunctionKind, MirProgram};
 
@@ -50,6 +50,9 @@ pub struct CapturedRef {
     /// owner's promotion verdict is what actually allocated (or did not
     /// allocate) the cell. See the C1 review Finding 1.
     pub owner: String,
+    /// The hop path from the capturer to `owner` passes through a per-iteration
+    /// record that is not `owner` (spec A-4).
+    pub through_iteration: bool,
 }
 
 /// The closure plan for a single function, keyed by its `__kali_fn_N` name
@@ -63,6 +66,8 @@ pub struct EnvPlan {
     pub cells: Vec<EnvCell>,
     /// Outer bindings it reads/writes.
     pub captured: Vec<CapturedRef>,
+    /// `Some(function plan key)` for a per-iteration plan.
+    pub iteration_of: Option<String>,
 }
 
 impl EnvPlan {
@@ -104,6 +109,50 @@ fn function_key(name: &Option<String>) -> String {
     name.clone().unwrap_or_default()
 }
 
+/// The label of the `n`th iteration candidate (loop, in pre-order) of the
+/// function with plan key `function_key` (`""` for the module root).
+pub fn iteration_label(function_key: &str, n: usize) -> String {
+    format!("{function_key}{{iter{n}}}")
+}
+
+/// The repr namespace of an env owner: an iteration plan's function, else the owner.
+pub fn repr_owner<'a>(plans: &'a BTreeMap<String, EnvPlan>, owner: &'a str) -> &'a str {
+    plans
+        .get(owner)
+        .and_then(|plan| plan.iteration_of.as_deref())
+        .unwrap_or(owner)
+}
+
+/// Whether the parent walk from `from` to `to` steps through an iteration
+/// label other than `to` (spec A-4).
+fn path_crosses_iteration(
+    from: &str,
+    to: &str,
+    parents: &BTreeMap<String, Option<String>>,
+    iteration_labels: &BTreeSet<String>,
+) -> bool {
+    let mut cursor = parents.get(from).cloned().flatten();
+    while let Some(label) = cursor {
+        if label == to {
+            return false;
+        }
+        if iteration_labels.contains(&label) {
+            return true;
+        }
+        cursor = parents.get(&label).cloned().flatten();
+    }
+    false
+}
+
+/// Sort cells by name and pack them at 8 bytes each.
+fn renumber(mut cells: Vec<EnvCell>) -> Vec<EnvCell> {
+    cells.sort_by(|a, b| a.name.cmp(&b.name));
+    for (index, cell) in cells.iter_mut().enumerate() {
+        cell.offset = index as u32 * 8;
+    }
+    cells
+}
+
 /// Number of ENV-OWNING ancestor hops from `from` up to `to` (`to` inclusive,
 /// `from` exclusive).
 ///
@@ -122,7 +171,7 @@ fn env_owning_hops(
     from: &str,
     to: &str,
     parents: &BTreeMap<String, Option<String>>,
-    env_owners: &std::collections::BTreeSet<String>,
+    env_owners: &BTreeSet<String>,
 ) -> Option<u32> {
     let mut current = from.to_string();
     let mut depth = 0u32;
@@ -197,10 +246,77 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
         cell_offsets.insert(key, offsets);
     }
 
+    // Per-iteration plans: an owner loop's cells move out of its function's plan.
+    let iteration_labels: BTreeSet<String> = program
+        .iteration_scopes
+        .iter()
+        .map(|scope| scope.label.clone())
+        .collect();
+    // (function key, binding name) -> owning iteration label.
+    let mut owner_of: BTreeMap<(String, String), String> = BTreeMap::new();
+    for scope in &program.iteration_scopes {
+        let moved: Vec<EnvCell> = if scope.function.is_empty() {
+            // The module plan never has cells; build them from its bindings.
+            program
+                .functions
+                .iter()
+                .filter(|f| f.kind == MirFunctionKind::Module)
+                .flat_map(|f| f.bindings.iter())
+                .filter(|b| !b.captured_by.is_empty() && scope.cells.contains(&b.name))
+                .map(|b| EnvCell {
+                    name: b.name.clone(),
+                    offset: 0,
+                    is_scalar: is_scalar_cell(&b.layout),
+                })
+                .collect()
+        } else {
+            plans
+                .get_mut(&scope.function)
+                .map(|f| {
+                    let (moved, kept): (Vec<_>, Vec<_>) = f
+                        .cells
+                        .drain(..)
+                        .partition(|c| scope.cells.contains(&c.name));
+                    f.cells = renumber(kept);
+                    f.owns_env = !f.cells.is_empty();
+                    moved
+                })
+                .unwrap_or_default()
+        };
+        let cells = renumber(moved);
+        for cell in &cells {
+            owner_of.insert(
+                (scope.function.clone(), cell.name.clone()),
+                scope.label.clone(),
+            );
+        }
+        plans.insert(
+            scope.label.clone(),
+            EnvPlan {
+                owns_env: !cells.is_empty(),
+                cells,
+                captured: Vec::new(),
+                iteration_of: Some(scope.function.clone()),
+            },
+        );
+    }
+    // Rebuild the offset tables from the final plans.
+    cell_offsets = plans
+        .iter()
+        .map(|(key, plan)| {
+            let offsets = plan
+                .cells
+                .iter()
+                .map(|c| (c.name.clone(), (c.offset, c.is_scalar)))
+                .collect();
+            (key.clone(), offsets)
+        })
+        .collect();
+
     // The set of functions that own an env record (>=1 promoted cell). Only
     // these contribute a hop to a capture depth (spec §3.4). Built after Pass 1
     // set every plan's `owns_env`. The module root ("") never owns an env.
-    let env_owners: std::collections::BTreeSet<String> = plans
+    let env_owners: BTreeSet<String> = plans
         .iter()
         .filter(|(_, plan)| plan.owns_env)
         .map(|(key, _)| key.clone())
@@ -211,17 +327,22 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
     // F, at A's cell offset, `depth` ENV-OWNING hops up. Module-owned captures
     // are module globals (A has no cells) and are excluded here.
     for function in &program.functions {
-        if function.kind == MirFunctionKind::Module {
-            continue;
-        }
-        let owner_key = function_key(&function.name);
-        let owner_offsets = &cell_offsets[&owner_key];
+        let function_name = function_key(&function.name);
         for binding in &function.bindings {
-            let Some(&(offset, is_scalar)) = owner_offsets.get(&binding.name) else {
+            let owner_key = owner_of
+                .get(&(function_name.clone(), binding.name.clone()))
+                .cloned()
+                .unwrap_or_else(|| function_name.clone());
+            let Some(&(offset, is_scalar)) = cell_offsets
+                .get(&owner_key)
+                .and_then(|offsets| offsets.get(&binding.name))
+            else {
                 continue;
             };
             for capturer in &binding.captured_by {
                 if let Some(depth) = env_owning_hops(capturer, &owner_key, parents, &env_owners) {
+                    let through_iteration =
+                        path_crosses_iteration(capturer, &owner_key, parents, &iteration_labels);
                     plans
                         .entry(capturer.clone())
                         .or_default()
@@ -232,6 +353,7 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
                             offset,
                             is_scalar,
                             owner: owner_key.clone(),
+                            through_iteration,
                         });
                 }
             }
@@ -250,214 +372,5 @@ pub fn derive_env_plans(program: &MirProgram) -> BTreeMap<String, EnvPlan> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// outer() owns `c` (captured by inc); inc() captures `c` at depth 1.
-    /// `c` is scalar → is_scalar true; offset 0 (first cell after header).
-    #[test]
-    fn scalar_capture_one_level_produces_owner_cell_and_ref() {
-        let analysis = crate::test_support::analyze(
-            "function outer(){ let c = 0; function inc(){ c += 1; } inc(); return c; }",
-        );
-        let plans = derive_env_plans(&analysis);
-
-        let outer = plans.get("outer").expect("outer plan");
-        assert!(outer.owns_env);
-        assert_eq!(
-            outer.cells,
-            vec![EnvCell {
-                name: "c".into(),
-                offset: 0,
-                is_scalar: true
-            }]
-        );
-
-        let inc = plans.get("inc").expect("inc plan");
-        assert!(!inc.owns_env);
-        assert_eq!(
-            inc.captured,
-            vec![CapturedRef {
-                name: "c".into(),
-                depth: 1,
-                offset: 0,
-                is_scalar: true,
-                owner: "outer".into()
-            }]
-        );
-    }
-
-    /// a() owns `g`; c() (nested a > b > c) reads it through the intermediate
-    /// `b`, which owns NO cell. Per spec §3.4 a no-cell function allocates no env
-    /// record and is transparent to the env chain, so it contributes no hop:
-    /// `depth` counts env-OWNING ancestors (only `a`), NOT lexical function
-    /// scopes. Updated in Task 5 (env chains) from the original depth-2
-    /// lexical-hop assumption — the depth-2 count would over-walk the runtime
-    /// parent chain (which links only env-owning records) and address `a`'s
-    /// parent instead of `a`.
-    #[test]
-    fn grandparent_capture_skips_no_cell_intermediate_depth_one() {
-        let analysis = crate::test_support::analyze(
-            "function a(){ let g = 5; function b(){ function c(){ return g; } return c(); } return b(); }",
-        );
-        let plans = derive_env_plans(&analysis);
-        let c = plans.get("c").expect("c plan");
-        assert_eq!(
-            c.captured,
-            vec![CapturedRef {
-                name: "g".into(),
-                depth: 1,
-                offset: 0,
-                is_scalar: true,
-                owner: "a".into()
-            }]
-        );
-    }
-
-    /// §3.4 counting pin with an env-OWNING intermediate: `a` owns `g`, `b` owns
-    /// `h` (both captured by `c`), `c` owns nothing. `c` capturing `h` is one
-    /// env hop (`b`); `c` capturing `g` is TWO env hops (`b` then `a`) — because
-    /// here `b` DOES own a record, unlike the transparent-intermediate case
-    /// above. This is the shape whose runtime parent chain genuinely links two
-    /// records.
-    #[test]
-    fn two_env_owning_ancestors_is_depth_two() {
-        let analysis = crate::test_support::analyze(
-            "function a(){ let g = 5; function b(){ let h = 6; function c(){ return g + h; } return c(); } return b(); }",
-        );
-        let plans = derive_env_plans(&analysis);
-        let c = plans.get("c").expect("c plan");
-        let g = c
-            .captured
-            .iter()
-            .find(|r| r.name == "g")
-            .expect("captures g");
-        let h = c
-            .captured
-            .iter()
-            .find(|r| r.name == "h")
-            .expect("captures h");
-        assert_eq!(
-            (g.depth, g.owner.as_str()),
-            (2, "a"),
-            "g: two env hops via b then a"
-        );
-        assert_eq!((h.depth, h.owner.as_str()), (1, "b"), "h: one env hop (b)");
-    }
-
-    /// An ANONYMOUS function expression is a capture OWNER: `g` captures `inner`,
-    /// which is owned by the anonymous `function(){...}` assigned to `f`. The
-    /// anonymous owner must be first-class in the nesting map (keyed by its
-    /// `__kali_fn_N` analysis label), so `g`'s CapturedRef for `inner` is NOT
-    /// silently dropped and the owner's plan is discoverable.
-    ///
-    /// NB: on this branch HIR already assigns each anonymous function a
-    /// `__kali_fn_N` name into the node `text`, and the analysis reuses that
-    /// text as its scope label, so the finding's stated `text = None`
-    /// transparency does not trigger here — this passes on HEAD too. It is kept
-    /// as a by-construction regression pin: the label-keyed map must keep
-    /// anonymous owners first-class even if the two naming channels ever diverge.
-    #[test]
-    fn anonymous_owner_is_first_class_capture_ref_not_dropped() {
-        let analysis = crate::test_support::analyze(
-            "function outer(){ let c = 0; let f = function(){ let inner = 1; function g(){ return inner + c; } return g(); }; return f(); }",
-        );
-        let plans = derive_env_plans(&analysis);
-
-        // The anonymous fn-expr is labeled __kali_fn_0 (first synthetic name);
-        // it owns `inner` (captured by g), so it owns an env.
-        let anon = plans.get("__kali_fn_0").expect("anonymous owner plan");
-        assert!(anon.owns_env, "anonymous fn-expr owns env for `inner`");
-        assert_eq!(
-            anon.cells,
-            vec![EnvCell {
-                name: "inner".into(),
-                offset: 0,
-                is_scalar: true
-            }]
-        );
-
-        // g captures `inner` (owned by the anonymous fn, depth 1) — this ref was
-        // silently dropped when the anonymous owner was transparent in the map.
-        let g = plans.get("g").expect("g plan");
-        assert!(
-            g.captured
-                .iter()
-                .any(|c| c.name == "inner" && c.depth == 1 && c.is_scalar),
-            "g must capture `inner` at depth 1 (owned by the anonymous fn), got {:?}",
-            g.captured
-        );
-    }
-
-    /// An ANONYMOUS function expression is an INTERMEDIATE: `inner` (named) is
-    /// nested inside an anonymous `function(){...}` (assigned to `mid`) which is
-    /// nested inside named `outer`. `inner` captures `v` from `outer`. The
-    /// anonymous intermediate owns NO cell, so per spec §3.4 it is transparent to
-    /// the env chain and contributes no hop: depth = 1 (only `outer` owns a
-    /// record). Updated in Task 5 from the original depth-2 lexical-hop
-    /// assumption — env depth counts env-OWNING ancestors, and an ownership-less
-    /// intermediate (anonymous or not) does not add one. The sibling
-    /// `anonymous_owner_is_first_class_capture_ref_not_dropped` still counts an
-    /// anonymous fn that DOES own a cell, so anonymous first-class-ness is
-    /// unaffected — only ownership decides a hop.
-    #[test]
-    fn anonymous_no_cell_intermediate_is_transparent_depth_one() {
-        let analysis = crate::test_support::analyze(
-            "function outer(){ let v = 7; let mid = function(){ function inner(){ return v; } return inner(); }; return mid(); }",
-        );
-        let plans = derive_env_plans(&analysis);
-        let inner = plans.get("inner").expect("inner plan");
-        assert_eq!(
-            inner.captured,
-            vec![CapturedRef {
-                name: "v".into(),
-                depth: 1,
-                offset: 0,
-                is_scalar: true,
-                owner: "outer".into()
-            }],
-            "a no-cell anonymous intermediate is transparent to the env chain (§3.4)"
-        );
-    }
-
-    /// A class is lowered to a `MirNodeKind::Function` node (`lower.rs`), but the
-    /// analysis walk creates NO scope for it — the class body's method nests
-    /// directly under the enclosing function. Keying the nesting map on the
-    /// node tree therefore injects a PHANTOM hop for the class, OVERCOUNTING
-    /// capture depth.
-    ///
-    /// Here `h` (nested in method `m`, itself in `outer`) captures `z` from
-    /// `outer` at the true function-scope depth 2 (`outer` > `m` > `h`). The
-    /// node-tree map counted class `K` as a third hop (depth 3) — a real
-    /// miscompile-class defect. This is the concrete, RED-on-HEAD reproduction
-    /// of the finding's "node-tree nesting diverges from the analysis labels"
-    /// class (reviewer Minor note 1). The label-keyed map never sees `K`, so the
-    /// depth is 2.
-    #[test]
-    fn class_node_does_not_inject_phantom_capture_hop() {
-        let analysis = crate::test_support::analyze(
-            "function outer(){ let z = 0; class K { m(){ let q = 1; function h(){ return q + z; } return h(); } } return new K().m(); }",
-        );
-        let plans = derive_env_plans(&analysis);
-        let h = plans.get("h").expect("h plan");
-
-        let z = h
-            .captured
-            .iter()
-            .find(|c| c.name == "z")
-            .expect("h captures z");
-        assert_eq!(
-            z.depth, 2,
-            "class K must not add a phantom hop: outer>m>h = depth 2, got {}",
-            z.depth
-        );
-
-        // `q` (owned by method `m`, one function-scope hop up) stays depth 1.
-        let q = h
-            .captured
-            .iter()
-            .find(|c| c.name == "q")
-            .expect("h captures q");
-        assert_eq!(q.depth, 1);
-    }
-}
+#[path = "env_plan_tests.rs"]
+mod env_plan_tests;

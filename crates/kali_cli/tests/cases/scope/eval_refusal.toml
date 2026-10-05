@@ -1,0 +1,27 @@
+[source]
+"shadow.js" = """let x = 1; { let x = 2; console.log(x); } console.log(eval("x"));
+"""
+"plain.js" = """let x = 1; console.log(eval("x + 1"));
+"""
+
+[[case]]
+name = "a_renamed_binding_under_compat_eval_is_refused_by_run"
+rationale = """Spec §3.4: direct eval could name the shadowed spelling. node v26.10.0 prints `2` then `1`."""
+args = ["run", "--compat", "eval", "shadow.js"]
+exit = "failure"
+stderr_contains = ["E5506", "with `--compat eval`"]
+
+[[case]]
+name = "a_renamed_binding_under_compat_eval_is_refused_by_check"
+rationale = """The same refusal, raised in analyze_source_file, so check mirrors it."""
+args = ["check", "--compat", "eval", "shadow.js"]
+exit = "failure"
+stderr_contains = ["E5506", "with `--compat eval`"]
+
+[[case]]
+name = "a_program_that_shadows_nothing_under_compat_eval_is_unchanged"
+rationale = """Control: no rename, so no refusal. node v26.10.0 prints `2`; at `6345f082b` kali printed `0` at exit 0 for this program (measured; the eval path's own behavior, pinned verbatim so this task cannot change it)."""
+args = ["run", "--compat", "eval", "plain.js"]
+exit = "success"
+stdout = "0\n"
+stderr_absent = ["with `--compat eval`"]

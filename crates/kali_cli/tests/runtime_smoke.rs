@@ -2553,20 +2553,33 @@ fn assert_browser_requested_web_crypto_get_random_values_result_length(filename:
 
 /// Stage P5 T-new-D: the `crypto.getRandomValues(...)` result deny domain is
 /// name-keyed and FLAT, and a for-of LOOP BINDING never passes through the
-/// declarator choke that maintains it. Measured on parent e14c40004 this
-/// program ran to completion printing `8\n8\n8\n` (exit 0, `"warnings":[]`) —
-/// the shadowed `fb.byteLength` was answered from the STALE handle, UPGRADING
-/// an already-wrong `0` into a specific, plausible `8`; node v26.5.0 prints
-/// `8\nundefined\nundefined\n`. The unified shadow guard denies it E5506.
+/// declarator choke that maintains it. Measured on parent e14c40004 the
+/// original program (`for (const fb of ['aa','bbb']) { console.log(fb.byteLength); }`)
+/// ran to completion printing `8\n8\n8\n` (exit 0, `"warnings":[]`) — the
+/// shadowed `fb.byteLength` was answered from the STALE handle; node v26.5.0
+/// prints `8\nundefined\nundefined\n`. The unified shadow guard denied it E5506.
+///
+/// RE-PINNED 2026-10-04 by the block-scoping project
+/// (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the loop's
+/// `fb` is now a binding of its own, so the shadow guard is gone. The original
+/// program then printed `8\n0\n0\n`: the right binding, but a member read on a
+/// primitive renders `0` where node prints `undefined` (a pre-existing defect,
+/// filed in `docs/superpowers/followups/block-scoping-discovered-defects.md`).
+/// The fixture now reads the loop binding inside kali's supported subset
+/// (`fb.length`) and the outer result after the loop. node v26.10.0 prints
+/// `8\n2\n3\n8\n`; so does kali. At `6345f082b` this program was refused
+/// (E5506 `for-of loop binding may not shadow a name bound to a
+/// crypto.getRandomValues(...) result`).
 fn crypto_random_result_for_of_shadow_source() -> &'static str {
     r#"const rb = new globalThis["Uint8Array"](8);
 const fb = crypto.getRandomValues(rb);
 console.log(fb.byteLength);
-for (const fb of ['aa','bbb']) { console.log(fb.byteLength); }
+for (const fb of ['aa','bbb']) { console.log(fb.length); }
+console.log(fb.byteLength);
 "#
 }
 
-fn assert_crypto_random_result_for_of_shadow_fails_closed(filename: &str) {
+fn assert_crypto_random_result_for_of_shadow_reads_the_loop_binding(filename: &str) {
     let dir = tempdir().expect("tempdir");
     let source_path = dir.path().join(filename);
     fs::write(&source_path, crypto_random_result_for_of_shadow_source()).expect("write source");
@@ -2582,19 +2595,13 @@ fn assert_crypto_random_result_for_of_shadow_fails_closed(filename: &str) {
         .expect("run kali");
 
     assert!(
-        !output.status.success(),
-        "must fail closed; stdout: {}",
-        String::from_utf8_lossy(&output.stdout)
+        output.status.success(),
+        "stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("E5506"), "stderr: {stderr}");
-    assert!(
-        stderr.contains(
-            "for-of loop binding may not shadow a name bound to a crypto.getRandomValues(...) \
-             result"
-        ),
-        "stderr: {stderr}"
-    );
+    // node-verified (`node main.js`, v26.10.0): 8/2/3/8
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "8\n2\n3\n8\n");
 }
 
 fn assert_browser_requested_web_crypto_get_random_values_when_browser_api_surface_is_inherited(

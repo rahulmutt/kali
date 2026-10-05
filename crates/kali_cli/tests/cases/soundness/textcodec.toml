@@ -304,16 +304,16 @@ for (const dec of ['aa']) { console.log(dec.decode(b)); }
 const b = enc.encode('hi');
 for (const b of ['aa']) { console.log(dec.decode(b)); }
 """
-"text_encoder_marker_redeclared_in_an_inner_block_fails_closed.js" = """const enc = new TextEncoder(); const dec = new TextDecoder();
+"text_encoder_marker_redeclared_in_an_inner_block_reads_the_inner_binding.js" = """const enc = new TextEncoder(); const dec = new TextDecoder();
 { const enc = 5; console.log(enc); }
 console.log(dec.decode(enc.encode('hi')));
 """
-"text_decoder_marker_redeclared_in_an_inner_block_fails_closed.js" = """const enc = new TextEncoder(); const dec = new TextDecoder();
+"text_decoder_marker_redeclared_in_an_inner_block_reads_the_inner_binding.js" = """const enc = new TextEncoder(); const dec = new TextDecoder();
 const b = enc.encode('hi');
 { const dec = 5; console.log(dec); }
 console.log(dec.decode(b));
 """
-"bytes_handle_redeclared_in_an_inner_block_fails_closed.js" = """const enc = new TextEncoder(); const dec = new TextDecoder();
+"bytes_handle_redeclared_in_an_inner_block_reads_the_inner_binding.js" = """const enc = new TextEncoder(); const dec = new TextDecoder();
 const b = enc.encode('hi');
 { const b = 5; console.log(b); }
 console.log(dec.decode(b));
@@ -2255,10 +2255,12 @@ Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
 
 T-new-D, for-of choke (NEW), ENCODER marker: measured pre-fix `hi`, exit 0.
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The loop variable is a string, so node throws a TypeError on the method call (exit 1). At `6345f082b` kali refused at the shadow; the loop binding is now a binding of its own, so kali refuses at the method call or operand instead. The verdict (refused, node exits 1) is unchanged; only the diagnostic moved. HEAD's first diagnostic: E5506 `TextDecoder().decode only accepts a TextEncoder().encode byte buffer in the current phase (fail-closed)`."""
 args = ["run", "text_encoder_marker_shadowed_by_for_of_binding_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a TextEncoder"]
+stderr_contains = ["E5506", "TextDecoder().decode only accepts a TextEncoder().encode byte buffer"]
 
 [[case]]
 name = "text_decoder_marker_shadowed_by_for_of_binding_fails_closed"
@@ -2270,10 +2272,12 @@ Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
 
 T-new-D, for-of choke (NEW), DECODER marker: measured pre-fix `hi`, exit 0.
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The loop variable is a string, so node throws a TypeError on the method call (exit 1). At `6345f082b` kali refused at the shadow; the loop binding is now a binding of its own, so kali refuses at the method call or operand instead. The verdict (refused, node exits 1) is unchanged; only the diagnostic moved. HEAD's first diagnostic: E5506 `a TextEncoder byte buffer cannot be read in this position: kali admits it only as a TextDecoder().decode or crypto.subtle.digest operand (fail-closed)`."""
 args = ["run", "text_decoder_marker_shadowed_by_for_of_binding_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a TextDecoder"]
+stderr_contains = ["E5506", "calling `.decode()` is unavailable"]
 
 [[case]]
 name = "bytes_handle_shadowed_by_for_of_binding_fails_closed"
@@ -2285,13 +2289,15 @@ Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
 
 T-new-D, for-of choke, BYTE HANDLE: measured NOT hijacked pre-fix (the string `.length` lane wins first), but the handle table is equally flat, so the unified guard covers it too — a lane one sink away from divergence.
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`) (diagnostic only; still refused). The loop variable is a string, so node throws a TypeError on the method call (exit 1). At `6345f082b` kali refused at the shadow; the loop binding is now a binding of its own, so kali refuses at the method call or operand instead. The verdict (refused, node exits 1) is unchanged; only the diagnostic moved. HEAD's first diagnostic: E5506 `TextDecoder().decode only accepts a TextEncoder().encode byte buffer in the current phase (fail-closed)`."""
 args = ["run", "bytes_handle_shadowed_by_for_of_binding_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "for-of loop binding may not shadow a name bound to a TextEncoder().encode() byte handle"]
+stderr_contains = ["E5506", "TextDecoder().decode only accepts a TextEncoder().encode byte buffer"]
 
 [[case]]
-name = "text_encoder_marker_redeclared_in_an_inner_block_fails_closed"
+name = "text_encoder_marker_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage P5 — String() coercion + TextEncoder/TextDecoder soundness pins.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -2300,13 +2306,17 @@ Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
 
 T-new-D, declarator choke (NEW), encoder marker.
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
-args = ["run", "text_encoder_marker_redeclared_in_an_inner_block_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to a TextEncoder"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to a TextEncoder in an inner scope is not supported in the current phase (this provenance is name-keyed and not block-scoped;…); at HEAD kali prints `5` then `hi`; node v26.10.0 prints the same. Renamed from `text_encoder_marker_redeclared_in_an_inner_block_fails_closed`."""
+args = ["run", "text_encoder_marker_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """5
+hi
+"""
 
 [[case]]
-name = "text_decoder_marker_redeclared_in_an_inner_block_fails_closed"
+name = "text_decoder_marker_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage P5 — String() coercion + TextEncoder/TextDecoder soundness pins.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -2315,13 +2325,17 @@ Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
 
 T-new-D, declarator choke (NEW), decoder marker.
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
-args = ["run", "text_decoder_marker_redeclared_in_an_inner_block_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to a TextDecoder"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to a TextDecoder in an inner scope is not supported in the current phase (this provenance is name-keyed and not block-scoped;…); at HEAD kali prints `5` then `hi`; node v26.10.0 prints the same. Renamed from `text_decoder_marker_redeclared_in_an_inner_block_fails_closed`."""
+args = ["run", "text_decoder_marker_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """5
+hi
+"""
 
 [[case]]
-name = "bytes_handle_redeclared_in_an_inner_block_fails_closed"
+name = "bytes_handle_redeclared_in_an_inner_block_reads_the_inner_binding"
 rationale = """Stage P5 — String() coercion + TextEncoder/TextDecoder soundness pins.
 
 Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
@@ -2330,10 +2344,14 @@ Stage P5 T-new-D: the UNIFIED stale-provenance shadow guard
 
 T-new-D, declarator choke (NEW), byte handle.
 
-Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane."""
-args = ["run", "bytes_handle_redeclared_in_an_inner_block_fails_closed.js"]
-exit = "failure"
-stderr_contains = ["E5506", "redeclaring a name bound to a TextEncoder().encode() byte handle"]
+Assert a fail-closed compile whose diagnostic names BOTH E5506 and the lane.
+
+RE-PINNED 2026-10-04 by the block-scoping project (`docs/superpowers/specs/2026-10-04-block-scoping-design.md`): the shadowing binding is now a binding of its own, so the shadow no longer needs a refusal. At `6345f082b` kali refused (E5506: redeclaring a name bound to a TextEncoder().encode() byte handle in an inner scope is not supported in the current phase (this provenance is name-keye…); at HEAD kali prints `5` then `hi`; node v26.10.0 prints the same. Renamed from `bytes_handle_redeclared_in_an_inner_block_fails_closed`."""
+args = ["run", "bytes_handle_redeclared_in_an_inner_block_reads_the_inner_binding.js"]
+exit = "success"
+stdout = """5
+hi
+"""
 
 [[case]]
 name = "for_of_binding_without_codec_shadow_is_unaffected"

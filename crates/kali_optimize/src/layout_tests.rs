@@ -114,6 +114,7 @@ fn release_specializes_object_literal_property_order_canonicalization() {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
         parent_labels: Default::default(),
+        iteration_scopes: Vec::new(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {

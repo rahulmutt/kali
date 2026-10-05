@@ -44,6 +44,7 @@ fn release_specializes_large_function_using_mir_layouts() {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
         parent_labels: Default::default(),
+        iteration_scopes: Vec::new(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("sum_many".to_string()),
@@ -190,6 +191,7 @@ fn release_recursively_specializes_nested_mir_call_sites() {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
         parent_labels: Default::default(),
+        iteration_scopes: Vec::new(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -365,6 +367,7 @@ fn release_specializes_same_binding_name_in_distinct_function_scopes() {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
         parent_labels: Default::default(),
+        iteration_scopes: Vec::new(),
         nodes: Vec::new(),
         functions: vec![
             kali_mir::MirFunction {
@@ -513,6 +516,7 @@ fn release_specializes_literal_shaped_mir_call_sites_without_layout_metadata() {
         root: kali_mir::MirNodeId::new(0),
         arena_facts: Vec::new(),
         parent_labels: Default::default(),
+        iteration_scopes: Vec::new(),
         nodes: Vec::new(),
         functions: vec![kali_mir::MirFunction {
             name: Some("merge_pair".to_string()),

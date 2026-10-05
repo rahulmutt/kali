@@ -1,0 +1,37 @@
+bs_arr_shadow	SILENT	1|3	1|1	0
+bs_asyncloop	SILENT	0|1	2|2	0
+bs_blockfn	OTHER	1|2	error[E4201]: failed to load WASM module: failed to parse WebAssembly module	0
+bs_closure_outer	SILENT	1	2	0
+bs_defer1	SILENT	0|1|2	0|0|0	0
+bs_defer2	SILENT	0|1|2	3|3|3	0
+bs_defer5	SILENT	0|3	3|3	0
+bs_defer_while	SILENT	0|5	5|5	0
+bs_fn_if	SILENT	2|1	2|2	0
+bs_fn_param	SILENT	7|2	7|7	0
+bs_for_body	SILENT	10 9	10 10	0
+bs_for_let	SILENT	0|1|100	0|1|2	0
+bs_inner_capture	SILENT	1	2	0
+bs_nested_fn	SILENT	2|1	2|2	0
+bs_nested_loops	SILENT	0 0|0 1|1 0|1 1	0 0|0 0|0 0|0 0	0
+bs_ok_loopc3	CORRECT	3	3	0
+bs_ok_no_shadow	CORRECT	8	8	0
+bs_ok_tdz_var	CORRECT	1 2	1 2	0
+bs_r_catch_shadow	REFUSES	5|1	error[E5506]: try/catch/finally is unavailable: kali has no exception-handling machinery	1
+bs_r_continue	OTHER	0|2	error[E4003]: CPU fuel budget exhausted: the program ran past the runaway guard (default ~60s-equivalent when no sandbox policy is set); grant more compute by raising `resources.maxCpuTimeMs` in a --sandbox policy	0
+bs_r_defer3	REFUSES	p 0|p 1	error[E5506]: calling 'then' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead	0
+bs_r_defer4	REFUSES	5|6	error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)	0
+bs_r_depth2	REFUSES	3	error[E5506]: a captured scalar binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)	0
+bs_return_restores	SILENT	7 1|0|1	7 1|1|1	0
+bs_r_loopc1	REFUSES	0 2	error[E5506]: calling 'f0' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead	0
+bs_r_loopc2	REFUSES	2	error[E5506]: calling 'f0' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead	0
+bs_r_loopc4	REFUSES	0	error[E5506]: calling 'f0' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead	0
+bs_r_loopc5	REFUSES	5	error[E5506]: calling 'f0' is unavailable in the current phase: the callee does not resolve to a compiled function, so this is a call through a first-class function value, which kali cannot lower (no closure representation, no function table, no indirect call). Lowering it would silently evaluate the call to 0 without running the callee — failing closed instead	0
+bs_r_loopmix	SILENT	10|11	12|12	0
+bs_r_str_shadow	OTHER	4|a	error[E3200]: '+' with a string-typed variable operand is unavailable in the current direct-runtime path: only string concatenation rooted in a string or template literal (for example "x" + 3) is lowered to runtime concatenation; a variable that holds a string is not recognized and would be miscompiled	1
+bs_r_switch_case	REFUSES	5|1	error[E5506]: this `switch` is not in the supported lowering set (a clause that does not end in `return`, `break` or `continue` (true fallthrough is not in the supported lowering set)); rewrite it as `if`/`else if` or use a supported switch shape (fail-closed)	0
+bs_samefn	OTHER	1 2	error[E4201]: failed to load WASM module: failed to parse WebAssembly module	0
+bs_sibling	REFUSES	1|s	error[E5506]: binding `a` in `f` is used as both a string and a number	1
+bs_top_block_const	SILENT	2|1	2|2	0
+bs_top_if	SILENT	2|1	2|2	0
+bs_var_sibling	SILENT	1	2	0
+bs_while_shadow	SILENT	3	1	0

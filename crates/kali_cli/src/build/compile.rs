@@ -440,6 +440,37 @@ fn compile_source_file_uncached(
     validate_ir: bool,
     coverage: bool,
 ) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    compile_source_file_uncached_inner(
+        source_path,
+        mode,
+        max_specializations,
+        api_surface,
+        profile_data,
+        runtime_profiles,
+        compat_eval,
+        sandbox_policy_attached,
+        validate_ir,
+        coverage,
+    )
+    .map_err(|mut diagnostics| {
+        display_diagnostics(&mut diagnostics);
+        diagnostics
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_source_file_uncached_inner(
+    source_path: impl AsRef<Path>,
+    mode: BuildMode,
+    max_specializations: usize,
+    api_surface: ApiSurface,
+    profile_data: Option<&ProfileData>,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    sandbox_policy_attached: bool,
+    validate_ir: bool,
+    coverage: bool,
+) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let analyzed = analyze_source_file(
         source_path.as_ref(),
         api_surface,
@@ -665,7 +696,51 @@ fn project_incremental_cache_enabled(project_root: &Path) -> bool {
         .unwrap_or(true)
 }
 
+/// Show every name the block-scope rename changed as the program wrote it
+/// (block-scoping spec §3.5, A-7). Applied once per returned diagnostic list.
+fn display_diagnostics(diagnostics: &mut [Diagnostic]) {
+    for diagnostic in diagnostics.iter_mut() {
+        if let Cow::Owned(text) = kali_common::display_names_in(&diagnostic.message) {
+            diagnostic.message = text;
+        }
+        if let Some(suggestion) = diagnostic.suggestion.as_mut() {
+            if let Cow::Owned(text) = kali_common::display_names_in(suggestion) {
+                *suggestion = text;
+            }
+        }
+        for note in diagnostic.notes.iter_mut() {
+            if let Cow::Owned(text) = kali_common::display_names_in(note) {
+                *note = text;
+            }
+        }
+    }
+}
+
 fn analyze_source_file(
+    source_path: &Path,
+    api_surface: ApiSurface,
+    runtime_profiles: &[String],
+    compat_eval: bool,
+    sandbox_policy_attached: bool,
+) -> Result<AnalyzedSource, Vec<Diagnostic>> {
+    analyze_source_file_inner(
+        source_path,
+        api_surface,
+        runtime_profiles,
+        compat_eval,
+        sandbox_policy_attached,
+    )
+    .map(|mut analyzed| {
+        display_diagnostics(&mut analyzed.diagnostics);
+        analyzed
+    })
+    .map_err(|mut diagnostics| {
+        display_diagnostics(&mut diagnostics);
+        diagnostics
+    })
+}
+
+fn analyze_source_file_inner(
     source_path: &Path,
     api_surface: ApiSurface,
     runtime_profiles: &[String],
@@ -735,6 +810,18 @@ fn analyze_source_file(
     );
     if has_errors(&diagnostics) {
         return Err(diagnostics);
+    }
+
+    // Block scoping (block-scoping spec §3.1): give every shadowing binding a
+    // unique spelling BEFORE monomorphize, so every later stage, all of which
+    // key by name, sees one binding per spelling.
+    let rename =
+        crate::build::block_scope_rename::rename_block_scoped_bindings(&mut parsed.statements);
+    if compat_eval && rename.renamed > 0 {
+        return Err(vec![Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            kali_common::block_scope_eval_refused_message(),
+        )]);
     }
 
     // Object-shape monomorphization (fasta Spec 5). Runs AFTER the export-name
