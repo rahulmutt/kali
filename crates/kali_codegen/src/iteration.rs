@@ -166,12 +166,18 @@ pub(crate) fn iteration_label_for_loop<'p>(
         .map(|(label, _)| *label)
 }
 
-/// E5506 per captured ref with `through_iteration && depth >= 2` (spec A-4).
+/// E5506 per captured ref of depth 2 or more whose hop path crosses an
+/// iteration record (`through_iteration`, spec A-4) or whose owner IS one
+/// (ruling R13, spec A-9): neither walk is lowered, and the depth-2 fallback
+/// would read a stale or zero value.
 pub(crate) fn iteration_capture_diagnostics(plans: &BTreeMap<String, EnvPlan>) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     for (capturer, plan) in plans {
         for reference in &plan.captured {
-            if reference.through_iteration && reference.depth >= 2 {
+            let owned_by_iteration = plans
+                .get(&reference.owner)
+                .is_some_and(|owner| owner.iteration_of.is_some());
+            if reference.depth >= 2 && (reference.through_iteration || owned_by_iteration) {
                 out.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
                     kali_common::iteration_capture_through_record_message(
@@ -185,6 +191,68 @@ pub(crate) fn iteration_capture_diagnostics(plans: &BTreeMap<String, EnvPlan>) -
     out
 }
 
+/// The owners of `capturer`'s LOWERED captures: depth-1 refs whose owner-keyed
+/// cell is promotable, the predicate `resolve_capture_access` lowers on. Empty
+/// for a function that is not a capturer.
+pub(crate) fn lowered_capture_owners<'p>(
+    plans: &'p BTreeMap<String, EnvPlan>,
+    repr_table: &kali_common::ReprTable,
+    capturer: &str,
+) -> BTreeSet<&'p str> {
+    let Some(plan) = plans.get(capturer) else {
+        return BTreeSet::new();
+    };
+    plan.captured
+        .iter()
+        .filter(|reference| {
+            reference.depth == 1
+                && crate::closure::cell_is_promotable(
+                    repr_table,
+                    owner_repr_namespace(plans, &reference.owner),
+                    &reference.name,
+                    reference.is_scalar,
+                )
+        })
+        .map(|reference| reference.owner.as_str())
+        .collect()
+}
+
+/// Spec A-9 (ruling H5(b)): a direct call made inside an owner loop to
+/// `callee` runs with `g8` switched to the env the outermost owner loop was
+/// entered with, when `callee` is a capturer whose lowered captures are all
+/// owned by functions (not by iteration records). `env_safety` admits such a
+/// call site against the caller's body context because codegen performs the
+/// switch; both decide it here.
+pub(crate) fn call_leaves_iteration_record(
+    plans: &BTreeMap<String, EnvPlan>,
+    repr_table: &kali_common::ReprTable,
+    callee: &str,
+) -> bool {
+    let owners = lowered_capture_owners(plans, repr_table, callee);
+    !owners.is_empty()
+        && owners.iter().all(|owner| {
+            plans
+                .get(*owner)
+                .is_none_or(|plan| plan.iteration_of.is_none())
+        })
+}
+
+/// Whether iteration plan `label` (of `plans`) has a promotable cell, so
+/// codegen gives its loop per-iteration records (`lower.rs` reserves the save
+/// local on the same predicate).
+pub(crate) fn iteration_plan_has_records(
+    plans: &BTreeMap<String, EnvPlan>,
+    repr_table: &kali_common::ReprTable,
+    label: &str,
+) -> bool {
+    plans.get(label).is_some_and(|plan| {
+        let namespace = owner_repr_namespace(plans, label);
+        plan.cells.iter().any(|cell| {
+            crate::closure::cell_is_promotable(repr_table, namespace, &cell.name, cell.is_scalar)
+        })
+    })
+}
+
 /// The local that saves `g8` across iteration `label`'s record (spec §3.3).
 /// The `#env` suffix is unrepresentable as a source identifier, following
 /// [`crate::closure::env_save_local_name`].
@@ -195,6 +263,12 @@ pub(crate) fn iteration_save_local_name(label: &str) -> String {
 /// The scratch local the next-iteration copy reads the previous record through.
 pub(crate) fn iteration_prev_local_name() -> String {
     "__iter_prev#env".to_string()
+}
+
+/// The local that holds the current iteration record while a call switches
+/// `g8` away from it (spec A-9).
+pub(crate) fn iteration_call_save_local_name() -> String {
+    "__iter_call_save#env".to_string()
 }
 
 /// The emission of per-iteration records (spec §3.3, A-5): `g8` holds the
@@ -340,6 +414,34 @@ impl<'a> crate::FunctionEmitter<'a> {
                 8 + offset,
             )));
         }
+    }
+
+    /// Emit the direct call `Call(index)` to `callee`, its arguments already
+    /// on the stack. Inside an active owner loop, a callee whose captures are
+    /// all owned by functions ([`call_leaves_iteration_record`]) runs with
+    /// `g8` set to the outermost active loop's save local (the env that loop
+    /// was entered with), and the iteration record is restored after the call
+    /// (spec A-9). Every other call is emitted unchanged.
+    pub(crate) fn emit_direct_call(&mut self, function: &mut Function, index: u32, callee: &str) {
+        let outer = self
+            .active_iterations
+            .first()
+            .map(|active| active.save_local);
+        let switch =
+            outer.filter(|_| call_leaves_iteration_record(self.env_plans, self.repr_table, callee));
+        let Some(outer) = switch else {
+            function.instruction(&Instruction::Call(index));
+            return;
+        };
+        let env_global = self.current_env_global();
+        let hold = self.locals[&iteration_call_save_local_name()];
+        function.instruction(&Instruction::GlobalGet(env_global));
+        function.instruction(&Instruction::LocalSet(hold));
+        function.instruction(&Instruction::LocalGet(outer));
+        function.instruction(&Instruction::GlobalSet(env_global));
+        function.instruction(&Instruction::Call(index));
+        function.instruction(&Instruction::LocalGet(hold));
+        function.instruction(&Instruction::GlobalSet(env_global));
     }
 
     /// Leave the innermost owner loop: restore `g8` from its save local.

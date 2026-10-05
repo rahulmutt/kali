@@ -3775,7 +3775,7 @@ impl<'a> FunctionEmitter<'a> {
             } else {
                 ValueShape::Unknown
             };
-            function.instruction(&Instruction::Call(index));
+            self.emit_direct_call(function, index, callee_name);
             return EmittedValue {
                 produced: true,
                 shape,

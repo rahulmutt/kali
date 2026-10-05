@@ -1454,7 +1454,8 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
     // per-iteration record, not a local, so it is dropped from its function's
     // locals (`_start` included, keyed `""`). Each iteration plan with >=1
     // promotable cell reserves its `g8` save local, and the function reserves
-    // one copy scratch. No iteration plans → no change.
+    // one copy scratch and one call-switch hold (spec A-9). No iteration plans
+    // → no change.
     for function in all_functions.iter_mut() {
         let plans = crate::iteration::iteration_plans_of(
             &ctx.env_plans,
@@ -1491,6 +1492,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             function
                 .locals
                 .push(crate::iteration::iteration_prev_local_name());
+            function
+                .locals
+                .push(crate::iteration::iteration_call_save_local_name());
         }
     }
 

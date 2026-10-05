@@ -60,6 +60,40 @@ fn a_depth_two_capture_through_a_record_is_refused() {
 }
 
 #[test]
+fn a_depth_two_capture_owned_by_a_record_is_refused() {
+    // Ruling R13 (`rv/d06.js`, node `1 8`): `h` reads `k`, owned by the loop's
+    // record, through `cb`'s own env. The path crosses no OTHER record, so
+    // `through_iteration` is false; the owner being a record refuses it.
+    let (_, plans) = parse_and_lower_lir_with_env_plans(
+        "function m(){ for(let i=0;i<2;i++){ const k=i*7; queueMicrotask(function cb(){ let z=1; function h(){ return z+k; } console.log(h()); }); } } m();",
+    );
+    let d = iteration_capture_diagnostics(&plans);
+    assert!(
+        d.iter().any(|d| d
+            .message
+            .contains("captures `k` through a per-iteration record")),
+        "{d:?}"
+    );
+}
+
+#[test]
+fn a_depth_one_capture_owned_by_a_record_is_not_refused() {
+    let (_, plans) = parse_and_lower_lir_with_env_plans(
+        "function m(){ for(let i=0;i<2;i++){ const k=i*7; queueMicrotask(()=>console.log(k)); } } m();",
+    );
+    assert!(iteration_capture_diagnostics(&plans).is_empty());
+}
+
+#[test]
+fn the_call_switch_hold_name_cannot_collide_with_source_identifiers() {
+    assert!(iteration_call_save_local_name().ends_with("#env"));
+    assert_ne!(
+        iteration_call_save_local_name(),
+        iteration_prev_local_name()
+    );
+}
+
+#[test]
 fn the_module_root_plan_key_is_empty() {
     assert_eq!(plan_key("_start"), "");
     assert_eq!(plan_key("m"), "m");
