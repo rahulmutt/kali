@@ -143,6 +143,12 @@ console.log(f());
 "ns5.js" = """function f(){ let h=function(){ return 2; }; const g=()=>h; return g() ? 1 : 0; }
 console.log(f());
 """
+"kbf.js" = """function f(){ const b=false; const g=()=>{ console.log(b); }; g(); } f();
+"""
+"pw1.js" = """function f(k){ let n=k; const g=()=>{ n=n+1; }; g(); return n; } console.log(f(5));
+"""
+"pw2.js" = """function f(k){ let n=k; const g=()=>n; n=n*2; return g(); } console.log(f(5));
+"""
 
 # --- a captured parameter (A-1). Task 7: the rewrite makes it a `let` local, so
 # `run` refuses it by value type until Task 8 promotes the cell ---
@@ -927,3 +933,53 @@ rationale = """Task 9 fix round 1 (2026-10-05), reviewer y7: `1e20` is an intege
 args = ["run", "fbig.js"]
 exit = "success"
 stdout = "150000000000000000000\n"
+
+# --- Task 13 fix round 1 (ruling R18): every maturity-row claim has a case ---
+
+[[case]]
+name = "a_closure_over_a_false_const_prints_false"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the maturity row claims a captured `const` initialized with `false` reads as a boolean; kb2 pins only `true`. node prints `false`; baseline 2ddf18c66 printed `0` at exit 0 (check 0); HEAD prints `false` at exit 0."""
+args = ["run", "kbf.js"]
+exit = "success"
+stdout = "false\n"
+
+[[case]]
+name = "check_admits_a_closure_over_a_false_const"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the check twin of `a_closure_over_a_false_const_prints_false`. Baseline check exited 0; HEAD check prints `Checked 1 file(s)`, exit 0."""
+args = ["check", "kbf.js"]
+exit = "success"
+
+[[case]]
+name = "a_closure_writing_a_local_copied_from_a_parameter_updates_the_owner"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the maturity row claims a closure writes a `let` copied from an integer parameter and the owner sees it. node prints `6`; baseline 2ddf18c66 printed `5` at exit 0 (the store was dropped; check 0); HEAD prints `6` at exit 0, check 0."""
+args = ["run", "pw1.js"]
+exit = "success"
+stdout = "6\n"
+
+[[case]]
+name = "a_closure_reads_an_owner_write_to_a_local_copied_from_a_parameter"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the maturity row claims the closure sees the owner's write to a `let` copied from an integer parameter, made after the closure is created. node prints `10`; baseline 2ddf18c66 printed `0` at exit 0 (check 0); HEAD prints `10` at exit 0, check 0."""
+args = ["run", "pw2.js"]
+exit = "success"
+stdout = "10\n"
+
+[[case]]
+name = "check_refuses_an_f64_assignment_used_as_a_value_in_the_capturer"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the check twin of `f64_assignment_used_as_a_value_in_the_capturer_is_refused` (R14, A-4: the capturer uses the assignment's value, a read of the F64 cell). node prints `2.5` then `2.5`; baseline check exited 0; HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["check", "fexpr.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_f64_remainder_assignment_in_the_capturer"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the check twin of `f64_remainder_assignment_keeps_its_refusal` (A-4: `%=` is not one of the five F64 writes). node prints `1.5`; baseline check exited 0; HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["check", "frem.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_an_f64_update_expression_in_the_capturer"
+rationale = """Ruling R18 (Task 13, 2026-10-05): the check twin of `f64_update_expression_keeps_its_refusal` (A-4: `++` is not one of the five F64 writes). node prints `2.5`; baseline check exited 0; HEAD check exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["check", "finc.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]

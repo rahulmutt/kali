@@ -6721,7 +6721,7 @@ opaque compiler-internals message instead of a clear one. Added by soundness-bat
   `addEventListener` use the same predicate but have no end-to-end case, so
   they are not claimed. See `block-scoping-discovered-defects.md` §3-§7.
 
-### R-70: A captured binding without a closure cell reads `0` (or drops the store) — **CLOSED 2026-10-05: FIXED for the shapes below, FAIL_CLOSED for the rest**
+### R-70: A captured binding without a closure cell reads `0` (or drops the store) — **CLOSED 2026-10-05: FIXED for the shapes below, FAIL_CLOSED for the rest; boolean rendering (`a7`, `w5`, `lb1`, `kb_ret`) deferred to R-30/R-34**
 
 - **Added**: 2026-10-05, by the **captured-bindings** project
   (`docs/superpowers/specs/2026-10-05-captured-bindings-design.md` §2.1-§2.2),

@@ -242,13 +242,13 @@ over these programs.
 
 | shape | program | node | HEAD `run` | HEAD `check` |
 |---|---|---|---|---|
-| `p2`: a TaggedVal local copied from a parameter | `function f(k){ let n=k; const g=()=>n; return g(); }` (probe `cb_p2`) | `5` | exit 1, E5506 value type (`n`) | 0 |
-| `e5`: same shape, and the owner also logs `n` | probe `cb_e5` | `5⏎5` | exit 1, E5506 value type (`n`) | 0 |
+| ~~`p2`: a TaggedVal local copied from a parameter~~ **Resolved at phase 2 (2026-10-05, Task 13):** node-equal since `e433285c3`, under `run` and `check` (`closure/captured_bindings::a_closure_over_a_local_copied_from_a_parameter_reads_it`, `check_admits_a_local_copied_from_a_parameter`) | `function f(k){ let n=k; const g=()=>n; return g(); }` (probe `cb_p2`) | `5` | exit 1, E5506 value type (`n`) | 0 |
+| ~~`e5`: same shape, and the owner also logs `n`~~ **Resolved at phase 2 (2026-10-05, Task 13):** node-equal since `e433285c3` (`a_closure_over_a_parameter_copy_the_owner_also_logs_reads_it`, `check_admits_a_parameter_copy_the_owner_also_logs`) | probe `cb_e5` | `5⏎5` | exit 1, E5506 value type (`n`) | 0 |
 | A non-scalar MIR layout reached through a non-literal initializer: a call result | `function makeArr(){ return [1,2,3]; } function f(){ let a=makeArr(); const g=()=>a[1]; return g(); } console.log(f());` | `2` | exit 1, E5506 value type (`a`) | 0 |
 | Same, a `new Set()` local | `function f(){ const s=new Set([1,2,3]); const g=()=>s.size; return g(); } console.log(f());` | `3` | exit 1, E5506 value type (`s`) | 0 |
 | Same, the Set tripwire | `soundness/events::deferred_capture_of_bound_set_placeholder_tripwire` | `sync=3⏎cb=3` | exit 1, E5506 value type (`s`) | 0 |
 | Same, a `new Map()` local | `function f(){ let m=new Map(); m.set("a",2); const g=()=>m.get("a"); return g(); } console.log(f());` | `2` | exit 0, `0` (not refused; see §5.3) | 0 |
-| A frame with no plan key: a method of an anonymous class expression | `function f(k){ const C = class { static m(){ return k; } }; return C.m(); } console.log(f(5));` | `5` | exit 1, E5506 `a closure `m` that captures `k` …: `k` is a parameter of `f``. `run` names the method by its bare name. | 0 |
+| ~~A frame with no plan key: a method of an anonymous class expression~~ **Resolved at phase 2 (2026-10-05, Task 13):** at HEAD `20e169122` `run` prints `5`, node-equal, and `check` exits 0. The class itself stays open; its live examples are under "Residue at phase 2" below | `function f(k){ const C = class { static m(){ return k; } }; return C.m(); } console.log(f(5));` | `5` | exit 1, E5506 `a closure `m` that captures `k` …: `k` is a parameter of `f``. `run` names the method by its bare name. | 0 |
 | A frame with no plan key: a method of an anonymous `export default class` | `export default class { static m(){ let s=1.5; const g=()=>s; return g(); } } console.log(1);` | `1` | exit 0, `1`. The method is never called, and a single-file `run` cannot call it. | 0 |
 
 ### Residue at phase 2 (Task 11)
@@ -258,7 +258,12 @@ Measured over the 33 `tools/array-return-probes/probes/cb_*.js` probes at HEAD. 
 - `cb_v2`: a `setTimeout` callback capturing a rewritten parameter (`function f(k){ setTimeout(()=>console.log(k),0); } f(5);`). `run` refuses it through the deferred lane (its message reads "a captured local binding without closure lowering ...", not "that captures"); `check` exits 0 (R3).
 - `cb_two` is refused by both commands with the string-and-number conflict, so it is outside the residue.
 
-The classes of the A-2.6 residue, with no `cb_*` probe in them besides `cb_v2`: user-written parameter copies with a non-scalar or unproven layout; non-scalar layouts from non-literal initializers (call results, `new Map()`/`new Set()`; R7 remainder); arrows over a promoted object whose member access reaches the generic fallback (R13); frames with no plan key (anonymous class-expression methods); write-only deferred F64 captures. The shapes in the table below are the non-`cb` members.
+Two more members, each pinned by a case, measured at HEAD `20e169122` (2026-10-05, Task 13):
+
+- **A frame with no plan key** (a method of an anonymous class expression): `fcls` (`function f(){ let x=1.5; const C = class { static m(){ return x; } }; return C.m(); } console.log(f());`, node `1.5`) and `cm26` (`… static m(){ return x += 1; } …`, node `2.5⏎2.5`). `run` exits 1 with `a closure `m` that captures `x` …: its value type has no closure cell` (`closure/captured_bindings::a_method_of_an_anonymous_class_reading_an_f64_capture_is_refused_by_codegen`, `an_f64_compound_assignment_returned_from_an_unkeyed_method_is_refused`); `check` prints `Checked 1 file(s)`, exit 0.
+- **A capturing function called from a sibling env owner** (`sib`: `function outer(k){ function inc(){ return k; } function sib(){ let d=7; const h=()=>d; h(); return inc(); } return sib(); } console.log(outer(5));`, node `5`): `run` refuses it through env-safety (`error[E5506]: invoking the capturing function 'inc' from 'sib' is unavailable: …`, case `closure/captured_bindings::a_promoted_parameter_capture_called_from_a_sibling_env_owner_is_refused`); `check` exits 0.
+
+The classes of the A-2.6 residue, with no `cb_*` probe in them besides `cb_v2`: user-written parameter copies with a non-scalar or unproven layout; non-scalar layouts from non-literal initializers (call results, `new Map()`/`new Set()`; R7 remainder); arrows over a promoted object whose member access reaches the generic fallback (R13); frames with no plan key (anonymous class-expression methods: `fcls`, `cm26`); a capturing function called from a sibling env owner (`sib`, env-safety); write-only deferred F64 captures. The shapes in the table below are the non-`cb` members.
 
 Notes:
 - **An anonymous `export default function` is not a gap.** `name_anon_functions` names it, so `check` and `run` both refuse its capture with the same line (cl4 in §2).
