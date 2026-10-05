@@ -49,7 +49,7 @@ impl<'a> FunctionEmitter<'a> {
             return self.deny_e5506(function, Self::STRING_RESULT_RENDER_DENY);
         }
         let Some(name) = self.assignment_target_name(node, arg) else {
-            // Captured-bindings rulings R9/R13: no lane lowers a member update,
+            // Captured-bindings followups §6 CB-9, CB-13: no lane lowers a member update,
             // so one rooted at a capture is refused with the §3.1 message.
             if let Some(message) = self.capture_member_fallback_refusal(self.node(arg)) {
                 return self.deny_e5506(function, &message);
@@ -788,7 +788,7 @@ impl<'a> FunctionEmitter<'a> {
                 // silently and wrongly. The REJECT-DON'T-MISCOMPILE arms above
                 // are the shape a fix for it would take.
                 //
-                // Captured-bindings rulings R9/R13 (spec §3.1): a member read
+                // Captured-bindings spec §3.1 (followups §6 CB-9, CB-13): a member read
                 // off any capture of this function that reaches here (no lane
                 // resolved it) is refused rather than read as the placeholder.
                 if let Some(message) = self.capture_member_fallback_refusal(node) {

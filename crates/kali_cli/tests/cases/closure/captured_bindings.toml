@@ -149,6 +149,28 @@ console.log(f());
 """
 "pw2.js" = """function f(k){ let n=k; const g=()=>n; n=n*2; return g(); } console.log(f(5));
 """
+"fstr.js" = """function f(){ let x=1.5; const g=()=>{ x = "s"; }; g(); return x; } console.log(f());
+"""
+"fbigq.js" = """function f(){ let x=1.5; const q=1e20; const g=()=>{ x += q; }; g(); return x; } console.log(f());
+"""
+"fqadd.js" = """function f(){ let x=1.5; const q=1e20; const g=()=>{ x = q + 0; }; g(); return x; } console.log(f());
+"""
+"fnull.js" = """function f(){ let x=1.5; const g=()=>{ x = null; }; g(); return x; } console.log(f());
+"""
+"fkint.js" = """function f(){ let x=1.5; let k=2; const g=()=>{ x += k; }; g(); return x; } console.log(f());
+"""
+"fqlocal.js" = """function f(){ let x=1.5; const g=()=>{ const q=1e20; x = q; }; g(); return x; } console.log(f());
+"""
+"kflt.js" = """function f(k){ const g=()=>{ k += 0.5; }; g(); return k; } console.log(f(3));
+"""
+"nflt.js" = """function f(k){ let n=k; const g=()=>{ n = 2.5; }; g(); return n; } console.log(f(3));
+"""
+"kdiv.js" = """function f(){ let k=3; const g=()=>{ k /= 2; }; g(); return k; } console.log(f());
+"""
+"peval.js" = """function f(k){ const g=()=>k; return k; } console.log(f(5)); console.log(eval("1+1"));
+"""
+"forof.js" = """function f(){ for (const x of [1,2]) { const g=()=>x; console.log(g()); } } f();
+"""
 
 # --- a captured parameter (A-1). Task 7: the rewrite makes it a `let` local, so
 # `run` refuses it by value type until Task 8 promotes the cell ---
@@ -983,3 +1005,119 @@ rationale = """Ruling R18 (Task 13, 2026-10-05): the check twin of `f64_update_e
 args = ["check", "finc.js"]
 exit = "failure"
 stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+# --- final review (followups §6 CB-19, 2026-10-05): what a capturer may store
+# into an F64 cell or an I64 cell, `--compat eval`, and a for…of capture ---
+
+[[case]]
+name = "a_string_stored_into_an_f64_capture_is_refused"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: a capturer stores into an F64 cell only an emitted f64 or a proven plain integer. Before, any other i64 was converted with `f64.convert_i64_s`, so a string handle became a number. node prints `s`; baseline 2ddf18c66 printed `1.5` at exit 0 (the store was dropped); HEAD baf9454aa printed `-9223354444668731000` at exit 0; now exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "fstr.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_admits_a_string_stored_into_an_f64_capture"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05): the check twin of `a_string_stored_into_an_f64_capture_is_refused`. `check` admits every capturer assignment statement to an F64 (spec A-4) and does not model the right-hand side, so it exits 0 while `run` refuses: a named A-2.6 residue row (followups §3). Baseline and HEAD baf9454aa check also exited 0."""
+args = ["check", "fstr.js"]
+exit = "success"
+
+[[case]]
+name = "a_compound_store_of_a_large_integer_const_into_an_f64_capture_is_refused"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: `const q=1e20` holds a handle-interned literal (the literal lane interns an integer `i64` parsing rejects), which the numeric proof calls a number. node prints `100000000000000000000`; baseline 2ddf18c66 exited 1 with E5506 (`compound assignment lowering is unavailable for binding 'x' (operator '+=') …`); HEAD baf9454aa printed `-9223354444668731000` at exit 0; now exit 1 with the value-type reason."""
+args = ["run", "fbigq.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_admits_a_compound_store_of_a_large_integer_const_into_an_f64_capture"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05): the check twin of `a_compound_store_of_a_large_integer_const_into_an_f64_capture_is_refused`; `check` exits 0 (followups §3 residue). Baseline and HEAD baf9454aa check also exited 0."""
+args = ["check", "fbigq.js"]
+exit = "success"
+
+[[case]]
+name = "arithmetic_over_a_large_integer_const_stored_into_an_f64_capture_is_refused"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: `q + 0` over a handle-interned `const q=1e20` is not a proven plain integer. node prints `100000000000000000000`; baseline 2ddf18c66 printed `1.5` at exit 0; HEAD baf9454aa printed `-9223354444668731000` at exit 0; now exit 1 with the value-type reason."""
+args = ["run", "fqadd.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_admits_arithmetic_over_a_large_integer_const_stored_into_an_f64_capture"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05): the check twin of `arithmetic_over_a_large_integer_const_stored_into_an_f64_capture_is_refused`; `check` exits 0 (followups §3 residue). Baseline and HEAD baf9454aa check also exited 0."""
+args = ["check", "fqadd.js"]
+exit = "success"
+
+[[case]]
+name = "null_stored_into_an_f64_capture_is_refused"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: `null` is not a plain integer. node prints `null`; baseline 2ddf18c66 printed `1.5` at exit 0; HEAD baf9454aa printed `0` at exit 0; now exit 1 with the value-type reason. `check` exits 0, as for the string store (followups §3)."""
+args = ["run", "fnull.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "a_proven_integer_capture_added_into_an_f64_capture_lowers"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: `k` is a captured `I64` cell with a numeric proof in its owner and no BigInt or non-integer write, so the capturer's `x += k` converts it and stores the double. node prints `3.5`; baseline 2ddf18c66 exited 1 with E5506 (compound assignment); HEAD baf9454aa printed `3.5`; now prints `3.5` at exit 0, check 0."""
+args = ["run", "fkint.js"]
+exit = "success"
+stdout = "3.5\n"
+
+[[case]]
+name = "a_large_literal_const_in_the_capturer_is_stored_as_its_double"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: a `const` the fold lane binds to a numeric literal is looked through, so `x = q` stores `1e20` as its f64 constant. node prints `100000000000000000000`; baseline 2ddf18c66 printed `1.5` at exit 0; HEAD baf9454aa exited 1 with E4201 (invalid wasm; followups §5.6); now prints `100000000000000000000` at exit 0, check 0."""
+args = ["run", "fqlocal.js"]
+exit = "success"
+stdout = "100000000000000000000\n"
+
+[[case]]
+name = "a_float_added_to_a_promoted_integer_parameter_is_refused"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: the parameter's cell is an integer slot, and `repr_infer` types the capturer's write by the capturer's own node, so `k += 0.5` does not make the owner's `k` F64. node prints `3.5`; baseline 2ddf18c66 exited 1 with E5506 (compound assignment); HEAD baf9454aa exited 1 with E4201 (invalid wasm); now exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "kflt.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_admits_a_float_added_to_a_promoted_integer_parameter"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05): the check twin of `a_float_added_to_a_promoted_integer_parameter_is_refused`. `check`'s `{p}` rule sees an `I64` with a numeric proof and does not model the capturer's right-hand side, so it exits 0 (followups §3 residue). Baseline and HEAD baf9454aa check also exited 0."""
+args = ["check", "kflt.js"]
+exit = "success"
+
+[[case]]
+name = "a_float_stored_into_a_promoted_parameter_copy_is_refused"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05), spec A-5: as for the parameter, the copy `n` is an integer cell. node prints `2.5`; baseline 2ddf18c66 and HEAD baf9454aa exited 1 with E4201 (invalid wasm); now exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `n` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "nflt.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `n`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_admits_a_float_stored_into_a_promoted_parameter_copy"
+rationale = """Followups §6 CB-19 (final review, 2026-10-05): the check twin of `a_float_stored_into_a_promoted_parameter_copy_is_refused`; `check` exits 0 (followups §3 residue). Baseline and HEAD baf9454aa check also exited 0."""
+args = ["check", "nflt.js"]
+exit = "success"
+
+[[case]]
+name = "integer_division_assignment_on_a_captured_integer_still_truncates"
+rationale = """Followups §5.12 (final review, 2026-10-05): a pre-existing defect pinned so it is not read as covered. The capturer's `k /= 2` on an `I64` cell is `i64.div_s`. node prints `1.5`; baseline 2ddf18c66, HEAD baf9454aa and now print `1` at exit 0. Not refused: the right-hand side is an integer, and refusing `/=` would also refuse exact divisions that print node's value today. The maturity row does not claim `/=` on an integer capture."""
+args = ["run", "kdiv.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_captured_parameter_under_compat_eval_is_refused_with_its_own_message"
+rationale = """Followups §2.2 and §6 CB-19 (final review, 2026-10-05): under `--compat eval` the captured-parameter rewrite is refused, because it renames the parameter and `eval` code could name it. Before, the refusal reused block-scoping's "shadows another binding" message, although nothing shadows. node prints `5` then `2`; baseline 2ddf18c66 printed `5` then `2` (an accepted loss, followups §2.2); HEAD baf9454aa exited 1 with `a block-scoped binding that shadows another binding is unavailable with `--compat eval` …`; now exit 1 with the dedicated message."""
+args = ["run", "--compat", "eval", "peval.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure that captures a parameter is unavailable with `--compat eval`"]
+
+[[case]]
+name = "a_for_of_const_captured_by_a_closure_is_refused_by_run"
+rationale = """Followups §3 (final review, 2026-10-05): a `for…of` over a literal array unrolls, and the closure's capture of the loop `const` is refused by `run` with the value-type reason. node prints `1` then `2`; baseline 2ddf18c66 printed `0` then `0` at exit 0; HEAD baf9454aa and now exit 1 with `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell`."""
+args = ["run", "forof.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_admits_a_for_of_const_captured_by_a_closure"
+rationale = """Followups §3 (final review, 2026-10-05): the check twin of `a_for_of_const_captured_by_a_closure_is_refused_by_run`. `check` exits 0, a named A-2.6 residue row. Baseline and HEAD baf9454aa check also exited 0."""
+args = ["check", "forof.js"]
+exit = "success"

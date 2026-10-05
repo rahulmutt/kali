@@ -533,7 +533,7 @@ pub(crate) struct FunctionEmitter<'a> {
     /// keyed by NAME ONLY, for the same reason
     /// `captured_cell_bigint_targets` is.
     pub(crate) captured_cell_float_targets: &'a HashSet<String>,
-    /// Captured-bindings fix round 1 (ruling R14): the child node
+    /// Captured-bindings spec A-4 (followups §6 CB-14): the child node
     /// `emit_aggregate_literal`'s sequence loop is emitting, whose value is
     /// dropped by construction (an expression statement). A capturer's
     /// assignment to an F64 cell lowers only when it is this node; anywhere

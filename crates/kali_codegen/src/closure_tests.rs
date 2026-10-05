@@ -42,7 +42,7 @@ fn a_non_tagged_heap_cell_does_not_promote_even_with_a_proof() {
 
 #[test]
 fn an_f64_scalar_cell_promotes_and_a_tagged_f64_needs_a_proof() {
-    // Captured-bindings Task 9 (A-4): an F64 cell stores the double's bits.
+    // Captured-bindings A-4: an F64 cell stores the double's bits.
     let mut t = kali_common::ReprTable::default();
     t.set_scalar("f", "x", Repr::F64);
     let scalar = Widening::CapturedBindings { is_tagged: false };
@@ -54,7 +54,7 @@ fn an_f64_scalar_cell_promotes_and_a_tagged_f64_needs_a_proof() {
 
 #[test]
 fn baseline_widening_refuses_an_f64_cell() {
-    // Ruling R1: iteration-record cells and the deferred lane keep refusing
+    // Followups §6 CB-1: iteration-record cells and the deferred lane keep refusing
     // F64 (spec §1.1), scalar or tagged, with or without a proof.
     let mut t = kali_common::ReprTable::default();
     t.set_scalar("f", "x", Repr::F64);
@@ -84,7 +84,7 @@ fn the_scalar_and_object_verdicts_ignore_the_widening() {
 
 #[test]
 fn a_tagged_object_cell_promotes_as_c2() {
-    // Ruling R13: C2 is unchanged — MIR gives `TaggedVal` to call results,
+    // Followups §6 CB-13: C2 is unchanged — MIR gives `TaggedVal` to call results,
     // `new`, member reads and identifier copies, and those promoted at
     // baseline. A member access no lane resolves is refused at the fallback.
     let mut t = table(true);

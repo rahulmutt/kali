@@ -560,7 +560,7 @@ untyped. `cell_is_promotable` admits it (scalar, or `TaggedVal` with the
 numeric proof) only under `Widening::CapturedBindings`; iteration records and
 the deferred allowlist (`Widening::Baseline`) keep refusing F64 (§1.1).
 
-Ruling R14 narrows what lowers:
+Ruling R14 (followups §6 CB-14) narrows what lowers:
 
 * The **owner** reads and writes its own F64 cell like an F64 local.
 * A **capturer** lowers `=` (whose right-hand side does not read the cell) and
@@ -600,3 +600,53 @@ stored as a placeholder or as invalid wasm.
 **Recorded for later.** Full F64 reads from a closure need `repr_infer` to join
 the closure's node to the owner's binding. That requires parent edges for
 arrows and function expressions, which `repr_infer` does not record today.
+
+### A-5 (2026-10-05, final review, followups §6 CB-19): what a capturer may store, and `--compat eval`
+
+**Measured** at HEAD `baf9454aa` against baseline `2ddf18c66`, node run as
+`env -u FORCE_COLOR node`:
+
+* A capturer's `=` or compound write to an F64 cell converted every right-hand
+  side that was not emitted as a float, and that `is_float_valued` did not
+  call float, with `f64.convert_i64_s`. That includes a string handle and a
+  literal the literal lane interns as a handle (an integer value that `i64`
+  parsing rejects, such as `1e20`; `repr_infer` types it `I64` and proves it
+  numeric). `x = "s"` printed `-9223354444668731000` at exit 0 (node `s`),
+  as did `const q=1e20; … x += q` and `x = q + 0`; `x = null` printed `0`,
+  `x = true` printed `1` and `x = 3n` printed `3`.
+* A float stored into a promoted integer parameter or parameter copy
+  (`k += 0.5`, `n = 2.5`) was invalid wasm (E4201): `repr_infer` types a
+  capturer's write by the capturer's own node, so the owner's binding stays
+  `I64`.
+* Under `--compat eval`, a program with a captured parameter was refused with
+  block-scoping's "shadows another binding" message, although nothing shadows.
+
+**What changes.**
+
+1. A capturer's store into an F64 cell (A-4's five operators) accepts only an
+   emitted f64 (an emitted `Float`, or a read of an `F64` local or module
+   global), a numeric literal or fold-lane `const` bound to one (stored as its
+   f64 constant; a BigInt literal is not one), or a right-hand side proven to
+   be a plain integer: an `i64` literal, an `I64` binding with a numeric proof
+   where it is declared (a captured cell must also carry no BigInt or
+   non-integer write), unary `-` / `+` and binary `+ - * %` over those,
+   `.length`, an integer-rounding `Math` call, or a call to a function whose
+   return is proven numeric `I64`. A binding or call is proven only when the
+   program contains no handle-interned and no BigInt literal, because the
+   numeric proof admits both and either may flow anywhere. Everything else is
+   refused with E5506 and the value-type reason. The owner's own writes and
+   declarations keep A-4's rule.
+2. A capturer's `=` or arithmetic compound write to an integer cell whose
+   right-hand side is float-valued, or is emitted as a float, is refused with
+   E5506 and the value-type reason.
+3. Under `--compat eval` the captured-parameter rewrite (§3.2) is refused with
+   its own message, `captured_parameter_eval_refused_message`, registered
+   under E5506 in `specs/15-errors.md`. cl2 (A-3) is therefore not lifted
+   under `--compat eval` (followups §2.2).
+
+`check` does not model the right-hand side, so it admits items 1 and 2 (exit
+0); they join the A-2.6 residue (followups §3). One program that HEAD printed
+correctly is refused by item 1, because the numeric proof does not reach a copy
+of a captured binding: `function f(k){ let x=1.5; const g=()=>{ let t = k; x =
+t; }; g(); return x; } console.log(f(3));` (node `3`, baseline `1.5`, HEAD
+`3`). It is recorded in followups §4.

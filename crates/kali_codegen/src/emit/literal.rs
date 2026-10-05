@@ -377,7 +377,7 @@ impl<'a> FunctionEmitter<'a> {
             }
         }
 
-        // Captured-bindings ruling R9 (spec §3.1): a store (plain or compound)
+        // Captured-bindings spec §3.1 (followups §6 CB-9): a store (plain or compound)
         // to a member of a capture this function did not lower is refused
         // rather than written through the placeholder.
         if let Some(message) = self.unlowered_capture_member_refusal(self.node(left)) {
@@ -838,7 +838,7 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let Some(name) = self.assignment_target_name(node, left) else {
-            // Captured-bindings ruling R13: the member store fallback (no
+            // Captured-bindings followups §6 CB-13: the member store fallback (no
             // lane stored it) for a member rooted at any capture of this
             // function — `return false` would drop the store.
             if let Some(message) = self.capture_member_fallback_refusal(self.node(left)) {

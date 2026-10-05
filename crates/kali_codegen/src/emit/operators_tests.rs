@@ -256,7 +256,7 @@ fn unsupported_typeof_operand_rejects_unproven_member_read() {
         .expect("generated wasm should validate");
 }
 
-/// Captured-bindings ruling R9: a member read, store, compound store or
+/// Captured-bindings spec §3.1 (followups §6 CB-9): a member read, store, compound store or
 /// update off a capture the function did not lower is refused with the
 /// value-type reason, never lowered through the zero placeholder.
 #[test]

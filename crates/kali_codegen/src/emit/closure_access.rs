@@ -5,16 +5,21 @@
 //! nor a module binding may be a scalar captured into an env cell (this
 //! function's own cell, or an outer scope's read through the parent chain). All
 //! four access shapes route through [`FunctionEmitter::resolve_capture_access`],
-//! which returns `Some(offset)` for the ONE shape C1 lowers — a synchronous,
-//! single-level, scalar `i64` binding — and `None` for everything else.
+//! which returns `Some((depth, offset))` for a promoted cell
+//! ([`crate::closure::cell_is_promotable`]: a scalar `i64`, a fixed-shape
+//! object pointer, and under captured-bindings a proven-numeric `TaggedVal`
+//! `i64` and an `F64` cell holding the double's bits) reached synchronously
+//! at a provable env-walk depth, and `None` for everything else.
 //!
 //! `None` means "not a C1 capture": the caller keeps its existing
 //! local/global/module resolution. Captured-bindings phase 1 (spec §3.1)
 //! closes the placeholder end of that fallthrough: a read or plain `=` of a
 //! name this function captures that `resolve_capture_access` did not lower is
 //! refused with E5506 by [`FunctionEmitter::unlowered_capture_refusal`]
-//! instead of reading (or dropping a store to) the zero placeholder. Captured
-//! compound-assign and update expressions keep their existing local-miss E5506.
+//! instead of reading (or dropping a store to) the zero placeholder, and a
+//! static member access rooted at a capture that reaches the member fallback
+//! is refused the same way. Captured compound-assign and update expressions
+//! on an unlowered capture keep their existing local-miss E5506.
 
 use crate::*;
 
@@ -279,7 +284,7 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// Captured-bindings ruling R9: the refusal for a static member access
+    /// Captured-bindings spec §3.1 (followups §6 CB-9): the refusal for a static member access
     /// whose root is a capture this function did not lower. The member lanes
     /// resolve the receiver by name and never emit the identifier, so they
     /// bypass the read choke and used to read the zero placeholder.
@@ -287,7 +292,7 @@ impl<'a> FunctionEmitter<'a> {
         self.unlowered_capture_refusal(self.static_member_chain_root(member)?)
     }
 
-    /// Captured-bindings ruling R13: the refusal at the member read / store /
+    /// Captured-bindings followups §6 CB-13: the refusal at the member read / store /
     /// update FALLBACK (no lane resolved the shape) for a static member chain
     /// rooted at ANY capture of this function, lowered or not — a promoted C2
     /// cell whose member no lane resolves used to read the zero placeholder
@@ -356,7 +361,7 @@ impl<'a> FunctionEmitter<'a> {
             .then_some(owner)
     }
 
-    /// Captured-bindings Task 9: the owner repr of a name the capture lane
+    /// Captured-bindings A-4: the owner repr of a name the capture lane
     /// lowers, so a read can carry its float shape.
     pub(crate) fn captured_cell_repr(&self, name: &str) -> Option<kali_common::Repr> {
         self.resolve_capture_access(name)?;
@@ -371,7 +376,7 @@ impl<'a> FunctionEmitter<'a> {
         self.captured_cell_repr(name) == Some(kali_common::Repr::F64)
     }
 
-    /// Ruling R14 (A-4): `name` is an F64 cell this function reaches as a
+    /// Spec A-4 (followups §6 CB-14): `name` is an F64 cell this function reaches as a
     /// capturer, not as its owner. `repr_infer` types a free identifier in a
     /// nested function by that function's own node (default `I64`, never
     /// joined to the owner's binding), so an f64 read here would flow into
@@ -392,8 +397,7 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Captured-bindings A-4: turn the just-emitted `value` into an f64 on
-    /// the stack for an F64 cell, choosing from what was emitted (fix
-    /// round 1):
+    /// the stack for an F64 cell, choosing from what was emitted:
     /// - an emitted `ValueShape::Float` is already an f64;
     /// - otherwise `is_float_valued` decides, as on the local F64 lane, and
     ///   an integer is converted with `f64.convert_i64_s`.
@@ -402,6 +406,9 @@ impl<'a> FunctionEmitter<'a> {
     /// emitter produced a non-float shape that `is_float_valued` calls float
     /// for a literal: `1e20` is interned as a string handle (an i64), which
     /// would be invalid wasm (E4201) or, converted, a wrong value.
+    ///
+    /// This permissive form serves the OWNER's writes and declarations only.
+    /// A capturer's write goes through [`Self::emit_capturer_f64_operand`].
     fn emit_f64_operand(
         &mut self,
         function: &mut Function,
@@ -422,16 +429,230 @@ impl<'a> FunctionEmitter<'a> {
         true
     }
 
-    /// Captured-bindings fix round 1: the f64 a right-hand side denotes when
-    /// it is a numeric literal (`1e20`, `1e300`, which the generic literal
-    /// lane interns as a string handle), a global `NaN` / `Infinity`
-    /// resolved by no other lane (it reads a placeholder there), or a unary
-    /// `-` / `+` over one of those.
+    /// Captured-bindings followups §6 CB-19 (A-4): the operand rule for a
+    /// capturer's write to an F64 cell. Only two shapes are stored:
+    /// - an emitted `ValueShape::Float`, already an f64;
+    /// - an emitted `ValueShape::Scalar` whose right-hand side
+    ///   [`Self::rhs_is_proven_plain_integer`] proves a plain integer, which
+    ///   is converted with `f64.convert_i64_s`.
+    ///
+    /// Everything else is `false` and the caller refuses with the value-type
+    /// reason. Converting any other i64 was a silent wrong value: a string
+    /// handle (`x = "s"`), a handle-interned literal reached through a
+    /// binding (`const q = 1e20; x += q`), a boolean, `null` or a BigInt.
+    fn emit_capturer_f64_operand(
+        &mut self,
+        function: &mut Function,
+        value: LirNodeId,
+        emitted: EmittedValue,
+    ) -> bool {
+        if !emitted.produced {
+            return false;
+        }
+        match emitted.shape {
+            ValueShape::Float => true,
+            // A read of an `f64` local or module global leaves an f64 whose
+            // shape the identifier lane reports as `Unknown`.
+            ValueShape::Scalar | ValueShape::Unknown if self.rhs_is_f64_binding_read(value) => true,
+            // The identifier and call lanes report `Unknown` for an i64 too;
+            // the proof, not the label, decides.
+            ValueShape::Scalar | ValueShape::Unknown
+                if !self.is_float_valued(value) && self.rhs_is_proven_plain_integer(value, 0) =>
+            {
+                function.instruction(&Instruction::F64ConvertI64S);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether `value` is a bare read of this function's `F64` local or of an
+    /// `F64` module global, whose wasm slot is an `f64`.
+    fn rhs_is_f64_binding_read(&self, value: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(value);
+        if self.unwrap_transparent(self.resolve_bound_node(id)) != id {
+            return false;
+        }
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return false;
+        }
+        node.text.as_deref().is_some_and(|name| {
+            if self.locals.contains_key(name) {
+                return self.scalar_repr(name) == kali_common::Repr::F64;
+            }
+            self.env_plan.captured_for(name).is_none()
+                && self.env_plan.cell_for(name).is_none()
+                && matches!(
+                    self.module_global_slots.get(name),
+                    Some(&(_, kali_common::Repr::F64))
+                )
+        })
+    }
+
+    /// Whether a numeric literal's text is one the generic literal lane
+    /// interns as a string handle instead of an `i64.const` / `f64.const`:
+    /// an integer value that `i64` parsing rejects (`1e20`, `1e3`,
+    /// `12345678901234567890`). `repr_infer` types such a literal as an
+    /// integer (`I64`, proven numeric), so a binding initialized with one
+    /// holds a handle where its repr promises a number.
+    fn numeric_literal_is_handle_interned(text: &str) -> bool {
+        !text.ends_with('n')
+            && parse_number_literal(text).is_none()
+            && parse_numeric_literal_value(text).is_some_and(|v| v.is_finite() && v.fract() == 0.0)
+    }
+
+    /// Whether the program's source contains a value the numeric proof
+    /// (`binding_is_proven_numeric`, `return_is_proven_numeric`) admits as a
+    /// number although codegen does not hold it as a plain i64: a
+    /// handle-interned numeric literal or a BigInt literal. When it does, a
+    /// binding, parameter or return value may carry one through any data
+    /// flow, so [`Self::rhs_is_proven_plain_integer`] proves no identifier and
+    /// no call. A whole-program scan, so it is conservative by construction.
+    fn program_has_unplain_numeric_literal(&self) -> bool {
+        self.node_lookup.iter().any(|node| {
+            node.kind == LirNodeKind::Literal
+                && node.text.as_deref().is_some_and(|text| {
+                    is_bigint_literal_text(text) || Self::numeric_literal_is_handle_interned(text)
+                })
+        })
+    }
+
+    /// Captured-bindings followups §6 CB-19: positive proof that `value`
+    /// evaluates to a plain integer held as an i64 (never a handle, boolean,
+    /// `null` or BigInt), for a capturer's write to an F64 cell. Proven
+    /// shapes: an integer literal the literal lane emits as `i64.const`; a
+    /// bare identifier with a numeric proof in the namespace that declares it
+    /// (this function's local, the owner of a captured scalar cell, or the
+    /// module), when the program holds no handle-interned or BigInt literal;
+    /// unary `-` / `+`, and binary `+ - * %`, over proven operands; `.length`;
+    /// `Math.floor` / `trunc` / `ceil` over a proven or float operand; a call
+    /// to a named function whose return is proven numeric `I64`, under the
+    /// same whole-program condition. Anything else is unproven.
+    fn rhs_is_proven_plain_integer(&self, value: LirNodeId, depth: usize) -> bool {
+        if depth > 24 {
+            return false;
+        }
+        let id = self.unwrap_transparent(value);
+        let id = self.unwrap_transparent(self.resolve_bound_node(id));
+        let node = self.node(id).clone();
+        match node.kind {
+            LirNodeKind::Literal => node
+                .text
+                .as_deref()
+                .is_some_and(|text| !text.ends_with('n') && parse_number_literal(text).is_some()),
+            LirNodeKind::Call if self.is_integer_rounding_math_call(&node) => {
+                node.children.get(1).copied().is_some_and(|arg| {
+                    self.rhs_is_proven_plain_integer(arg, depth + 1)
+                        || (self.is_float_valued(arg) && !self.subtree_has_unplain_literal(arg))
+                })
+            }
+            LirNodeKind::Call => {
+                let Some(&callee) = node.children.first() else {
+                    return false;
+                };
+                let callee = self.node(self.unwrap_transparent(callee));
+                if callee.kind != LirNodeKind::Value || !callee.children.is_empty() {
+                    return false;
+                }
+                callee.text.as_deref().is_some_and(|name| {
+                    self.repr_table.return_is_proven_numeric(name)
+                        && self.repr_table.return_repr(name) == kali_common::Repr::I64
+                        && !self.program_has_unplain_numeric_literal()
+                })
+            }
+            LirNodeKind::Value => match node.children.len() {
+                0 => node.text.as_deref().is_some_and(|name| {
+                    if parse_number_literal(name).is_some() && !name.ends_with('n') {
+                        return true;
+                    }
+                    self.identifier_is_proven_plain_integer(name)
+                }),
+                1 => match node.text.as_deref() {
+                    Some("-" | "+") => {
+                        self.rhs_is_proven_plain_integer(node.children[0], depth + 1)
+                    }
+                    Some("length") => true,
+                    _ => false,
+                },
+                2 => {
+                    matches!(node.text.as_deref(), Some("+" | "-" | "*" | "%"))
+                        && self.rhs_is_proven_plain_integer(node.children[0], depth + 1)
+                        && self.rhs_is_proven_plain_integer(node.children[1], depth + 1)
+                }
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    /// Whether the subtree at `id` contains a handle-interned numeric literal
+    /// or a BigInt literal (see [`Self::numeric_literal_is_handle_interned`]).
+    fn subtree_has_unplain_literal(&self, id: LirNodeId) -> bool {
+        let node = self.node(id);
+        if node.kind == LirNodeKind::Literal
+            && node.text.as_deref().is_some_and(|text| {
+                is_bigint_literal_text(text) || Self::numeric_literal_is_handle_interned(text)
+            })
+        {
+            return true;
+        }
+        node.children
+            .clone()
+            .into_iter()
+            .any(|child| self.subtree_has_unplain_literal(child))
+    }
+
+    /// The identifier arm of [`Self::rhs_is_proven_plain_integer`]: an `I64`
+    /// binding with a positive numeric proof, looked up where it is declared.
+    /// A captured cell additionally carries neither BigInt nor non-integer
+    /// write taint. No identifier is proven when the program holds a
+    /// handle-interned or BigInt literal, since the proof admits both.
+    fn identifier_is_proven_plain_integer(&self, name: &str) -> bool {
+        if self.program_has_unplain_numeric_literal() {
+            return false;
+        }
+        if self.locals.contains_key(name) {
+            return self.scalar_repr(name) == kali_common::Repr::I64
+                && !self.repr_table.is_array_binding(&self.function_name, name)
+                && self
+                    .repr_table
+                    .binding_is_proven_numeric(&self.function_name, name);
+        }
+        if self.resolve_scalar_capture_access(name).is_some() {
+            let Some(owner) = self.scalar_capture_owner(name) else {
+                return false;
+            };
+            return self.repr_table.scalar(&owner, name) == kali_common::Repr::I64
+                && self.repr_table.binding_is_proven_numeric(&owner, name)
+                && !self.captured_cell_bigint_targets.contains(name)
+                && !self.captured_cell_float_targets.contains(name);
+        }
+        if self.env_plan.captured_for(name).is_some() || self.env_plan.cell_for(name).is_some() {
+            return false;
+        }
+        matches!(
+            self.module_global_slots.get(name),
+            Some(&(_, kali_common::Repr::I64))
+        ) && self.repr_table.binding_is_proven_numeric("_start", name)
+    }
+
+    /// The f64 a right-hand side denotes when it is a numeric literal
+    /// (`1e20`, `1e300`, which the generic literal lane interns as a string
+    /// handle), a `const` the fold lane binds to one (looked through with
+    /// `resolve_bound_node`), a global `NaN` / `Infinity` resolved by no
+    /// other lane (it reads a placeholder there), or a unary `-` / `+` over
+    /// one of those.
     fn f64_constant_rhs(&self, value: LirNodeId) -> Option<f64> {
-        let node = self.node(self.unwrap_transparent(value));
+        let id = self.unwrap_transparent(value);
+        let node = self.node(self.unwrap_transparent(self.resolve_bound_node(id)));
         match node.kind {
             LirNodeKind::Literal => {
-                parse_numeric_literal_value(node.text.as_deref()?).filter(|v| !v.is_nan())
+                let text = node.text.as_deref()?;
+                if is_bigint_literal_text(text) {
+                    return None;
+                }
+                parse_numeric_literal_value(text).filter(|v| !v.is_nan())
             }
             LirNodeKind::Value if node.children.is_empty() => {
                 let name = node.text.as_deref()?;
@@ -460,14 +681,20 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Emit `value` as an f64 for an F64 cell (`f64_constant_rhs`, else
-    /// `emit_node` + `emit_f64_operand`). `false` when the caller must refuse.
-    fn emit_f64_rhs(&mut self, function: &mut Function, value: LirNodeId) -> bool {
+    /// `emit_node` and the operand rule). `capturer` selects the strict
+    /// capturer rule ([`Self::emit_capturer_f64_operand`]) over the owner's
+    /// ([`Self::emit_f64_operand`]). `false` when the caller must refuse.
+    fn emit_f64_rhs(&mut self, function: &mut Function, value: LirNodeId, capturer: bool) -> bool {
         if let Some(constant) = self.f64_constant_rhs(value) {
             function.instruction(&Instruction::F64Const(constant.into()));
             return true;
         }
         let emitted = self.emit_node(function, value, true);
-        self.emit_f64_operand(function, value, emitted)
+        if capturer {
+            self.emit_capturer_f64_operand(function, value, emitted)
+        } else {
+            self.emit_f64_operand(function, value, emitted)
+        }
     }
 
     /// Whether `id` is the node whose value `emit_aggregate_literal`'s
@@ -478,6 +705,8 @@ impl<'a> FunctionEmitter<'a> {
             .is_some_and(|node| self.unwrap_transparent(node) == self.unwrap_transparent(id))
     }
 
+    /// The value-type refusal (E5506) at a write site, leaving an `i64`
+    /// placeholder for the assignment expression's value.
     fn captured_f64_value_refusal(&mut self, function: &mut Function, name: &str) {
         self.captured_f64_read_refusal(function, name);
         function.instruction(&Instruction::I64Const(0));
@@ -527,7 +756,7 @@ impl<'a> FunctionEmitter<'a> {
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
         if self.captured_cell_is_f64(name) {
-            if !self.emit_f64_rhs(function, init) {
+            if !self.emit_f64_rhs(function, init, false) {
                 self.captured_f64_value_refusal(function, name);
                 return Some(());
             }
@@ -571,9 +800,22 @@ impl<'a> FunctionEmitter<'a> {
         let (depth, offset) = self.resolve_scalar_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
+        // Captured-bindings followups §6 CB-19: the cell is an integer slot.
+        // `repr_infer` types a capturer's write by the capturer's own node,
+        // never joined to the owner's binding, so a float written here does
+        // not make the owner's repr F64; storing it was invalid wasm (E4201).
+        // Refused with the value-type reason instead.
+        if matches!(op, "=" | "+=" | "-=" | "*=" | "/=" | "%=") && self.is_float_valued(right) {
+            self.captured_f64_value_refusal(function, name);
+            return Some(true);
+        }
         match op {
             "=" => {
                 let rhs = self.emit_node(function, right, true);
+                if rhs.shape == ValueShape::Float {
+                    self.captured_f64_value_refusal(function, name);
+                    return Some(true);
+                }
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
@@ -582,6 +824,10 @@ impl<'a> FunctionEmitter<'a> {
             "+=" | "-=" | "*=" | "/=" | "%=" => {
                 crate::closure::emit_cell_load(function, env_global, depth, offset);
                 let rhs = self.emit_node(function, right, true);
+                if rhs.shape == ValueShape::Float {
+                    self.captured_f64_value_refusal(function, name);
+                    return Some(true);
+                }
                 if !rhs.produced {
                     function.instruction(&Instruction::I64Const(0));
                 }
@@ -724,7 +970,7 @@ impl<'a> FunctionEmitter<'a> {
     /// remainder) and the bitwise operators return `None`, so they keep the
     /// caller's existing E5506.
     ///
-    /// Ruling R14: in a capturer the stored double left on the stack is an
+    /// Spec A-4: in a capturer the stored double left on the stack is an
     /// f64 the capturer's `repr_infer` types do not expect, so the assignment
     /// lowers only as an expression statement, whose value is dropped
     /// (`id` is `discarded_value_node`); used as a value it is a read of the
@@ -749,18 +995,19 @@ impl<'a> FunctionEmitter<'a> {
             self.captured_f64_value_refusal(function, name);
             return Some(true);
         }
+        let capturer = self.captured_f64_in_capturer(name);
         let (depth, offset) = self.resolve_capture_access(name)?;
         let env_global = self.current_env_global();
         let scratch = self.locals.len() as u32;
         if let Some(instruction) = &arithmetic {
             crate::closure::emit_cell_load(function, env_global, depth, offset);
             function.instruction(&Instruction::F64ReinterpretI64);
-            if !self.emit_f64_rhs(function, right) {
+            if !self.emit_f64_rhs(function, right, capturer) {
                 self.captured_f64_value_refusal(function, name);
                 return Some(true);
             }
             function.instruction(instruction);
-        } else if !self.emit_f64_rhs(function, right) {
+        } else if !self.emit_f64_rhs(function, right, capturer) {
             self.captured_f64_value_refusal(function, name);
             return Some(true);
         }
@@ -810,3 +1057,7 @@ impl<'a> FunctionEmitter<'a> {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "closure_access_tests.rs"]
+mod closure_access_tests;
