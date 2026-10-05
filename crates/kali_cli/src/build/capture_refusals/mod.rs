@@ -76,8 +76,10 @@ struct Use {
     name: String,
 }
 
+/// Shared with the captured-parameter rewrite's pass A
+/// (`capture_param_rewrite`), which keys frames by the same enter order.
 #[derive(Default)]
-struct Recorder {
+pub(super) struct Recorder {
     frames: Vec<Frame>,
     scopes: Vec<ScopeEntry>,
     stack: Vec<usize>,
@@ -246,7 +248,22 @@ impl Recorder {
         false
     }
 
-    fn resolve(&self, from: usize, name: &str) -> Option<(usize, BindKind)> {
+    /// The number of Module / Function frames entered, in enter order.
+    pub(super) fn frame_count(&self) -> usize {
+        self.frames.len()
+    }
+
+    /// The frame that owns `scope`.
+    pub(super) fn frame_of(&self, scope: usize) -> usize {
+        self.scopes[scope].frame
+    }
+
+    /// Every identifier reference, as (scope, name), in walk order.
+    pub(super) fn references(&self) -> impl Iterator<Item = (usize, &str)> + '_ {
+        self.uses.iter().map(|u| (u.scope, u.name.as_str()))
+    }
+
+    pub(super) fn resolve(&self, from: usize, name: &str) -> Option<(usize, BindKind)> {
         let mut cursor = Some(from);
         while let Some(id) = cursor {
             if let Some(kind) = self.scopes[id].bindings.get(name) {

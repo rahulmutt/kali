@@ -2326,3 +2326,18 @@ fn let_and_non_boolean_consts_are_not_boolean_consts() {
         assert!(!t.binding_is_boolean_const("f", name), "{name}");
     }
 }
+
+// Captured-bindings A-1 point 4: the rewritten `let k = k{p}` (with `kp`
+// standing in for `k{p}`) is proven numeric exactly when every call site
+// passes a number.
+#[test]
+fn a_let_from_a_parameter_with_numeric_call_sites_is_proven_numeric() {
+    let t = reprs("function f(kp){ let k = kp; const g=()=>k; return g(); } f(5); f(7);");
+    assert!(t.binding_is_proven_numeric("f", "k"));
+}
+
+#[test]
+fn a_let_from_a_parameter_with_a_string_call_site_is_not_proven_numeric() {
+    let t = reprs("function f(kp){ let k = kp; const g=()=>k; return g(); } f(\"a\");");
+    assert!(!t.binding_is_proven_numeric("f", "k"));
+}
