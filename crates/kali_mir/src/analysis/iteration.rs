@@ -8,9 +8,14 @@
 //! body, and excludes anything inside nested loops (they have their own frame)
 //! and nested functions (they have their own scope).
 //!
-//! Rule for "registers a callback": a deferred-registration call textually
-//! inside the loop flags that loop, including when the call sits in a function
-//! nested in the loop (and so on up through enclosing functions' loops).
+//! Rule for "registers a loop closure" (spec A-9, overriding A-2(b)): a
+//! deferred-registration call textually inside the loop, including one in a
+//! function nested in the loop (ruling R8), whose callback argument is a
+//! closure created in the loop that captures, directly or through a nested
+//! closure, a `let` / `const` declared directly in the loop, or an identifier
+//! bound to such a closure. A callback the walk cannot resolve to a function
+//! (a parameter, a member, a call result) is treated as such a closure: a
+//! false owner only costs a refusal, a missed one a wrong value.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -38,7 +43,19 @@ pub(crate) struct LoopFrame {
     scope_label: String,
     declared: BTreeSet<String>,
     closures: BTreeSet<String>,
-    has_registration: bool,
+    /// Function labels registered as deferred callbacks inside the loop.
+    registered: BTreeSet<String>,
+    /// A deferred callback inside the loop did not resolve to a function.
+    registers_unresolved: bool,
+}
+
+/// The callback argument of a deferred-registration call, as the walk sees it.
+#[derive(Debug, Clone)]
+pub(crate) enum RegisteredCallback {
+    /// A function expression or a name that resolves to a function.
+    Function(String),
+    /// Anything else (a parameter, a member, a call result).
+    Unresolved,
 }
 
 #[derive(Debug, Default)]
@@ -65,7 +82,8 @@ impl IterationCollector {
             scope_label: scope_label.to_string(),
             declared: BTreeSet::new(),
             closures: BTreeSet::new(),
-            has_registration: false,
+            registered: BTreeSet::new(),
+            registers_unresolved: false,
         });
     }
 
@@ -86,12 +104,17 @@ impl IterationCollector {
         }
     }
 
-    /// A registration call flags every open loop frame, including frames of
-    /// enclosing functions: the call is textually inside each of those loops
-    /// (spec A-2(b) does not exclude nested functions).
-    fn note_registration(&mut self) {
+    /// A registration call is noted on every open loop frame, including frames
+    /// of enclosing functions: the call is textually inside each of those
+    /// loops (ruling R8, spec A-9).
+    fn note_registration(&mut self, callback: &RegisteredCallback) {
         for frame in &mut self.stack {
-            frame.has_registration = true;
+            match callback {
+                RegisteredCallback::Function(label) => {
+                    frame.registered.insert(label.clone());
+                }
+                RegisteredCallback::Unresolved => frame.registers_unresolved = true,
+            }
         }
     }
 
@@ -105,7 +128,7 @@ impl IterationCollector {
         parents: &BTreeMap<String, Option<String>>,
     ) {
         let frame = self.stack.pop().expect("balanced loop frames");
-        if !frame.has_registration {
+        if frame.registered.is_empty() && !frame.registers_unresolved {
             return;
         }
         let within = |capturer: &str, closure: &str| {
@@ -131,6 +154,23 @@ impl IterationCollector {
             .cloned()
             .collect();
         if cells.is_empty() {
+            return;
+        }
+        // Spec A-9: a registered callback must be a closure of this loop (or
+        // nested in one) that captures one of the loop's own bindings.
+        let registers_loop_closure = frame.registers_unresolved
+            || frame.registered.iter().any(|callback| {
+                frame
+                    .closures
+                    .iter()
+                    .any(|closure| within(callback, closure))
+                    && cells.iter().any(|name| {
+                        captured_by.get(name).is_some_and(|capturers| {
+                            capturers.iter().any(|capturer| within(capturer, callback))
+                        })
+                    })
+            });
+        if !registers_loop_closure {
             return;
         }
         let enclosing = self
@@ -226,14 +266,37 @@ impl OwnershipAnalyzer<'_> {
         self.iteration.note_closure(depth, closure_label);
     }
 
-    pub(crate) fn iteration_note_call(&mut self, callee: HirNodeId) {
-        let callee = &self.nodes[callee.0 as usize];
-        let Some(name) = callee.text.as_deref() else {
-            return;
-        };
-        if kali_common::is_deferred_registration_callee(name, !callee.children.is_empty()) {
-            self.iteration.note_registration();
+    /// The child index of call `children`'s callback argument when the call
+    /// is a deferred registration (`children[0]` is the callee): the first
+    /// argument of a bare scheduling callee, the second of `addEventListener`.
+    pub(crate) fn iteration_registration_callback_index(
+        &self,
+        children: &[HirNodeId],
+    ) -> Option<usize> {
+        let callee = &self.nodes[children.first()?.0 as usize];
+        let name = callee.text.as_deref()?;
+        let is_member = !callee.children.is_empty();
+        kali_common::is_deferred_registration_callee(name, is_member).then_some(if is_member {
+            2
+        } else {
+            1
+        })
+    }
+
+    /// Note a deferred registration of callback `argument`, already walked;
+    /// `functions_before` is `self.functions.len()` before that walk.
+    pub(crate) fn iteration_note_registration(
+        &mut self,
+        argument: HirNodeId,
+        functions_before: usize,
+    ) {
+        let callback = match self.nodes[argument.0 as usize].kind {
+            HirNodeKind::FunctionExpr => self.function_name_from_recent_functions(functions_before),
+            HirNodeKind::Ident => self.function_target_from_node(argument),
+            _ => None,
         }
+        .map_or(RegisteredCallback::Unresolved, RegisteredCallback::Function);
+        self.iteration.note_registration(&callback);
     }
 }
 

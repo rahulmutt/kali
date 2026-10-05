@@ -179,9 +179,7 @@ impl<'a> OwnershipAnalyzer<'a> {
             }
             HirNodeKind::CallExpr => {
                 self.arena_note_call_expr(&children);
-                if let Some(callee) = children.first().copied() {
-                    self.iteration_note_call(callee);
-                }
+                let registration_callback = self.iteration_registration_callback_index(&children);
                 let mut direct_call_escape_flags = None;
                 if let Some(callee) = children.first().copied() {
                     let callee_node = &self.nodes[callee.0 as usize];
@@ -215,6 +213,7 @@ impl<'a> OwnershipAnalyzer<'a> {
                         .as_ref()
                         .and_then(|flags| flags.get(index - 1).copied())
                         .unwrap_or(true);
+                    let functions_before = self.functions.len();
                     self.walk_scope_node(
                         child,
                         if should_escape {
@@ -223,6 +222,9 @@ impl<'a> OwnershipAnalyzer<'a> {
                             UseContext::Normal
                         },
                     );
+                    if registration_callback == Some(index) {
+                        self.iteration_note_registration(child, functions_before);
+                    }
                 }
             }
             HirNodeKind::NewExpr => {

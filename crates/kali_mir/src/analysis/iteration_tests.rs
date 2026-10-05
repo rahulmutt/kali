@@ -120,3 +120,38 @@ fn a_registration_in_a_function_outside_any_loop_flags_nothing() {
     let p = analyze("function reg(){ setTimeout(()=>{},0); } reg(); function m(){ for(let i=0;i<2;i++){ const g=()=>i; g(); } } m();");
     assert!(p.iteration_scopes.is_empty());
 }
+
+#[test]
+fn an_unrelated_registration_does_not_make_an_owner() {
+    // Spec A-9: `tick` is not a closure of the loop, so the synchronous `g`
+    // keeps the baseline lowering (`rv/cl3.js`).
+    let p = analyze("function tick(){ console.log(\"t\"); } function m(){ let total=100; for(let i=0;i<2;i++){ const k=i; const g=()=>k+total; console.log(g()); setTimeout(tick,0); } } m();");
+    assert!(p.iteration_scopes.is_empty(), "{:?}", p.iteration_scopes);
+}
+
+#[test]
+fn a_loop_bound_closure_name_registered_makes_an_owner() {
+    let p = analyze("function m(){ for(let i=0;i<2;i++){ const k=i; const cb=()=>console.log(k); setTimeout(cb,0); } } m();");
+    assert_eq!(p.iteration_scopes.len(), 1);
+    assert_eq!(p.iteration_scopes[0].cells, vec!["k".to_string()]);
+}
+
+#[test]
+fn a_nested_function_registration_of_a_loop_closure_makes_an_owner() {
+    let p = analyze("function m(){ for(let i=0;i<2;i++){ const k=i; const cb=()=>console.log(k); const r=()=>{ setTimeout(cb,0); }; r(); } } m();");
+    assert_eq!(p.iteration_scopes.len(), 1);
+    assert_eq!(p.iteration_scopes[0].label, "m{iter0}");
+}
+
+#[test]
+fn a_registered_loop_closure_that_captures_no_loop_binding_does_not_make_an_owner() {
+    let p = analyze("function m(){ let a=1; for(let i=0;i<2;i++){ const k=i; const g=()=>k; g(); setTimeout(()=>console.log(a),0); } } m();");
+    assert!(p.iteration_scopes.is_empty(), "{:?}", p.iteration_scopes);
+}
+
+#[test]
+fn an_unresolved_callback_keeps_the_loop_an_owner() {
+    // A parameter could hold a loop closure: fail towards an owner.
+    let p = analyze("function m(f){ for(let i=0;i<2;i++){ const k=i; const g=()=>k; g(); setTimeout(f,0); } } m(()=>{});");
+    assert_eq!(p.iteration_scopes.len(), 1);
+}
