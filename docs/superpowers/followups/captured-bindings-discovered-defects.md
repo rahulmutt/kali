@@ -147,6 +147,15 @@ over these programs.
 | A frame with no plan key: a method of an anonymous class expression | `function f(k){ const C = class { static m(){ return k; } }; return C.m(); } console.log(f(5));` | `5` | exit 1, E5506 `a closure `m` that captures `k` …: `k` is a parameter of `f``. `run` names the method by its bare name. | 0 |
 | A frame with no plan key: a method of an anonymous `export default class` | `export default class { static m(){ let s=1.5; const g=()=>s; return g(); } } console.log(1);` | `1` | exit 0, `1`. The method is never called, and a single-file `run` cannot call it. | 0 |
 
+### Residue at phase 2 (Task 11)
+
+Measured over the 33 `tools/array-return-probes/probes/cb_*.js` probes at HEAD. `run` refuses 12 with E5506. `check` refuses 11 of those. The one `check` admits is the residue:
+
+- `cb_v2`: a `setTimeout` callback capturing a rewritten parameter (`function f(k){ setTimeout(()=>console.log(k),0); } f(5);`). `run` refuses it through the deferred lane (its message reads "a captured local binding without closure lowering ...", not "that captures"); `check` exits 0 (R3).
+- `cb_two` is refused by both commands with the string-and-number conflict, so it is outside the residue.
+
+The classes of the A-2.6 residue, with no `cb_*` probe in them besides `cb_v2`: user-written parameter copies with a non-scalar or unproven layout; non-scalar layouts from non-literal initializers (call results, `new Map()`/`new Set()`; R7 remainder); arrows over a promoted object whose member access reaches the generic fallback (R13); frames with no plan key (anonymous class-expression methods); write-only deferred F64 captures. The shapes in the table below are the non-`cb` members.
+
 Notes:
 - **An anonymous `export default function` is not a gap.** `name_anon_functions` names it, so `check` and `run` both refuse its capture with the same line (cl4 in §2).
 - **The loop-record test is a superset of MIR's.** `capture_refusals` treats a loop as one that "may own a record" when it textually contains a deferred-registration call, which is wider than MIR's registration rule. It skips the captures under such a loop and leaves them to block-scoping. So `check` can admit a depth refusal that `run` makes. A capture across a registering loop is already admitted by `check` and refused by `run` with block-scoping's message (`function m(){ let s="x"; for(let i=0;i<2;i++){ setTimeout(()=>console.log(i),0); const g=()=>s; g(); } } m();`: node `0⏎1`; `run` exits 1 with `… captures `s` through a per-iteration record …`; `check` exits 0). That sits beside block-scoping's existing gap (`block-scoping-discovered-defects.md` §3, §7.8). A program that shows the depth case was not found: a loop with a dead `setTimeout` and a depth-2 capture ran node-equal under both commands.

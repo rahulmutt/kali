@@ -5,6 +5,18 @@
 # `<id>.js` for `cb_<id>.js`). "baseline" in a rationale is kali at 2ddf18c66,
 # quoted from tools/array-return-probes/baseline-cb.tsv (name verdict node_out
 # kali_out check_exit); node is v26.10.0 run with FORCE_COLOR unset.
+#
+# check/run differential (spec §3.4, A-2.6, Task 11): every cb_* probe that `run`
+# refuses for a captured binding has a `check` case. Measured at HEAD: cb_a1,
+# cb_a2, cb_a6, cb_d02, cb_fa, cb_fw, cb_v7, cb_v9, cb_w1, cb_w6 are refused by
+# `run` ("that captures") and by `check` (exit = "failure"); cb_two is refused
+# by both with the string/number conflict. The A-2.6 residue (run refuses, check
+# exits 0) over the cb_* probes is exactly cb_v2: a deferred callback over a
+# rewritten parameter (R3). Other residue classes, probe-less here: user-written
+# parameter copies with a non-scalar or unproven layout, non-scalar layouts from
+# non-literal initializers (R7 remainder), arrows over a promoted object reaching
+# the generic member fallback (R13), frames with no plan key (anonymous class
+# expression methods), write-only deferred F64 captures. See followups §3.
 
 [source]
 "a1.js" = """function f(){ let s="hi"; const g=()=>s; return g(); } console.log(f());
@@ -594,7 +606,8 @@ exit = "success"
 name = "check_admits_a_deferred_callback_over_a_parameter_a_known_gap"
 rationale = """§3.4, A-2.6: Task 5: `k` is a captured parameter; the pass does not distinguish the deferred lane. node prints `5`; baseline check exited 0 (row `cb_v2`).
 Task 7 (2026-10-05): the rewrite makes `k` a `let` local with an I64 repr and no literal initializer, so `check` admits it (A-2.6 TaggedVal residue) while `run` refuses it through the deferred lane. Known gap (ruling R3), not Task 7's fix. HEAD check prints `Checked 1 file(s)`, exit 0.
-Task 8 (2026-10-05): unchanged: `run` refuses through the deferred lane only; `check` admits it (R3 known gap, A-2.6 residue). HEAD check prints `Checked 1 file(s)`, exit 0."""
+Task 8 (2026-10-05): unchanged: `run` refuses through the deferred lane only; `check` admits it (R3 known gap, A-2.6 residue). HEAD check prints `Checked 1 file(s)`, exit 0.
+Task 11 (2026-10-05): this is the only cb_* probe in the A-2.6 residue: `run` exits 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder ...`, `check` exits 0."""
 args = ["check", "v2.js"]
 exit = "success"
 
