@@ -42,7 +42,7 @@ to §5:**
 - A-2.6: `check` lives in `kali_cli`, with a named residue.
 - A-2.7: run node with `FORCE_COLOR` unset.
 
-This plan adds one more narrowing, recorded as amendment A-3 in Task 9 Step 1:
+This plan adds one more narrowing, recorded as amendment A-4 in Task 9 Step 1:
 an F64 cell lowers `=`, `+=`, `-=`, `*=` and `/=`. Its `%=`, bitwise compound
 assignments and `++` / `--` keep their existing E5506.
 
@@ -1657,7 +1657,7 @@ git commit -m "feat(captured-bindings): promote TaggedVal i64 cells with a numer
 ### Task 9: F64 cells
 
 **Files:**
-- Modify: `docs/superpowers/specs/2026-10-05-captured-bindings-design.md` (amendment A-3)
+- Modify: `docs/superpowers/specs/2026-10-05-captured-bindings-design.md` (amendment A-4)
 - Modify: `crates/kali_codegen/src/closure.rs`, `closure_tests.rs`
 - Modify: `crates/kali_codegen/src/emit/closure_access.rs` (read, declaration, `=` and compound arms)
 - Modify: `crates/kali_codegen/src/emit/operators.rs:1724-1746` (`is_float_valued`'s identifier arm)
@@ -1667,12 +1667,12 @@ git commit -m "feat(captured-bindings): promote TaggedVal i64 cells with a numer
 **Interfaces:**
 - Produces: `FunctionEmitter::captured_cell_repr(&self, name: &str) -> Option<kali_common::Repr>`, the owner repr of a name `resolve_capture_access` lowers.
 
-- [ ] **Step 1: Record amendment A-3**
+- [ ] **Step 1: Record amendment A-4**
 
 Append to the spec's §6:
 
 ```markdown
-### A-3 (2026-10-05, plan Task 9): F64 writes are `=`, `+=`, `-=`, `*=`, `/=`
+### A-4 (2026-10-05, plan Task 9): F64 writes are `=`, `+=`, `-=`, `*=`, `/=`
 
 An F64 cell stores the double's bits through `i64.reinterpret_f64` /
 `f64.reinterpret_i64`, so the 8-byte slot and the store/load helpers stay
@@ -1780,7 +1780,7 @@ taken when `is_f64`:
 4. `I64ReinterpretF64`, then store.
 
 `%=` and the bitwise operators on an F64 cell return `None`, so they keep
-their existing E5506 (A-3).
+their existing E5506 (A-4).
 
 **`is_float_valued`** (`operators.rs`, the `0 =>` identifier arm): before
 `self.scalar_repr(name) == F64`, and only when `name` is not in
@@ -1819,7 +1819,7 @@ Expected: PASS, apart from movers you note for Task 12.
 
 ```bash
 git add crates docs/superpowers/specs/2026-10-05-captured-bindings-design.md
-git commit -m "feat(captured-bindings): F64 cells through i64 reinterpretation; check phase two (A-3)"
+git commit -m "feat(captured-bindings): F64 cells through i64 reinterpretation; check phase two (A-4)"
 ```
 
 ---
@@ -2035,7 +2035,7 @@ In §4, "left for later":
 - Object parameters;
 - the depth-2 lowering (with block-scoping §4);
 - deferred F64;
-- F64 `%=` / bitwise / `++` / `--` (A-3);
+- F64 `%=` / bitwise / `++` / `--` (A-4);
 - a captured `let` boolean;
 - frames with no plan key in `check`;
 - the A-2.6 residue.

@@ -124,7 +124,9 @@ output at the baseline, and all are refused at HEAD.
 There is a precedent: the deferred lane already refused this way at the
 baseline. `function f(k){ setTimeout(()=>console.log(k),0); } console.log(1);`
 prints `1` under node, and the baseline exits 1 with E5506. Phase 2 is expected
-to lift the cases that have a numeric proof (cl2). The rest stay refused (A-3).
+to lift cl2 (parameter-to-local rewrite plus a numeric proof). cl3 depends on
+the F64 cells and is measured in plan Task 9. cl1 and cl4 have no numeric proof,
+and the phase-2 triage (plan Task 12) settles them (A-3).
 
 ---
 

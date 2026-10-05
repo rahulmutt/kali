@@ -544,10 +544,10 @@ Measured at HEAD `b57e79e97` against baseline `2ddf18c66`, node run as
    `function f(k){ setTimeout(()=>console.log(k),0); } console.log(1);` prints
    `1` under node, and the baseline `run` exits 1 with E5506
    (`a captured param binding without closure lowering …`).
-3. **Phase 2.** Phase 2 is expected to lift the parameter and number cases
-   that have a numeric proof (cl2, whose only call site passes a number). The
-   rest stay refused: a parameter with no numeric call site (cl1, cl4) has no
-   proof, and every other unpromoted capture keeps §3.1's refusal. Whether
-   Task 9's F64 cells lift cl3 is measured there, not claimed here.
+3. **Phase 2.** cl2 is expected to lift through the parameter-to-local
+   rewrite (§3.2) plus a numeric proof, since its only call site passes a
+   number. cl3 depends on §3.3's F64 cells and is measured in plan Task 9.
+   cl1 and cl4 have no numeric call site, so no numeric proof; the phase-2
+   triage (plan Task 12) settles them.
 4. **Numbering.** The plan's Task 9 amendment ("F64 writes are `=`, `+=`,
    `-=`, `*=`, `/=`") is renumbered A-4.
