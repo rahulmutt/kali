@@ -372,7 +372,7 @@ Stage C C2 heap-write scope pin (whole-object REASSIGNMENT through the capture).
 Assert the program is REJECTED with `E5506` (the reject-don't-miscompile contract) rather than silently producing a value."""
 args = ["run", "sync_heap_capture_reassign_through_capture_rejected.js"]
 exit = "failure"
-stderr_contains = ["E5506"]
+stderr_contains = ["E5506", "operator '=' on an object reference is unavailable in the current phase"]
 
 [[case]]
 name = "deferred_test_callback_runs_with_its_env"

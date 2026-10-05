@@ -243,7 +243,7 @@ impl<'a> FunctionEmitter<'a> {
     /// `None` when `name` is this function's own local, is not one of its
     /// captures, or is a capture block-scoping's iteration refusals own.
     pub(crate) fn unlowered_capture_refusal(&self, name: &str) -> Option<String> {
-        if self.locals.contains_key(name) {
+        if self.locals.contains_key(name) || self.resolve_capture_access(name).is_some() {
             return None;
         }
         let reference = self.env_plan.captured_for(name)?;
