@@ -243,24 +243,27 @@ stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures aw
 
 [[case]]
 name = "a_compound_assignment_to_a_capture_keeps_its_refusal"
-rationale = """§3.1: compound assignment is unchanged. node prints `2.5`; baseline refused (row `cb_w3 REFUSES 2.5 error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') ... 0`)."""
+rationale = """§3.1: compound assignment is unchanged. node prints `2.5`; baseline refused (row `cb_w3 REFUSES 2.5 error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') ... 0`).
+Task 5 (2026-10-05): the check pass now refuses first, as the captured F64 `x` has no closure cell; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `x` is unavailable in the current phase: its value type has no closure cell` and no longer prints the compound-assignment message. Still E5506."""
 args = ["run", "w3.js"]
 exit = "failure"
-stderr_contains = ["E5506", "compound assignment lowering is unavailable"]
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
 
 [[case]]
 name = "an_update_expression_on_a_capture_keeps_its_refusal"
-rationale = """§3.1: update expressions are unchanged. node prints `6`; baseline refused (row `cb_w4 REFUSES 6 error[E5506]: update expression lowering is unavailable for binding 'k' ... 0`)."""
+rationale = """§3.1: update expressions are unchanged. node prints `6`; baseline refused (row `cb_w4 REFUSES 6 error[E5506]: update expression lowering is unavailable for binding 'k' ... 0`).
+Task 5 (2026-10-05): the check pass now refuses first, as `k` is a captured parameter; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: `k` is a parameter of `f`` and no longer prints the update-expression message. Still E5506."""
 args = ["run", "w4.js"]
 exit = "failure"
-stderr_contains = ["E5506", "update expression lowering is unavailable"]
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
 
 [[case]]
 name = "a_deferred_callback_over_a_parameter_keeps_its_refusal"
-rationale = """§3.1: the deferred-registration lane keeps its own allowlist and message. node prints `5`; baseline refused (row `cb_v2 REFUSES 5 error[E5506]: a captured param binding without closure lowering would read a placeholder ... 0`)."""
+rationale = """§3.1: the deferred-registration lane keeps its own allowlist and message. node prints `5`; baseline refused (row `cb_v2 REFUSES 5 error[E5506]: a captured param binding without closure lowering would read a placeholder ... 0`).
+Task 5 (2026-10-05): the check pass now refuses first, as `k` is a captured parameter, before the deferred lane in codegen is reached; HEAD prints `error[E5506]: a closure `__kali_fn_0` that captures `k` is unavailable in the current phase: `k` is a parameter of `f`` and no longer prints the deferred-lane message. Still E5506."""
 args = ["run", "v2.js"]
 exit = "failure"
-stderr_contains = ["E5506", "captured param binding without closure lowering"]
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
 
 # --- controls: lowered at baseline and still lowered ---
 
@@ -305,3 +308,185 @@ rationale = """A captured `let` boolean renders `1` as the uncaptured one does (
 args = ["run", "lb1.js"]
 exit = "success"
 stdout = "1\n"
+
+# --- `check` mirror (spec §3.4, A-2.6): the front-end pass refuses what codegen refuses ---
+
+[[case]]
+name = "check_refuses_a_closure_over_a_parameter"
+rationale = """§3.4, A-2.6: node prints `5`; baseline check exited 0 (row `cb_p1`)."""
+args = ["check", "p1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_parameter_used_in_arithmetic"
+rationale = """§3.4, A-2.6: node prints `6 5`; baseline check exited 0 (row `cb_v4`)."""
+args = ["check", "v4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_nested_function_declaration_over_a_parameter"
+rationale = """§3.4, A-2.6: the capturer is keyed `g`. node prints `5`; baseline check exited 0 (row `cb_v8`)."""
+args = ["check", "v8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "a closure `g` that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_over_an_arrow_parameter"
+rationale = """§3.4, A-2.6: node prints `5`; baseline check exited 0 (row `cb_v9`)."""
+args = ["check", "v9.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "is a parameter of"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_parameter_the_owner_reassigns"
+rationale = """§3.4, A-2.6: node prints `6`; baseline check exited 0 (row `cb_a3`)."""
+args = ["check", "a3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_writing_a_parameter"
+rationale = """§3.4, A-2.6: node prints `6`; baseline check exited 0 (row `cb_a4`)."""
+args = ["check", "a4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_fractional_parameter"
+rationale = """§3.4, A-2.6: node prints `1.5`; baseline check exited 0 (row `cb_a6`)."""
+args = ["check", "a6.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "`x` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_boolean_parameter"
+rationale = """§3.4, A-2.6: node prints `true`; baseline check exited 0 (row `cb_a7`)."""
+args = ["check", "a7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `b`", "`b` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_string_parameter"
+rationale = """§3.4, A-2.6: node prints `hi`; baseline check exited 0 (row `cb_v7`)."""
+args = ["check", "v7.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "`s` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_closure_reading_and_writing_a_parameter"
+rationale = """§3.4, A-2.6: node prints `12`; baseline check exited 0 (row `cb_rw1`)."""
+args = ["check", "rw1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_keeps_the_string_and_number_refusal"
+rationale = """§3.4, A-2.6: R5: already refused at baseline by the string/number conflict, under check too. node prints `1` then `a`; baseline check exited 1 with `binding `k` in `f` is used as both a string and a number` (row `cb_two`)."""
+args = ["check", "two.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_string_local"
+rationale = """§3.4, A-2.6: node prints `hi`; baseline check exited 0 (row `cb_a1`)."""
+args = ["check", "a1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_fractional_local"
+rationale = """§3.4, A-2.6: node prints `1.5`; baseline check exited 0 (row `cb_a2`)."""
+args = ["check", "a2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_writing_a_string_local"
+rationale = """§3.4, A-2.6: node prints `b`; baseline check exited 0 (row `cb_w1`)."""
+args = ["check", "w1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_writing_a_fractional_local"
+rationale = """§3.4, A-2.6: node prints `2.5`; baseline check exited 0 (row `cb_w2`)."""
+args = ["check", "w2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_computing_with_a_fractional_local"
+rationale = """§3.4, A-2.6: node prints `3.5`; baseline check exited 0 (row `cb_fa`)."""
+args = ["check", "fa.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_incrementing_a_fractional_local"
+rationale = """§3.4, A-2.6: node prints `2.75`; baseline check exited 0 (row `cb_fw`)."""
+args = ["check", "fw.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_boolean_literal_const"
+rationale = """§3.4, A-2.6: A-2.1. node prints `true`; baseline check exited 0 (row `cb_kb2`)."""
+args = ["check", "kb2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_closure_over_a_comparison_const"
+rationale = """§3.4, A-2.6: A-2.1. node prints `true`; baseline check exited 0 (row `cb_kb3`)."""
+args = ["check", "kb3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `b`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_a_capture_two_closures_away_in_a_deferred_callback"
+rationale = """§3.4, A-2.6: structural depth 2 (`o` and `m` both own captured bindings). node prints `15`; baseline check exited 0 (row `cb_d02`)."""
+args = ["check", "d02.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures away"]
+
+[[case]]
+name = "check_refuses_a_capture_two_closures_away"
+rationale = """§3.4, A-2.6: structural depth 2. node prints `15`; baseline check exited 0 (row `cb_w6`)."""
+args = ["check", "w6.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `a`", "`a` is two or more closures away"]
+
+[[case]]
+name = "check_refuses_a_compound_assignment_to_a_fractional_capture_as_value_type"
+rationale = """§3.4, A-2.6: Task 5: `x` is F64, so check refuses it as value type before codegen's compound-assignment refusal. node prints `2.5`; baseline check exited 0 (row `cb_w3`)."""
+args = ["check", "w3.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `x`", "its value type has no closure cell"]
+
+[[case]]
+name = "check_refuses_an_update_expression_on_a_parameter_as_a_parameter"
+rationale = """§3.4, A-2.6: Task 5: `k` is a captured parameter. node prints `6`; baseline check exited 0 (row `cb_w4`)."""
+args = ["check", "w4.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_refuses_a_deferred_callback_over_a_parameter"
+rationale = """§3.4, A-2.6: Task 5: `k` is a captured parameter; the pass does not distinguish the deferred lane. node prints `5`; baseline check exited 0 (row `cb_v2`)."""
+args = ["check", "v2.js"]
+exit = "failure"
+stderr_contains = ["E5506", "that captures `k`", "`k` is a parameter of `f`"]
+
+[[case]]
+name = "check_admits_a_local_copied_from_a_parameter_the_known_residue"
+rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. Recorded in the followups gap table."""
+args = ["check", "p2.js"]
+exit = "success"
+
+[[case]]
+name = "check_admits_a_parameter_copy_the_owner_also_logs_the_known_residue"
+rationale = """A-2.6 residue: `n` is a TaggedVal local; `run` refuses it, `check` cannot see MIR layouts and exits 0. node prints `5` then `5`. Recorded in the followups gap table."""
+args = ["check", "e5.js"]
+exit = "success"

@@ -1,6 +1,7 @@
 //! Build pipeline: compile, eval-compat, metadata, entrypoint validation, and export/signature/type collection.
 
 pub mod block_scope_rename;
+mod capture_refusals;
 mod compile;
 mod entrypoint;
 mod eval;

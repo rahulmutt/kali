@@ -888,6 +888,17 @@ fn analyze_source_file_inner(
         if has_errors(&diagnostics) {
             return Err(diagnostics);
         }
+
+        // Captured-bindings spec §3.4 / A-2.6: the `check` mirror of the codegen
+        // capture refusals. `run` reaches it too; codegen's refusal is the backstop.
+        diagnostics.extend(crate::build::capture_refusals::capture_refusals(
+            &mut parsed.statements,
+            &repr_table,
+            crate::build::capture_refusals::Phase::One,
+        ));
+        if has_errors(&diagnostics) {
+            return Err(diagnostics);
+        }
     }
 
     Ok(AnalyzedSource {
