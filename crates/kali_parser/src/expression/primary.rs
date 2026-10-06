@@ -36,6 +36,7 @@ impl Parser {
                         if let Some(Statement::BlockStatement(block)) = self.parse_block_statement()
                         {
                             return Expression::FunctionExpression(Box::new(FunctionExpression {
+                                returnType: None,
                                 id: None,
                                 params: vec![FunctionParam { name }],
                                 body: Some(Box::new(block)),

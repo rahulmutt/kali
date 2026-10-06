@@ -1,0 +1,32 @@
+cb_a1	SILENT	hi	0	0
+cb_a2	SILENT	1.5	0	0
+cb_a3	SILENT	6	0	0
+cb_a4	SILENT	6	5	0
+cb_a6	SILENT	1.5	0	0
+cb_a7	SILENT	true	0	0
+cb_d02	SILENT	15	10	0
+cb_e1	CORRECT	5	5	0
+cb_e4	CORRECT	5	5	0
+cb_e5	SILENT	5|5	5|0	0
+cb_fa	OTHER	3.5	error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[43]	0
+cb_fw	OTHER	2.75	error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[43]	0
+cb_kb1	CORRECT	true	true	0
+cb_kb2	SILENT	true	1	0
+cb_kb3	SILENT	true	1	0
+cb_lb1	SILENT	true	1	0
+cb_ok_v6	CORRECT	5	5	0
+cb_p1	SILENT	5	0	0
+cb_p2	SILENT	5	0	0
+cb_rw1	SILENT	12	3	0
+cb_two	REFUSES	1|a	error[E5506]: binding `k` in `f` is used as both a string and a number	1
+cb_v2	REFUSES	5	error[E5506]: a captured param binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)	0
+cb_v4	SILENT	6 5	1 5	0
+cb_v7	SILENT	hi	0	0
+cb_v8	SILENT	5	0	0
+cb_v9	SILENT	5	0	0
+cb_w1	SILENT	b	a	0
+cb_w2	OTHER	2.5	error[E4201]: failed to load WASM module: failed to compile: wasm[0]::function[43]	0
+cb_w3	REFUSES	2.5	error[E5506]: compound assignment lowering is unavailable for binding 'x' (operator '+=') unless it is a mutable local binding; use a mutable variable or the later compatibility path	0
+cb_w4	REFUSES	6	error[E5506]: update expression lowering is unavailable for binding 'k' unless it is a mutable local binding; use a mutable variable or the later compatibility path	0
+cb_w5	SILENT	true	1	0
+cb_w6	SILENT	15	10	0

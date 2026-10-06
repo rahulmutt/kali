@@ -51,10 +51,10 @@ pub(crate) fn env_save_local_name() -> String {
 /// namespace whose repr decides promotion — the ancestor that actually holds
 /// the cell (see [`CapturedRef::owner`](kali_mir::env_plan::CapturedRef)).
 ///
-/// Two promotable shapes:
+/// Promotable shapes:
 /// - **C1 scalar-i64**: a scalar cell whose repr is the default `I64` (a raw
-///   8-byte slot + i64 arithmetic). An `F64`/`String`/bool scalar is NOT
-///   promoted (it would corrupt the value) — baseline.
+///   8-byte slot + i64 arithmetic). A `String`/bool scalar is NOT promoted (it
+///   would corrupt the value), nor an `F64` one at `Baseline` — see A-4 below.
 /// - **C2 fixed-shape object**: a NON-scalar (heap-pointer) cell whose repr is
 ///   `Repr::Object(_)`. The cell holds the object's i64 base pointer, stored and
 ///   loaded exactly like a scalar-i64 cell. Gating on `Repr::Object` (not merely
@@ -62,24 +62,92 @@ pub(crate) fn env_save_local_name() -> String {
 ///   heap cells OUT — their repr is never `Object`, so a closure-as-value
 ///   capture (`nested-wrapper-pruning`) stays byte-identical to baseline.
 ///
-/// Everything else falls through to the pre-Stage-C local/fold/placeholder
-/// path: no new machinery, no new E5506.
+/// - **A-1 tagged-i64** (captured-bindings): a NON-scalar cell whose MIR
+///   layout is `TaggedVal` (a parameter's layout, and a local copied from
+///   one), whose repr is `I64`, and whose binding is proven numeric
+///   (`ReprTable::binding_is_proven_numeric`). It applies only under
+///   [`Widening::CapturedBindings`] with `is_tagged: true`; `Struct`, `Array`
+///   and `Closure` heap cells (`is_tagged: false`) stay out.
+/// - **A-4 F64** (captured-bindings spec A-4): under any
+///   [`Widening::CapturedBindings`], an `F64` repr is admitted wherever `I64`
+///   is (a scalar cell, or a proven-numeric `TaggedVal` cell). The cell holds
+///   the double's bits (`i64.reinterpret_f64` / `f64.reinterpret_i64`), so the
+///   slot and the load/store helpers stay untyped. `Baseline` (iteration
+///   records, the deferred allowlist) keeps refusing F64 (spec §1.1).
+///
+/// Everything else is not promoted. A capture this predicate does not
+/// promote is refused with E5506 at its read or write site
+/// (`FunctionEmitter::unlowered_capture_refusal`, captured-bindings spec
+/// §3.1) instead of reading the zero placeholder; this function's own
+/// unpromoted bindings keep the pre-Stage-C local/fold path.
 pub(crate) fn cell_is_promotable(
     repr_table: &kali_common::ReprTable,
     owner: &str,
     name: &str,
     is_scalar: bool,
+    widening: Widening,
 ) -> bool {
-    if repr_table.scalar(owner, name) == kali_common::Repr::AbortHandle {
+    let repr = repr_table.scalar(owner, name);
+    if repr == kali_common::Repr::AbortHandle {
         // Stage P3: an abort handle is an inline i64 pointer to a
         // never-reclaimed global cell — by-value promotion is sound on either
         // side of the coarse `is_scalar` bit (the pointee outlives every frame).
         return true;
     }
+    // Captured-bindings A-4 (followups §6 CB-1): an F64 cell stores the
+    // double's bits, and only under the captured-bindings widening.
+    let numeric = repr == kali_common::Repr::I64
+        || (repr == kali_common::Repr::F64
+            && matches!(widening, Widening::CapturedBindings { .. }));
     if is_scalar {
-        repr_table.scalar(owner, name) == kali_common::Repr::I64
-    } else {
-        matches!(repr_table.scalar(owner, name), kali_common::Repr::Object(_))
+        return numeric;
+    }
+    if matches!(repr, kali_common::Repr::Object(_)) {
+        return true;
+    }
+    // Captured-bindings A-1: a TaggedVal cell promotes only on positive
+    // numeric evidence, and only where the widening applies.
+    widening.admits_tagged() && numeric && repr_table.binding_is_proven_numeric(owner, name)
+}
+
+/// Which promotion rules apply at a call site (captured-bindings followups
+/// §6 CB-1): a bool could not express "function site, scalar F64" without
+/// also widening the iteration and deferred sites spec §1.1 keeps out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Widening {
+    /// Iteration-plan cells, the deferred-registration allowlist, and the
+    /// active-iteration branch: the pre-captured-bindings verdict, unchanged.
+    Baseline,
+    /// Function-plan cells and captured refs: the captured-bindings widening
+    /// applies. `is_tagged` is the cell's MIR-layout fact (EnvCell/CapturedRef).
+    CapturedBindings { is_tagged: bool },
+}
+
+impl Widening {
+    /// Whether a `TaggedVal` cell may promote here (A-1 tagged-i64).
+    pub(crate) fn admits_tagged(self) -> bool {
+        self == Widening::CapturedBindings { is_tagged: true }
+    }
+
+    /// The widening for captured ref `reference`, decided by the plan that
+    /// owns its cell: an iteration plan's cell is promoted at `Baseline`
+    /// (spec §1.1), a function plan's under the captured-bindings widening.
+    /// Every site that gates on a captured ref's promotion uses this, so it
+    /// passes the arguments its owner's promotion site (`lower.rs`) passed.
+    pub(crate) fn for_captured_ref(
+        plans: &std::collections::BTreeMap<String, kali_mir::EnvPlan>,
+        reference: &kali_mir::CapturedRef,
+    ) -> Widening {
+        let owned_by_iteration = plans
+            .get(&reference.owner)
+            .is_some_and(|plan| plan.iteration_of.is_some());
+        if owned_by_iteration {
+            Widening::Baseline
+        } else {
+            Widening::CapturedBindings {
+                is_tagged: reference.is_tagged,
+            }
+        }
     }
 }
 
@@ -161,3 +229,7 @@ pub(crate) fn emit_cell_store(
     function.instruction(&Instruction::LocalGet(scratch_local)); // value on top
     function.instruction(&Instruction::I64Store(env_memarg(8 + offset)));
 }
+
+#[cfg(test)]
+#[path = "closure_tests.rs"]
+mod closure_tests;

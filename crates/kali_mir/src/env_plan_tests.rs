@@ -16,7 +16,9 @@ fn scalar_capture_one_level_produces_owner_cell_and_ref() {
         vec![EnvCell {
             name: "c".into(),
             offset: 0,
-            is_scalar: true
+            is_scalar: true,
+            is_parameter: false,
+            is_tagged: false,
         }]
     );
 
@@ -29,6 +31,8 @@ fn scalar_capture_one_level_produces_owner_cell_and_ref() {
             depth: 1,
             offset: 0,
             is_scalar: true,
+            is_parameter: false,
+            is_tagged: false,
             owner: "outer".into(),
             through_iteration: false,
         }]
@@ -57,6 +61,8 @@ fn grandparent_capture_skips_no_cell_intermediate_depth_one() {
             depth: 1,
             offset: 0,
             is_scalar: true,
+            is_parameter: false,
+            is_tagged: false,
             owner: "a".into(),
             through_iteration: false,
         }]
@@ -122,7 +128,9 @@ fn anonymous_owner_is_first_class_capture_ref_not_dropped() {
         vec![EnvCell {
             name: "inner".into(),
             offset: 0,
-            is_scalar: true
+            is_scalar: true,
+            is_parameter: false,
+            is_tagged: false,
         }]
     );
 
@@ -163,6 +171,8 @@ fn anonymous_no_cell_intermediate_is_transparent_depth_one() {
             depth: 1,
             offset: 0,
             is_scalar: true,
+            is_parameter: false,
+            is_tagged: false,
             owner: "outer".into(),
             through_iteration: false,
         }],
@@ -224,7 +234,9 @@ fn an_iteration_owner_holds_the_loop_cells_and_the_closure_reads_them_at_depth_o
         vec![EnvCell {
             name: "i".into(),
             offset: 0,
-            is_scalar: true
+            is_scalar: true,
+            is_parameter: false,
+            is_tagged: false,
         }]
     );
     assert!(!plans.get("m").map(|f| f.owns_env).unwrap_or(false));
@@ -294,4 +306,54 @@ fn a_program_without_owners_gets_the_same_plans_as_before() {
         .values()
         .flat_map(|plan| plan.captured.iter())
         .all(|r| !r.through_iteration));
+}
+
+/// Captured-bindings A-1: a parameter's layout is TaggedVal, so its cell is
+/// a heap cell; the plan says so, and that it is a parameter.
+#[test]
+fn a_captured_parameter_cell_is_tagged_and_a_parameter() {
+    let analysis = crate::test_support::analyze("function f(k){ const g=()=>k; return g(); }");
+    let plans = derive_env_plans(&analysis);
+    assert_eq!(
+        plans["f"].cells,
+        vec![EnvCell {
+            name: "k".into(),
+            offset: 0,
+            is_scalar: false,
+            is_parameter: true,
+            is_tagged: true,
+        }]
+    );
+    let reference = plans["__kali_fn_0"]
+        .captured_for("k")
+        .expect("g captures k");
+    assert_eq!(reference.depth, 1);
+    assert!(reference.is_parameter);
+    assert!(reference.is_tagged);
+}
+
+#[test]
+fn a_local_copied_from_a_parameter_is_tagged_but_not_a_parameter() {
+    let analysis =
+        crate::test_support::analyze("function f(k){ let n=k; const g=()=>n; return g(); }");
+    let cell = derive_env_plans(&analysis)["f"]
+        .cell_for("n")
+        .cloned()
+        .expect("n cell");
+    assert!(cell.is_tagged);
+    assert!(!cell.is_parameter);
+    assert!(!cell.is_scalar);
+}
+
+#[test]
+fn a_local_from_arithmetic_is_scalar_and_not_tagged() {
+    let analysis =
+        crate::test_support::analyze("function f(k){ let n=k+0; const g=()=>n; return g(); }");
+    let cell = derive_env_plans(&analysis)["f"]
+        .cell_for("n")
+        .cloned()
+        .expect("n cell");
+    assert!(cell.is_scalar);
+    assert!(!cell.is_tagged);
+    assert!(!cell.is_parameter);
 }

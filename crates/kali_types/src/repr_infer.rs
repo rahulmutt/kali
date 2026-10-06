@@ -841,6 +841,9 @@ struct ReprInfer {
     /// (`count += 1`) is proven from its RHS, since the implied `count op rhs`
     /// is exactly the self-reference form.
     numeric_binding_candidates: BTreeSet<(String, String)>,
+    /// `(scope, binding)` of each `const` with a boolean-valued initializer
+    /// (captured-bindings A-2.1); keyed like `numeric_binding_candidates`.
+    boolean_consts: std::collections::HashSet<(String, String)>,
     /// The default-deny half of `numeric_binding_candidates`: any write this
     /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
     /// the C-6 leak), a declarator with NO initializer (`let x;` is
@@ -3205,6 +3208,10 @@ impl ReprInfer {
                 }
                 for d in &decl.declarations {
                     self.note_fn_alias(func, &decl.kind, &d.id, d.init.as_ref());
+                    if decl.kind == "const" && d.init.as_ref().is_some_and(is_boolean_valued_init) {
+                        let scope = self.binding_scope(func, &d.id);
+                        self.boolean_consts.insert((scope, d.id.clone()));
+                    }
                 }
             }
             Statement::BlockStatement(block) => self.collect_local_names(func, &block.body),
@@ -7425,6 +7432,7 @@ impl ReprInfer {
             .cloned()
             .collect();
         table.set_numeric_bindings(numeric_bindings);
+        table.set_boolean_consts(std::mem::take(&mut self.boolean_consts));
 
         // Growable-array promotion (throw-fallout Stage 4) — the repr half
         // of the gate, over the Phase A3 syntactic candidates. A candidate
@@ -7817,6 +7825,19 @@ fn strip_parenthesized(expr: &Expression) -> &Expression {
         current = &inner.expression;
     }
     current
+}
+
+/// Captured-bindings A-2.1: a boolean literal, a comparison, or `!`.
+fn is_boolean_valued_init(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Literal(LiteralValue::Boolean(_)) => true,
+        Expression::BinaryExpression(binary) => matches!(
+            binary.operator.as_str(),
+            "==" | "===" | "!=" | "!==" | "<" | ">" | "<=" | ">="
+        ),
+        Expression::UnaryExpression(unary) => unary.operator == "!",
+        _ => false,
+    }
 }
 
 /// R-06 allowlist-at-the-choke (task review round 2, 2026-07-24): `true`

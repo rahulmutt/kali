@@ -533,6 +533,12 @@ pub(crate) struct FunctionEmitter<'a> {
     /// keyed by NAME ONLY, for the same reason
     /// `captured_cell_bigint_targets` is.
     pub(crate) captured_cell_float_targets: &'a HashSet<String>,
+    /// Captured-bindings spec A-4 (followups §6 CB-14): the child node
+    /// `emit_aggregate_literal`'s sequence loop is emitting, whose value is
+    /// dropped by construction (an expression statement). A capturer's
+    /// assignment to an F64 cell lowers only when it is this node; anywhere
+    /// else its value is a read of the cell and is refused.
+    pub(crate) discarded_value_node: Option<LirNodeId>,
     /// R-11 T6 review Important 1: whole-program FLOAT-taint set for promoted
     /// MODULE-GLOBAL scalars (`collect_float_tainted_module_scalars`) — the
     /// module-global twin of `captured_cell_float_targets`, and the only guard
@@ -779,6 +785,7 @@ impl<'a> FunctionEmitter<'a> {
             .collect(),
             active_iterations: Vec::new(),
             emitted_iterations: BTreeSet::new(),
+            discarded_value_node: None,
         }
     }
 
@@ -1250,13 +1257,21 @@ impl<'a> FunctionEmitter<'a> {
     /// owner's decision: an owner F64 that did NOT promote leaves no cell, yet the
     /// capturer would read/write one — a silent miscompile of a shape that was
     /// E5506 pre-Stage-C.
+    ///
+    /// Captured-bindings A-1: under [`crate::closure::Widening::CapturedBindings`]
+    /// with `is_tagged`, a proven-numeric `TaggedVal` i64 cell is admitted too —
+    /// the same tagged-i64 shape `cell_is_promotable` promotes.
     pub(crate) fn promotable_scalar_cell_in(
         &self,
         owner: &str,
         name: &str,
         is_scalar: bool,
+        widening: crate::closure::Widening,
     ) -> bool {
-        is_scalar && self.repr_table.scalar(owner, name) == kali_common::Repr::I64
+        self.repr_table.scalar(owner, name) == kali_common::Repr::I64
+            && (is_scalar
+                || (widening.admits_tagged()
+                    && self.repr_table.binding_is_proven_numeric(owner, name)))
     }
 
     /// True when THIS function owns a promotable env — i.e. `lower.rs` reserved

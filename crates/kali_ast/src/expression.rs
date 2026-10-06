@@ -155,6 +155,7 @@ impl MemberExpression {
 // ============== MISSING TYPES TO ADD ==============
 
 /// Function expression
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FunctionExpression {
     pub id: Option<String>,
@@ -166,6 +167,12 @@ pub struct FunctionExpression {
     /// is lexical (class-instances spec A-7). `false` for `function` syntax.
     #[serde(default)]
     pub is_arrow: bool,
+    /// The return-type annotation of an expression-bodied arrow that the
+    /// captured-parameter rewrite gave a block body (captured-bindings §3.2:
+    /// only the parameter's spelling changes). Mirrors
+    /// `ArrowFunctionExpression::returnType`; the parser never sets it.
+    #[serde(default)]
+    pub returnType: Option<String>,
 }
 
 /// Function param

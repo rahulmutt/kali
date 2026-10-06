@@ -54,8 +54,8 @@ and the same case under `[matrix] ext = ["js","ts"]` becomes
 unbounded; the family is just the directory prefix, which is what makes
 `-- switch/` work as a filter.
 
-Today's families: `array/`, `browser/`, `math/`, `misc/`, `nullish/`, `object/`,
-`runtime/`, `soundness/`, `string/`, `switch/`.
+Today's families: `array/`, `browser/`, `closure/`, `math/`, `misc/`, `nullish/`,
+`object/`, `runtime/`, `soundness/`, `string/`, `switch/`.
 
 `ignore = true` marks a case that is registered and listed but not run — it
 mirrors a `#[ignore]` the source carried, i.e. a known-broken behaviour the case

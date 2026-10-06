@@ -21,7 +21,7 @@ pub use registry::*;
 mod messages;
 pub use messages::*;
 mod display_name;
-pub use display_name::display_names_in;
+pub use display_name::{captured_param_spelling, display_names_in};
 mod registration;
 pub use registration::is_deferred_registration_callee;
 mod process_kill;

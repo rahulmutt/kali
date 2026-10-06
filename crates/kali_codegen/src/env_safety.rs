@@ -218,8 +218,18 @@ pub(crate) fn env_capture_safety_diagnostics(
     //    (the prologue publishes a record iff >=1 owned cell is promotable).
     let promotable_owner = |name: &str| -> bool {
         env_plans.get(name).is_some_and(|plan| {
+            // Function plans' own cells: the arguments `lower.rs` promoted
+            // them with (captured-bindings widening).
             plan.cells.iter().any(|cell| {
-                crate::closure::cell_is_promotable(repr_table, name, &cell.name, cell.is_scalar)
+                crate::closure::cell_is_promotable(
+                    repr_table,
+                    name,
+                    &cell.name,
+                    cell.is_scalar,
+                    crate::closure::Widening::CapturedBindings {
+                        is_tagged: cell.is_tagged,
+                    },
+                )
             })
         })
     };

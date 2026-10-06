@@ -30,7 +30,10 @@ impl<'a> FunctionEmitter<'a> {
             }
         } else {
             for child in &node.children {
+                // Each child's value is dropped below (`discarded_value_node`).
+                let outer = self.discarded_value_node.replace(*child);
                 let produced = self.emit_node(function, *child, true);
+                self.discarded_value_node = outer;
                 if produced.produced {
                     function.instruction(&Instruction::Drop);
                 }
@@ -372,6 +375,14 @@ impl<'a> FunctionEmitter<'a> {
                     return true;
                 }
             }
+        }
+
+        // Captured-bindings spec §3.1 (followups §6 CB-9): a store (plain or compound)
+        // to a member of a capture this function did not lower is refused
+        // rather than written through the placeholder.
+        if let Some(message) = self.unlowered_capture_member_refusal(self.node(left)) {
+            self.deny_e5506(function, &message);
+            return true;
         }
 
         // Stage P5 T-new-E: a bare-identifier reassignment `s = String(1n)`
@@ -827,6 +838,13 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         let Some(name) = self.assignment_target_name(node, left) else {
+            // Captured-bindings followups §6 CB-13: the member store fallback (no
+            // lane stored it) for a member rooted at any capture of this
+            // function — `return false` would drop the store.
+            if let Some(message) = self.capture_member_fallback_refusal(self.node(left)) {
+                self.deny_e5506(function, &message);
+                return true;
+            }
             if op == "=" {
                 return false;
             }
@@ -986,8 +1004,19 @@ impl<'a> FunctionEmitter<'a> {
             // its env cell (read-modify-write for compound ops). `Some` iff
             // `name` is in this function's env plan (handled or E5506-rejected);
             // only genuinely unresolvable names fall through to the E5506 below.
-            if let Some(handled) = self.try_emit_captured_assign(function, op, &name, right) {
+            if let Some(handled) = self.try_emit_captured_assign(function, id, op, &name, right) {
                 return handled;
+            }
+        }
+        // Captured-bindings spec §3.1: a plain `=` to a capture the lane could
+        // not lower used to drop the store (or emit invalid wasm). Compound
+        // and update keep their existing messages below.
+        if op == "=" {
+            if let Some(message) = self.unlowered_capture_refusal(&name) {
+                self.diagnostics
+                    .push(Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message));
+                function.instruction(&Instruction::I64Const(0));
+                return true;
             }
         }
         let Some(index) = self.locals.get(&name).copied() else {

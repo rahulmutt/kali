@@ -255,3 +255,32 @@ fn unsupported_typeof_operand_rejects_unproven_member_read() {
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
 }
+
+/// Captured-bindings spec §3.1 (followups §6 CB-9): a member read, store, compound store or
+/// update off a capture the function did not lower is refused with the
+/// value-type reason, never lowered through the zero placeholder.
+#[test]
+fn a_member_access_off_an_unlowered_capture_is_refused() {
+    for body in ["return o.a;", "o.a = 2;", "o.a += 2;", "o.a++;"] {
+        let source = format!(
+            "function f(p){{ const o=p; const g=()=>{{ {body} }}; return g(); }}\n\
+             const x={{a:1}}; console.log(f(x));\n"
+        );
+        let (program, env_plans) = parse_and_lower_lir_with_env_plans(&source);
+        let mut ctx = CodegenCtx::new(TargetConfig {
+            max_specializations: 16,
+            compat_eval: false,
+            coverage: false,
+        });
+        ctx.env_plans = env_plans;
+        let result = lower_lir_to_wasm(&mut ctx, &program);
+        let first = result.diagnostics.first();
+        assert!(
+            first.is_some_and(|diag| diag.code == Some(e5::FEATURE_UNAVAILABLE as u32)
+                && diag.message.contains("that captures `o`")
+                && diag.message.contains("its value type has no closure cell")),
+            "{source}: {:?}",
+            result.diagnostics
+        );
+    }
+}

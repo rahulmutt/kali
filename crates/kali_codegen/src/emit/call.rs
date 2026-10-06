@@ -4486,7 +4486,7 @@ impl<'a> FunctionEmitter<'a> {
     /// the coercion proof and the emission cannot disagree. That arm always
     /// produces a plain integer (a folded `I64Const` or the integer-math
     /// import's result), never a tagged handle.
-    fn is_integer_rounding_math_call(&self, node: &LirNode) -> bool {
+    pub(crate) fn is_integer_rounding_math_call(&self, node: &LirNode) -> bool {
         if node.kind != LirNodeKind::Call {
             return false;
         }

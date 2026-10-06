@@ -30,7 +30,7 @@ impl<'a> Renamer<'a> {
 }
 
 impl Hooks for Renamer<'_> {
-    fn enter(&mut self, _kind: ScopeKind) {
+    fn enter(&mut self, _kind: ScopeKind, _label: Option<&str>) {
         self.stack.push(self.next_scope);
         self.next_scope += 1;
     }

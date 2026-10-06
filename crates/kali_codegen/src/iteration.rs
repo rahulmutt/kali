@@ -205,12 +205,17 @@ pub(crate) fn lowered_capture_owners<'p>(
     plan.captured
         .iter()
         .filter(|reference| {
+            // A capturer's ref: the widening its owner's promotion site used
+            // (baseline for an iteration-plan owner, captured-bindings for a
+            // function-plan owner), so this set is exactly what
+            // `resolve_capture_access_inner` lowers.
             reference.depth == 1
                 && crate::closure::cell_is_promotable(
                     repr_table,
                     owner_repr_namespace(plans, &reference.owner),
                     &reference.name,
                     reference.is_scalar,
+                    crate::closure::Widening::for_captured_ref(plans, reference),
                 )
         })
         .map(|reference| reference.owner.as_str())
@@ -247,8 +252,15 @@ pub(crate) fn iteration_plan_has_records(
 ) -> bool {
     plans.get(label).is_some_and(|plan| {
         let namespace = owner_repr_namespace(plans, label);
+        // iteration cells are not widened (captured-bindings §1.1)
         plan.cells.iter().any(|cell| {
-            crate::closure::cell_is_promotable(repr_table, namespace, &cell.name, cell.is_scalar)
+            crate::closure::cell_is_promotable(
+                repr_table,
+                namespace,
+                &cell.name,
+                cell.is_scalar,
+                crate::closure::Widening::Baseline,
+            )
         })
     })
 }
@@ -310,11 +322,13 @@ impl<'a> crate::FunctionEmitter<'a> {
     /// in the record, not a local): `lower.rs`'s predicate, in the namespace
     /// of the loop's function.
     fn iteration_cell_is_promotable(&self, label: &str, name: &str, is_scalar: bool) -> bool {
+        // iteration cells are not widened (captured-bindings §1.1)
         crate::closure::cell_is_promotable(
             self.repr_table,
             owner_repr_namespace(self.env_plans, label),
             name,
             is_scalar,
+            crate::closure::Widening::Baseline,
         )
     }
 

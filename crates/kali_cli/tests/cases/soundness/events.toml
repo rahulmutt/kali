@@ -416,10 +416,14 @@ Task 9 C-1 FINAL — DEFAULT-DENY over an allowlist at the shared deferred-callb
 
 p36e: setTimeout callback captures a PARAM. node: "i=6"; kali pre-fix: "i=0" (the param never reaches the deferred env). Deny E5506 (param class).
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured parameter before the deferred lane in codegen is reached. node prints `i=6`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured param binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `i` is unavailable in the current phase: `i` is a parameter of `main``. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 12; class: other, still refused, only the message changed): phase 2 rewrites a captured parameter into a `let` initialized from the renamed parameter (Task 7), so the front end no longer refuses it with the parameter reason, and the codegen deferred-lane allowlist (which stays at `Widening::Baseline`) refuses the rewritten local instead. node prints `i=6`. kali at phase 1 (`d640fbf26`) exited 1 with `error[E5506]: a closure `__kali_fn_0` that captures `i` is unavailable in the current phase: `i` is a parameter of `main``; HEAD exits 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)` (`check` now exits 0: the deferred-lane residue named in the captured-bindings followups §3, ruling R3). The needle moves back to the deferred lane's message; the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_settimeout_captured_param_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured param binding"]
+stderr_contains = ["E5506", "a captured local binding without closure lowering would read a placeholder"]
 
 [[case]]
 name = "deferred_queuemicrotask_captured_param_fails_closed"
@@ -431,10 +435,14 @@ Task 9 C-1 FINAL — DEFAULT-DENY over an allowlist at the shared deferred-callb
 
 p55: queueMicrotask callback captures a PARAM. node: "i=3"; kali pre-fix: "i=0". Deny E5506 (param class) — the queueMicrotask surface inherits it.
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured parameter before the deferred lane in codegen is reached. node prints `i=3`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured param binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `i` is unavailable in the current phase: `i` is a parameter of `main``. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 12; class: other, still refused, only the message changed): phase 2 rewrites a captured parameter into a `let` initialized from the renamed parameter (Task 7), so the front end no longer refuses it with the parameter reason, and the codegen deferred-lane allowlist (which stays at `Widening::Baseline`) refuses the rewritten local instead. node prints `i=3`. kali at phase 1 (`d640fbf26`) exited 1 with `error[E5506]: a closure `__kali_fn_0` that captures `i` is unavailable in the current phase: `i` is a parameter of `main``; HEAD exits 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)` (`check` now exits 0: the deferred-lane residue named in the captured-bindings followups §3, ruling R3). The needle moves back to the deferred lane's message; the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_queuemicrotask_captured_param_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured param binding"]
+stderr_contains = ["E5506", "a captured local binding without closure lowering would read a placeholder"]
 
 [[case]]
 name = "deferred_event_listener_captured_param_fails_closed"
@@ -446,10 +454,14 @@ Task 9 C-1 FINAL — DEFAULT-DENY over an allowlist at the shared deferred-callb
 
 p54: an addEventListener listener captures a PARAM, fired by a synchronous dispatchEvent. node: "p=7"; kali pre-fix: "p=0". Deny E5506 (param class) — the event surface (callback at children[2]) inherits the same choke point.
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured parameter before the deferred lane in codegen is reached. node prints `p=7`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured param binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `p` is unavailable in the current phase: `p` is a parameter of `main``. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 12; class: other, still refused, only the message changed): phase 2 rewrites a captured parameter into a `let` initialized from the renamed parameter (Task 7), so the front end no longer refuses it with the parameter reason, and the codegen deferred-lane allowlist (which stays at `Widening::Baseline`) refuses the rewritten local instead. node prints `p=7`. kali at phase 1 (`d640fbf26`) exited 1 with `error[E5506]: a closure `__kali_fn_0` that captures `p` is unavailable in the current phase: `p` is a parameter of `main``; HEAD exits 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)` (`check` now exits 0: the deferred-lane residue named in the captured-bindings followups §3, ruling R3). The needle moves back to the deferred lane's message; the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_event_listener_captured_param_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured param binding"]
+stderr_contains = ["E5506", "a captured local binding without closure lowering would read a placeholder"]
 
 [[case]]
 name = "deferred_settimeout_captured_string_fails_closed"
@@ -461,10 +473,12 @@ Task 9 C-1 FINAL — DEFAULT-DENY over an allowlist at the shared deferred-callb
 
 p53b: setTimeout callback captures a STRING-repr local. node: "hi"; kali pre-fix: "" (empty — the placeholder string handle is 0). Deny E5506 (string class).
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured String binding (value type) before the deferred lane in codegen is reached. node prints `hi`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured string binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `s` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_settimeout_captured_string_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured string binding"]
+stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
 
 [[case]]
 name = "deferred_settimeout_captured_float_fails_closed"
@@ -476,10 +490,12 @@ Task 9 C-1 FINAL — DEFAULT-DENY over an allowlist at the shared deferred-callb
 
 p56: setTimeout callback captures a FLOAT-repr local. node: "1.5"; kali pre-fix: "" (empty). Deny E5506 (float class).
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured F64 binding (value type) before the deferred lane in codegen is reached. node prints `1.5`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured float binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `a` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_settimeout_captured_float_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured float binding"]
+stderr_contains = ["E5506", "that captures `a`", "its value type has no closure cell"]
 
 # --- Allowlist-flip closures (Task 9 C-1 final verification probes) ---------
 
@@ -497,10 +513,12 @@ Each RUNS in node (a real value) and printed a placeholder 0 in kali before the 
 
 Probe b2: a setTimeout callback captures a local OBJECT and reads a field. node: "x=4"; kali pre-flip: "x=0" (the object pointer is not restored — it aims into the owner's reclaimed arena). The scalar-only form allowed this because the object was `is_scalar == false` and not a param.
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured object-literal binding (value type) before the deferred lane in codegen is reached. node prints `x=4`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_settimeout_captured_object_read_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured local binding"]
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
 
 [[case]]
 name = "deferred_settimeout_captured_object_self_contradiction_fails_closed"
@@ -516,10 +534,12 @@ Each RUNS in node (a real value) and printed a placeholder 0 in kali before the 
 
 Probe b7: the SAME program reads the object field synchronously (`sync=4`, correct) and then in the deferred callback (`x=0`) — kali self-contradicts, which DISPROVES the falsified rationale that a captured object's in-callback read equals its out-of-callback read. The materialized sync value is exactly what the deferred lane loses. Deny E5506.
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured object-literal binding (value type) before the deferred lane in codegen is reached. node prints `sync=4` / `x=4`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_settimeout_captured_object_self_contradiction_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured local binding"]
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
 
 [[case]]
 name = "deferred_settimeout_captured_object_mutation_fails_closed"
@@ -535,10 +555,12 @@ Each RUNS in node (a real value) and printed a placeholder 0 in kali before the 
 
 Probe b2b: a captured object field is MUTATED inside the deferred callback (`o.x = o.x + 1`). node: "x=5"/"x2=5"; kali pre-flip: "x=0"/"x2=0". Deny E5506 (a mutation through a non-restored pointer writes reclaimed memory).
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured object-literal binding (value type) before the deferred lane in codegen is reached. node prints `x=5`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `o` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_settimeout_captured_object_mutation_fails_closed.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured local binding"]
+stderr_contains = ["E5506", "that captures `o`", "its value type has no closure cell"]
 
 [[case]]
 name = "deferred_settimeout_scalar_laundered_into_object_fails_closed"
@@ -604,12 +626,12 @@ Task 9 rider: hand-mirrored exclusion-list tripwires
 
 `declarator_init_is_placeholder_construct`'s Array/Uint8Array/EventTarget exclusion list (crates/kali_codegen/src/lower.rs) is a HAND-MIRRORED NAME LIST: `unlowered_capture_denied`'s allowlist branch 2 admits a captured `new X()` binding only because its lowering is drop-and-push-0 TODAY. See the §8.6 inventory bullet in docs/superpowers/followups/stageD-triage.md.
 
-Task 9 rider probe c1 — DELIBERATE TRIPWIRE, NOT a correctness pin. `Set` is not in the exclusion list, so kali currently treats a bound `new Set(...)` as a zero-placeholder construct and ALLOWS the deferred capture under `unlowered_capture_denied`'s allowlist branch 2 — sound TODAY only because `new Set(...)` itself still lowers to the drop-and-push-0 placeholder (same class as `new AbortController()`). node v26.5.0 prints the REAL values `sync=3`/`cb=3` (a `Set` with 3 elements, unchanged across the callback); kali (build succeeds, no warnings) prints `sync=0`/`cb=0` — both sides read the SAME placeholder, so there is no cross-callback DIVERGENCE today (hence "sound", not "correct"). This test pins kali's CURRENT behavior exactly. The day `new Set` gains a real lowering, this assertion goes RED instead of the allowlist silently starting to leak a real (now-divergent) value — signaling that `declarator_init_is_placeholder_construct`'s exclusion list must gain `Set` alongside `Array`/`Uint8Array`/`EventTarget`."""
+Task 9 rider probe c1 — DELIBERATE TRIPWIRE, NOT a correctness pin. `Set` is not in the exclusion list, so kali currently treats a bound `new Set(...)` as a zero-placeholder construct and ALLOWS the deferred capture under `unlowered_capture_denied`'s allowlist branch 2 — sound TODAY only because `new Set(...)` itself still lowers to the drop-and-push-0 placeholder (same class as `new AbortController()`). node v26.5.0 prints the REAL values `sync=3`/`cb=3` (a `Set` with 3 elements, unchanged across the callback); kali (build succeeds, no warnings) prints `sync=0`/`cb=0` — both sides read the SAME placeholder, so there is no cross-callback DIVERGENCE today (hence "sound", not "correct"). This test pins kali's CURRENT behavior exactly. The day `new Set` gains a real lowering, this assertion goes RED instead of the allowlist silently starting to leak a real (now-divergent) value — signaling that `declarator_init_is_placeholder_construct`'s exclusion list must gain `Set` alongside `Array`/`Uint8Array`/`EventTarget`.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: wanted, a silent wrong value became a refusal): the tripwire fired. Phase 1 of the captured-bindings project (spec docs/superpowers/specs/2026-10-05-captured-bindings-design.md §3.1) refuses in codegen every closure capture the capture lane cannot lower, so the callback's read of `s` no longer reaches the zero placeholder whatever the deferred allowlist admits. node prints `sync=3` / `cb=3`. kali at baseline `2ddf18c66` exited 0 printing `sync=0` / `cb=0`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `s` is unavailable in the current phase: its value type has no closure cell` (after E3100/E8001 warnings for `Set` and `.size`). The case now asserts that refusal: if a later change lets this capture through again, it goes RED before any placeholder can be read. `check` still exits 0 on this program (followups §3: a `new Set()` local is a non-literal initializer the `check` pass cannot see)."""
 args = ["run", "deferred_capture_of_bound_set_placeholder_tripwire.js"]
-exit = "success"
-stdout = """sync=0
-cb=0
-"""
+exit = "failure"
+stderr_contains = ["E5506", "that captures `s`", "its value type has no closure cell"]
 
 [[case]]
 name = "deferred_capture_nested_shadow_placeholder_denies"
@@ -625,10 +647,12 @@ Task 9 rider (reviewer probe c3) — pins the `is_function_like` walk-stop in `b
 
 Assert a fixture fails closed with E5506 (the shared envelope-deny shape).
 
-Assert E5506 AND that the diagnostic names the expected capture class."""
+Assert E5506 AND that the diagnostic names the expected capture class.
+
+RE-PINNED 2026-10-05 (captured-bindings, Task 6; class: other, already refused, only the message changed): the phase-1 `check` pass now refuses the captured object-literal `c` (value type) before the deferred lane in codegen is reached; outer's real-object capture is still denied, so the walk-stop safety claim this case pins still holds. node prints `x=4`. kali at baseline `2ddf18c66` exited 1 with `error[E5506]: a captured local binding without closure lowering would read a placeholder when the deferred callback fires (its owner's frame and arena are gone) — fails closed; only a by-value scalar capture or a zero-placeholder construct is restorable in the current phase (closure-lowering follow-up)`; HEAD exits 1 with `error[E5506]: a closure `__kali_fn_0` that captures `c` is unavailable in the current phase: its value type has no closure cell`. The needle moves to HEAD's message (the capturer's `__kali_fn_N` name is left out of it); the case still asserts that the program fails closed with E5506."""
 args = ["run", "deferred_capture_nested_shadow_placeholder_denies.js"]
 exit = "failure"
-stderr_contains = ["E5506", "a captured local binding"]
+stderr_contains = ["E5506", "that captures `c`", "its value type has no closure cell"]
 
 [[case]]
 name = "event_type_matching_literal_takes_equal_branch"

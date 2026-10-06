@@ -29,3 +29,16 @@ fn braces_that_are_not_a_rename_suffix_are_kept() {
         "{b} {b1} x{bb1} x{b1x}"
     );
 }
+
+#[test]
+fn the_parameter_suffix_is_stripped() {
+    assert_eq!(display_names_in("k{p} + n{b3}"), "k + n");
+    assert_eq!(display_names_in("{p}"), "{p}"); // no identifier before it
+    assert_eq!(display_names_in("k{pp}"), "k{pp}");
+}
+
+#[test]
+fn captured_param_spelling_appends_the_suffix() {
+    assert_eq!(captured_param_spelling("k"), "k{p}");
+    assert_eq!(display_names_in(&captured_param_spelling("k")), "k");
+}

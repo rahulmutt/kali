@@ -70,7 +70,7 @@ impl Collector {
 }
 
 impl Hooks for Collector {
-    fn enter(&mut self, kind: ScopeKind) {
+    fn enter(&mut self, kind: ScopeKind, _label: Option<&str>) {
         let id = self.table.scopes.len();
         let parent = self.stack.last().copied();
         let (frame, frame_level, depth) = match (kind, parent) {

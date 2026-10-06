@@ -824,6 +824,17 @@ fn analyze_source_file_inner(
         )]);
     }
 
+    // Captured-bindings spec §3.2 / A-1: a captured parameter becomes a `let`
+    // initialized from the renamed parameter, so it takes the local cell path.
+    let rewritten_params =
+        crate::build::capture_param_rewrite::rewrite_captured_params(&mut parsed.statements);
+    if compat_eval && rewritten_params > 0 {
+        return Err(vec![Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            kali_common::captured_parameter_eval_refused_message(),
+        )]);
+    }
+
     // Object-shape monomorphization (fasta Spec 5). Runs AFTER the export-name
     // uniqueness check (so the fresh clone names are never treated as public
     // exports / duplicate names) and BEFORE the resolver → repr_infer, which
@@ -885,6 +896,17 @@ fn analyze_source_file_inner(
                 message.clone(),
             ));
         }
+        if has_errors(&diagnostics) {
+            return Err(diagnostics);
+        }
+
+        // Captured-bindings spec §3.4 / A-2.6: the `check` mirror of the codegen
+        // capture refusals. `run` reaches it too; codegen's refusal is the backstop.
+        diagnostics.extend(crate::build::capture_refusals::capture_refusals(
+            &mut parsed.statements,
+            &repr_table,
+            crate::build::capture_refusals::Phase::Two,
+        ));
         if has_errors(&diagnostics) {
             return Err(diagnostics);
         }

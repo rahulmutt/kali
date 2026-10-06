@@ -497,6 +497,14 @@ final-fix-wave binary and on `6345f082b`; node v26.10.0.
    rename only changes which wrong value a shadowing program shows (review
    probes `u13`/`u14`: baseline `1`, HEAD `0`). Recommend a register entry.
 
+   **Status (2026-10-05):** register **R-70**. The captured-bindings project
+   refused every capture the closure lane cannot lower at `a1d1ea70e` /
+   `6671be28a` (FAIL_CLOSED), then made both programs above print `5` at
+   `e433285c3` / `cc1458493` (FIXED for an integer parameter whose call sites
+   pass integers, and a `let` copied from one). Strings, a closure's read of a
+   float and unproven parameters stay refused
+   (`captured-bindings-discovered-defects.md`).
+
 2. **A depth-2 synchronous capture reads `0` (or a stale value) outside
    loops** (review probe `rv/d02.js`):
 
@@ -512,6 +520,10 @@ final-fix-wave binary and on `6345f082b`; node v26.10.0.
    refused since the final fix wave (spec A-9, ruling R13,
    `scope/per_iteration::a_depth_two_capture_owned_by_an_iteration_record_is_refused`);
    this function-scope shape is not. Recommend a register entry.
+
+   **Status (2026-10-05):** register **R-71**, FAIL_CLOSED at `a1d1ea70e` /
+   `6671be28a`: `run` and `check` refuse this program with E5506 (`` `a` is
+   two or more closures away``). The depth-2 lowering is not built.
 
 3. **A named import read across modules reads `0`** (review probe
    `rv/mm/m2.js`, an ES-module package with `b.js` exporting

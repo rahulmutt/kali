@@ -2309,3 +2309,35 @@ fn infer_reprs_records_host_derived_classes() {
     assert!(!t.is_host_derived_class("A"));
     assert!(!t.is_host_derived_class("B"));
 }
+
+#[test]
+fn a_const_with_a_boolean_initializer_is_a_boolean_const() {
+    let t =
+        reprs("function f(){ const a=true; const b=1<2; const c=!a; const d=(a===b); return 0; }");
+    for name in ["a", "b", "c", "d"] {
+        assert!(t.binding_is_boolean_const("f", name), "{name}");
+    }
+}
+
+#[test]
+fn let_and_non_boolean_consts_are_not_boolean_consts() {
+    let t = reprs("function f(){ let a=true; const n=1; const s=\"x\"; const c=a&&a; return 0; }");
+    for name in ["a", "n", "s", "c"] {
+        assert!(!t.binding_is_boolean_const("f", name), "{name}");
+    }
+}
+
+// Captured-bindings A-1 point 4: the rewritten `let k = k{p}` (with `kp`
+// standing in for `k{p}`) is proven numeric exactly when every call site
+// passes a number.
+#[test]
+fn a_let_from_a_parameter_with_numeric_call_sites_is_proven_numeric() {
+    let t = reprs("function f(kp){ let k = kp; const g=()=>k; return g(); } f(5); f(7);");
+    assert!(t.binding_is_proven_numeric("f", "k"));
+}
+
+#[test]
+fn a_let_from_a_parameter_with_a_string_call_site_is_not_proven_numeric() {
+    let t = reprs("function f(kp){ let k = kp; const g=()=>k; return g(); } f(\"a\");");
+    assert!(!t.binding_is_proven_numeric("f", "k"));
+}
