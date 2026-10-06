@@ -37,9 +37,10 @@
 (`crates/kali_codegen/src/emit/operators.rs:796-810`: warning `e8::UNIMPLEMENTED`
 "unsupported unary operator", then `i64.const 0`) never evaluates silently to
 `0` when the receiver chain is rooted at something the program built. A plain
-`=` member store that reaches the final binary fallback
+`=` store that reaches the final binary fallback
 (`operators.rs:2713-2722`: warning "unsupported binary operator '='", then
-`i64.add`) never drops silently either. `kali run` refuses both with `E5506`.
+`i64.add`) never drops silently either, whether its target is a member or an
+identifier (A-2). `kali run` refuses both with `E5506`.
 
 A receiver whose root has host provenance (a free builtin global such as
 `Math`, `Number`, `Object`, `globalThis`, or a binding initialized from one)
@@ -153,9 +154,9 @@ A genuine unknown unary operator is unchanged.
 ### 3.3 The store site
 
 In the `_` arm of `emit_binary`'s operator match (`operators.rs:2713`): when
-`op == "="`, the left operand is a member access (dot, or bracket with any
-key), and `unresolved_member_read_refuses(<that member's receiver>)` holds,
-deny with `unresolved_member_store_unavailable_message(name)`. The site is the
+`op == "="` and the target's chain root refuses by the §3.1 table (a member
+target's root is its receiver chain's root; an identifier target is its own
+root, A-2), deny with `unresolved_store_unavailable_message(target)`. The site is the
 final fallback, not `emit_assignment`'s `return false` (`literal.rs:848`),
 because lanes after `emit_assignment` may still lower a store that
 `emit_assignment` declines.
@@ -172,6 +173,9 @@ name is:
 * not in the member set;
 * not in `kali_common::OBJECT_PROTOTYPE_NAMES`;
 * not in the program-wide set of assigned property names.
+
+It skips a member that is the operand of `typeof` (A-3), and a member that
+is a call's callee (the call gate owns those; one defect, one diagnostic).
 
 That is exactly the absent-field-read shape (R-21f). It runs from the member
 expression resolution site that already hosts `reject_array_mutator_member`,
@@ -192,12 +196,21 @@ pinned by `check` cases that exit 0, so closing it later is a visible diff.
   unavailable in the current phase: the receiver is a value this program
   built, and kali has no lowering for that read; node would read a property
   or `undefined`, so kali refuses rather than read 0"
-* `unresolved_member_store_unavailable_message(name)`: the same, ending
-  "… so kali refuses rather than drop the store".
+* for op text `""` or `"spread"` (A-1), the same helper returns "this
+  expression is unavailable in the current phase: the receiver is a value
+  this program built, and kali has no lowering for that read; kali refuses
+  rather than evaluate it to 0";
+* `unresolved_store_unavailable_message(target)`: "assigning to `{target}` is
+  unavailable in the current phase: the receiver is a value this program
+  built, and kali has no lowering for that store; node would store the value
+  or throw a TypeError, so kali refuses rather than drop the store", where
+  `target` is `.name` for a member and `name` for an identifier (A-2).
 
-A computed key with a literal spelling prints that text. A non-literal key
-prints "a computed property" in place of `` `.{name}` ``. Both layers use the
-one text, so cases pin a single substring.
+A string-literal key prints its text. Every text contains "the receiver is a
+value this program built", which the call gate's messages also contain, so
+existing count-based tests see a duplicate diagnostic if one ever appears.
+The distinct substrings are "no lowering for that read" and "no lowering for
+that store". Both layers use the one text.
 
 ### 3.6 Diagnostics and docs
 
@@ -207,6 +220,56 @@ one text, so cases pin a single substring.
 * `specs/19-feature-maturity.md`: no row claims more; this only refuses. No
   CLI, flag or schema change, so `specs/12-cli.md`, `specs/18-schemas.md` and
   `README.md` are untouched.
+
+---
+
+### 3.7 Amendments from the plan-writing probes (2026-10-06)
+
+Probed at the baseline, and again under the §2.2 throwaway patch, while the
+plan was written:
+
+* **A-1. The read gate is shape-blind.** LIR collapses HIR's `MemberExpr`,
+  `Spread` (text `"spread"`) and `SequenceExpr` (text `""`) into one `Value`
+  kind (`crates/kali_hir/src/lowering/expression.rs:54,152,192`), so all three
+  reach the read fallback the same way. R-25's `console.log([...a])` (op
+  `spread`) and R-27's `let a = (1, 2)` (op `""`) are refused by the same gate,
+  and both are SILENT today, so the refusal is correct. Their message must
+  not claim a property read: for op text `""` or `"spread"`, the read helper
+  returns a neutral "this expression …" text (§3.5). A property literally
+  named `spread` gets the neutral text as well, which is still a true E5506.
+* **A-2. Identifier stores.** Among the probes, the store fallback is reached
+  only by an identifier target: R-29's `const x = 1; x = 2`. Member stores are
+  refused earlier ("unknown field … on fixed-shape object") or lowered by a
+  store lane. The store gate therefore classifies the **target's** chain root,
+  and an identifier target is its own root. A `const` declarator is not host,
+  so R-29 refuses. A free global (`zz = 3` in sloppy code) is host and keeps
+  warn+0.
+* **A-3. `typeof` is outside this gate.** `const o={a:1}; typeof o.z` prints
+  `0` at the baseline (node `undefined`) through the `typeof` arm's own
+  placeholder ("unsupported unary operator 'typeof'"), not through
+  `operators.rs:805`. The `check` mirror therefore skips a member that is the
+  operand of `typeof`; otherwise `check` would refuse what `run` accepts.
+  `typeof` on a program-built value stays silent and is residue (§5).
+* **A-4. A measured capability loss.** `const o={a:1}; console.log(o.z ?? 5)`
+  prints node's `5` at the baseline only because kali stores `undefined` and
+  `0` alike, so the placeholder reads as nullish. The read reaches the
+  fallback, and its root is a `const` object literal, so it refuses after this
+  project, under both `run` and `check`. The same shape on a parameter
+  already refuses at the baseline ("unknown field 'z' on fixed-shape object").
+  This is recorded as a loss in the followups file.
+
+| probe | node | baseline `run` | baseline `check` | reaches |
+|---|---|---|---|---|
+| `const o={a:1}; console.log(typeof o.z);` | `undefined` | `0` | 0 | the `typeof` placeholder |
+| `const o={a:1}; console.log(o.z ?? 5);` | `5` | `5` | 0 | the read fallback |
+| `const o={a:1}; console.log(delete o.z);` | `true` | E5506 (delete) | 0 | refused earlier |
+| `const o={a:1}; console.log(o.z === undefined);` | `true` | E5506 (`===`) | 0 | refused earlier |
+| `class C{ f(){return 1;} } const c=new C(); console.log("v="+c.z);` | `v=undefined` | E5506 (field not declared) | 1 | refused earlier |
+| `let Math = {a:1}; console.log(Math.b);` | `undefined` | E5506 (unknown field) | 1 | refused earlier |
+| `const x = 1; x = 2; console.log("r=" + x);` | TypeError | `r=1` | 0 | the store fallback |
+| `function mk(){ return {a:1}; } const o=mk(); o["a"] = 5; console.log(o.a);` | `5` | `5` | 0 | a store lane |
+| `let a = (console.log("x"), 7); console.log("a=" + a);` | `x`, `a=7` | silent | 0 | the read fallback, host root (kept) |
+| `globalThis.zz = 3; console.log("ok");` | `ok` | `ok` | 0 | the read fallback, host root (kept) |
 
 ---
 
@@ -232,6 +295,9 @@ one text, so cases pin a single substring.
 * **Reads off genuine host objects** (`globalThis.performance.foo`, a value
   returned by a host call), as for member calls.
 * **The `check` / `run` gap** of §3.4.
+* **`typeof` on a program-built value** (A-3): `typeof o.z` prints `0`.
+* **A comma expression whose first operand is host-rooted** (A-1): `(console.log("x"), 7)` still evaluates to `0`.
+* **The capability loss of A-4** (`o.z ?? d` on a `const` object literal).
 
 These go into a new
 `docs/superpowers/followups/unresolved-member-read-discovered-defects.md`,
@@ -249,7 +315,7 @@ struck through and states what moved.
 | case(s) | baseline | after |
 |---|---|---|
 | `oracle/tier2` R-21f, R-25l, R-27 (both scopes) | `verdict = "silent"` | `fail_closed` |
-| `oracle/tier3` R-29 (both scopes) | `accepts_invalid` | `fail_closed` |
+| `oracle/tier3` R-29 (both scopes) | `accepts_invalid` | `fail_closed` (A-2) |
 | `object/property_key_identity` escaped-quote and member-probe rows (×4, not the from-entries rows) | pins `0` | E5506 |
 | `object/computed_member_static_name` ×2, `soundness/r06_object_init::returned_object_member_read_no_worse`, `soundness/bitwise_compound` ×2 | pin a silent `0`, a dropped write, or E4201 | E5506 |
 | `misc/arena_reclamation_runtime_sandboxed::function_scratch_is_reclaimed` | `x.v - x.v` cancels to the right total | the program stops reading the field; its subject is reclamation |
@@ -279,19 +345,24 @@ this spec cited.
   `crates/kali_cli/tests/cases/soundness/unresolved_member_read.toml`. Each row
   is pinned against node, under `run` and under `check`:
   * **Refuse under `run`:** c8, c9, e1, m6 and q8 verbatim; `mk().a`;
-    `id(o).a`; a dot store `o.zork = 1` on a parameter; a bracket store
-    `o["a"] = 1` on a local from `mk()`; an absent field on a `const` object
-    literal (dot and bracket); a nested `p.a.b.c` rooted at a parameter; a
-    shadowed `let Math = {a:1}; console.log(Math.b)`.
-  * **Under `check`:** the absent-field rows refuse; every other row exits 0
-    (the pinned gap).
+    `id(o).a`; an identifier store to a `const` (R-29's shape, A-2); an
+    absent field on a `const` object literal (dot and bracket); the same under
+    `??` (A-4); a nested `p.a.b.c` rooted at a parameter; R-25's spread and
+    R-27's comma (A-1, neutral message); a shadowed
+    `let Math = {a:1}; console.log(Math.b)` (any E5506; it already refuses
+    at the baseline through the fixed-shape gate).
+  * **Under `check`:** the absent-field rows (including `??`) refuse; every
+    other row exits 0 (the pinned gap).
   * **Keep warn+0 (exemption controls):** a frozen `Math.log2` alias,
     `globalThis.performance`, a `Number["isNaN"]` alias, and an
     `Object.fromEntries` read (R-60, with a rationale stating it is still
     wrong).
   * **No regression:** a present field on a `const` object literal, a
-    program-class field read, and the captured-bindings d3 / d6 lanes, each
-    printing node's value.
+    program-class field read, a bracket store `o["a"] = 5` on a local from
+    `mk()`, a free-global store `globalThis.zz = 3`, and the captured-bindings
+    d3 / d6 lanes, each printing node's value.
+  * **`check` skips `typeof`:** `typeof o.z` on a `const` object literal
+    exits 0 under `check` (A-3).
 * **Unit tests:** a sibling `crates/kali_codegen/src/emit/member_provenance_tests.rs`
   (no inline `#[cfg(test)]` module), with one test per root kind: a literal,
   a parameter, a call to a user function, a call to a host function, a free
