@@ -64,6 +64,9 @@ const a=[1,2]; console.log([...a]);
 "comma.js" = '''
 function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bump(), 7); console.log("b=" + b); } main();
 '''
+"ok_comma_indirection.js" = '''
+const o={a:1}; const w=(0,o); console.log(Object.hasOwn(w,"a"));
+'''
 "shadow_math.js" = '''
 let Math = {a:1}; console.log(Math.b);
 '''
@@ -230,12 +233,18 @@ stderr_contains = ["E5506", "${NEUTRAL}"]
 stdout = ""
 
 [[case]]
-name = "a_comma_expression_in_a_let_initialiser_refuses_under_run"
-rationale = """At `28c97e4ed` kali printed `b=0` at exit 0 where node v26.10.0 prints `b=7`. The refusal uses the neutral text (no read to name)."""
+name = "a_comma_expression_in_a_let_initialiser_stays_wrong_under_run"
+rationale = """WRONG ON PURPOSE (R-27 is residue by the human partner's ruling 2026-10-07: the `(0, x)` indirection idiom must keep working, so a comma expression is outside the read gate). At `28c97e4ed` kali printed `b=0` at exit 0 where node v26.10.0 prints `b=7`. MEASURED 2026-10-07 after the ruling: kali still prints `b=0` at exit 0. Flips when a comma expression is lowered."""
 args = ["run", "comma.js"]
-exit = "failure"
-stderr_contains = ["E5506", "${NEUTRAL}"]
-stdout = ""
+exit = "success"
+stdout = "b=0\n"
+
+[[case]]
+name = "a_comma_indirection_of_a_program_object_matches_node_under_run"
+rationale = """No-regression control for the human partner's ruling 2026-10-07: `(0, o)` must not refuse. node v26.10.0 prints `true`; MEASURED 2026-10-07: kali prints `true` at exit 0. Before the ruling the comma gate refused it with E5506."""
+args = ["run", "ok_comma_indirection.js"]
+exit = "success"
+stdout = "true\n"
 
 [[case]]
 name = "an_assignment_to_a_const_binding_refuses_under_run"
@@ -301,7 +310,7 @@ exit = "success"
 
 [[case]]
 name = "a_comma_expression_in_a_let_initialiser_is_quiet_under_check"
-rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+rationale = """Not a `check` / `run` gap: a comma expression is outside the read gate (human partner's ruling 2026-10-07; R-27 residue), so `check` and `run` both accept it. `run` prints the wrong `b=0` (see the run row)."""
 args = ["check", "comma.js"]
 exit = "success"
 

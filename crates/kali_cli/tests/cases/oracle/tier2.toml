@@ -471,8 +471,8 @@
 #   R-24   --                    function   silent          silent       same
 #   R-25   `.length`/index fold  module     fail_closed     fail_closed  same
 #   R-25   `.length`/index fold  function   fail_closed     fail_closed  same
-#   R-25   `console.log` resid.  module     silent          silent       same
-#   R-25   `console.log` resid.  function   silent          silent       same
+#   R-25   `console.log` resid.  module     silent          ~~silent~~ fail_closed ~~same~~ MOVED (2026-10-07)
+#   R-25   `console.log` resid.  function   silent          ~~silent~~ fail_closed ~~same~~ MOVED (2026-10-07)
 #   R-26   --                    module     silent          silent       same
 #   R-26   --                    function   silent          silent       same
 #   R-27   --                    module     silent          silent       same
@@ -2153,14 +2153,16 @@ name = "r25l_array_spread_console_log_residual_module_scope"
 kind = "oracle"
 register_entry = "R-25"
 program = "r25l_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-25, `console.log` RESIDUAL lane, module scope. §2's named residual of the 2026-07-20 partial close: `console.log([...a])` -> `0` at exit 0 (node `[ 1, 2 ]`).
 
 SCAFFOLDING: the residual is stated presupposing an `a`, so the `const a=[1,2];` that precedes it here is lifted from THIS SAME ENTRY's own `Repro` line rather than written fresh. Nothing else was added; the residual's own `console.log` is the register's.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §0.2's row says "SILENT (console.log)" and "`console.log([...a])`->0 residual still silent", and §2 records the residual as "pre-existing, NOT closed" with the mechanism named -- `array_literal_contains_spread` is consulted at only about four of about thirty `is_array_literal` consumers. SILENT.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `[ 1, 2 ]` at exit 0.
+~~MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0 with empty stderr; node prints `[ 1, 2 ]` at exit 0.~~
+
+RE-MEASURED 2026-10-07 at `30e481032` against node v26.10.0: FAIL_CLOSED (unresolved-member-read §3.2, A-1), SUPERSEDING SILENT. kali exits 1 with empty stdout and `error[E5506]: this expression is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; kali refuses rather than evaluate it to 0`; node prints `[ 1, 2 ]` at exit 0. LIR spells the spread like a member read, so it reaches the read gate's fallback with a program-built root and refuses with the neutral text.
 
 THIS LANE IS THE POINT OF SPLITTING R-25. Its sibling lane in this file refuses the same spread at exit 1; this one accepts it and prints a plausible `0`. That is the register's own "denylist of shapes leaks" pattern made measurable: the guard was added per-site, so whether the same construct is honest or silent depends on which consumer reaches it. Collapsing R-25 to one case would have recorded whichever consumer was written down and hidden the other."""
 
@@ -2169,12 +2171,14 @@ name = "r25l_array_spread_console_log_residual_in_function"
 kind = "oracle"
 register_entry = "R-25"
 program = "r25l_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-25, `console.log` RESIDUAL lane, in-function scope. The module-scope program -- the residual plus the borrowed `const a=[1,2];` described in that case's SCAFFOLDING note -- unchanged inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from the register's recorded status: SILENT, as for the module scope. §2's R-25 is `sweep-only-top-level-only`, so the class was set on the assumption that the scopes agree.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope, so the unguarded consumer is unguarded in both scopes."""
+~~MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `0` at exit 0; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope, so the unguarded consumer is unguarded in both scopes.~~
+
+RE-MEASURED 2026-10-07 at `30e481032` against node v26.10.0: FAIL_CLOSED (unresolved-member-read §3.2, A-1), SUPERSEDING SILENT. kali exits 1 with empty stdout and the same neutral `error[E5506]: this expression is unavailable in the current phase: …` word for word; node prints `[ 1, 2 ]` at exit 0. Identical to the module scope."""
 
 [[case]]
 name = "r26_unary_plus_on_a_non_numeric_string_module_scope"
