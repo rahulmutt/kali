@@ -355,3 +355,72 @@ fn a_store_to_a_free_global_keeps_its_lowering() {
         );
     }
 }
+
+fn store_refusals(source: &str) -> usize {
+    diagnostics_for(source)
+        .iter()
+        .filter(|d| d.code == Some(5506) && d.message.contains(UNRES_STORE))
+        .count()
+}
+
+#[test]
+fn an_export_specifier_is_not_a_member_read() {
+    // Task 8 fix round, human partner's ruling 2026-10-07: an export
+    // specifier lowers to `Value(exported) -> [Value(local)]`, the shape of
+    // `local.exported`. It is not an expression and must not reach the read
+    // gate.
+    for source in [
+        "export function main(input) { return 1; } export { main as alias };",
+        "function f() { return 1; } export { f as g }; console.log(f());",
+        "const o = {a:1}; export { o as p }; console.log(o.a);",
+    ] {
+        assert_eq!(
+            read_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
+    }
+    // A real member read in an export default is still gated.
+    let source = "const o = {a:1}; export default o.z;";
+    assert_e5506(&diagnostics_for(source), UNRES_READ, source);
+}
+
+#[test]
+fn a_store_to_a_write_only_object_literal_is_not_gated() {
+    // Task 8 fix round, human partner's ruling 2026-10-07: after the
+    // optimizer's enumeration timeline folds every read of `literal`
+    // (object-enumeration-delete-reinsert-benchmark-v1), only its declarator
+    // and the store's base are left. Nothing observes the object, so the
+    // fallback's dropped store is exact.
+    for source in [
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3;",
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; literal.c = 4; console.log(\"ok\");",
+    ] {
+        assert_eq!(
+            store_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
+    }
+}
+
+#[test]
+fn a_store_to_an_observed_object_literal_still_refuses() {
+    // The A-9 exemption needs every other occurrence of the name to be a
+    // store base. This harness runs no optimizer, so nothing is folded.
+    for source in [
+        // a later read observes the store
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; console.log(Object.keys(literal).length);",
+        // an unconsumed delete names the object
+        "const literal = { 1: 4, 2: 2, b: 1 }; delete literal.b; literal.b = 3;",
+        // not a module-scope `const`
+        "let literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3;",
+        "function f() { const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; } f();",
+        // a parameter of the same name is another occurrence
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; function g(literal) { return 1; } console.log(g(2));",
+    ] {
+        assert_e5506(&diagnostics_for(source), UNRES_STORE, source);
+    }
+}

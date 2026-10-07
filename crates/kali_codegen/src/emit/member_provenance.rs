@@ -131,8 +131,126 @@ impl<'a> FunctionEmitter<'a> {
             1 | 2 => format!(".{name}"),
             _ => return None,
         };
+        // A-9: a dot store into an object nothing reads is unobservable.
+        if node.children.len() == 1 {
+            let base = self.node(node.children[0]);
+            if base.kind == LirNodeKind::Value && base.children.is_empty() {
+                if let Some(base_name) = base.text.as_deref().filter(|t| !t.is_empty()) {
+                    if self.binding_is_write_only_object_literal(base_name) {
+                        return None;
+                    }
+                }
+            }
+        }
         self.unresolved_member_read_refuses(target)
             .then(|| kali_common::unresolved_store_unavailable_message(&shown))
+    }
+
+    /// Unresolved-member-read spec A-9: an `export { local as exported }`
+    /// list. HIR lowers it to an `ExportDecl` whose text is the re-export
+    /// source (`""` for a local list) and whose children are specifiers
+    /// `Ident(exported) -> [Ident(local)]`; below MIR that is an
+    /// `Instruction(Some(source))` over `Value(exported) -> [Value(local)]`,
+    /// the shape of the member read `local.exported`. No other declaration
+    /// kind has text and only children of that shape (`export default` has
+    /// no text; import specifiers are childless). The specifiers have no
+    /// runtime effect: library exports are collected from the AST.
+    pub(crate) fn is_export_specifier_list(&self, node: &LirNode) -> bool {
+        node.kind == LirNodeKind::Instruction
+            && node.text.is_some()
+            && !matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+            && !node.children.is_empty()
+            && node.children.iter().all(|&child| {
+                let specifier = self.node(child);
+                let named = |n: &LirNode| {
+                    n.kind == LirNodeKind::Value && n.text.as_deref().is_some_and(|t| !t.is_empty())
+                };
+                named(specifier)
+                    && specifier.children.len() == 1
+                    && named(self.node(specifier.children[0]))
+                    && self.node(specifier.children[0]).children.is_empty()
+            })
+    }
+
+    /// Unresolved-member-read spec A-9: `name` is a module-scope `const`
+    /// bound to a plain-data object literal (every property an `init` pair,
+    /// so no accessor can observe a store), declared once, and every other
+    /// occurrence of `name` reachable from the program root is the base of a
+    /// plain `=` dot-member store target (`name.k = v`). Nothing reads the
+    /// object, so a store to it that reached `emit_binary`'s fallback (which
+    /// still evaluates `v`) is unobservable. The measured case is the
+    /// optimizer's enumeration timeline (`kali_optimize::object_fold`): it
+    /// models `delete name.k` / `name.k = v`, folds every `Object.keys` /
+    /// `entries` / `values` of `name` against that model and erases the
+    /// delete, leaving the store as the only code that names the object.
+    /// The walk is over reachable nodes: folded-away nodes stay in the arena.
+    fn binding_is_write_only_object_literal(&self, name: &str) -> bool {
+        let mut declarations = 0;
+        let mut stack = vec![self.program.root];
+        while let Some(id) = stack.pop() {
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some(name) {
+                // A declarator `Instruction(name) -> [Value(name), init]`.
+                let Some(&init) = node.children.get(1) else {
+                    return false;
+                };
+                if !self.is_module_const_declarator(id) || !self.is_plain_data_object_literal(init)
+                {
+                    return false;
+                }
+                declarations += 1;
+                stack.extend(node.children.iter().skip(1).copied());
+                continue;
+            }
+            if node.kind == LirNodeKind::Value && node.text.as_deref() == Some("=") {
+                if let Some(&target) = node.children.first() {
+                    let target_node = self.node(target);
+                    let is_store_base = target_node.kind == LirNodeKind::Value
+                        && target_node.children.len() == 1
+                        && target_node.text.as_deref().is_some_and(|t| !t.is_empty())
+                        && {
+                            let base = self.node(target_node.children[0]);
+                            base.kind == LirNodeKind::Value
+                                && base.children.is_empty()
+                                && base.text.as_deref() == Some(name)
+                        };
+                    if is_store_base {
+                        stack.extend(node.children.iter().skip(1).copied());
+                        continue;
+                    }
+                }
+            }
+            if node.children.is_empty() && node.text.as_deref() == Some(name) {
+                return false;
+            }
+            stack.extend(node.children.iter().copied());
+        }
+        declarations == 1
+    }
+
+    fn is_module_const_declarator(&self, declarator: LirNodeId) -> bool {
+        self.node(self.program.root)
+            .children
+            .iter()
+            .any(|&statement| {
+                let statement = self.node(statement);
+                statement.kind == LirNodeKind::Instruction
+                    && statement.text.as_deref() == Some("const")
+                    && statement.children.contains(&declarator)
+            })
+    }
+
+    fn is_plain_data_object_literal(&self, init: LirNodeId) -> bool {
+        let literal = self.node(init);
+        literal.kind == LirNodeKind::Value
+            && literal.text.is_none()
+            && literal.children.iter().all(|&property| {
+                let property = self.node(property);
+                property.kind == LirNodeKind::Value
+                    && property.text.as_deref() == Some("init")
+                    && property.children.len() == 2
+                    && self.node(property.children[0]).kind == LirNodeKind::Literal
+            })
     }
 
     /// `Array.prototype.m` / `Object.prototype.m` / `String.prototype.m` as

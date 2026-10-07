@@ -2028,6 +2028,14 @@ impl<'a> FunctionEmitter<'a> {
                         shape: ValueShape::Unknown,
                     };
                 }
+                if self.is_export_specifier_list(&node) {
+                    // `export { a as b }` declares, it does not evaluate (spec
+                    // A-9): emitting its specifiers would read `a.b`.
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
                 self.emit_sequence(function, &node.children, false)
             }
             LirNodeKind::Literal => emit_literal(function, node.text.as_deref(), self.strings),
