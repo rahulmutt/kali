@@ -1,0 +1,15 @@
+umr_absent_bracket	SILENT	z=undefined	z=0	0
+umr_absent	SILENT	z=undefined	z=0	0
+umr_absent_nullish	CORRECT	5	5	0
+umr_absent_optional	SILENT	z=undefined	z=0	0
+umr_c8	SILENT	1	0	0
+umr_c9	SILENT	1	0	0
+umr_comma	SILENT	b=7	b=0	0
+umr_const_store	SILENT	/workspace/tools/array-return-probes/probes/umr_const_store.js:1|const x = 1; x = 2; console.log("r=" + x);|               ^||TypeError: Assignment to constant variable.|    at Object.<anonymous> (/workspace/tools/array-return-probes/probes/umr_const_store.js:1:16)|    at Module._compile (node:internal/modules/cjs/loader:1956:14)|    at Object..js (node:internal/modules/cjs/loader:2096:10)|    at Module.load (node:internal/modules/cjs/loader:1678:32)|    at Module._load (node:internal/modules/cjs/loader:1470:12)|    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)|    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)|    at node:internal/main/run_main_module:33:47||Node.js v26.10.0	r=1	0
+umr_e1	SILENT	40	0	0
+umr_idcall	SILENT	1	0	0
+umr_m6	SILENT	1	0	0
+umr_mkcall	SILENT	1	0	0
+umr_q8	SILENT	1	0	0
+umr_spread	SILENT	[ 1, 2 ]	0	0
+umr_typeof	SILENT	undefined	0	0
