@@ -67,6 +67,12 @@ function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bu
 "ok_comma_indirection.js" = '''
 const o={a:1}; const w=(0,o); console.log(Object.hasOwn(w,"a"));
 '''
+"ok_export_alias.js" = '''
+function f(){ return 1; } export { f as g }; console.log(f());
+'''
+"ok_write_only_store.js" = '''
+const literal = { 1: 4, 2: 2, b: 1 }; delete literal.b; literal.b = 3; console.log(Object.keys(literal).join(","));
+'''
 "shadow_math.js" = '''
 let Math = {a:1}; console.log(Math.b);
 '''
@@ -429,3 +435,17 @@ rationale = """At `28c97e4ed` kali printed `5` at exit 0 where node v26.10.0 pri
 args = ["run", "ok_class_store.js"]
 exit = "success"
 stdout = "5\n"
+
+[[case]]
+name = "an_export_alias_specifier_is_not_a_member_read_under_run"
+rationale = """No-regression control for spec A-9 (human partner's ruling 2026-10-07): an `export { f as g }` specifier lowers to the shape of the read `f.g`, and the read gate refused it (the `build --lib` export-alias tests failed). Codegen no longer emits export specifiers. node v26.10.0 prints `1`; MEASURED 2026-10-07 after the fix: kali prints `1` at exit 0. Not measured at `28c97e4ed`."""
+args = ["run", "ok_export_alias.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_store_to_an_object_nothing_reads_still_matches_node_under_run"
+rationale = """No-regression control for spec A-9 (human partner's ruling 2026-10-07): the optimizer's enumeration timeline models `delete literal.b; literal.b = 3` and folds `Object.keys(literal)`, so the store that reaches codegen's fallback targets an object nothing reads, and the store gate leaves it alone (object-enumeration-delete-reinsert-benchmark-v1). node v26.10.0 prints `1,2,b`; MEASURED 2026-10-07 after the fix: kali prints `1,2,b` at exit 0. Not measured at `28c97e4ed`."""
+args = ["run", "ok_write_only_store.js"]
+exit = "success"
+stdout = "1,2,b\n"

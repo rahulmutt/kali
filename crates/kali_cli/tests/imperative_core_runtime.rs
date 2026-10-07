@@ -660,16 +660,22 @@ fn structural_object_literal_passed_as_call_argument_is_rejected() {
     );
 }
 
-/// Review fix (IMPORTANT, fold-first both ways): a read-only, non-
+/// Review fix (IMPORTANT, fold-first both ways): ~~a read-only, non-
 /// materialized object literal with a known shape must NOT reject on an
-/// unknown-field read (matches node's `undefined`); the same shape, once
+/// unknown-field read (matches node's `undefined`)~~; the same shape, once
 /// materialized by a write, must still reject on an unknown-field read.
+///
+/// RE-PINNED 2026-10-07 (unresolved-member-read, spec §6.1 / R-21f; human
+/// partner's ruling): the read-only case was silent `0` (node prints
+/// `undefined`), not a match. It is now refused with E5506 ("no lowering for
+/// that read"), the same as the materialized case below.
 #[test]
 fn unknown_field_read_is_fold_first_until_materialized() {
-    assert_eq!(
-        run_js("const p = { x: 1.0 };\nconsole.log(p.y);\n"),
-        "0\n",
-        "a read-only unknown-field access must stay on the fold lane and compile"
+    // was: `run_js(...) == "0\n"` -- silent 0, node prints `undefined`.
+    let read_only = run_js_expect_failure("const p = { x: 1.0 };\nconsole.log(p.y);\n");
+    assert!(
+        read_only.contains("5506") && read_only.contains("no lowering for that read"),
+        "expected the unresolved-member-read refusal, got: {read_only}"
     );
 
     let combined = run_js_expect_failure("const p = { x: 1.0 };\np.x = 2.0;\nconsole.log(p.y);\n");
