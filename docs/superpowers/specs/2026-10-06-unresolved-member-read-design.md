@@ -367,11 +367,19 @@ The lines above that became false are struck through in place.
     * `name` is declared once, by a module-scope `const`;
     * its initializer is a plain-data object literal (every property is an
       `init` pair with a literal key, so no accessor can observe the store);
-    * every other occurrence of `name` reachable from the program root is
-      the base of such a store target.
+    * every occurrence of `name` reachable from the program root, other
+      than the declarator, is the base of such a store target **in statement
+      position**: the store is a direct statement of the program or of a
+      block, so its value is discarded. This includes the store being
+      emitted.
 
     The store is then unobservable. The fallback still evaluates `v` and
     drops the store, as at baseline.
+    * **Value position is not exempt (review, 2026-10-07).** The fallback
+      yields `left + right` as the assignment's value, not `v`. Before this
+      qualification, `const y = (literal.b = 3); console.log(y);` and
+      `console.log(literal.b = 3)` on `{ 1: 4, b: 1 }` printed `4` at exit 0
+      where node prints `3`. Both now refuse.
     * The measured case is object-enumeration-delete-reinsert-benchmark-v1
       (`delete literal.b; literal.b = 3;` on `{ 1: 4, 2: 2, b: 1 }`).
       `kali_optimize`'s enumeration timeline models the delete and the
@@ -384,8 +392,8 @@ The lines above that became false are struck through in place.
       benchmark pin records; the release LIR folds `total` to `10` with the
       same write-only `literal`.
     * Anything else that names the object still refuses: a read, an
-      unerased `delete`, a parameter of the same name, a `let`, or a
-      function-local `const`.
+      unerased `delete`, a store whose value is used, a parameter of the
+      same name, a `let`, or a function-local `const`.
   * **Re-pin.** `imperative_core_runtime::unknown_field_read_is_fold_first_until_materialized`
     (`const p={x:1.0}; console.log(p.y);`) pinned silent `0`; node prints
     `undefined`. It is the R-21f shape, so it is re-pinned to the E5506

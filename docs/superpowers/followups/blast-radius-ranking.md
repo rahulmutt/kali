@@ -1303,6 +1303,9 @@ here.
   `imperative_core_runtime.rs::unknown_field_read_is_fold_first_until_materialized`,
   pins kali's old silent `0` and now fails.** This is recorded in
   `unresolved-member-read-discovered-defects.md` §4, not re-pinned here.
+  *Note 2026-10-07: that test was later re-pinned to the E5506 read refusal
+  by the human partner's ruling (`5798ae62f`, spec A-9). The accept set and
+  counts did not change.*
 - **No band moved on either axis.** G6 stays in reachable Band 3 and raw
   Band 5. At raw 2 it still dominates R-47 (raw 1), which stays alone in raw
   Band 6. G8 stays in reachable band 1 at 58, and it is still the

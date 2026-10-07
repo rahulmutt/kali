@@ -19,11 +19,13 @@ any case.
 member-read fallback, or a plain `=` store that reaches the final binary
 fallback, is refused with E5506 when the receiver chain is rooted at
 something the program built. A host-rooted receiver keeps warn+0. Spec §3.8
-records four amendments from execution:
+records five amendments from execution:
 - A-5: comma expressions are excluded from the gate;
 - A-6: the `check` mirror defers to more specific refusals;
 - A-7: `typeof o.z` is refused under `run`;
-- A-8: R-29 measures BOTH_REJECT.
+- A-8: R-29 measures BOTH_REJECT;
+- A-9: export specifiers are not emitted, a statement-position store to an
+  object nothing reads is exempt, and one hand-written test is re-pinned.
 
 **Register:** §0.2 changed four rows:
 - **R-21:** `r21f` moved to FAIL_CLOSED; six lanes are still SILENT.
@@ -152,13 +154,15 @@ is fail-closed, not fixed, and `check` still exits 0 (§1.4).
 
 ---
 
-## §4. Moves found after Task 7, outside the spec §6.1 table (NOT re-pinned)
+## §4. Moves found after Task 7, outside the spec §6.1 table (resolved 2026-10-07)
 
 Task 8 found these. Task 7's runs covered the `cases` target and
 `kali_cli --lib`. `cargo test -j 8 -p kali_cli --tests --no-fail-fast`,
 run under the watchdog at `06090515d`, fails **5 tests in 3 hand-written
 targets**. All 5 fail on this project's new E5506 messages. The spec's stop
-rule covers them, so none was re-pinned or edited.
+rule covers them, so none was re-pinned or edited at the time. All were
+resolved later by ruling (see the RESOLVED bullet at the end of this
+section).
 
 | target::test | program (essence) | was | now |
 |---|---|---|---|
@@ -178,7 +182,8 @@ rule covers them, so none was re-pinned or edited.
   export-alias and delete-reinsert tests pass unchanged after two narrowings
   (`d3ec2bf13`): codegen no longer emits export specifiers, and a store to a
   module `const` plain-data object literal that nothing else names is
-  exempt. The `imperative_core_runtime` test is re-pinned to the E5506 read
+  exempt when the store is in statement position (the value-position
+  qualifier was added after review). The `imperative_core_runtime` test is re-pinned to the E5506 read
   refusal (`5798ae62f`). `kali_cli --tests` is green (70/70 targets).
 
 ---
