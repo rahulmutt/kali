@@ -2849,6 +2849,7 @@ tier, ordering is by blast radius.
 
 ### R-25: Array spread `[...a]` yields `len=1` and element `0`
 
+- **Update 2026-10-07 (unresolved-member-read):** the `console.log([...a])` residual now refuses with E5506 (FAIL_CLOSED, both lanes), but node's output is still not produced. NOT fixed, NOT retired. See §0.2's re-derived R-25 row. The text below is the original filing.
 - **Folds in**: D-D-13 (an EXTENSION of the registered `[...Object.values(o)] → 0` defect).
 - **Verification**: `sweep-only-top-level-only`.
 - **Root-cause group**: G6.
@@ -5145,6 +5146,7 @@ tier, ordering is by blast radius.
 
 ### R-29: Assignment to a `const` is silently ignored (node throws)
 
+- **Update 2026-10-07 (unresolved-member-read):** codegen's store gate now refuses the program with E5506 (BOTH_REJECT), and the entry is RETIRED at BOTH_REJECT. `kali check` still exits 0. See §0.2's re-derived R-29 row. The text below is the original filing.
 - **Folds in**: D-C-8.
 - **Verification**: `sweep-only` (both scopes).
 - **Root-cause group**: G7.

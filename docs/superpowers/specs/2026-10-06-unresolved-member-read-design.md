@@ -344,6 +344,56 @@ The lines above that became false are struck through in place.
   classifier spells FAIL_CLOSED only when node exits 0, and node throws
   `TypeError: Assignment to constant variable.` Both engines exit 1, so the
   live verdict is BOTH_REJECT. The register retires R-29 at BOTH_REJECT.
+* **A-9. Two narrowings and one re-pin (human partner's ruling,
+  2026-10-07).** The full `kali_cli` run found five hand-written tests that
+  moved outside the §6.1 table. The ruling: narrow both gates so four of
+  them pass unchanged, and re-pin the fifth.
+  * **Export specifiers are not reads.** HIR lowers
+    `export { main as alias }` to an `ExportDecl` over the specifier
+    `Ident(alias) -> [Ident(main)]`. Below MIR that is
+    `Instruction(Some(""))` over `Value("alias") -> [Value("main")]`, which
+    has the same shape as the read `main.alias`. Codegen's generic
+    `Instruction` arm emitted the specifiers as expression statements, so
+    the read gate refused a valid `build --lib`. At that site the shape
+    cannot be told apart from a member read. So it is excluded where it is
+    emitted: `FunctionEmitter::is_export_specifier_list` recognises an
+    `Instruction` with text whose children are all `Value(name) ->
+    [Value(name)]` leaves, and the arm emits nothing for it. Library exports
+    are collected from the AST, so the specifiers have no runtime effect. At
+    baseline they were a dropped warn+0 read.
+    * `export default o.z` has no text and is still a gated read.
+  * **A store to an object nothing reads is exempt.** The exempt shape is
+    `name.k = v` (dot target, plain `=`) where all of the following hold:
+    * `name` is declared once, by a module-scope `const`;
+    * its initializer is a plain-data object literal (every property is an
+      `init` pair with a literal key, so no accessor can observe the store);
+    * every other occurrence of `name` reachable from the program root is
+      the base of such a store target.
+
+    The store is then unobservable. The fallback still evaluates `v` and
+    drops the store, as at baseline.
+    * The measured case is object-enumeration-delete-reinsert-benchmark-v1
+      (`delete literal.b; literal.b = 3;` on `{ 1: 4, 2: 2, b: 1 }`).
+      `kali_optimize`'s enumeration timeline models the delete and the
+      store, folds every `Object.keys` / `entries` / `values` of `literal`,
+      and erases the delete. Only the declarator and the store reach
+      codegen, and the numeric keys keep the store out of the struct lane.
+    * `--fast` printed node's `15` at baseline. That was not coincidence:
+      the timeline modelled the store, and no runtime code reads the object.
+      The release tiers' `10` is a separate pre-existing defect that the
+      benchmark pin records; the release LIR folds `total` to `10` with the
+      same write-only `literal`.
+    * Anything else that names the object still refuses: a read, an
+      unerased `delete`, a parameter of the same name, a `let`, or a
+      function-local `const`.
+  * **Re-pin.** `imperative_core_runtime::unknown_field_read_is_fold_first_until_materialized`
+    (`const p={x:1.0}; console.log(p.y);`) pinned silent `0`; node prints
+    `undefined`. It is the R-21f shape, so it is re-pinned to the E5506
+    refusal (`no lowering for that read`). The old expectation is kept in a
+    comment.
+  * The accept set did not move (`node accepts.mjs`: anchor 125/137, and
+    `accepts.json` / `counts.json` are byte-identical). The ELEVENTH
+    amendment stands as written.
 
 ---
 

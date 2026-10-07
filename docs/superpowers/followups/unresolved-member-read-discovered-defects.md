@@ -174,6 +174,12 @@ rule covers them, so none was re-pinned or edited.
   and a store after `delete`. In both, the gate's "no lowering" premise
   looks wrong, because the store or read was lowered (or harmless) before.
   These need a ruling before the branch can be called green.
+- **RESOLVED 2026-10-07 (human partner's ruling, spec A-9).** The four
+  export-alias and delete-reinsert tests pass unchanged after two narrowings
+  (`d3ec2bf13`): codegen no longer emits export specifiers, and a store to a
+  module `const` plain-data object literal that nothing else names is
+  exempt. The `imperative_core_runtime` test is re-pinned to the E5506 read
+  refusal (`5798ae62f`). `kali_cli --tests` is green (70/70 targets).
 
 ---
 
