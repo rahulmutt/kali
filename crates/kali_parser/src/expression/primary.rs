@@ -5,6 +5,7 @@ use kali_ast::{
     ArrayExpression, ArrowFunctionExpression, Expression, ExpressionOrSpread, FunctionExpression,
     FunctionParam, ImportExpression, ParenthesizedExpression, SpreadElement, Statement,
 };
+use kali_common::numeric_literal::{parse_js_numeric_literal, NumericLiteral};
 use kali_common::template::split_template_literal;
 use kali_error::{_error_codes::e2, diagnostic::Diagnostic};
 use kali_lexer::TokenType;
@@ -83,11 +84,30 @@ impl Parser {
             TokenType::NumericLiteral => {
                 let token = self.stream.advance();
                 let value = token.map(|t| t.value).unwrap_or_default();
-                if value.ends_with('n') {
-                    Expression::BigIntLiteral(value)
-                } else {
-                    let parsed = value.parse::<f64>().unwrap_or(0.0);
-                    Expression::Literal(kali_ast::LiteralValue::Number(parsed))
+                match parse_js_numeric_literal(&value) {
+                    Some(NumericLiteral::Number(parsed)) => {
+                        Expression::Literal(kali_ast::LiteralValue::Number(parsed))
+                    }
+                    Some(NumericLiteral::BigInt(digits)) => {
+                        Expression::BigIntLiteral(format!("{digits}n"))
+                    }
+                    Some(NumericLiteral::NonDecimalBigInt) => {
+                        self.push_feature_unavailable(
+                            "a hexadecimal, binary or octal BigInt literal is unavailable in the current phase; write the BigInt in decimal",
+                        );
+                        Expression::BigIntLiteral(value)
+                    }
+                    None => {
+                        // NOT `unwrap_or(0.0)`: that read every literal Rust's
+                        // float grammar could not parse as a silent `0`. The
+                        // lexer has already reported E1100 for this token;
+                        // the refusal here keeps the parser fail-closed on
+                        // its own.
+                        self.push_feature_unavailable(format!(
+                            "the numeric literal `{value}` is not valid JavaScript"
+                        ));
+                        Expression::BigIntLiteral(value)
+                    }
                 }
             }
             TokenType::StringLiteral | TokenType::Template | TokenType::Backtick => {

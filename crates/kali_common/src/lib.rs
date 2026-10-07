@@ -9,6 +9,7 @@
 mod helpers;
 pub mod interner;
 pub mod js_number;
+pub mod numeric_literal;
 pub mod source_map;
 pub mod span;
 pub mod template;

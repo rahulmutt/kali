@@ -1,0 +1,16 @@
+# Numeric-literal spellings node refuses with a SyntaxError. kali refuses
+# each with E1100 from the lexer (see numeric_literal_grammar.toml).
+
+[matrix]
+bad = ["0x", "0b2", "0o8", "0xfg", "1__0", "1_", "0_1", "07.5", "042n", "1.5n", "0x1.5", "0b1.1", "0o1.1", "0x10.5"]
+cmd = ["check", "run"]
+
+[source]
+"bad.js" = "console.log(${bad});\n"
+
+[[case]]
+name = "a_malformed_numeric_literal_is_refused_with_e1100"
+rationale = "node refuses each of these spellings with a SyntaxError, so kali must not run them. Before this project the prefixed ones failed with a misleading E3100 and `1.5n` reached the parser as a BigInt. A fraction after a prefixed integer (`0x1.5`) is refused too, not lexed as `0x1` `.` `5`. `run` shows the refusal is fatal, not just a check diagnostic."
+args = ["${cmd}", "bad.js"]
+exit = "failure"
+stderr_contains = ["E1100", "invalid numeric literal"]

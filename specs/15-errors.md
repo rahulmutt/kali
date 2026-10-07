@@ -55,6 +55,7 @@ Expanded public ranges used in schema v1:
 | Range | Category |
 |-------|----------|
 | E0xxx | Internal compiler errors |
+| E1xxx | Lexical errors reported by the lexer before parsing (`kali_lexer`); see Lexical Errors below |
 | E4xxx | Runtime errors raised by the execution engine (`kali_runtime`) — a mixed family; see clarification below |
 | E51xx | Type errors |
 | E52xx | Syntax errors |
@@ -95,6 +96,11 @@ Range clarification:
 - Package-management failures use the `E6xxx` family even when they surface during non-install commands, so install/materialization issues stay distinct from checker and command-shape failures.
 
 ## Error Categories
+
+### Lexical Errors (E1xxx)
+The lexer reports its errors in the `E1xxx` band (`crates/kali_error/src/_error_codes.rs`, module `e1`), before the parser runs. They are fatal under `check`, `build` and `run`.
+- `E1004`: Unsupported string escape sequence
+- `E1100`: Invalid numeric literal (a spelling JavaScript refuses with a SyntaxError, such as `0x`, `1__0`, `0_1`, `07.5`, `042n`, `0x1.5`)
 
 ### Type Errors (E51xx)
 - `E5101`: Type mismatch (assignment, argument, return)

@@ -610,6 +610,8 @@ stderr_contains = ["E5506", "no lowering for that read"]
 [[case]]
 name = "octal_leading_zero_numeric_key_is_read_as_decimal_module_scope"
 rationale = """
+RE-PINNED 2026-10-07 by the numeric-literal-grammar project, which closed R-58's SILENT lane: every numeric-literal reader now uses `kali_common::numeric_literal::parse_js_numeric_literal`, which reads `042` as legacy octal. kali now prints node's `34`. The case keeps its old name so its trial id is stable; the text below is the history of the wrong-on-purpose pin.
+
 ADDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON PURPOSE, and NO TASK IN THIS
 PLAN OWNS CLOSING IT -- pre-existing, out of this project's original scope,
 and not chased here. Do NOT change the parser to close this case.
@@ -651,14 +653,14 @@ and under `\"use strict\"` node refuses the file outright while kali accepts it
 and still prints `42`, which is a second lane in a different verdict class."""
 args = ["run", "octal_leading_zero_numeric_key_module.js"]
 exit = "success"
-stdout = "42\n"
+stdout = "34\n"
 
 [[case]]
 name = "octal_leading_zero_numeric_key_is_read_as_decimal_in_function"
-rationale = "ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 fallthrough has no leading-zero guard, unlike the BigInt branch three lines above it in the same nine-line function. FILED 2026-09-08 as R-58 (register section 2, Tier 2), with an `r58a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. Measured separately, both halves: `{042n: 1}` is refused LOUDLY (`error[E5506]: this numeric property key is unavailable in the current phase`, exit 1, where node raises a SyntaxError) while `{042: 1}` returns the wrong key SILENTLY at exit 0. Pre-existing, out of scope, not chased here; do not change the parser."
+rationale = "RE-PINNED 2026-10-07 by the numeric-literal-grammar project, which closed R-58's SILENT lane: every numeric-literal reader now uses `kali_common::numeric_literal::parse_js_numeric_literal`, which reads `042` as legacy octal. kali now prints node's `34`. The case keeps its old name so its trial id is stable; the text below is the history of the wrong-on-purpose pin. ADDED BY THE FINAL WHOLE-BRANCH REVIEW, same octal-key probe in function scope; node prints `34` (`042` is legacy octal for decimal 34 in sloppy mode) and kali prints `42` (the digits are read as decimal), at exit 0. WRONG ON PURPOSE for the reason given on the module-scope case: `numeric_property_name`'s f64 fallthrough has no leading-zero guard, unlike the BigInt branch three lines above it in the same nine-line function. FILED 2026-09-08 as R-58 (register section 2, Tier 2), with an `r58a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose. Measured separately, both halves: `{042n: 1}` is refused LOUDLY (`error[E5506]: this numeric property key is unavailable in the current phase`, exit 1, where node raises a SyntaxError) while `{042: 1}` returns the wrong key SILENTLY at exit 0. Pre-existing, out of scope, not chased here; do not change the parser."
 args = ["run", "octal_leading_zero_numeric_key_function.js"]
 exit = "success"
-stdout = "42\n"
+stdout = "34\n"
 
 [[case]]
 name = "computed_member_index_is_fabricated_from_the_index_expression_module_scope"

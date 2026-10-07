@@ -338,13 +338,8 @@ fn large_bigint_object_property_keys_are_exact() {
 
 #[test]
 fn an_unreadable_numeric_property_key_is_refused_not_fabricated() {
-    // Hex/binary/octal keys (`0x10`) do NOT exercise this refusal: the lexer
-    // does not tokenize those prefixes at all (a pre-existing, unrelated
-    // gap -- `0x10` lexes as the numeric literal `0` followed by the
-    // identifier `x10`, two tokens, and never reaches `numeric_property_name`
-    // as one). `1.5n` does reach it as a single NumericLiteral token (the
-    // lexer accepts a trailing `n` after a decimal fraction with no syntax
-    // check), and a decimal BigInt literal is invalid JavaScript, so
+    // `1.5n` reaches the parser as one NumericLiteral token. A BigInt
+    // literal takes no fraction, so it is invalid JavaScript, and
     // `numeric_property_name` must refuse it rather than storing a
     // fabricated key.
     let tokens = lex("const obj = { 1.5n: 1 };\n");
@@ -420,4 +415,29 @@ fn a_leading_zero_bigint_property_key_is_refused() {
         0,
         "the leading-zero bigint key must be dropped, not stored under \"042\""
     );
+}
+
+#[test]
+fn prefixed_and_legacy_octal_property_keys_store_their_javascript_value() {
+    assert_eq!(
+        parse_object_literal("({0x10: 1})").properties[0].key,
+        PropertyName::Number(16.0)
+    );
+    assert_eq!(
+        parse_object_literal("({1_0: 1})").properties[0].key,
+        PropertyName::Number(10.0)
+    );
+    // Register entry R-58: `{042: 1}` is the property "34", not "42".
+    assert_eq!(
+        parse_object_literal("({042: 1})").properties[0].key,
+        PropertyName::Number(34.0)
+    );
+}
+
+#[test]
+fn a_non_decimal_bigint_property_key_is_refused() {
+    let tokens = lex("const obj = { 0x10n: 1 };\n");
+    let mut parser = Parser::new(kali_common::FileId::new(0), tokens);
+    let output = parser.parse(None);
+    assert!(!output.diagnostics.is_empty(), "expected a refusal");
 }

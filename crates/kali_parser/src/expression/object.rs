@@ -5,6 +5,7 @@ use crate::Parser;
 use kali_ast::{
     Expression, LiteralValue, ObjectExpression, ObjectProperty, ObjectPropertyKind, PropertyName,
 };
+use kali_common::numeric_literal::{parse_js_numeric_literal, NumericLiteral};
 use kali_lexer::TokenType;
 
 impl Parser {
@@ -213,50 +214,26 @@ impl Parser {
 /// The property name a numeric-literal key token denotes, or `None` when the
 /// token is not one this phase can read.
 ///
+/// The value comes from `parse_js_numeric_literal`, the JavaScript literal
+/// grammar the lexer validates with. That is what reads `{0x10: 1}` as the
+/// property `16` and `{042: 1}` as `34` (register entry R-58, which Rust's
+/// `str::parse::<f64>` read as `42`).
+///
 /// The BigInt arm keeps DIGITS: `String(42n)` is `"42"`, exactly, for values
-/// with no exact `f64`. A leading zero before another digit (`042n`) is
-/// refused, not admitted as `"042"`: JavaScript makes that a SyntaxError (the
-/// whole program fails to parse), so admitting it here would accept a program
-/// node refuses -- fail-open in the one direction this arm must not take.
-/// `0n` itself (a single `"0"`) is legal and stays admitted.
+/// with no exact `f64`. A malformed BigInt (`042n`, `1.5n`) is `None`, so it is
+/// refused rather than admitted under a fabricated key. A hexadecimal, binary
+/// or octal BigInt (`0x10n`) is well formed but also `None`: its decimal digits
+/// would need arbitrary-precision arithmetic this phase does not do.
 ///
-/// This phase also declines non-decimal BigInt literals (`0x2an`, `0b101n`,
-/// `0o17n`) and non-decimal numeric keys generally: the lexer that hands this
-/// function its `text` does not tokenize `0x`/`0b`/`0o` prefixes at all (a
-/// pre-existing, unrelated gap -- `0x10` lexes as the numeric literal `0`
-/// followed by the identifier `x10`, never reaching this function as one
-/// token), so hex/binary/octal keys never arrive here to be refused by name;
-/// they misparse upstream instead. Fixing that is out of this function's
-/// scope.
-///
-/// **LEGACY OCTAL IS THE ONE NON-DECIMAL SPELLING THAT DOES ARRIVE HERE AS ONE
-/// TOKEN, AND IT IS MISREAD. That is register entry R-58** (§2, Tier 2, filed
-/// 2026-09-08 at `b13c890330`, off `dde0f083c0`). JavaScript writes it with no
-/// prefix at all, so
-/// `lex_number` hands `042` over as a well-formed-looking `NumericLiteral`, and
-/// the `f64` arm below parses it with Rust's `str::parse::<f64>`, which has no
-/// legacy-octal grammar: the key becomes `42` where node says `34`, at exit 0
-/// with no diagnostic. The BigInt arm three lines up refuses the identical
-/// leading zero on `042n`; this arm walks past it. Measured at `dde0f083c0`
-/// against node v26.8.1, both scopes; pinned by `r58a_*` in
-/// `crates/kali_cli/tests/cases/oracle/tier2.toml`.
-///
-/// **Do not close R-58 by extending the leading-zero refusal to `042`.** That
-/// is the cheap change this function's shape invites and it would make kali
-/// reject a program node RUNS -- `042` is legal in sloppy mode, which is what a
-/// `.js` entry file runs in. The fix is a VALUE conversion, here and in
-/// `crates/kali_parser/src/expression/primary.rs:87`, which misreads the same
-/// spelling in expression position. The strict-mode question (node refuses
-/// `042` under `"use strict"` and in every module; kali has no strict-mode
-/// notion in this path) is stated in the entry and is not answered by it.
+/// Legacy octal follows sloppy mode, which is what a `.js` entry file runs in.
+/// Node refuses `042` under `"use strict"` and in every module; kali has no
+/// strict-mode notion on this path, so that refusal is not made here.
 fn numeric_property_name(text: &str) -> Option<PropertyName> {
-    if let Some(digits) = text.strip_suffix('n') {
-        let is_valid_bigint_digits = !digits.is_empty()
-            && digits.bytes().all(|byte| byte.is_ascii_digit())
-            && !(digits.len() > 1 && digits.starts_with('0'));
-        return is_valid_bigint_digits.then(|| PropertyName::BigInt(digits.to_string()));
+    match parse_js_numeric_literal(text)? {
+        NumericLiteral::Number(value) => Some(PropertyName::Number(value)),
+        NumericLiteral::BigInt(digits) => Some(PropertyName::BigInt(digits)),
+        NumericLiteral::NonDecimalBigInt => None,
     }
-    text.parse::<f64>().ok().map(PropertyName::Number)
 }
 
 #[cfg(test)]

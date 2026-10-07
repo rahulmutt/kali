@@ -1,5 +1,7 @@
 use std::{collections::BTreeSet, path::Path};
 
+use kali_common::js_number::format_js_number;
+use kali_common::numeric_literal::{parse_js_numeric_literal, NumericLiteral};
 use kali_error::Diagnostic;
 use kali_lexer::{Token, TokenType};
 
@@ -248,9 +250,12 @@ fn read_property_segment(tokens: &[Token], index: usize) -> Option<(String, usiz
             let property = tokens.get(index + 1)?;
             let value = match property.kind {
                 TokenType::Identifier => property.value.clone(),
-                TokenType::StringLiteral | TokenType::NumericLiteral => {
-                    unquote_token_value(&property.value)
-                }
+                TokenType::StringLiteral => unquote_token_value(&property.value),
+                TokenType::NumericLiteral => match parse_js_numeric_literal(&property.value)? {
+                    NumericLiteral::Number(value) => format_js_number(value),
+                    NumericLiteral::BigInt(digits) => digits,
+                    NumericLiteral::NonDecimalBigInt => return None,
+                },
                 _ => return None,
             };
             if !matches!(

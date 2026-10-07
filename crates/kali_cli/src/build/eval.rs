@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use kali_common::numeric_literal::{parse_js_numeric_literal, NumericLiteral};
 use kali_common::{template::resolve_interpolated_template_literal, FileId};
 use kali_error::Diagnostic;
 use kali_lexer::{Lexer, Token, TokenType};
@@ -591,6 +592,21 @@ fn parse_constant_additive(
     Some((left, index))
 }
 
+/// The integer a numeric-literal token denotes under JavaScript's literal
+/// grammar, when it is exact. `str::parse::<i64>` read `042` as 42 where
+/// JavaScript says 34, and refused `0xff` and `1_000` outright.
+fn exact_integer_literal(text: &str) -> Option<i64> {
+    const MAX_SAFE_INTEGER: f64 = 9_007_199_254_740_991.0;
+    match parse_js_numeric_literal(text)? {
+        NumericLiteral::Number(value)
+            if value.fract() == 0.0 && value.abs() <= MAX_SAFE_INTEGER =>
+        {
+            Some(value as i64)
+        }
+        _ => None,
+    }
+}
+
 fn parse_constant_primary(
     tokens: &[Token],
     index: usize,
@@ -604,11 +620,9 @@ fn parse_constant_primary(
         )),
         TokenType::Template => parse_template_constant_value(&token.value, env)
             .map(|value| (EvalConst::String(value), index + 1)),
-        TokenType::NumericLiteral => token
-            .value
-            .parse::<i64>()
-            .ok()
-            .map(|value| (EvalConst::Number(value), index + 1)),
+        TokenType::NumericLiteral => {
+            exact_integer_literal(&token.value).map(|value| (EvalConst::Number(value), index + 1))
+        }
         TokenType::True => Some((EvalConst::Boolean(true), index + 1)),
         TokenType::False => Some((EvalConst::Boolean(false), index + 1)),
         TokenType::Null | TokenType::Undefined => Some((EvalConst::Null, index + 1)),
