@@ -2571,7 +2571,7 @@ name = "r58a_legacy_octal_numeric_key_read_as_decimal_module_scope"
 kind = "oracle"
 register_entry = "R-58"
 program = "r58a_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = '''
 R-58, the whole entry (one lane), module scope. Section 2's headline `Repro` verbatim -- a `const` object literal whose single key is the LEGACY OCTAL numeric literal `042`, which denotes the property named `34` -- enumerated once through `Object.keys` and probed twice through `Object.hasOwn`.
 
@@ -2586,6 +2586,7 @@ Expected verdict set from the register's recorded status: section 0.2's R-58 row
 MEASURED 2026-09-08 at `dde0f083c0` (this branch's base, and the tree the binary was built from) against node v26.8.1: SILENT, as recorded. kali prints `42`, `false`, `true` at exit 0 with empty stderr (0 bytes, measured); node prints `34`, `true`, `false` at exit 0. All three lines diverge.
 
 WHAT A REGRESSION HERE WOULD MEAN. If `numeric_property_name` learns the legacy-octal grammar and converts the VALUE, all three lines agree with node, this case turns FIXED and goes red against its `silent` verdict -- the signal to close the entry and re-derive the row. If instead the leading zero is merely REFUSED, mirroring the `042n` guard three lines above it in the same function, this case turns FAIL_CLOSED and also goes red -- but that outcome would be a REGRESSION against node, which accepts the program, and the entry's Fix direction says so. A red case here is not automatically good news; read which class it moved to.
+RE-MEASURED 2026-10-07 on branch `numeric-literal-grammar` against node v26.10.0: FIXED. The numeric-literal-grammar project routed every numeric-literal reader through `kali_common::numeric_literal::parse_js_numeric_literal`, which implements JavaScript's legacy-octal grammar, and `numeric_property_name` stores `{042: 1}` under the property `34`. kali now prints `34`, `true`, `false` at exit 0, byte-identical to node. This is the value conversion the paragraph above calls the fix, not a refusal. The strict-mode lane is still not covered (see the file header).
 '''
 
 [[case]]
@@ -2593,7 +2594,7 @@ name = "r58a_legacy_octal_numeric_key_read_as_decimal_in_function"
 kind = "oracle"
 register_entry = "R-58"
 program = "r58a_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = '''
 R-58, the whole entry (one lane), in-function scope. The module-scope program verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
@@ -2602,6 +2603,7 @@ Expected verdict set from the register's recorded status: SILENT, as for the mod
 MEASURED 2026-09-08 at `dde0f083c0` against node v26.8.1: SILENT, as recorded. kali prints `42`, `false`, `true` at exit 0 with empty stderr; node prints `34`, `true`, `false` at exit 0. Byte-identical to the module scope.
 
 THE THREE CONTROLS ARE NOT PINNED BY THIS PAIR AND WERE MEASURED BY HAND at `dde0f083c0` against node v26.8.1, in both scopes. `{042n: 1}` fails LOUDLY in kali (`error[E5506]: this numeric property key is unavailable in the current phase; use a decimal or string literal key`, exit 1) where node raises `SyntaxError: Invalid or unexpected token` -- both refuse, so the BigInt half of the same nine-line function is sound. `{0o42: 1}` and `{0x10: 1}` fail loudly too, but for a cruder reason (`error[E3100]: undefined identifier 'o42'` and `'x10'`, exit 1: `lex_number` never tokenizes a radix prefix, so `0o42` lexes as the number `0` followed by an identifier), where node accepts both and prints `34` and `16`. So of the four non-decimal spellings this parser meets, three fail loudly and exactly one -- legacy octal, the one JavaScript spells with no prefix at all -- is accepted and misread. That is the entry.
+RE-MEASURED 2026-10-07 on branch `numeric-literal-grammar` against node v26.10.0: FIXED. The numeric-literal-grammar project routed every numeric-literal reader through `kali_common::numeric_literal::parse_js_numeric_literal`, which implements JavaScript's legacy-octal grammar, and `numeric_property_name` stores `{042: 1}` under the property `34`. kali now prints `34`, `true`, `false` at exit 0, byte-identical to node. This is the value conversion the paragraph above calls the fix, not a refusal. The strict-mode lane is still not covered (see the file header).
 '''
 
 [[case]]

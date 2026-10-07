@@ -1,0 +1,88 @@
+# The JavaScript NumericLiteral grammar, end to end.
+#
+# Before the numeric-literal-grammar project the lexer read decimal digits
+# only: `0xff` lexed as `0` followed by the identifier `xff` (E3100), and so
+# did every `0b`, `0o` and `1_000` spelling. `042` lexed as one token and was
+# read with Rust's float grammar as 42 (register entry R-58). Every reader of a
+# numeric token now goes through `kali_common::numeric_literal`.
+#
+# Every expected stdout below is node v26.10.0's, measured 2026-10-07.
+
+[source]
+"values_module.js" = """
+const a = 0xff;
+const b = 0XEDB88320;
+console.log(a, b, 0b101, 0o17, 1_000, 042, 08, 0x20000000000001);
+console.log("v=" + 0x10 + " " + (0xff & 0x0f) + " " + (1 << 0b11));
+console.log(String(1_000n));
+"""
+"values_function.js" = """
+function main() {
+  const a = 0xff;
+  const b = 0XEDB88320;
+  console.log(a, b, 0b101, 0o17, 1_000, 042, 08, 0x20000000000001);
+  console.log("v=" + 0x10 + " " + (0xff & 0x0f) + " " + (1 << 0b11));
+  console.log(String(1_000n));
+}
+main();
+"""
+"keys.js" = """
+const o = {0x10: "hex", 042: "oct", 1_0: "sep"};
+console.log(o[16], o[34], o[10], o[0x10], Object.keys(o).join(","));
+"""
+"crc.js" = """
+function step(crc) {
+  let c = crc ^ 0xff;
+  for (let k = 0; k < 8; k++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  return c >>> 0;
+}
+console.log(step(0xffffffff));
+"""
+"hex_bigint.js" = "console.log(String(0xffn));\n"
+"eval_octal.js" = """
+const k = 042;
+console.log(eval("" + k));
+"""
+
+[[case]]
+name = "prefixed_separated_and_legacy_octal_values_match_node_module_scope"
+rationale = "Each spelling prints node's value. `042` is 34 and `08` is 8 (sloppy mode); 0x20000000000001 rounds to even."
+args = ["run", "values_module.js"]
+exit = "success"
+stdout = "255 3988292384 5 15 1000 34 8 9007199254740992\nv=16 15 8\n1000\n"
+
+[[case]]
+name = "prefixed_separated_and_legacy_octal_values_match_node_in_function"
+args = ["run", "values_function.js"]
+exit = "success"
+stdout = "255 3988292384 5 15 1000 34 8 9007199254740992\nv=16 15 8\n1000\n"
+
+[[case]]
+name = "prefixed_and_legacy_octal_property_keys_match_node"
+rationale = "R-58's key lane, plus the hex and separator spellings: the key is the literal's JavaScript value."
+args = ["run", "keys.js"]
+exit = "success"
+stdout = "hex oct sep hex 10,16,34\n"
+
+[[case]]
+name = "a_crc32_step_over_hex_constants_matches_node"
+rationale = "The shape that kept the extension corpus's crc32_checksum.js from type-checking (E3100 on `xedb88320`)."
+args = ["run", "crc.js"]
+exit = "success"
+stdout = "16777215\n"
+
+[[case]]
+name = "a_hexadecimal_bigint_is_refused_not_misread"
+rationale = "`0xffn` is valid JavaScript (255n). Computing its decimal digits needs arbitrary-precision arithmetic, so kali refuses it with E5506."
+args = ["check", "hex_bigint.js"]
+exit = "failure"
+stderr_contains = ["E5506", "BigInt literal is unavailable"]
+
+[[case]]
+name = "the_eval_constant_folder_reads_legacy_octal_as_javascript_does"
+rationale = "`build/eval.rs` folded `042` with `str::parse::<i64>` and printed 42 at exit 0. It now uses the shared literal grammar and prints node's 34."
+args = ["run", "--compat", "eval", "eval_octal.js"]
+exit = "success"
+stdout = "34\n"
