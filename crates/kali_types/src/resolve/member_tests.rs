@@ -170,26 +170,27 @@ fn a_string_receiver_refuses_in_both_spellings() {
 }
 
 #[test]
-fn an_array_literal_element_store_refuses_even_with_a_literal_index() {
-    // Both spellings that carry a static NAME — the literal index the parser
-    // reads, and the `const` index that folds — are this gate's, and each
-    // refuses exactly once. Review round 1, Important 1: the folded spelling
-    // was check-clean while `run` refused it, because the gate handed every
-    // nameless index to `gate_nameless_computed_member` and that gate folds.
+fn an_array_literal_element_store_is_a_growable_write_not_a_literal_mutation() {
+    // Growable-runtime-arrays moved pin (Task 8, spec §3.1/§3.5): an index
+    // write makes the literal a growable array, so neither spelling that
+    // carries a static NAME — the literal index the parser reads, and the
+    // `const` index that folds — is the literal-array store gate's any more
+    // (it used to refuse "mutating a literal array"); and neither is the
+    // nameless gate's. Inference owns growable writes (A-7).
     for source in [
         "const a = [5, 6]; a[1] = 9; console.log(a[1]);",
         "const a = [5, 6]; const i = 1; a[i] = 9; console.log(a[1]);",
     ] {
         let messages = e5506_messages(source);
         assert!(
-            messages
+            !messages
                 .iter()
                 .any(|m| m.contains("mutating a literal array")),
             "{source}: {messages:?}"
         );
         assert!(
             !messages.iter().any(|m| m.contains(COMPUTED)),
-            "{source}: one owner per refusal: {messages:?}"
+            "{source}: {messages:?}"
         );
     }
     // Growable-runtime-arrays moved pin (Task 6): an index write makes the

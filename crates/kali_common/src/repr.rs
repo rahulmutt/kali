@@ -134,6 +134,13 @@ pub struct ReprTable {
     /// lexically enclosing function, hoisting-aware) shadows it. A nested
     /// `function name` declaration is not a shadow of itself.
     shadowed_array_return_callees: HashSet<(String, String)>,
+    /// `(func, name)` → the anonymous function's `__kali_fn_N` a direct call
+    /// `name(…)` made in `func` reaches through a `const` arrow /
+    /// function-expression alias (following `const h = f` chains), exactly
+    /// as inference's `array_return_callee` keys it. Published so the
+    /// resolver keys a growable call result the way inference does (controller
+    /// ruling W2) instead of re-deriving aliases.
+    fn_alias_targets: HashMap<(String, String), String>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
     /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
     /// shapes visible at the call site: a bare-identifier array binding, or a
@@ -697,6 +704,31 @@ impl ReprTable {
     pub fn is_array_return_callee_shadowed(&self, func: &str, name: &str) -> bool {
         self.shadowed_array_return_callees
             .contains(&(func.to_string(), name.to_string()))
+    }
+
+    pub fn set_fn_alias_target(&mut self, func: &str, name: &str, target: &str) {
+        self.fn_alias_targets
+            .insert((func.to_string(), name.to_string()), target.to_string());
+    }
+
+    /// The `__kali_fn_N` a call `name(…)` in `func` reaches through a `const`
+    /// alias, if any — see `fn_alias_targets`.
+    pub fn fn_alias_target(&self, func: &str, name: &str) -> Option<&str> {
+        self.fn_alias_targets
+            .get(&(func.to_string(), name.to_string()))
+            .map(String::as_str)
+    }
+
+    /// The key a direct call `name(…)` made in `func` reaches for the
+    /// array-return lanes: the alias target, else `name` unless `func`
+    /// shadows it. The table-side twin of inference's `array_return_callee`
+    /// (the shadow fact is published only for array/growable-returning names,
+    /// which is every name these lanes look up).
+    pub fn array_return_callee_key<'a>(&'a self, func: &str, name: &'a str) -> Option<&'a str> {
+        if let Some(target) = self.fn_alias_target(func, name) {
+            return Some(target);
+        }
+        (!self.is_array_return_callee_shadowed(func, name)).then_some(name)
     }
 
     /// Distinct NAMES of every growable-array binding across all functions.

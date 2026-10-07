@@ -7843,6 +7843,14 @@ impl ReprInfer {
                 }
             }
         }
+        // Controller ruling W2: publish every `const` alias's resolved target
+        // so the resolver keys a call `name(…)` exactly as
+        // `array_return_callee` does (one alias resolution, inference's).
+        for (func, name) in self.fn_aliases.keys() {
+            if let Some(target) = self.fn_alias_target(func, name) {
+                table.set_fn_alias_target(func, name, &target);
+            }
+        }
         for (f, reason) in &array_return_taints {
             table.set_array_return_taint(f, reason);
             table.add_shape_conflict(self.array_return_refusal(f, reason));

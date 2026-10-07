@@ -411,6 +411,11 @@ impl TypeContext {
         }
     }
     pub(crate) fn resolve_static_array_binding_name(&self, name: &str) -> bool {
+        // Growable-runtime-arrays spec §3.5: a growable binding is never a
+        // folded literal, so no static lane or literal-array gate takes it.
+        if self.is_growable_array_binding(name) {
+            return false;
+        }
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -431,6 +436,11 @@ impl TypeContext {
     /// linearizes a literal array, so a `__join` call over one would silently
     /// emit `0`.
     pub(crate) fn resolve_array_literal_binding_name(&self, name: &str) -> bool {
+        // Growable-runtime-arrays spec §3.5: a growable binding is never a
+        // folded literal, so no static lane or literal-array gate takes it.
+        if self.is_growable_array_binding(name) {
+            return false;
+        }
         let mut current = self.current_scope_id();
         while let Some(scope_id) = current {
             let scope = self.scopes.get(&scope_id).expect("scope exists");
@@ -696,6 +706,15 @@ impl TypeContext {
             return;
         }
 
+        // Growable-runtime-arrays spec §3.5: runtime bounds on a growable value.
+        if self.growable_receiver_elem(&member.object).is_some() {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
+            return;
+        }
+
         let has_static_receiver = self.is_static_array_iteration_target(&member.object);
         let supported_arg_count = expr.args.len() <= 2;
         let has_static_bounds = expr.args.iter().all(|argument| {
@@ -821,53 +840,37 @@ impl TypeContext {
         if member.static_name() != Some("join") {
             return;
         }
-        // Growable-array receiver (throw-fallout Stage 4 Task 5): a promoted
-        // push-accumulated array joins through the header-indirected
-        // `__join_growable_*` synthetic. Admit it HERE (before the static fold
-        // lane, whose `is_static_array_iteration_target` still sees the stale
-        // declarator literal and would silently fold `""` over an array that
-        // now really accumulates). Both element reprs the growable lane
-        // supports are admissible: I64 (rendered as ASCII decimal digits) and
-        // String (byte-copied — but only when all-ASCII, since `__join` counts
-        // bytes). The separator must be a proven-ASCII string for the same
-        // byte-count reason. Anything else fails closed (E5506) — never a
-        // silent wrong answer, and never the static fold below. This is the
-        // types half of the both-sides mirror whose codegen half is
-        // `runtime_join_call_parts`' `is_growable_array` admission +
-        // `emit_runtime_join`'s repr-directed synthetic selection.
+        // Growable-array receiver (growable-runtime-arrays spec §3.5): a
+        // growable binding, a growable call result or a slice of either joins
+        // through the header-indirected `__join_growable_*` synthetic. Admit
+        // it HERE, before the static fold lane. I64/F64 elements render ASCII
+        // digits; String elements must be proven ASCII (`__join` counts
+        // bytes), as must the separator. Anything else fails closed (E5506).
         {
-            let mut receiver = &member.object;
-            while let Expression::ParenthesizedExpression(inner) = receiver {
-                receiver = &inner.expression;
-            }
-            if let Expression::Identifier(name) = receiver {
-                if self.is_growable_array_binding(name) {
-                    let name = name.as_str();
-                    self.resolve_expression(&member.object);
-                    for arg in &expr.args {
-                        self.resolve_expression(arg);
-                    }
-                    let supported_arg_count = matches!(expr.args.len(), 0 | 1);
-                    let separator_ok = expr.args.first().is_none_or(|argument| {
-                        self.resolve_static_string_expression(argument)
-                            .map(|s| s.is_ascii())
-                            .unwrap_or_else(|| self.expression_repr_is_ascii_string(argument))
-                    });
-                    // A String-element growable must additionally have all
-                    // proven-ASCII elements; an I64-element growable renders
-                    // ASCII decimals, so it carries no element ASCII concern
-                    // (`string_element_array_binding` is false for it).
-                    let elements_ok = !self.string_element_array_binding(name)
-                        || !self.array_element_non_ascii(name);
-                    if supported_arg_count && separator_ok && elements_ok {
-                        return;
-                    }
-                    self.diagnostics.push(Diagnostic::error(
-                        e5::FEATURE_UNAVAILABLE as u32,
-                        "Array.prototype.join on a growable array is unavailable unless it has at most one argument that is a proven-ASCII string separator and its String elements are all proven ASCII in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
-                    ));
+            let receiver = &member.object;
+            if let Some(elem) = self.growable_receiver_elem(receiver) {
+                self.resolve_expression(&member.object);
+                for arg in &expr.args {
+                    self.resolve_expression(arg);
+                }
+                let supported_arg_count = matches!(expr.args.len(), 0 | 1);
+                let separator_ok = expr.args.first().is_none_or(|argument| {
+                    self.resolve_static_string_expression(argument)
+                        .map(|s| s.is_ascii())
+                        .unwrap_or_else(|| self.expression_repr_is_ascii_string(argument))
+                });
+                // i64 and f64 elements render ASCII digits; String elements
+                // must be proven ASCII because `__join_growable_*` counts bytes.
+                let elements_ok = elem != kali_common::Repr::String
+                    || !self.growable_receiver_non_ascii(receiver);
+                if supported_arg_count && separator_ok && elements_ok {
                     return;
                 }
+                self.diagnostics.push(Diagnostic::error(
+                    e5::FEATURE_UNAVAILABLE as u32,
+                    "Array.prototype.join on a growable array is unavailable unless it has at most one argument that is a proven-ASCII string separator and its String elements are all proven ASCII in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
+                ));
+                return;
             }
         }
 
@@ -1046,6 +1049,15 @@ impl TypeContext {
             .resolve_static_string_expression(&member.object)
             .is_some()
         {
+            return;
+        }
+        // Growable-runtime-arrays spec §3.5: a runtime search value on a
+        // growable value (inference raises the `fromIndex` refusal, M6).
+        if self.growable_receiver_elem(&member.object).is_some() {
+            self.resolve_expression(&member.object);
+            for arg in &expr.args {
+                self.resolve_expression(arg);
+            }
             return;
         }
         let has_static_receiver = self.is_static_array_iteration_target(&member.object);

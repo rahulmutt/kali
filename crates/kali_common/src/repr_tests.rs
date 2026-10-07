@@ -255,3 +255,18 @@ fn growable_bindings_are_global_unless_marked_local_only() {
     assert!(table.is_growable_local_only("main", "out"));
     assert!(!table.is_growable_local_only("main", "other"));
 }
+
+#[test]
+fn array_return_callee_key_follows_a_published_alias_then_the_shadow_fact() {
+    let mut t = ReprTable::default();
+    // No facts: the name itself.
+    assert_eq!(t.array_return_callee_key("main", "mk"), Some("mk"));
+    // A shadowed name reaches nothing.
+    t.set_array_return_callee_shadowed("main", "mk");
+    assert_eq!(t.array_return_callee_key("main", "mk"), None);
+    // A published alias wins, keyed by the calling function.
+    t.set_fn_alias_target("main", "mk", "__kali_fn_3");
+    assert_eq!(t.array_return_callee_key("main", "mk"), Some("__kali_fn_3"));
+    assert_eq!(t.fn_alias_target("other", "mk"), None);
+    assert!(t.is_empty());
+}
