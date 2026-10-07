@@ -1,6 +1,7 @@
 //! Growable-runtime-arrays spec §3.1: what the walk records.
 
-use super::super::flow::{ElementValue, GrowFacts, GrowNode, TempKind, UseKind};
+use super::super::elem_proof::ElemProof;
+use super::super::flow::{GrowFacts, GrowNode, TempKind, UseKind};
 
 fn facts(src: &str) -> GrowFacts {
     crate::repr_infer::growable_facts_for(&crate::test_support::parse_statements(src))
@@ -38,7 +39,7 @@ fn a_literal_declarator_is_an_origin_and_its_push_a_demand_with_element_values()
         kinds_of(&f, &out),
         vec![UseKind::Push, UseKind::Push, UseKind::Push]
     );
-    let values: Vec<ElementValue> = f
+    let values: Vec<ElemProof> = f
         .element_values
         .iter()
         .filter(|(n, _)| n == &out)
@@ -47,11 +48,14 @@ fn a_literal_declarator_is_an_origin_and_its_push_a_demand_with_element_values()
     assert_eq!(
         values,
         vec![
-            ElementValue::Other,
-            ElementValue::Other,
-            ElementValue::Identifier("x".to_string()),
-            ElementValue::Unsupported,
-            ElementValue::Unsupported,
+            ElemProof::Yes,
+            ElemProof::Yes,
+            ElemProof::Binding {
+                func: "main".to_string(),
+                name: "x".to_string(),
+            },
+            ElemProof::No,
+            ElemProof::No,
         ]
     );
 }

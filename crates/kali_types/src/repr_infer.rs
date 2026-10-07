@@ -418,6 +418,9 @@ struct CallEdge {
     /// an array; `No`/`Unknown` at and after the first spread argument.
     arg_num_proofs: Vec<crate::array_return::NumProof>,
     arg_array_proofs: Vec<crate::array_return::ArgArrayProof>,
+    /// Growable-runtime-arrays M2: each positional argument's
+    /// number-or-string proof; `No` at and after the first spread argument.
+    arg_elem_proofs: Vec<crate::growable::elem_proof::ElemProof>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
     result_node: usize,
@@ -430,6 +433,7 @@ struct NumberProofEdge {
     callee: String,
     num: Vec<crate::array_return::NumProof>,
     array: Vec<crate::array_return::ArgArrayProof>,
+    elem: Vec<crate::growable::elem_proof::ElemProof>,
 }
 
 /// What a locally declared name is, as a direct callee, to the array-return
@@ -493,6 +497,36 @@ struct NumProofCheck<'a> {
 }
 
 impl NumProofCheck<'_> {
+    /// Discover every fact `goals` depend on, then refute until stable
+    /// (greatest fixed point); `refuted` holds the result.
+    fn refute(&mut self, goals: impl IntoIterator<Item = NumFact>) {
+        let mut universe: BTreeSet<NumFact> = BTreeSet::new();
+        let mut work: Vec<NumFact> = goals.into_iter().collect();
+        while let Some(fact) = work.pop() {
+            if !universe.insert(fact.clone()) {
+                continue;
+            }
+            let mut deps = Vec::new();
+            self.fact_holds(&fact, &mut deps);
+            work.extend(deps.into_iter().filter(|d| !universe.contains(d)));
+        }
+        loop {
+            let mut changed = false;
+            for fact in &universe {
+                if self.refuted.contains(fact) {
+                    continue;
+                }
+                if !self.fact_holds(fact, &mut Vec::new()) {
+                    self.refuted.insert(fact.clone());
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+
     fn assume(&self, fact: NumFact, deps: &mut Vec<NumFact>) -> bool {
         let holds = !self.refuted.contains(&fact);
         deps.push(fact);
@@ -736,6 +770,446 @@ impl NumProofCheck<'_> {
             return false;
         }
         self.assume(NumFact::Binding(scope, name.to_string()), deps)
+    }
+}
+
+/// Growable-runtime-arrays M2 (spec §3.4, A-4, Task 7 fix round 1): a fact
+/// the number-or-string proof of a stored element leans on.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum ElemFact {
+    /// Every value written to declared binding `(scope, name)` is proven.
+    Binding(String, String),
+    /// Every call site of `func` passes a proven argument for param `name`,
+    /// and every write in its body is proven.
+    Param(String, String),
+    /// Every return of `func` is proven.
+    Return(String),
+    /// Every value stored into the growable component is proven.
+    Grow(usize),
+    /// Every value stored into the plain (non-growable) array component —
+    /// its literal seeds — is proven (`plain_component_closed` holds).
+    Plain(usize),
+}
+
+/// Growable-runtime-arrays M2: the evaluator behind the unsupported-element
+/// refusal, a greatest fixed point like [`NumProofCheck`]. Integer elements
+/// of a plain (non-growable) array lean on the number proof's element-class
+/// facts, `num_proven` (`None` while discovering: assumed, and recorded in
+/// `num_goals`).
+struct ElemProofCheck<'a> {
+    infer: &'a ReprInfer,
+    table: &'a ReprTable,
+    solution: &'a crate::array_return::Solution,
+    roots: &'a [usize],
+    fields_of: &'a BTreeMap<ObjSlot, Vec<String>>,
+    materialized: &'a BTreeSet<ObjSlot>,
+    unwalked: bool,
+    /// Component (growable or plain) -> every value stored into it.
+    grow_values: BTreeMap<usize, Vec<&'a crate::growable::elem_proof::ElemProof>>,
+    num_proven: Option<BTreeSet<usize>>,
+    num_goals: std::cell::RefCell<BTreeSet<usize>>,
+    refuted: BTreeSet<ElemFact>,
+}
+
+impl ElemProofCheck<'_> {
+    fn assume(&self, fact: ElemFact, deps: &mut Vec<ElemFact>) -> bool {
+        let holds = !self.refuted.contains(&fact);
+        deps.push(fact);
+        holds
+    }
+
+    fn slot_is_object(&self, slot: &ObjSlot) -> bool {
+        self.infer.obj_literal_slots.contains(slot)
+            || self.fields_of.contains_key(slot)
+            || self.materialized.contains(slot)
+    }
+
+    /// `name`, read in `func`, is object-shaped.
+    fn is_object(&self, func: &str, scope: &str, name: &str) -> bool {
+        self.slot_is_object(&ObjSlot::Binding(scope.to_string(), name.to_string()))
+            || self.slot_is_object(&ObjSlot::Binding(func.to_string(), name.to_string()))
+            || self.table.object_initialized_binding(scope, name)
+            || matches!(self.table.scalar(scope, name), Repr::Object(_))
+    }
+
+    /// Positive evidence that `(scope, name)` holds an array.
+    fn is_array(&self, scope: &str, name: &str) -> bool {
+        let infer = self.infer;
+        let key = (scope.to_string(), name.to_string());
+        let node = crate::growable::flow::GrowNode::Binding(key.0.clone(), key.1.clone());
+        infer.growable.is_growable_binding(scope, name)
+            || infer.growable_facts.literal_origins.contains(&node)
+            || infer.growable_facts.plain_origins.contains(&node)
+            || infer.array_origins.contains_key(&key)
+            || infer.const_literal_array_bindings.contains(&key)
+            || infer.const_bad_literal_array_bindings.contains(&key)
+            || infer.const_computed_literal_array_bindings.contains(&key)
+            || infer.let_literal_array_bindings.contains(&key)
+            || self.table.is_non_scalar_param(scope, name)
+            || self.solution.array_fed_params.contains(&key)
+            || self.solution.call_bound.contains(&key)
+    }
+
+    fn param_index(&self, func: &str, name: &str) -> Option<usize> {
+        self.infer
+            .functions
+            .get(func)
+            .and_then(|params| params.iter().position(|p| p == name))
+    }
+
+    /// `name` names no program function or binding visible from `func`.
+    fn is_global(&self, func: &str, name: &str) -> bool {
+        !self.infer.functions.contains_key(name)
+            && !self.infer.is_locally_declared(func, name)
+            && !self.infer.is_locally_declared(TOP_LEVEL, name)
+    }
+
+    fn grow_component(&self, node: &crate::growable::flow::GrowNode) -> Option<usize> {
+        let growable = &self.infer.growable;
+        if growable.is_growable(node) {
+            growable.component_of(node)
+        } else {
+            None
+        }
+    }
+
+    /// The bare identifier `name`, read in `func`, holds a number or a string
+    /// (and is a string, when `string`).
+    fn binding_holds(
+        &self,
+        func: &str,
+        name: &str,
+        string: bool,
+        deps: &mut Vec<ElemFact>,
+    ) -> bool {
+        if self.unwalked || self.infer.functions.contains_key(name) {
+            return false;
+        }
+        let scope = if self.param_index(func, name).is_some() {
+            func.to_string()
+        } else {
+            self.infer.binding_scope(func, name)
+        };
+        if !self.infer.is_locally_declared(&scope, name)
+            || self.is_object(func, &scope, name)
+            || self.is_array(&scope, name)
+        {
+            return false;
+        }
+        match self.table.scalar(&scope, name) {
+            Repr::String => {}
+            Repr::I64 | Repr::F64 if !string => {}
+            _ => return false,
+        }
+        if self.param_index(func, name).is_some() {
+            return self.assume(ElemFact::Param(func.to_string(), name.to_string()), deps);
+        }
+        self.assume(ElemFact::Binding(scope, name.to_string()), deps)
+    }
+
+    /// One element of `name`, read in `func` (a string's character is a
+    /// string), is a number or a string (a string, when `string`).
+    fn elements_hold(
+        &self,
+        func: &str,
+        name: &str,
+        string: bool,
+        deps: &mut Vec<ElemFact>,
+    ) -> bool {
+        let scope = if self.param_index(func, name).is_some() {
+            func.to_string()
+        } else {
+            self.infer.binding_scope(func, name)
+        };
+        if self.table.scalar(&scope, name) == Repr::String && !self.is_array(&scope, name) {
+            return self.binding_holds(func, name, true, deps);
+        }
+        if self.is_object(func, &scope, name)
+            || self.slot_is_object(&ObjSlot::ArrayElem(scope.clone(), name.to_string()))
+        {
+            return false;
+        }
+        let element = self.table.array_element(&scope, name);
+        if string && element != Repr::String {
+            return false;
+        }
+        let node = crate::growable::flow::GrowNode::Binding(scope.clone(), name.to_string());
+        if let Some(component) = self.grow_component(&node) {
+            return self.assume(ElemFact::Grow(component), deps);
+        }
+        if let Some(component) = self.infer.growable.component_of(&node) {
+            if self.plain_component_closed(component)
+                && self.assume(ElemFact::Plain(component), deps)
+            {
+                return true;
+            }
+        }
+        let Some(&elem) = self.infer.array_elem_node.get(&(scope, name.to_string())) else {
+            return false;
+        };
+        match element {
+            Repr::String => true,
+            Repr::I64 => {
+                let root = self.roots[elem];
+                match &self.num_proven {
+                    Some(proven) => proven.contains(&root),
+                    None => {
+                        self.num_goals.borrow_mut().insert(root);
+                        true
+                    }
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// A plain array component whose every element is one of its literal
+    /// seeds: only bindings (no temporaries, returns or parameters), at least
+    /// one array-literal origin written exactly once, every other member
+    /// written only by aliasing a member, no allocation origin, no non-array
+    /// write, and no position that could store into it (only reads,
+    /// `for..of`, `join`, `slice`, search, console and the non-mutating
+    /// methods).
+    fn plain_component_closed(&self, component: usize) -> bool {
+        use crate::growable::elem_proof::ElemProof;
+        use crate::growable::flow::{GrowNode, UseKind};
+        const READ_ONLY_METHODS: &[&str] = &[
+            "`.map(",
+            "`.filter(",
+            "`.forEach(",
+            "`.some(",
+            "`.every(",
+            "`.find(",
+            "`.findIndex(",
+            "`.at(",
+            "`.concat(",
+            "`.reduce(",
+            "`.keys(",
+            "`.values(",
+            "`.entries(",
+            "`.toString(",
+        ];
+        let infer = self.infer;
+        let facts = &infer.growable_facts;
+        let members = infer.growable.members_of_component(component);
+        let mut has_literal = false;
+        for member in members {
+            let GrowNode::Binding(scope, name) = member else {
+                return false;
+            };
+            if facts.plain_origins.contains(member)
+                || facts.non_array_writes.contains(member)
+                || infer.elem_unkeyed_names.contains(name)
+                || self.param_index(scope, name).is_some()
+                || self.slot_is_object(&ObjSlot::ArrayElem(scope.clone(), name.clone()))
+            {
+                return false;
+            }
+            let writes = infer
+                .binding_elem_proofs
+                .get(&(scope.clone(), name.clone()))
+                .map_or(&[][..], Vec::as_slice);
+            if facts.literal_origins.contains(member) {
+                has_literal = true;
+                if writes.len() != 1 {
+                    return false;
+                }
+            } else if writes.is_empty()
+                || !writes.iter().all(|write| match write {
+                    ElemProof::Binding { func, name } => members.contains(&GrowNode::Binding(
+                        infer.binding_scope(func, name),
+                        name.clone(),
+                    )),
+                    _ => false,
+                })
+            {
+                return false;
+            }
+        }
+        has_literal
+            && facts
+                .uses
+                .iter()
+                .filter(|u| members.contains(&u.node))
+                .all(|u| match &u.kind {
+                    UseKind::Flow
+                    | UseKind::IndexRead
+                    | UseKind::LengthRead
+                    | UseKind::ForOf
+                    | UseKind::Join
+                    | UseKind::Slice
+                    | UseKind::Search { .. }
+                    | UseKind::Console
+                    | UseKind::ModuleRead => true,
+                    UseKind::Method(text) => READ_ONLY_METHODS
+                        .iter()
+                        .any(|prefix| text.starts_with(prefix)),
+                    _ => false,
+                })
+    }
+
+    fn proof_holds(
+        &self,
+        proof: &crate::growable::elem_proof::ElemProof,
+        deps: &mut Vec<ElemFact>,
+    ) -> bool {
+        use crate::growable::elem_proof::ElemProof;
+        match proof {
+            ElemProof::Yes => true,
+            ElemProof::No => false,
+            ElemProof::All(parts) => parts.iter().all(|p| self.proof_holds(p, deps)),
+            ElemProof::Binding { func, name } => self.binding_holds(func, name, false, deps),
+            ElemProof::StringBinding { func, name } => self.binding_holds(func, name, true, deps),
+            ElemProof::Elements { func, name } => self.elements_hold(func, name, false, deps),
+            ElemProof::StringElements { func, name } => self.elements_hold(func, name, true, deps),
+            ElemProof::GrowElements(node) => self
+                .grow_component(node)
+                .is_some_and(|component| self.assume(ElemFact::Grow(component), deps)),
+            ElemProof::Global { func, name } => self.is_global(func, name),
+            ElemProof::ArrayOrString { func, name } => {
+                let scope = if self.param_index(func, name).is_some() {
+                    func.to_string()
+                } else {
+                    self.infer.binding_scope(func, name)
+                };
+                if self.is_object(func, &scope, name) {
+                    return false;
+                }
+                self.is_array(&scope, name) || self.binding_holds(func, name, true, deps)
+            }
+            ElemProof::Call { caller, callee } => {
+                if crate::growable::elem_proof::is_scalar_global_function(callee)
+                    && self.is_global(caller, callee)
+                {
+                    return true;
+                }
+                self.infer
+                    .array_return_callee(caller, callee)
+                    .is_some_and(|key| self.assume(ElemFact::Return(key), deps))
+            }
+        }
+    }
+
+    /// Every call of `func` is an enumerated call edge (as
+    /// [`NumProofCheck::call_sites_enumerable`]).
+    fn call_sites_enumerable(&self, func: &str) -> bool {
+        !self.unwalked
+            && self.infer.array_return_facts.declaration_counts.get(func) == Some(&1)
+            && !self.infer.escaping_function_names.contains(func)
+            && (!crate::array_return::is_synthetic_fn_id(func)
+                || self
+                    .infer
+                    .number_proof_edges
+                    .iter()
+                    .any(|e| e.callee == func))
+    }
+
+    fn writes_hold(&self, scope: &str, name: &str, deps: &mut Vec<ElemFact>) -> bool {
+        !self.infer.elem_unkeyed_names.contains(name)
+            && self
+                .infer
+                .binding_elem_proofs
+                .get(&(scope.to_string(), name.to_string()))
+                .is_none_or(|proofs| proofs.iter().all(|p| self.proof_holds(p, deps)))
+    }
+
+    fn fact_holds(&self, fact: &ElemFact, deps: &mut Vec<ElemFact>) -> bool {
+        match fact {
+            ElemFact::Binding(scope, name) => {
+                self.infer
+                    .binding_elem_proofs
+                    .get(&(scope.clone(), name.clone()))
+                    .is_some_and(|proofs| !proofs.is_empty())
+                    && self.writes_hold(scope, name, deps)
+            }
+            ElemFact::Param(func, name) => {
+                let Some(index) = self.param_index(func, name) else {
+                    return false;
+                };
+                self.call_sites_enumerable(func)
+                    && self
+                        .infer
+                        .number_proof_edges
+                        .iter()
+                        .filter(|edge| &edge.callee == func)
+                        .all(|edge| {
+                            edge.elem
+                                .get(index)
+                                .is_some_and(|proof| self.proof_holds(proof, deps))
+                        })
+                    && self.writes_hold(func, name, deps)
+            }
+            ElemFact::Return(func) => {
+                let facts = &self.infer.array_return_facts;
+                facts.candidate_forms.contains(func)
+                    && facts.declaration_counts.get(func) == Some(&1)
+                    && !facts.falls_off_end.contains(func)
+                    && !facts.non_taintable.contains(func)
+                    && !self
+                        .infer
+                        .growable
+                        .is_growable(&crate::growable::flow::GrowNode::Return(func.clone()))
+                    && self
+                        .infer
+                        .return_elem_proofs
+                        .get(func)
+                        .is_some_and(|proofs| {
+                            !proofs.is_empty() && proofs.iter().all(|p| self.proof_holds(p, deps))
+                        })
+            }
+            ElemFact::Grow(component) => {
+                self.infer
+                    .growable
+                    .members_of_component(*component)
+                    .iter()
+                    .all(|node| match node {
+                        crate::growable::flow::GrowNode::Binding(func, name) => {
+                            !self.slot_is_object(&ObjSlot::ArrayElem(func.clone(), name.clone()))
+                        }
+                        _ => true,
+                    })
+                    && self
+                        .grow_values
+                        .get(component)
+                        .is_none_or(|values| values.iter().all(|p| self.proof_holds(p, deps)))
+            }
+            ElemFact::Plain(component) => {
+                self.plain_component_closed(*component)
+                    && self
+                        .grow_values
+                        .get(component)
+                        .is_none_or(|values| values.iter().all(|p| self.proof_holds(p, deps)))
+            }
+        }
+    }
+
+    /// Discover every fact `goals` depend on, then refute until stable.
+    fn refute(&mut self, goals: impl IntoIterator<Item = ElemFact>) {
+        let mut universe: BTreeSet<ElemFact> = BTreeSet::new();
+        let mut work: Vec<ElemFact> = goals.into_iter().collect();
+        while let Some(fact) = work.pop() {
+            if !universe.insert(fact.clone()) {
+                continue;
+            }
+            let mut deps = Vec::new();
+            self.fact_holds(&fact, &mut deps);
+            work.extend(deps.into_iter().filter(|d| !universe.contains(d)));
+        }
+        loop {
+            let mut changed = false;
+            for fact in &universe {
+                if self.refuted.contains(fact) {
+                    continue;
+                }
+                if !self.fact_holds(fact, &mut Vec::new()) {
+                    self.refuted.insert(fact.clone());
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
     }
 }
 
@@ -1168,6 +1642,17 @@ struct ReprInfer {
     /// Ruling R15, scope-blind: names written where `binding_scope` cannot
     /// name the declaring scope (a closure writing a captured binding).
     unkeyed_written_names: BTreeSet<String>,
+    /// Growable-runtime-arrays M2: `(scope, binding)` -> the number-or-string
+    /// proof of every value written to it (`record_elem_write`); a write with
+    /// no value (`let u;`) or an unknown one (a `catch` param) is `No`.
+    binding_elem_proofs: BTreeMap<(String, String), Vec<crate::growable::elem_proof::ElemProof>>,
+    /// Growable-runtime-arrays M2, scope-blind: names written where
+    /// `binding_scope` cannot name the declaring scope, and destructuring
+    /// targets.
+    elem_unkeyed_names: BTreeSet<String>,
+    /// Growable-runtime-arrays M2: each function's return arguments as
+    /// number-or-string proofs (a bare `return;` is `No`).
+    return_elem_proofs: BTreeMap<String, Vec<crate::growable::elem_proof::ElemProof>>,
     /// Ruling R15: every non-shadowed call edge's number and array proofs per
     /// argument position, snapshotted in Phase C0 before `resolve_calls`
     /// drains `calls`. `(caller, callee, number proofs, array proofs)`.
@@ -1903,6 +2388,14 @@ impl ReprInfer {
             .push(arg.map_or(crate::array_return::NumProof::No, |arg| {
                 crate::array_return::num_proof(func, arg)
             }));
+        self.return_elem_proofs
+            .entry(func.to_string())
+            .or_default()
+            .push(
+                arg.map_or(crate::growable::elem_proof::ElemProof::No, |arg| {
+                    crate::growable::elem_proof::elem_proof(func, arg)
+                }),
+            );
         if let (crate::array_return::ReturnArg::Allocation, Some(arg)) = (&class, arg) {
             self.return_allocation_proofs
                 .entry(func.to_string())
@@ -2081,6 +2574,199 @@ impl ReprInfer {
     /// `value == None` is an unprovable write by definition (a declarator with
     /// no initializer, a `for..in`/`for..of` loop variable, a `catch`
     /// parameter, a non-arithmetic compound assignment).
+    /// Growable-runtime-arrays M2: record `proof` as one value written to
+    /// `name` in `func` (a declarator reading its own name reads `undefined`
+    /// or the TDZ: no proof).
+    fn record_elem_write(
+        &mut self,
+        func: &str,
+        name: &str,
+        proof: crate::growable::elem_proof::ElemProof,
+        allow_self: bool,
+    ) {
+        let proof = if !allow_self && proof.mentions_binding(name) {
+            crate::growable::elem_proof::ElemProof::No
+        } else {
+            proof
+        };
+        let scope = self.binding_scope(func, name);
+        if self.is_locally_declared(&scope, name) {
+            self.binding_elem_proofs
+                .entry((scope, name.to_string()))
+                .or_default()
+                .push(proof);
+        } else {
+            self.elem_unkeyed_names.insert(name.to_string());
+        }
+    }
+
+    /// Replace the write `record_numeric_binding_write` just recorded for
+    /// `name` (a `for..of` loop variable, recorded with no value) by `proof`.
+    fn replace_last_elem_write(
+        &mut self,
+        func: &str,
+        name: &str,
+        proof: crate::growable::elem_proof::ElemProof,
+    ) {
+        let scope = self.binding_scope(func, name);
+        if let Some(last) = self
+            .binding_elem_proofs
+            .get_mut(&(scope, name.to_string()))
+            .and_then(|proofs| proofs.last_mut())
+        {
+            *last = proof;
+        }
+    }
+
+    /// Growable-runtime-arrays M2: the proof that every element a `for..of`
+    /// over `right` yields is a number or a string. Sound shapes only; any
+    /// other iterable is `No`.
+    fn for_of_elem_proof(
+        &self,
+        func: &str,
+        right: &Expression,
+    ) -> crate::growable::elem_proof::ElemProof {
+        use crate::growable::elem_proof::{elem_proof, ElemProof};
+        let right = match crate::array_return::unparen(right) {
+            // `(0, xs)` iterates `xs`.
+            Expression::SequenceExpression(seq) => match seq.expressions.last() {
+                Some(last) => return self.for_of_elem_proof(func, last),
+                None => return ElemProof::No,
+            },
+            other => other,
+        };
+        match for_of_string_items(right) {
+            ForOfStringItems::Seed => return ElemProof::Yes,
+            // `Object.values(s)` yields a string's characters; an object's
+            // field values are refused.
+            ForOfStringItems::ValuesOperandIdentifier(name) => {
+                return ElemProof::StringBinding {
+                    func: func.to_string(),
+                    name: name.to_string(),
+                };
+            }
+            ForOfStringItems::No => {}
+        }
+        match right {
+            Expression::Identifier(name) => ElemProof::Elements {
+                func: func.to_string(),
+                name: name.clone(),
+            },
+            // `[a, b]`, `[...xs]`: the listed values.
+            Expression::ArrayExpression(array) => ElemProof::all(
+                array
+                    .elements
+                    .iter()
+                    .map(|element| match element {
+                        Some(ExpressionOrSpread::Expression(Expression::SpreadElement(s))) => {
+                            self.for_of_elem_proof(func, &s.argument)
+                        }
+                        Some(ExpressionOrSpread::Expression(e)) => elem_proof(func, e),
+                        Some(ExpressionOrSpread::Spread(s)) => {
+                            self.for_of_elem_proof(func, &s.argument)
+                        }
+                        Some(ExpressionOrSpread::Empty) | None => ElemProof::No,
+                    })
+                    .collect(),
+            ),
+            // `new Set(xs)` (and `new (null ?? Set)(xs)`) iterates `xs`'s
+            // distinct values.
+            Expression::NewExpression(new) => {
+                match (new.args.as_slice(), strip_parenthesized(&new.callee)) {
+                    ([arg], callee) if is_set_constructor(callee) => {
+                        self.for_of_elem_proof(func, arg)
+                    }
+                    // The parser spells `new (C)(x)` as `new` of the call `(C)(x)`.
+                    ([], Expression::CallExpression(call))
+                        if call.args.len() == 1 && is_set_constructor(&call.callee) =>
+                    {
+                        self.for_of_elem_proof(func, &call.args[0])
+                    }
+                    _ => ElemProof::No,
+                }
+            }
+            Expression::CallExpression(call) => match crate::array_return::unparen(&call.callee) {
+                Expression::MemberExpression(member) if member.computed_index.is_none() => {
+                    match member.dot_name() {
+                        // A subset of the receiver's elements.
+                        Some("slice" | "filter") => self.for_of_elem_proof(func, &member.object),
+                        // `Array.from(xs)`.
+                        Some("from")
+                            if call.args.len() == 1
+                                && matches!(
+                                    crate::array_return::unparen(&member.object),
+                                    Expression::Identifier(a) if a == "Array"
+                                ) =>
+                        {
+                            self.for_of_elem_proof(func, &call.args[0])
+                        }
+                        // `xs.map((v) => <body>)`: the body, with `v` one of
+                        // `xs`'s elements.
+                        Some(method @ ("map" | "flatMap")) if call.args.len() == 1 => {
+                            let Expression::ArrowFunctionExpression(arrow) =
+                                crate::array_return::unparen(&call.args[0])
+                            else {
+                                return ElemProof::No;
+                            };
+                            let (Some(id), [param]) = (&arrow.id, arrow.params.as_slice()) else {
+                                return ElemProof::No;
+                            };
+                            let element = self.for_of_elem_proof(func, &member.object);
+                            let body = match (method, crate::array_return::unparen(&arrow.body)) {
+                                ("map", body) => elem_proof(id, body),
+                                ("flatMap", Expression::ArrayExpression(array)) => ElemProof::all(
+                                    array
+                                        .elements
+                                        .iter()
+                                        .map(|element| match element {
+                                            Some(ExpressionOrSpread::Expression(e)) => {
+                                                elem_proof(id, e)
+                                            }
+                                            _ => ElemProof::No,
+                                        })
+                                        .collect(),
+                                ),
+                                _ => ElemProof::No,
+                            };
+                            body.substitute(id, &param.name, &element)
+                        }
+                        // `Object.values({...})`, `Object.values(Object.freeze({...}))`.
+                        Some("values")
+                            if call.args.len() == 1
+                                && enumeration_namespace_root(&member.object) == Some("Object") =>
+                        {
+                            match object_literal_operand(&call.args[0]) {
+                                Some(object) => ElemProof::all(
+                                    object
+                                        .properties
+                                        .iter()
+                                        .map(|p| match p.kind {
+                                            kali_ast::ObjectPropertyKind::Init => {
+                                                elem_proof(func, &p.value)
+                                            }
+                                            _ => ElemProof::No,
+                                        })
+                                        .collect(),
+                                ),
+                                None => ElemProof::No,
+                            }
+                        }
+                        _ => ElemProof::No,
+                    }
+                }
+                Expression::Identifier(callee) => self
+                    .array_return_callee(func, callee)
+                    .map_or(ElemProof::No, |key| {
+                        ElemProof::GrowElements(crate::growable::flow::GrowNode::Return(key))
+                    }),
+                _ => ElemProof::No,
+            },
+            // A number-or-string iterable (`a + b`, a template) yields a
+            // string's characters (a number throws).
+            other => elem_proof(func, other),
+        }
+    }
+
     fn record_numeric_binding_write(
         &mut self,
         func: &str,
@@ -2088,6 +2774,10 @@ impl ReprInfer {
         value: Option<&Expression>,
         allow_self: bool,
     ) {
+        let elem = value.map_or(crate::growable::elem_proof::ElemProof::No, |expr| {
+            crate::growable::elem_proof::elem_proof(func, expr)
+        });
+        self.record_elem_write(func, name, elem, allow_self);
         let scope = self.binding_scope(func, name);
         // Ruling R15: the same write, as an element-number proof obligation.
         // A declarator reading its own name (`var x = x`) reads `undefined`
@@ -3622,6 +4312,9 @@ impl ReprInfer {
                 // binding's node into it — string operands seed transitively,
                 // object identities stay plain) so the element axis solves
                 // truthfully.
+                // Growable-runtime-arrays M2: the loop variable holds the
+                // iterable's elements.
+                let loop_proof = self.for_of_elem_proof(func, &stmt.right);
                 // P3 Task 2 shadow guard (see note above).
                 if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
@@ -3630,6 +4323,7 @@ impl ReprInfer {
                         // an object pointer or a growable element — never a
                         // proven plain number. Taint.
                         self.record_numeric_binding_write(func, &d.id, None, false);
+                        self.replace_last_elem_write(func, &d.id, loop_proof.clone());
                     }
                 }
                 if let kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) =
@@ -3637,6 +4331,7 @@ impl ReprInfer {
                 {
                     self.array_return_written_names.insert(name.clone());
                     self.record_numeric_binding_write(func, name, None, false);
+                    self.replace_last_elem_write(func, name, loop_proof.clone());
                 }
                 let string_items = for_of_string_items(&stmt.right);
                 if !matches!(string_items, ForOfStringItems::No) {
@@ -4835,6 +5530,7 @@ impl ReprInfer {
             Expression::ArrayExpression(_) | Expression::ObjectExpression(_)
         ) {
             for name in destructuring_target_names(&assign.left) {
+                self.elem_unkeyed_names.insert(name.clone());
                 self.array_return_written_names.insert(name.clone());
                 self.numeric_binding_name_taints.insert(name);
             }
@@ -5515,6 +6211,7 @@ impl ReprInfer {
                 let mut arg_numeric_literal = Vec::with_capacity(call.args.len());
                 let mut arg_array_shapes = Vec::with_capacity(call.args.len());
                 let (arg_num_proofs, arg_array_proofs) = Self::call_arg_proofs(func, &call.args);
+                let arg_elem_proofs = Self::call_arg_elem_proofs(func, &call.args);
                 for arg in &call.args {
                     arg_array_shapes.push(crate::array_return::arg_shape(arg));
                     if matches!(arg, Expression::ObjectExpression(_)) {
@@ -5558,6 +6255,7 @@ impl ReprInfer {
                     arg_numeric_literal,
                     arg_num_proofs,
                     arg_array_proofs,
+                    arg_elem_proofs,
                     result_node,
                 });
                 result_node
@@ -5579,6 +6277,7 @@ impl ReprInfer {
                             callee: id.clone(),
                             num,
                             array,
+                            elem: Self::call_arg_elem_proofs(func, &call.args),
                         });
                         self.iife_callees.insert(id);
                     }
@@ -5595,6 +6294,28 @@ impl ReprInfer {
     /// Ruling R15: each positional argument's number proof and array proof.
     /// A spread argument hides how many positions it fills, so it and every
     /// later position are `No` / `Unknown`.
+    /// Growable-runtime-arrays M2: each argument's number-or-string proof;
+    /// `No` at and after the first spread argument.
+    fn call_arg_elem_proofs(
+        func: &str,
+        args: &[Expression],
+    ) -> Vec<crate::growable::elem_proof::ElemProof> {
+        let first_spread = args
+            .iter()
+            .position(|arg| matches!(arg, Expression::SpreadElement(_)))
+            .unwrap_or(args.len());
+        args.iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                if index < first_spread {
+                    crate::growable::elem_proof::elem_proof(func, arg)
+                } else {
+                    crate::growable::elem_proof::ElemProof::No
+                }
+            })
+            .collect()
+    }
+
     fn call_arg_proofs(
         func: &str,
         args: &[Expression],
@@ -5871,6 +6592,7 @@ impl ReprInfer {
                     callee: self.array_return_callee(&edge.caller, &edge.callee)?,
                     num: edge.arg_num_proofs.clone(),
                     array: edge.arg_array_proofs.clone(),
+                    elem: edge.arg_elem_proofs.clone(),
                 })
             })
             .collect();
@@ -6635,14 +7357,15 @@ impl ReprInfer {
     /// every call site passes such an array, an admitted `%return`). A greatest
     /// fixed point over [`NumFact`]s: everything is assumed until refuted, so
     /// recursion (`f(n - 1)`) and arrays passed back and forth are handled.
-    fn unproven_array_returns(
-        &mut self,
-        table: &ReprTable,
-        solution: &crate::array_return::Solution,
-    ) -> BTreeSet<String> {
-        let roots: Vec<usize> = (0..self.node_count).map(|n| self.uf.find(n)).collect();
+    /// Ruling R15: the number-proof evaluator over this pass's facts.
+    fn num_proof_check<'a>(
+        &'a self,
+        roots: Vec<usize>,
+        table: &'a ReprTable,
+        solution: &'a crate::array_return::Solution,
+    ) -> NumProofCheck<'a> {
         let mut check = NumProofCheck {
-            infer: &*self,
+            infer: self,
             table,
             solution,
             obligations: BTreeMap::new(),
@@ -6668,6 +7391,16 @@ impl ReprInfer {
                 .or_default()
                 .push((func.as_str(), name.as_str()));
         }
+        check
+    }
+
+    fn unproven_array_returns(
+        &mut self,
+        table: &ReprTable,
+        solution: &crate::array_return::Solution,
+    ) -> BTreeSet<String> {
+        let roots: Vec<usize> = (0..self.node_count).map(|n| self.uf.find(n)).collect();
+        let mut check = self.num_proof_check(roots, table, solution);
         let return_class = |f: &String| {
             self.array_elem_node
                 .get(&(f.clone(), crate::array_return::RETURN_ARRAY_KEY.to_string()))
@@ -6678,33 +7411,7 @@ impl ReprInfer {
             .iter()
             .map(|f| (f.clone(), return_class(f)))
             .collect();
-        // Discover every fact the goals depend on.
-        let mut universe: BTreeSet<NumFact> = BTreeSet::new();
-        let mut work: Vec<NumFact> = goals.iter().filter_map(|(_, g)| g.clone()).collect();
-        while let Some(fact) = work.pop() {
-            if !universe.insert(fact.clone()) {
-                continue;
-            }
-            let mut deps = Vec::new();
-            check.fact_holds(&fact, &mut deps);
-            work.extend(deps.into_iter().filter(|d| !universe.contains(d)));
-        }
-        // Refute until stable (greatest fixed point).
-        loop {
-            let mut changed = false;
-            for fact in &universe {
-                if check.refuted.contains(fact) {
-                    continue;
-                }
-                if !check.fact_holds(fact, &mut Vec::new()) {
-                    check.refuted.insert(fact.clone());
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
+        check.refute(goals.iter().filter_map(|(_, g)| g.clone()));
         goals
             .into_iter()
             .filter(|(_, goal)| match goal {
@@ -7546,48 +8253,115 @@ impl ReprInfer {
             }
         }
 
-        // Growable-runtime-arrays spec §3.4, A-4: a growable array holds only
-        // numbers or only strings. A mix of the two is the element pass's
-        // conflict above; everything else is refused here. Placed after every
-        // scalar seeding pass (abort/URL/bytes/event handles), so a pushed
-        // identifier is judged by its final solved repr (ruling W1).
-        {
-            use crate::growable::flow::{ElementValue, GrowNode};
-            let mut unsupported: BTreeSet<GrowNode> = BTreeSet::new();
-            for (node, value) in &self.growable_facts.element_values {
-                if !self.growable.is_growable(node) {
-                    continue;
+        // Growable-runtime-arrays spec §3.4, A-4 (M2), fail-closed: a growable
+        // array holds only numbers or only strings. Every stored value must be
+        // PROVEN a number or a string (`growable::elem_proof`); everything
+        // else — an object, array, function (or alias), boolean, `null` or
+        // `undefined`, however it is reached — is refused. A mix of numbers
+        // and strings is the element pass's conflict above. Placed after
+        // every scalar seeding pass, so the proof reads final solved reprs.
+        // The object-pass facts go back into `self` for the number proof's
+        // object checks.
+        self.obj_fields_of = fields_of;
+        self.obj_materialized = materialized;
+        let roots: Vec<usize> = (0..self.node_count).map(|n| self.uf.find(n)).collect();
+        let unsupported = {
+            use crate::growable::flow::GrowNode;
+            let infer = &self;
+            let mut grow_values: BTreeMap<usize, Vec<&crate::growable::elem_proof::ElemProof>> =
+                BTreeMap::new();
+            for (node, proof) in &infer.growable_facts.element_values {
+                if let Some(component) = infer.growable.component_of(node) {
+                    grow_values.entry(component).or_default().push(proof);
                 }
-                let bad = match (value, node) {
-                    (ElementValue::Unsupported, _) => true,
-                    (ElementValue::Identifier(name), GrowNode::Binding(func, _)) => !self
-                        .growable_push_identifier_ok(func, name, &table, &fields_of, &materialized),
-                    _ => false,
-                };
-                if bad {
+            }
+            let goals: Vec<ElemFact> = grow_values
+                .keys()
+                .filter(|&&c| {
+                    infer
+                        .growable
+                        .members_of_component(c)
+                        .first()
+                        .is_some_and(|member| infer.growable.is_growable(member))
+                })
+                .map(|&c| ElemFact::Grow(c))
+                .collect();
+            let mut check = ElemProofCheck {
+                infer,
+                table: &table,
+                solution: &solution,
+                roots: &roots,
+                fields_of: &infer.obj_fields_of,
+                materialized: &infer.obj_materialized,
+                unwalked: infer.array_return_unwalked_code
+                    || !infer
+                        .nested_fns_registered
+                        .is_subset(&infer.nested_fns_seeded),
+                grow_values,
+                num_proven: None,
+                num_goals: std::cell::RefCell::new(BTreeSet::new()),
+                refuted: BTreeSet::new(),
+            };
+            // Pass 1 discovers the plain integer element classes the proof
+            // leans on; the number proof settles them; pass 2 is the real one.
+            check.refute(goals.clone());
+            let num_goals = check.num_goals.take();
+            let mut num = infer.num_proof_check(roots.clone(), &table, &solution);
+            num.refute(num_goals.iter().map(|&root| NumFact::Class(root)));
+            check.num_proven = Some(
+                num_goals
+                    .into_iter()
+                    .filter(|&root| !num.refuted.contains(&NumFact::Class(root)))
+                    .collect(),
+            );
+            check.refuted.clear();
+            check.refute(goals);
+            let mut unsupported: BTreeSet<GrowNode> = BTreeSet::new();
+            for (node, proof) in &infer.growable_facts.element_values {
+                if infer.growable.is_growable(node) && !check.proof_holds(proof, &mut Vec::new()) {
                     unsupported.insert(node.clone());
                 }
             }
-            for node in self.growable.growable_members() {
+            for node in infer.growable.growable_members() {
                 if let GrowNode::Binding(func, name) = node {
-                    let slot = ObjSlot::ArrayElem(func.clone(), name.clone());
-                    if materialized.contains(&slot) || fields_of.contains_key(&slot) {
+                    if check.slot_is_object(&ObjSlot::ArrayElem(func.clone(), name.clone())) {
                         unsupported.insert(node.clone());
                     }
                 }
             }
+            // A `Temp` receiver (`(c ? a : b).push(v)`) has no name to report:
+            // report every binding and return of its component instead. A
+            // component of temps only is a call or `slice` result used without
+            // a binding, which the position refusals (A-6) already refuse.
+            let mut named: BTreeSet<GrowNode> = BTreeSet::new();
             for node in unsupported {
-                let subject = match &node {
-                    GrowNode::Binding(func, name) => {
-                        kali_common::growable_binding_subject(name, func)
-                    }
-                    GrowNode::Return(func) => kali_common::growable_return_subject(func),
-                    GrowNode::Temp(_) => continue,
-                };
-                table.add_shape_conflict(kali_common::growable_unsupported_element_message(
-                    &subject,
-                ));
+                if matches!(node, GrowNode::Temp(_)) {
+                    named.extend(
+                        infer
+                            .growable
+                            .members_of(&node)
+                            .iter()
+                            .filter(|member| !matches!(member, GrowNode::Temp(_)))
+                            .cloned(),
+                    );
+                } else {
+                    named.insert(node);
+                }
             }
+            named
+        };
+        for node in unsupported {
+            let subject = match &node {
+                crate::growable::flow::GrowNode::Binding(func, name) => {
+                    kali_common::growable_binding_subject(name, func)
+                }
+                crate::growable::flow::GrowNode::Return(func) => {
+                    kali_common::growable_return_subject(func)
+                }
+                // Never reached: temps were mapped to their named members above.
+                crate::growable::flow::GrowNode::Temp(_) => continue,
+            };
+            table.add_shape_conflict(kali_common::growable_unsupported_element_message(&subject));
         }
 
         // Stage P5 T-new-E: finalize the whole-program String()-result deny
@@ -7595,82 +8369,6 @@ impl ReprInfer {
         self.resolve_string_result_taint(&mut table);
 
         table
-    }
-
-    /// Growable-runtime-arrays spec §3.4, A-4, controller ruling W1: true
-    /// when identifier `name`, pushed into a growable array inside `func`,
-    /// holds a number or a string — judged by the name's SOLVED scalar repr
-    /// (`I64`/`F64`/`String`), not by whether it has an element node (a
-    /// `.length` read gives ANY identifier one, strings included). Refused:
-    /// an undeclared name (`undefined`, `NaN`, …), a function or function
-    /// alias, a `for..in` key, a boolean `const`, an object-shaped binding
-    /// (literal-bound, materialized or field-read), and an array (a growable
-    /// or array-literal/allocation origin, an array-argument parameter, or an
-    /// element-node binding whose scalar is the shared `I64` default).
-    fn growable_push_identifier_ok(
-        &self,
-        func: &str,
-        name: &str,
-        table: &ReprTable,
-        fields_of: &BTreeMap<ObjSlot, Vec<String>>,
-        materialized: &BTreeSet<ObjSlot>,
-    ) -> bool {
-        if self.functions.contains_key(name) || self.fn_alias_target(func, name).is_some() {
-            return false;
-        }
-        let local = self.is_locally_declared(func, name);
-        if !local && !self.is_locally_declared(TOP_LEVEL, name) {
-            return false;
-        }
-        // Same local-vs-module scope resolution as `visit_expr`'s
-        // `Identifier` arm.
-        let scope = if func != TOP_LEVEL && !local {
-            TOP_LEVEL
-        } else {
-            func
-        };
-        let key = (scope.to_string(), name.to_string());
-        if self.for_in_key_names.contains(&key)
-            || self
-                .for_in_key_names
-                .contains(&(func.to_string(), name.to_string()))
-            || table.binding_is_boolean_const(scope, name)
-        {
-            return false;
-        }
-        // Object-shaped: `obj_literal_slots` covers every literal-bound slot
-        // (an object literal reaches `fields_of`/`materialized` only when its
-        // fields are read); the taken object-pass locals cover the rest.
-        let slot = ObjSlot::Binding(scope.to_string(), name.to_string());
-        let func_slot = ObjSlot::Binding(func.to_string(), name.to_string());
-        if self.obj_literal_slots.contains(&slot)
-            || self.obj_literal_slots.contains(&func_slot)
-            || materialized.contains(&slot)
-            || fields_of.contains_key(&slot)
-            || table.object_initialized_binding(scope, name)
-        {
-            return false;
-        }
-        // Positive array evidence, whatever the scalar axis solved to.
-        let node = crate::growable::flow::GrowNode::Binding(scope.to_string(), name.to_string());
-        if self.growable.is_growable_binding(scope, name)
-            || self.growable_facts.literal_origins.contains(&node)
-            || self.growable_facts.plain_origins.contains(&node)
-            || self.const_literal_array_bindings.contains(&key)
-            || self.const_bad_literal_array_bindings.contains(&key)
-            || self.const_computed_literal_array_bindings.contains(&key)
-            || self.let_literal_array_bindings.contains(&key)
-            || table.is_non_scalar_param(scope, name)
-        {
-            return false;
-        }
-        match table.scalar(scope, name) {
-            Repr::String | Repr::F64 => true,
-            // `I64` is also every aggregate's untouched default: an
-            // element-node binding with no string/float solve is an array.
-            Repr::I64 => !self.array_elem_node.contains_key(&key),
-            _ => false,
-        }
     }
 }
 
@@ -7883,6 +8581,46 @@ fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
                 ) =>
         {
             member.static_name()
+        }
+        _ => None,
+    }
+}
+
+/// Growable-runtime-arrays M2: `Set`, or `(null ?? Set)` / `(false || Set)`.
+fn is_set_constructor(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Identifier(name) => name == "Set",
+        Expression::LogicalExpression(logical) => {
+            matches!(
+                strip_parenthesized(&logical.left),
+                Expression::Literal(LiteralValue::Null | LiteralValue::Boolean(false))
+            ) && is_set_constructor(&logical.right)
+        }
+        Expression::BinaryExpression(binary) if matches!(binary.operator.as_str(), "??" | "||") => {
+            matches!(
+                strip_parenthesized(&binary.left),
+                Expression::Literal(LiteralValue::Null | LiteralValue::Boolean(false))
+            ) && is_set_constructor(&binary.right)
+        }
+        _ => false,
+    }
+}
+
+/// Growable-runtime-arrays M2: the object literal `{…}` or
+/// `Object.freeze({…})` names.
+fn object_literal_operand(expr: &Expression) -> Option<&kali_ast::ObjectExpression> {
+    match strip_parenthesized(expr) {
+        Expression::ObjectExpression(object) => Some(object),
+        Expression::CallExpression(call) if call.args.len() == 1 => {
+            match strip_parenthesized(&call.callee) {
+                Expression::MemberExpression(member)
+                    if member.static_name() == Some("freeze")
+                        && enumeration_namespace_root(&member.object) == Some("Object") =>
+                {
+                    object_literal_operand(&call.args[0])
+                }
+                _ => None,
+            }
         }
         _ => None,
     }

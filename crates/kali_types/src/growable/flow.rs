@@ -82,18 +82,6 @@ pub(crate) struct Use {
     pub(crate) kind: UseKind,
 }
 
-/// A value stored into an array (a `push` argument, an index write, a
-/// literal seed), as far as syntax can tell.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum ElementValue {
-    /// A bare identifier; repr inference checks what it names.
-    Identifier(String),
-    /// An object, array, function or class literal, a boolean-valued
-    /// expression, `null`, `undefined`, a BigInt, a spread or a hole.
-    Unsupported,
-    Other,
-}
-
 /// One argument of a call to a declared function.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct CallFact {
@@ -130,7 +118,9 @@ pub(crate) struct GrowFacts {
     pub(crate) uses: Vec<Use>,
     pub(crate) calls: Vec<CallFact>,
     pub(crate) loops: Vec<LoopFacts>,
-    pub(crate) element_values: Vec<(GrowNode, ElementValue)>,
+    /// Every value stored into an array (a `push` argument, an index
+    /// write, a literal seed), with its number-or-string proof (M2).
+    pub(crate) element_values: Vec<(GrowNode, super::elem_proof::ElemProof)>,
     /// The function-key stack (outermost first) at every class, JSX, `with`,
     /// enum or module-syntax site the walk cannot see through.
     pub(crate) opaque_sites: Vec<Vec<String>>,
@@ -188,6 +178,11 @@ impl GrowSolution {
             GrowNode::Return(func) => Some(func),
             _ => None,
         })
+    }
+
+    /// The nodes of component `component`.
+    pub(crate) fn members_of_component(&self, component: usize) -> &[GrowNode] {
+        self.members.get(component).map_or(&[], Vec::as_slice)
     }
 
     /// The nodes of `node`'s component, or nothing for an unknown node.

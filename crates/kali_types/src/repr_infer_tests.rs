@@ -2464,3 +2464,115 @@ fn a_pushed_object_or_array_identifier_is_refused() {
         );
     }
 }
+
+// Task 7 fix round 1 (controller ruling): M2 is fail-closed — an element is
+// admitted only when it is provably a number or a string.
+#[test]
+fn elements_not_provably_numbers_or_strings_are_refused() {
+    for src in [
+        // I1: a `const` alias of a function declaration.
+        "function g() { return 1; }\nfunction main() { const h = g; const o = []; o.push(h); console.log(o.length); }\nmain();\n",
+        // I1: a `let`-bound arrow.
+        "function main() { let h = () => 1; const o = []; o.push(h); console.log(o.length); }\nmain();\n",
+        // I2: booleans, `null` and `undefined` held in a binding.
+        "function main() { let b = true; const o = []; o.push(b); console.log(o.join()); }\nmain();\n",
+        "function main() { const x = 3; let b = x > 1; const o = []; o.push(b); console.log(o.length); }\nmain();\n",
+        "function main() { let b = 1; b = false; const o = []; o.push(b); console.log(o.length); }\nmain();\n",
+        "function main() { const u = null; const o = []; o.push(u); console.log(o.length); }\nmain();\n",
+        "function main() { const u = undefined; const o = []; o.push(u); console.log(o.length); }\nmain();\n",
+        "function main() { let u; const o = []; o.push(u); console.log(o.length); }\nmain();\n",
+        // I3: calls returning an object, an array or a boolean.
+        "function mk() { return {a: 1}; }\nfunction main() { const o = []; o.push(mk()); console.log(o.length); }\nmain();\n",
+        "function mk() { return [1, 2]; }\nfunction main() { const o = []; o.push(mk()); console.log(o.length); }\nmain();\n",
+        "function isBig(n) { return n > 1; }\nfunction main() { const o = []; o.push(isBig(3)); console.log(o.length); }\nmain();\n",
+        // I3: a boolean ternary.
+        "function main() { const x = 3; const o = []; o.push(x > 1 ? true : false); console.log(o.length); }\nmain();\n",
+        // An alias of an alias.
+        "function g() { return 1; }\nfunction main() { const h = g; const h2 = h; const o = []; o.push(h2); console.log(o.length); }\nmain();\n",
+        // A boolean read out of an array.
+        "function main() { const bs = [true]; const o = []; o.push(bs[0]); console.log(o.length); }\nmain();\n",
+        // A parameter passed a boolean.
+        "function add(xs, v) { xs.push(v); }\nfunction main() { const o = []; add(o, true); console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn provable_number_and_string_elements_are_admitted() {
+    for src in [
+        "function main() { const out = []; for (let i = 0; i < 5; i++) out.push(i * i); console.log(out.length); }\nmain();\n",
+        "function main() { const out = []; for (let i = 0; i < 5; i++) out.push(i); console.log(out.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) { if (w.length > 1) out.push(w); } console.log(out.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; let line = \"\"; for (const w of ws) { line = line + w + \",\"; } out.push(line); let l2 = \"\"; l2 += \"x\"; out.push(l2); console.log(out.length); }\nmain();\n",
+        "function main() { const words = [\"a\", \"b\"]; const out = []; for (let i = 0; i < words.length; i++) out.push(words[i]); console.log(out.length); }\nmain();\n",
+        "function main() { const x = 3; const out = []; out.push(x / 2); console.log(out.length); }\nmain();\n",
+        "function main() { const nums = [1, 2, 3]; const out = []; for (let i = 0; i < nums.length; i++) { if (nums[i] > 1) out.push(nums[i]); } console.log(out.length); }\nmain();\n",
+        "function sq(n) { return n * n; }\nfunction main() { const out = []; out.push(sq(3)); const s = \"ab\"; out.push(s.length); console.log(out.length); }\nmain();\n",
+        "function add(xs, v) { xs.push(v); }\nfunction main() { const o = []; add(o, 3); add(o, 4); console.log(o.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) out.push(w.toUpperCase()); const c = ws.pop(); out.push(c); console.log(out.length); }\nmain();\n",
+        "function add(xs, s) { xs.push(s); }\nfunction main() { const o = []; add(o, \"a\"); console.log(o.length); }\nmain();\n",
+        "function main() { const xs = []; xs.push(1); const out = []; for (const x of xs) out.push(x); console.log(out.length); }\nmain();\n",
+        "function main() { const out = []; const x = 2.5; const s = \"abc\"; out.push(String(3)); out.push(Math.floor(x)); console.log(out.length); const t = []; t.push(s.slice(1)); console.log(t.length); }\nmain();\n",
+        "function main() { const o = {a: 1, b: 2}; const out = []; for (const k of Object.keys(o)) out.push(k); console.log(out.length); }\nmain();\n",
+        "function main() { const s = \"ab\"; const o = []; for (const v of Object.values(s)) { o.push(v); } console.log(o.join(\",\")); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            !t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn for_of_over_provable_iterables_admits_the_loop_variable() {
+    // (`map`/`flatMap` callbacks need the CLI's anonymous-function naming
+    // pass; the `callback_identity_browser_harness` cases cover them.)
+    for src in [
+        "function main() { const values = [0, 1, 1]; const valuesAlias = values; const items = []; for (const value of valuesAlias) { if (!value) { continue; } items.push(value); } console.log(items.length); }\nmain();\n",
+        "function main() { const o = []; for (const item of [1, 2].filter((value) => value)) { o.push(item); } for (const item of Array.from([1, 2])) { o.push(item); } for (const item of [...[1, 2]]) { o.push(item); } for (const item of [...[1, 2].filter((value) => value)]) { o.push(item); } console.log(o.join(\",\")); }\nmain();\n",
+        "function main() { const values = []; for (const value of Object.values({ 10: 10, b: 5 })) { values.push(value); } console.log(values.length); }\nmain();\n",
+        "function main() { const prefix = \"ab\"; const suffix = \"c\"; const chars = []; for (const item of prefix + suffix) { chars.push(item); } for (const item of `${prefix}!`) { chars.push(item); } console.log(chars.join(\"\")); }\nmain();\n",
+        "function main() { const out = []; for (const v of new (null ?? Set)([1, 2, 1])) { out.push(v); } console.log(out.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            !t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn for_of_over_unprovable_iterables_refuses_the_loop_variable() {
+    for src in [
+        "function main() { const bs = [true, false]; const alias = bs; const o = []; for (const b of alias) { o.push(b); } console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; for (const e of Object.entries({ a: 1 })) { o.push(e); } console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; for (const v of [1, 2].map((x) => x > 1)) { o.push(v); } console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; for (const v of Object.values({ a: true })) { o.push(v); } console.log(o.length); }\nmain();\n",
+        "function main() { const xs = [1, 2]; xs.fill(true); const o = []; for (const v of xs) { o.push(v); } console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}

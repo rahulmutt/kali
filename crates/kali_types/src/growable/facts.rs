@@ -11,12 +11,11 @@ use std::collections::BTreeMap;
 use kali_ast::{
     ArrayExpression, AssignmentExpression, AssignmentOperator, BlockStatement, CallExpression,
     Expression, ExpressionOrSpread, ForInLefthand, ForInit, ForOfLefthand, ForOfStatement,
-    LiteralValue, MemberExpression, OptionalChainInner, Statement, VariableDeclaration,
+    MemberExpression, OptionalChainInner, Statement, VariableDeclaration,
 };
 
-use super::flow::{
-    CallFact, ElementValue, GrowFacts, GrowNode, LoopFacts, TempKind, Use, UseKind, TOP_LEVEL,
-};
+use super::elem_proof::{elem_proof, ElemProof};
+use super::flow::{CallFact, GrowFacts, GrowNode, LoopFacts, TempKind, Use, UseKind, TOP_LEVEL};
 
 /// What the walk needs from repr inference's Phase A and A2.
 pub(crate) struct WalkContext<'a> {
@@ -73,38 +72,6 @@ fn unwrap(expr: &Expression) -> &Expression {
 
 fn is_allocation(expr: &Expression) -> bool {
     crate::resolve::expression::expression_is_array_allocation(expr)
-}
-
-/// Mirrors `repr_infer::is_boolean_valued_init` (captured-bindings A-2.1):
-/// kali stores such a value as `1`/`0`, so it cannot be an element.
-fn is_boolean_valued(expr: &Expression) -> bool {
-    match unwrap(expr) {
-        Expression::Literal(LiteralValue::Boolean(_)) => true,
-        Expression::BinaryExpression(binary) => matches!(
-            binary.operator.as_str(),
-            "==" | "===" | "!=" | "!==" | "<" | ">" | "<=" | ">="
-        ),
-        Expression::UnaryExpression(unary) => unary.operator == "!",
-        _ => false,
-    }
-}
-
-fn element_value(expr: &Expression) -> ElementValue {
-    match unwrap(expr) {
-        Expression::ObjectExpression(_)
-        | Expression::ArrayExpression(_)
-        | Expression::FunctionExpression(_)
-        | Expression::ArrowFunctionExpression(_)
-        | Expression::ClassExpression(_)
-        | Expression::BigIntLiteral(_)
-        | Expression::SpreadElement(_)
-        | Expression::Literal(LiteralValue::Null)
-        | Expression::Literal(LiteralValue::Regex { .. }) => ElementValue::Unsupported,
-        Expression::Identifier(name) if name == "undefined" => ElementValue::Unsupported,
-        Expression::Identifier(name) => ElementValue::Identifier(name.clone()),
-        other if is_boolean_valued(other) => ElementValue::Unsupported,
-        _ => ElementValue::Other,
-    }
 }
 
 impl Walker<'_, '_> {
@@ -311,19 +278,19 @@ impl Walker<'_, '_> {
                     Some(ExpressionOrSpread::Expression(e)) => {
                         self.facts
                             .element_values
-                            .push((node.clone(), element_value(e)));
+                            .push((node.clone(), elem_proof(self.site(), e)));
                         self.expr(e);
                     }
                     Some(ExpressionOrSpread::Spread(s)) => {
                         self.facts
                             .element_values
-                            .push((node.clone(), ElementValue::Unsupported));
+                            .push((node.clone(), ElemProof::No));
                         self.expr(&s.argument);
                     }
                     Some(ExpressionOrSpread::Empty) | None => {
                         self.facts
                             .element_values
-                            .push((node.clone(), ElementValue::Unsupported));
+                            .push((node.clone(), ElemProof::No));
                     }
                 }
             }
@@ -739,7 +706,7 @@ impl Walker<'_, '_> {
                 for arg in args {
                     self.facts
                         .element_values
-                        .push((receiver.clone(), element_value(arg)));
+                        .push((receiver.clone(), elem_proof(self.site(), arg)));
                     self.expr(arg);
                 }
                 None
@@ -813,7 +780,7 @@ impl Walker<'_, '_> {
                             self.facts.demands.insert(receiver.clone());
                             self.facts
                                 .element_values
-                                .push((receiver, element_value(&a.right)));
+                                .push((receiver, elem_proof(self.site(), &a.right)));
                         } else {
                             self.record(&receiver, UseKind::Plain);
                         }

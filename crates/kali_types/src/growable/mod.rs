@@ -6,6 +6,7 @@ use kali_ast::{
     Expression, ExpressionOrSpread, ForInLefthand, ForInit, ForOfLefthand, LiteralValue, Statement,
 };
 
+pub(crate) mod elem_proof;
 pub(crate) mod facts;
 pub(crate) mod flow;
 pub(crate) mod positions;
