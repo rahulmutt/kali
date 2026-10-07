@@ -2,9 +2,9 @@
 
 **Filed** 2026-10-07 by the **default-parameters** project
 (`docs/superpowers/specs/2026-10-07-default-parameters-design.md`). **Oracle:**
-`node v26.10.0`. **Baseline:** lane B is stacked on the unmerged lane A branch
-tip `c963b29db` (PR #56, numeric-literal-grammar), not on a lane A merge on
-`main`. **Branch:** `default-parameters`.
+`node v26.10.0`. **Baseline:** lane A (numeric-literal-grammar, PR #56) is
+merged to `main` as `9675521aa`, and this branch is rebased onto that merge.
+**Branch:** `default-parameters`.
 
 ## §1. Pre-existing, found while planning or executing
 
@@ -26,6 +26,7 @@ Each row re-measured with the branch binary and node on 2026-10-07.
 | `function f(a: Map<string, number> = x) { return 1; }` (TypeScript file) | not valid JS | `error[E5506]: this parameter form is not supported`: the pre-existing parameter splitter breaks on the generic comma; fails closed |
 | `const f = (a): number => { return a; }; console.log(f(2));` (TypeScript) | `2` | `error[E3100]: undefined identifier 'a'`, check and run alike, with or without a default (`(a = 1): number => {…}` fails the same way). Pre-existing and loud: a block-bodied annotated arrow loses its parameter |
 | `const f = (...r): number => 1; console.log(f());` (TypeScript) | `1` | `error[E3100]: undefined identifier 'r'`, check and run alike. The parser's `Unsupported` arm (rest, destructured or optional parameters) has the same return-type-annotation gap the `Simple` arm had: an annotated arrow with such a parameter is not refused at the parameter list, it fails later and loudly |
+| `const h = async (a = 1) => { return a; }; h().then((v) => console.log(v));` | `1` | `error[E3100]: undefined identifier 'async'` then `undefined identifier 'a'` (twice), check and run alike, exit 1. Earlier on this branch (per the final whole-branch review, not re-measured here) it got the default-parameter E5506 "default parameters are only available on function declarations in the current phase". It still fails closed; only the message regressed. The same program without the default (`async (a) => { return a; }`) fails with the same E3100s, so the block-bodied `async` arrow is the pre-existing gap; the expression-bodied `async (a = 1) => a` still gets the E5506 |
 
 ## §2. What the 14 extension programs need next
 
@@ -133,8 +134,9 @@ none of the 14. Remaining `error` lines (backtick contents elided):
 Unchanged at anchor 125/137, extension 0/40. `accepts.mjs` and `count.mjs` were
 re-run against this branch's binary; only `kaliBinary` changed in
 `accepts.json`, so `accepts.json` and `counts.json` were reverted. The register
-and ranking still move for R-01 (FAIL_CLOSED to FIXED; ranking §6 amendment
-THIRTEENTH), which changes no band.
+and ranking still move for R-01, which is now two lanes: the declaration lane
+`r01` moved FAIL_CLOSED to FIXED, and the function-expression lane `r01b` is
+FAIL_CLOSED (ranking §6 amendment THIRTEENTH). No band changes.
 
 ## §4. Pins moved by this project
 
