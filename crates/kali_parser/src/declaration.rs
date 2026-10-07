@@ -9,6 +9,13 @@ use kali_ast::{
 use kali_lexer::{Token, TokenType};
 use std::boxed::Box;
 
+/// One scanned parameter: its name and, when it has a default, the absolute
+/// token range of the default's expression (the tokens after `=`).
+struct ScannedParam {
+    name: String,
+    default: Option<std::ops::Range<usize>>,
+}
+
 /// Result of scanning a parenthesized parameter list.
 ///
 /// The variants are exhaustive over "what the scanner found", and crucially
@@ -30,7 +37,10 @@ use std::boxed::Box;
 enum ParamListScan {
     /// Every segment was a plain named parameter (a type annotation is allowed
     /// and erased; a single trailing comma is allowed).
-    Simple { after: usize, params: Vec<String> },
+    Simple {
+        after: usize,
+        params: Vec<ScannedParam>,
+    },
     /// The list is balanced but contains a construct kali cannot lower.
     /// `construct` is a noun phrase for the E5506 message.
     Unsupported {
@@ -77,10 +87,12 @@ const CLASS_MEMBER_MODIFIERS: &[&str] = &[
 impl Parser {
     /// Classifies one comma-separated parameter-list segment.
     ///
-    /// `Ok(name)` for the two lowerable shapes — `ident` and `ident: Type` (the
-    /// annotation is erased, which is what every consumer downstream of the
-    /// parser expects). `Err(construct)` for everything else.
-    fn classify_param_segment(segment: &[Token]) -> Result<String, &'static str> {
+    /// `Ok((name, None))` for `ident` and `ident: Type` (the annotation is
+    /// erased). `Ok((name, Some(offset)))` for `ident = expr` and
+    /// `ident: Type = expr`, where `offset` indexes the `=` within the
+    /// segment (default-parameters spec 3.1). `Err(construct)` for
+    /// everything else.
+    fn classify_param_segment(segment: &[Token]) -> Result<(String, Option<usize>), &'static str> {
         let Some(first) = segment.first() else {
             return Err("an empty parameter");
         };
@@ -88,20 +100,32 @@ impl Parser {
             TokenType::DotDotDot => Err("a rest parameter"),
             TokenType::LeftBrace | TokenType::LeftBracket => Err("a destructured parameter"),
             TokenType::Identifier => match segment.get(1).map(|token| &token.kind) {
-                // `ident` — a plain parameter.
-                None => Ok(first.value.clone()),
-                // `ident: Type` — the annotation carries no runtime meaning.
-                Some(TokenType::Colon) => Ok(first.value.clone()),
-                // `ident = expr` — needs call-site arity adaptation, which
-                // kali's codegen does not have (calls are emitted at exact
-                // arity).
-                Some(TokenType::Eq) => Err("a default parameter"),
-                // `ident?: Type` — same arity problem as a default.
+                None => Ok((first.value.clone(), None)),
+                Some(TokenType::Eq) => Ok((first.value.clone(), Some(1))),
+                Some(TokenType::Colon) => Ok((first.value.clone(), Self::top_level_eq(segment, 2))),
+                // `ident?: Type` has no default to fill in, so the call-site
+                // rewrite cannot adapt its arity.
                 Some(TokenType::Question) => Err("an optional parameter"),
                 _ => Err("this parameter form"),
             },
             _ => Err("this parameter form"),
         }
+    }
+
+    /// The index of the first `=` at bracket depth 0 in `segment[from..]`.
+    fn top_level_eq(segment: &[Token], from: usize) -> Option<usize> {
+        let mut depth = 0usize;
+        for (index, token) in segment.iter().enumerate().skip(from) {
+            match token.kind {
+                TokenType::LeftParen | TokenType::LeftBrace | TokenType::LeftBracket => depth += 1,
+                TokenType::RightParen | TokenType::RightBrace | TokenType::RightBracket => {
+                    depth = depth.saturating_sub(1)
+                }
+                TokenType::Eq if depth == 0 => return Some(index),
+                _ => {}
+            }
+        }
+        None
     }
 
     /// Scans the parenthesized parameter list whose `(` is at `start`. Purely
@@ -146,8 +170,8 @@ impl Parser {
             };
         }
 
-        // Split on top-level commas.
-        let mut segments: Vec<&[Token]> = Vec::new();
+        // Split on top-level commas, keeping each segment's absolute start.
+        let mut segments: Vec<(usize, &[Token])> = Vec::new();
         let mut depth = 0usize;
         let mut segment_start = 0usize;
         for (offset, token) in body.iter().enumerate() {
@@ -157,25 +181,40 @@ impl Parser {
                     depth = depth.saturating_sub(1)
                 }
                 TokenType::Comma if depth == 0 => {
-                    segments.push(&body[segment_start..offset]);
+                    segments.push((start + 1 + segment_start, &body[segment_start..offset]));
                     segment_start = offset + 1;
                 }
                 _ => {}
             }
         }
-        segments.push(&body[segment_start..]);
+        segments.push((start + 1 + segment_start, &body[segment_start..]));
 
         // A single trailing comma is legal and produces one empty final
         // segment; drop it. An empty segment anywhere else is a syntax error
         // and falls through to `classify_param_segment`'s rejection.
-        if segments.len() > 1 && segments.last().is_some_and(|last| last.is_empty()) {
+        if segments.len() > 1 && segments.last().is_some_and(|(_, last)| last.is_empty()) {
             segments.pop();
         }
 
         let mut params = Vec::with_capacity(segments.len());
-        for segment in segments {
+        for (absolute_start, segment) in segments {
             match Self::classify_param_segment(segment) {
-                Ok(name) => params.push(name),
+                Ok((name, eq)) => {
+                    let default = match eq {
+                        Some(eq) if eq + 1 < segment.len() => {
+                            Some(absolute_start + eq + 1..absolute_start + segment.len())
+                        }
+                        // `ident =` with nothing after it.
+                        Some(_) => {
+                            return ParamListScan::Unsupported {
+                                after,
+                                construct: "an empty default parameter",
+                            }
+                        }
+                        None => None,
+                    };
+                    params.push(ScannedParam { name, default });
+                }
                 Err(construct) => return ParamListScan::Unsupported { after, construct },
             }
         }
@@ -189,32 +228,80 @@ impl Parser {
         ));
     }
 
-    /// Parses a parameter list with the stream positioned AT the opening `(`.
+    /// Parses a parameter list with the stream positioned AT the opening `(`,
+    /// for a function form that cannot take defaults (methods and function
+    /// expressions; default-parameters spec A-2). A default is refused with
+    /// E5506; the names are still returned so the body parses normally.
     ///
     /// Always leaves the cursor just past the matching `)` when one exists, so
     /// the caller can parse the body without risk of absorbing the rest of the
-    /// module. An unsupported shape reports E5506 and yields no parameters; an
-    /// unterminated list reports E5506 and consumes to end-of-input (there is
-    /// nothing left to resynchronize to).
+    /// module.
     pub(crate) fn parse_parameter_list(&mut self) -> Vec<String> {
+        let (params, defaults) = self.parse_declaration_parameter_list();
+        if defaults.iter().any(Option::is_some) {
+            self.push_feature_unavailable(kali_common::default_param_non_declaration_message());
+        }
+        params
+    }
+
+    /// Parses a function declaration's parameter list, keeping each default
+    /// (default-parameters spec 3.1). Returns the names and the defaults,
+    /// index-aligned; the defaults vector is empty when no parameter has one.
+    pub(crate) fn parse_declaration_parameter_list(
+        &mut self,
+    ) -> (Vec<String>, Vec<Option<Box<Expression>>>) {
         match self.scan_param_list(self.stream.position) {
             ParamListScan::Simple { after, params } => {
+                let mut names = Vec::with_capacity(params.len());
+                let mut defaults = Vec::with_capacity(params.len());
+                for param in params {
+                    names.push(param.name);
+                    defaults.push(
+                        param
+                            .default
+                            .map(|range| Box::new(self.parse_default(range))),
+                    );
+                }
+                if defaults.iter().all(Option::is_none) {
+                    defaults.clear();
+                }
                 self.stream.position = after;
-                params
+                (names, defaults)
             }
             ParamListScan::Unsupported { after, construct } => {
                 self.reject_unsupported_param(construct);
                 self.stream.position = after;
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
             ParamListScan::NotAParamList => {
                 self.push_feature_unavailable(
                     "unterminated parameter list — expected a closing `)`".to_string(),
                 );
                 self.stream.position = self.stream.tokens.len();
-                Vec::new()
+                (Vec::new(), Vec::new())
             }
         }
+    }
+
+    /// Parses one default's tokens as an assignment expression with a
+    /// sub-parser, so the main stream never moves into the parameter list.
+    /// Tokens left over after the expression are refused.
+    fn parse_default(&mut self, range: std::ops::Range<usize>) -> Expression {
+        let mut tokens: Vec<Token> = self.stream.tokens[range.clone()].to_vec();
+        let eof_span = tokens
+            .last()
+            .map(|token| token.span)
+            .unwrap_or(self.stream.tokens[range.start].span);
+        tokens.push(Token::new(TokenType::Eof, String::new(), eof_span));
+        let mut sub = Parser::new(self.file_id, tokens);
+        let expression = sub.parse_assignment_expression();
+        if !matches!(sub.stream.current_kind(), Some(TokenType::Eof) | None) {
+            sub.push_feature_unavailable(
+                "this default parameter value is unavailable in the current phase",
+            );
+        }
+        self.diagnostics.extend(sub.diagnostics);
+        expression
     }
 
     /// Skips a return-type annotation (`): Type {`) if one is present, leaving
@@ -271,7 +358,7 @@ impl Parser {
             }
             name_token.value
         };
-        let params = self.parse_parameter_list();
+        let (params, defaults) = self.parse_declaration_parameter_list();
         self.skip_return_type_annotation();
 
         let previous_generator = self.in_generator_function;
@@ -286,7 +373,7 @@ impl Parser {
         Some(Statement::FunctionDeclaration(FunctionDeclaration {
             name,
             params,
-            defaults: Vec::new(),
+            defaults,
             body: Box::new(body_block),
             is_async,
             generator,
@@ -604,7 +691,17 @@ impl Parser {
     /// `)`, which positively identifies the tokens as arrow parameters.
     fn scan_arrow_param_list(&mut self, start: usize) -> ArrowParams {
         match self.scan_param_list(start) {
-            ParamListScan::Simple { after, params } => ArrowParams::Ok { after, params },
+            ParamListScan::Simple { after, params } => {
+                if params.iter().any(|param| param.default.is_some()) {
+                    self.push_feature_unavailable(
+                        kali_common::default_param_non_declaration_message(),
+                    );
+                }
+                ArrowParams::Ok {
+                    after,
+                    params: params.into_iter().map(|param| param.name).collect(),
+                }
+            }
             ParamListScan::Unsupported { after, construct } => {
                 if self.stream.tokens.get(after).map(|token| &token.kind) == Some(&TokenType::Arrow)
                 {

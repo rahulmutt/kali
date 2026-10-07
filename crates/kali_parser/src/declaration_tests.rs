@@ -46,6 +46,9 @@ mod class_method;
 #[path = "declaration_tests/function.rs"]
 mod function;
 
+#[path = "declaration_tests/default_params.rs"]
+mod default_params;
+
 #[path = "declaration_tests/unsupported_params.rs"]
 mod unsupported_params;
 
