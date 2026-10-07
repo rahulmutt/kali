@@ -81,13 +81,17 @@
 #
 #   entry  scope      register class     measured class    moved?
 #   -----  ---------  -----------------  ----------------  --------------------
-#   R-29   module     silent             accepts_invalid   RECLASSIFIED
-#   R-29   function   silent             accepts_invalid   RECLASSIFIED
+#   R-29   module     silent             ~~accepts_invalid~~ both_reject  RECLASSIFIED; MOVED (2026-10-07)
+#   R-29   function   silent             ~~accepts_invalid~~ both_reject  RECLASSIFIED; MOVED (2026-10-07)
 #   R-54   module     accepts_invalid    accepts_invalid   same
 #   R-54   function   accepts_invalid    accepts_invalid   same
 #
+# AMENDED 2026-10-07, unresolved-member-read: R-29 moved ACCEPTS_INVALID ->
+# BOTH_REJECT (see the MOVED rows above); the "did NOT move" text below is
+# ~~struck~~ as true only of the 2026-08-15 measurement.
+#
 # R-29's two cases are the only reconciliation in this file, and the behaviour
-# did NOT move -- the register's §0.2 SPELLING of it is what does not survive
+# ~~did NOT move~~ (as of 2026-08-15 only) -- the register's §0.2 SPELLING of it is what does not survive
 # translation into this project's eight-class taxonomy. Both R-29 cases record
 # that in full; read either one before touching the row. The short form:
 # §0.2 spells R-29 "**SILENT (node throws)**", but `silent` in this taxonomy
@@ -163,12 +167,14 @@ name = "r29_assignment_to_a_const_is_ignored_module_scope"
 kind = "oracle"
 register_entry = "R-29"
 program = "r29_module.js"
-verdict = "accepts_invalid"
+verdict = "both_reject"
 rationale = """R-29, module scope. The register's repro verbatim and complete: `const x = 1; x = 2; console.log("r=" + x);`. It is a runnable program as stated, carrying its own `console.log`, so nothing was added to it.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9` (2026-07-29), §2's R-29 records node raising `TypeError: Assignment to constant variable.` (exit 1) against kali printing `r=1` (exit 0), and §0.2's row spells that "**SILENT (node throws)**".
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, SUPERSEDING the SILENT the row spells. kali prints `r=1` at exit 0 with empty stderr; node prints nothing and exits 1 with `TypeError: Assignment to constant variable.` Both halves of the register's own recorded behaviour reproduce exactly -- the write is still discarded, the read still yields the pre-assignment value, and there is still no diagnostic -- so THE ENTRY HAS NOT MOVED. What moved is only the name of its class.
+~~RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, SUPERSEDING the SILENT the row spells. kali prints `r=1` at exit 0 with empty stderr; node prints nothing and exits 1 with `TypeError: Assignment to constant variable.` Both halves of the register's own recorded behaviour reproduce exactly -- the write is still discarded, the read still yields the pre-assignment value, and there is still no diagnostic -- so THE ENTRY HAS NOT MOVED. What moved is only the name of its class.~~
+
+RE-MEASURED 2026-10-07 at `0fc2c3999` against node v26.10.0: BOTH_REJECT (unresolved-member-read A-2), SUPERSEDING ACCEPTS_INVALID. node prints nothing and exits 1 with `TypeError: Assignment to constant variable.`; kali now also exits 1, with empty stdout and `error[E5506]: assigning to `x` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that store; node would store the value or throw a TypeError, so kali refuses rather than drop the store`. Both engines refuse, which the classifier measures as BOTH_REJECT -- the outcome this file's header names as FIXED in the only sense available to an entry whose subject is invalid JS. (The unresolved-member-read plan predicted `fail_closed` here; `fail_closed` requires node to exit 0, and node throws, so the live measurement is `both_reject`.) THE ENTRY HAS MOVED: the write is no longer discarded silently. The two paragraphs below record the 2026-08-15 reclassification and are kept as history.
 
 WHY THE CLASS NAME CHANGED, IN FULL, BECAUSE IT IS A RECLASSIFICATION AND NOT A RE-MEASUREMENT. `silent` in this project's taxonomy is defined as both engines exiting 0 with differing stdout; the pair (kali exits 0, node refuses) is `accepts_invalid` by construction, and no case can assert `silent` for a program node refuses. §0.2's row for R-29 therefore names a class its own parenthetical rules out. The register is not confused about the behaviour, only about the label: as of `61c2d48ea9`, §2's R-54 body files that entry "alongside R-29 (assignment to a `const` is silently ignored where node throws), which is the same class: kali is permissive where node refuses" -- and §0.2 spells R-54's class ACCEPTS-INVALID. Two register statements about R-29's class, one expressible and one not; this case records the expressible one. The §0.2 regeneration should rewrite the row rather than re-derive it.
 
@@ -179,14 +185,16 @@ name = "r29_assignment_to_a_const_is_ignored_in_function"
 kind = "oracle"
 register_entry = "R-29"
 program = "r29_function.js"
-verdict = "accepts_invalid"
+verdict = "both_reject"
 rationale = """R-29, in-function scope. The module-scope repro verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
 The scope matters for this entry specifically: at module scope node's `TypeError` is raised while the module body is executing, and inside a function it is raised inside a call frame. Both are runtime errors rather than early errors, so node exits 1 either way, but the two are different programs on kali's side and the register never measured this one.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2's R-29 carries `Verification: sweep-only (both scopes)`. That line names no sweep id and is mapped to no individual bullet, so treating it as an in-function observation OF THIS PROGRAM would be an assumption; it is not made. The expected class was set to the entry's own recorded class on the assumption that the scopes agree, precisely so a disagreement would surface as a red case.
 
-RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, SUPERSEDING the SILENT §0.2's row spells (see the module-scope case for why that spelling is not expressible in this taxonomy; the reclassification is identical here and is not a second finding). kali prints `r=1` at exit 0; node prints nothing and exits 1 with `TypeError: Assignment to constant variable.`, raised at `main` rather than at module top level. The scopes agree, and for this entry that agreement is a NEW observation rather than a confirmation."""
+~~RE-MEASURED 2026-08-15 at `61aa9043b3` against node v26.7.0: ACCEPTS_INVALID, SUPERSEDING the SILENT §0.2's row spells (see the module-scope case for why that spelling is not expressible in this taxonomy; the reclassification is identical here and is not a second finding). kali prints `r=1` at exit 0; node prints nothing and exits 1 with `TypeError: Assignment to constant variable.`, raised at `main` rather than at module top level. The scopes agree, and for this entry that agreement is a NEW observation rather than a confirmation.~~
+
+RE-MEASURED 2026-10-07 at `0fc2c3999` against node v26.10.0: BOTH_REJECT (unresolved-member-read A-2), SUPERSEDING ACCEPTS_INVALID. node prints nothing and exits 1 with `TypeError: Assignment to constant variable.`, raised at `main`; kali exits 1 with empty stdout and the same `error[E5506]: assigning to `x` is unavailable in the current phase: …` word for word as the module scope. The scopes agree."""
 
 [[case]]
 name = "r54_a_second_default_clause_is_absorbed_module_scope"

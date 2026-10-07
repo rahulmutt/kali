@@ -1845,6 +1845,13 @@ impl TypeContext {
                 // repr `String`) is NOT rejected and materializes correctly.
             }
             Expression::UnaryExpression(expr) => {
+                if expr.operator == "typeof" {
+                    if let Expression::MemberExpression(member) = unwrap_transparent(&expr.argument)
+                    {
+                        self.read_mirror_skipped_members
+                            .insert(member.as_ref() as *const MemberExpression as usize);
+                    }
+                }
                 if expr.operator == "delete" {
                     if let Expression::MemberExpression(member) = &expr.argument {
                         if self.resolve_late_process_env_mutation_member(member) {

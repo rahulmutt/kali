@@ -224,14 +224,17 @@ stdout = "1\n"
 
 [[case]]
 name = "an_absent_property_after_a_successful_fold_is_r21s_lane_not_this_projects"
-rationale = """WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT. node prints undefined three times; kali prints 0 three times, at exit 0.
+rationale = """~~WRONG ON PURPOSE, and NO TASK IN THIS PLAN OWNS CLOSING IT. node prints undefined three times; kali prints 0 three times, at exit 0.~~ REFUSED since 2026-10-07 (see the RE-PINNED paragraph below).
 
 WHAT IT PINS, AND WHY IT IS A CASE AT ALL. Spec section 5 carves this lane out: a `const` key that folds to a name the object does NOT have reads the same placeholder `0` the dot spelling `o.c` reads today. All three spellings are pinned together precisely so they must move together: the fold's whole claim is that a folded bracket access IS the dot access, and if a later change made `o[k]` and `o.c` disagree here, that claim would have quietly broken. The `0` itself is R-21 (there is no value distinct from the scalar 0), which this project does not touch.
 
-Measured at `dc19c3a040` and re-measured at `3ef65ef785`: all three lines print 0 before and after this project, at exit 0, with `check` clean."""
+~~Measured at `dc19c3a040` and re-measured at `3ef65ef785`: all three lines print 0 before and after this project, at exit 0, with `check` clean.~~
+
+RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): the pinned ~~`0` three times~~ is gone. kali now exits 1 with empty stdout and `error[E5506]: reading `.c` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; ...` -- the absent-field read on a `const` object literal no longer reaches the silent-0 fallback. The refusal is whole-program, so this case no longer observes the three spellings line by line (kali reports two `.c` diagnostics for the three reads); the per-spelling agreement it used to pin is now carried only by the fold controls elsewhere in this file. node still prints undefined three times."""
 args = ["run", "absent_property_after_fold.js"]
-exit = "success"
-stdout = "0\n0\n0\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that read"]
 
 [[case]]
 name = "the_dot_store_control_still_lands"

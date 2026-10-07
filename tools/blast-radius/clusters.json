@@ -270,7 +270,19 @@
     "assignment. The gate `every_zero_two_row_is_the_class_set_its_live_cases_assert` named the mismatch",
     "first and the §0.2 row followed it. G7's cluster DEFINITION stays: R-06 is still a member and still",
     "SILENT (and R-53 names G7 as its alternate), so this is the R-13 precedent (a member leaves a cluster",
-    "that survives)."
+    "that survives).",
+    "",
+    "REMOVED 2026-10-07 by the unresolved-member-read project",
+    "(docs/superpowers/specs/2026-10-06-unresolved-member-read-design.md): R-25 leaves. Its",
+    "`console.log` residual lane (`r25l_array_spread_console_log_residual_{module_scope,in_function}`)",
+    "now asserts FAIL_CLOSED -- kali refuses `console.log([...a])` with E5506 where node v26.10.0",
+    "prints `[ 1, 2 ]` -- and its other lane (`r25i`) already did, so it has no SILENT lane left and",
+    "left the SILENT filter. It is NOT fixed and NOT retired (the R-12 precedent). G6's cluster",
+    "DEFINITION stays: R-15, R-24 and R-60 are still members and still SILENT, so this is the R-13",
+    "precedent (a member leaves a cluster that survives). R-21 and R-27 stay: R-21's `r21f` lane",
+    "moved to FAIL_CLOSED but six of its lanes are still SILENT, and R-27 did not move (comma",
+    "expressions are excluded from that project's read gate by the human partner's ruling). R-29",
+    "was never in this file (ACCEPTS_INVALID, now BOTH_REJECT). R-60 did not move."
   ],
   "clusters": [
     {
@@ -432,13 +444,6 @@
     },
     {
       "id": "R-24",
-      "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
-      "registerSource": "G6.",
-      "alternate": null,
-      "alternateCluster": null
-    },
-    {
-      "id": "R-25",
       "cluster": "G6 — unresolved or unimplemented builtins fold to a default instead of failing closed",
       "registerSource": "G6.",
       "alternate": null,

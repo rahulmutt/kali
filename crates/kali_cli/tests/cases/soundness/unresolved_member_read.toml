@@ -1,0 +1,473 @@
+# Cases for the unresolved-member-read project (spec
+# docs/superpowers/specs/2026-10-06-unresolved-member-read-design.md).
+#
+# A member read, or a plain `=` store, that reaches codegen's silent-`0`
+# fallback refuses with E5506 under `run` when its receiver (or target) is
+# rooted at a value this program built. `check` refuses only the absent-field
+# shape on a `const` object literal (spec §3.4); every other refused row exits
+# 0 under `check`, which pins the gap. Host-rooted receivers keep node's
+# output. Each rationale gives kali's `run` output at the baseline `28c97e4ed`
+# (tools/array-return-probes/baseline-umr.tsv) and node v26.10.0's. The
+# captured-bindings d3/d6 lanes are pinned in closure/captured_bindings.toml
+# and are not repeated here.
+#
+# `[source]` keys are one file per program, because `[source]` is file-wide.
+
+[constants]
+UNREAD = "no lowering for that read"
+UNSTORE = "no lowering for that store"
+NEUTRAL = "this expression is unavailable"
+
+[source]
+"c8.js" = '''
+function mk(){ return {a:1}; } function f(){ let o=mk(); const g=()=>o; return g().a; } console.log(f());
+'''
+"c9.js" = '''
+function mk(){ return {a:1}; } function show(z){ console.log(z.a); } function f(){ let o=mk(); const g=()=>{ show(o); }; g(); } f();
+'''
+"e1.js" = '''
+function show(z){ return z.n * 10; } function outer(p){ const obj = p; function rd(){ return show(obj); } console.log(rd()); } const x={n:4}; outer(x);
+'''
+"m6.js" = '''
+function f(p){ const o=p; const g=()=>o["a"]; return g(); } const x={a:1}; console.log(f(x));
+'''
+"q8.js" = '''
+function mk(){ return {a:1, s:"xy", arr:[1,2]}; } function f(){ let o=mk(); const g=()=>o["a"]; return g(); } console.log(f());
+'''
+"mkcall.js" = '''
+function mk(){ return {a:1}; } console.log(mk().a);
+'''
+"idcall.js" = '''
+function id(o){ return o; } const x={a:1}; console.log(id(x).a);
+'''
+"absent.js" = '''
+const o={a:1}; console.log("z="+o.z);
+'''
+"absent_bracket.js" = '''
+const o={a:1}; console.log("z="+o["z"]);
+'''
+"absent_nullish.js" = '''
+const o={a:1}; console.log(o.z ?? 5);
+'''
+"absent_optional.js" = '''
+const o={a:1}; console.log("z="+o?.z);
+'''
+"typeof.js" = '''
+const o={a:1}; console.log(typeof o.z);
+'''
+"const_store.js" = '''
+const x = 1; x = 2; console.log("r=" + x);
+'''
+"spread.js" = '''
+const a=[1,2]; console.log([...a]);
+'''
+"comma.js" = '''
+function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bump(), 7); console.log("b=" + b); } main();
+'''
+"ok_comma_indirection.js" = '''
+const o={a:1}; const w=(0,o); console.log(Object.hasOwn(w,"a"));
+'''
+"ok_export_alias.js" = '''
+function f(){ return 1; } export { f as g }; console.log(f());
+'''
+"ok_write_only_store.js" = '''
+const literal = { 1: 4, 2: 2, b: 1 }; delete literal.b; literal.b = 3; console.log(Object.keys(literal).join(","));
+'''
+"store_value_used.js" = '''
+const literal = { 1: 4, b: 1 }; const y = (literal.b = 3); console.log(y);
+'''
+"store_value_logged.js" = '''
+const literal = { 1: 4, b: 1 }; console.log(literal.b = 3);
+'''
+"shadow_math.js" = '''
+let Math = {a:1}; console.log(Math.b);
+'''
+"ok_math_alias.js" = '''
+const f = Object.freeze(Math.log2); console.log(f(8));
+'''
+"ok_number_alias.js" = '''
+const n = Object.freeze(Number["isNaN"]); console.log(n(1));
+'''
+"ok_performance.js" = '''
+let t=globalThis.performance; t.now(); console.log("ok");
+'''
+"fromentries.js" = '''
+const o = Object.fromEntries([["a", 1]]); console.log(o.a);
+'''
+"ok_present.js" = '''
+const o={a:1}; console.log(o.a);
+'''
+"ok_class_field.js" = '''
+class C{ constructor(){ this.a = 3; } } const c=new C(); console.log(c.a);
+'''
+"ok_bracket_store.js" = '''
+function mk(){ return {a:1}; } const o=mk(); o["a"] = 5; console.log(o.a);
+'''
+"ok_global_store.js" = '''
+globalThis.zz = 3; console.log("ok");
+'''
+"ok_capture_decl.js" = '''
+function outer(){ const obj={n:4}; function rd(){ return obj.n; } return rd(); } console.log(outer());
+'''
+"nested.js" = '''
+function f(p){ return p.a.b.c; } console.log(f({a:{b:{c:1}}}));
+'''
+"ok_class_store.js" = '''
+class C{ constructor(){ this.a = 3; } set(v){ this.a = v; } } const c=new C(); c.set(5); console.log(c.a);
+'''
+
+[[case]]
+name = "a_member_read_on_a_closure_returned_object_alias_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "c8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_through_a_callee_parameter_of_a_captured_object_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "c9.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_in_a_callee_of_a_parameter_alias_object_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `40`."""
+args = ["run", "e1.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_bracket_read_through_a_captured_parameter_alias_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "m6.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_bracket_read_on_a_captured_function_result_object_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "q8.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_on_a_call_result_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "mkcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_on_an_identity_call_result_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`."""
+args = ["run", "idcall.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_read_on_a_const_object_literal_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `z=0` at exit 0 where node v26.10.0 prints `z=undefined`."""
+args = ["run", "absent.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_read_on_a_const_object_literal_refuses_under_check"
+rationale = """At `28c97e4ed` kali printed `z=0` at exit 0 where node v26.10.0 prints `z=undefined`. `check` mirrors the refusal for an absent field on a `const` object literal (spec §3.4)."""
+args = ["check", "absent.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_bracket_read_on_a_const_object_literal_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `z=0` at exit 0 where node v26.10.0 prints `z=undefined`."""
+args = ["run", "absent_bracket.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_bracket_read_on_a_const_object_literal_refuses_under_check"
+rationale = """At `28c97e4ed` kali printed `z=0` at exit 0 where node v26.10.0 prints `z=undefined`. `check` mirrors the refusal for an absent field on a `const` object literal (spec §3.4)."""
+args = ["check", "absent_bracket.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_read_under_nullish_coalescing_on_a_const_object_literal_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `5` at exit 0 where node v26.10.0 prints `5`. Capability loss (spec A-4): kali printed node's `5` by coincidence, and now refuses."""
+args = ["run", "absent_nullish.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_read_under_nullish_coalescing_on_a_const_object_literal_refuses_under_check"
+rationale = """At `28c97e4ed` kali printed `5` at exit 0 where node v26.10.0 prints `5`. `check` mirrors the refusal for an absent field on a `const` object literal (spec §3.4). Capability loss (spec A-4): kali printed node's `5` by coincidence, and now refuses."""
+args = ["check", "absent_nullish.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_optional_read_on_a_const_object_literal_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `z=0` at exit 0 where node v26.10.0 prints `z=undefined`."""
+args = ["run", "absent_optional.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "an_absent_field_optional_read_on_a_const_object_literal_refuses_under_check"
+rationale = """At `28c97e4ed` kali printed `z=0` at exit 0 where node v26.10.0 prints `z=undefined`. `check` mirrors the refusal for an absent field on a `const` object literal (spec §3.4)."""
+args = ["check", "absent_optional.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_spread_of_an_array_constant_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `[ 1, 2 ]`. The refusal uses the neutral text (no read to name)."""
+args = ["run", "spread.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${NEUTRAL}"]
+stdout = ""
+
+[[case]]
+name = "a_comma_expression_in_a_let_initialiser_stays_wrong_under_run"
+rationale = """WRONG ON PURPOSE (R-27 is residue by the human partner's ruling 2026-10-07: the `(0, x)` indirection idiom must keep working, so a comma expression is outside the read gate). At `28c97e4ed` kali printed `b=0` at exit 0 where node v26.10.0 prints `b=7`. MEASURED 2026-10-07 after the ruling: kali still prints `b=0` at exit 0. Flips when a comma expression is lowered."""
+args = ["run", "comma.js"]
+exit = "success"
+stdout = "b=0\n"
+
+[[case]]
+name = "a_comma_indirection_of_a_program_object_matches_node_under_run"
+rationale = """No-regression control for the human partner's ruling 2026-10-07: `(0, o)` must not refuse. node v26.10.0 prints `true`; MEASURED 2026-10-07: kali prints `true` at exit 0. Before the ruling the comma gate refused it with E5506."""
+args = ["run", "ok_comma_indirection.js"]
+exit = "success"
+stdout = "true\n"
+
+[[case]]
+name = "an_assignment_to_a_const_binding_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `r=1` at exit 0 where node v26.10.0 throws `TypeError: Assignment to constant variable.`. The store gate refuses, naming the target `x`."""
+args = ["run", "const_store.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNSTORE}", "assigning to `x`"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_on_a_closure_returned_object_alias_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "c8.js"]
+exit = "success"
+
+[[case]]
+name = "a_member_read_through_a_callee_parameter_of_a_captured_object_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "c9.js"]
+exit = "success"
+
+[[case]]
+name = "a_member_read_in_a_callee_of_a_parameter_alias_object_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "e1.js"]
+exit = "success"
+
+[[case]]
+name = "a_bracket_read_through_a_captured_parameter_alias_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "m6.js"]
+exit = "success"
+
+[[case]]
+name = "a_bracket_read_on_a_captured_function_result_object_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "q8.js"]
+exit = "success"
+
+[[case]]
+name = "a_member_read_on_a_call_result_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "mkcall.js"]
+exit = "success"
+
+[[case]]
+name = "a_member_read_on_an_identity_call_result_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "idcall.js"]
+exit = "success"
+
+[[case]]
+name = "an_assignment_to_a_const_binding_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "const_store.js"]
+exit = "success"
+
+[[case]]
+name = "a_spread_of_an_array_constant_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4: `run` refuses, `check` cannot see the fallback, so it exits 0."""
+args = ["check", "spread.js"]
+exit = "success"
+
+[[case]]
+name = "a_comma_expression_in_a_let_initialiser_is_quiet_under_check"
+rationale = """Not a `check` / `run` gap: a comma expression is outside the read gate (human partner's ruling 2026-10-07; R-27 residue), so `check` and `run` both accept it. `run` prints the wrong `b=0` (see the run row)."""
+args = ["check", "comma.js"]
+exit = "success"
+
+[[case]]
+name = "a_typeof_of_an_absent_field_is_quiet_under_check"
+rationale = """The `check` / `run` gap of spec §3.4 (A-3 for typeof): `run` refuses, `check` cannot see the fallback. node v26.10.0 prints `undefined`."""
+args = ["check", "typeof.js"]
+exit = "success"
+
+[[case]]
+name = "a_typeof_of_an_absent_field_refuses_under_run"
+rationale = """At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `undefined` (spec §5 residue A-3: `typeof` is unsupported and lowers to a silent `0`). The read gate now refuses the absent-field read inside it, so the program no longer prints the wrong `0`."""
+args = ["run", "typeof.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNREAD}"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_on_a_shadowed_math_refuses_under_run"
+rationale = """node v26.10.0 prints `undefined`. `let Math = {a:1}` shadows the global; `Math.b` refuses with E5506 through the fixed-shape gate (`unknown field 'b' on fixed-shape object`) at the baseline, not through the new read gate, so only the code is pinned."""
+args = ["run", "shadow_math.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+stdout = ""
+
+[[case]]
+name = "a_member_read_on_a_shadowed_math_refuses_under_check"
+rationale = """As the `run` row: the fixed-shape gate refuses under `check` as well, so only the code is pinned."""
+args = ["check", "shadow_math.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+stdout = ""
+
+[[case]]
+name = "a_nested_read_on_an_object_literal_parameter_refuses_under_run"
+rationale = """node v26.10.0 prints `1`. `f({a:{b:{c:1}}})` is refused by an earlier gate (an object literal passed directly as a call argument), not by the new read gate, so only the code is pinned; the nested parameter-rooted read of spec §6.3 is therefore not reached through this program."""
+args = ["run", "nested.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+stdout = ""
+
+[[case]]
+name = "a_nested_read_on_an_object_literal_parameter_refuses_under_check"
+rationale = """As the `run` row: the call-argument object literal gate refuses under `check` too."""
+args = ["check", "nested.js"]
+exit = "failure"
+stderr_contains = ["E5506"]
+stdout = ""
+
+[[case]]
+name = "a_frozen_math_member_alias_keeps_its_call_under_run"
+rationale = """Host-rooted exemption control. At `28c97e4ed` kali printed `3` at exit 0 where node v26.10.0 prints `3`; unchanged after the gate."""
+args = ["run", "ok_math_alias.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_frozen_number_bracket_member_alias_keeps_its_call_under_run"
+rationale = """Host-rooted exemption control. At `28c97e4ed` kali printed `false` at exit 0 where node v26.10.0 prints `false`; unchanged after the gate."""
+args = ["run", "ok_number_alias.js"]
+exit = "success"
+stdout = "false\n"
+
+[[case]]
+name = "a_host_global_alias_keeps_its_method_call_under_run"
+rationale = """Host-rooted exemption control. At `28c97e4ed` kali printed `ok` at exit 0 where node v26.10.0 prints `ok`; unchanged after the gate."""
+args = ["run", "ok_performance.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_read_on_an_object_from_fromentries_stays_wrong_under_run"
+rationale = """WRONG ON PURPOSE (R-60; the host-rooted receiver is spec §5 residue). At `28c97e4ed` kali printed `0` at exit 0 where node v26.10.0 prints `1`; the receiver is host-rooted, so the gate does not refuse it. Flips when the read is lowered."""
+args = ["run", "fromentries.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "a_present_field_read_on_a_const_object_literal_still_matches_node_under_run"
+rationale = """At `28c97e4ed` kali printed `1` at exit 0 where node v26.10.0 prints `1`; unchanged after the gate."""
+args = ["run", "ok_present.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_class_field_read_still_matches_node_under_run"
+rationale = """At `28c97e4ed` kali printed `3` at exit 0 where node v26.10.0 prints `3`; unchanged after the gate."""
+args = ["run", "ok_class_field.js"]
+exit = "success"
+stdout = "3\n"
+
+[[case]]
+name = "a_bracket_store_on_a_call_result_still_matches_node_under_run"
+rationale = """At `28c97e4ed` kali printed `5` at exit 0 where node v26.10.0 prints `5`; unchanged after the gate."""
+args = ["run", "ok_bracket_store.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "a_globalthis_store_still_matches_node_under_run"
+rationale = """At `28c97e4ed` kali printed `ok` at exit 0 where node v26.10.0 prints `ok`; unchanged after the gate."""
+args = ["run", "ok_global_store.js"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_read_of_a_captured_declared_object_still_matches_node_under_run"
+rationale = """At `28c97e4ed` kali printed `4` at exit 0 where node v26.10.0 prints `4`; unchanged after the gate."""
+args = ["run", "ok_capture_decl.js"]
+exit = "success"
+stdout = "4\n"
+
+[[case]]
+name = "a_class_field_store_in_a_method_still_matches_node_under_run"
+rationale = """At `28c97e4ed` kali printed `5` at exit 0 where node v26.10.0 prints `5`; unchanged after the gate."""
+args = ["run", "ok_class_store.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "an_export_alias_specifier_is_not_a_member_read_under_run"
+rationale = """No-regression control for spec A-9 (human partner's ruling 2026-10-07): an `export { f as g }` specifier lowers to the shape of the read `f.g`, and the read gate refused it (the `build --lib` export-alias tests failed). Codegen no longer emits export specifiers. node v26.10.0 prints `1`; MEASURED 2026-10-07 after the fix: kali prints `1` at exit 0. Not measured at `28c97e4ed`."""
+args = ["run", "ok_export_alias.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_store_to_an_object_nothing_reads_still_matches_node_under_run"
+rationale = """No-regression control for spec A-9 (human partner's ruling 2026-10-07): the optimizer's enumeration timeline models `delete literal.b; literal.b = 3` and folds `Object.keys(literal)`, so the store that reaches codegen's fallback targets an object nothing reads, and the store gate leaves it alone (object-enumeration-delete-reinsert-benchmark-v1). node v26.10.0 prints `1,2,b`; MEASURED 2026-10-07 after the fix: kali prints `1,2,b` at exit 0. Not measured at `28c97e4ed`."""
+args = ["run", "ok_write_only_store.js"]
+exit = "success"
+stdout = "1,2,b\n"
+
+[[case]]
+name = "a_store_whose_value_is_used_refuses_under_run"
+rationale = """Spec A-9 exempts only a statement-position store, because the fallback yields `left + right` rather than the stored value. Before that qualification (at `ece3b9375`, MEASURED 2026-10-07 by the Task 8 review), kali printed `4` at exit 0 here; node v26.10.0 prints `3`. Now the store gate refuses it."""
+args = ["run", "store_value_used.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNSTORE}", "assigning to `.b`"]
+stdout = ""
+
+[[case]]
+name = "a_store_used_as_a_call_argument_refuses_under_run"
+rationale = """Spec A-9, as above: `console.log(literal.b = 3)` printed `4` at exit 0 at `ece3b9375` (MEASURED 2026-10-07 by the Task 8 review); node v26.10.0 prints `3`. Now the store gate refuses it."""
+args = ["run", "store_value_logged.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNSTORE}", "assigning to `.b`"]
+stdout = ""

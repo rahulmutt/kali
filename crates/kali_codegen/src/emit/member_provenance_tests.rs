@@ -192,3 +192,243 @@ fn a_host_derived_class_name_rebound_in_scope_is_not_the_class() {
         source,
     );
 }
+
+const UNRES_READ: &str = "no lowering for that read";
+
+fn read_refusals(source: &str) -> usize {
+    diagnostics_for(source)
+        .iter()
+        .filter(|d| d.code == Some(5506) && d.message.contains(UNRES_READ))
+        .count()
+}
+
+#[test]
+fn a_member_read_on_a_program_built_root_refuses() {
+    for source in [
+        // captured-bindings followups §5.10
+        "function mk(){ return {a:1}; } function f(){ let o=mk(); const g=()=>o; return g().a; } console.log(f());",
+        "function mk(){ return {a:1}; } function show(z){ console.log(z.a); } function f(){ let o=mk(); const g=()=>{ show(o); }; g(); } f();",
+        "function show(z){ return z.n * 10; } function outer(p){ const obj = p; function rd(){ return show(obj); } console.log(rd()); } const x={n:4}; outer(x);",
+        "function f(p){ const o=p; const g=()=>o[\"a\"]; return g(); } const x={a:1}; console.log(f(x));",
+        "function mk(){ return {a:1, s:\"xy\", arr:[1,2]}; } function f(){ let o=mk(); const g=()=>o[\"a\"]; return g(); } console.log(f());",
+        // call roots and absent fields
+        "function mk(){ return {a:1}; } console.log(mk().a);",
+        "function id(o){ return o; } const x={a:1}; console.log(id(x).a);",
+        "const o={a:1}; console.log(\"z=\"+o.z);",
+        "const o={a:1}; console.log(\"z=\"+o[\"z\"]);",
+        "const o={a:1}; console.log(o.z ?? 5);",
+        "const o={a:1}; console.log(\"z=\"+o?.z);",
+        // a spread reaches the same fallback (spec A-1)
+        "const a=[1,2]; console.log([...a]);",
+    ] {
+        assert_e5506(&diagnostics_for(source), UNRES_READ, source);
+    }
+}
+
+#[test]
+fn spread_gets_the_neutral_message() {
+    let source = "const a=[1,2]; console.log([...a]);";
+    let diagnostics = diagnostics_for(source);
+    assert_e5506(&diagnostics, "this expression is unavailable", source);
+    assert!(
+        !diagnostics.iter().any(|d| d.message.contains("reading `.")),
+        "{source}: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn a_comma_expression_is_not_gated() {
+    // Human partner's ruling 2026-10-07: the `(0, x)` idiom must keep
+    // working, so a comma expression is outside the read gate (R-27 residue).
+    for source in [
+        "function main(){ let b = (1, 7); console.log(\"b=\" + b); } main();",
+        "function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bump(), 7); console.log(\"b=\" + b); } main();",
+        "const o={a:1}; const w=(0,o); console.log(Object.hasOwn(w,\"a\"));",
+    ] {
+        assert_eq!(
+            read_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
+    }
+}
+
+#[test]
+fn an_empty_string_index_read_is_not_taken_for_a_comma() {
+    // `mk()[""]` has LIR text `""` but one operand, so it is not a sequence;
+    // it takes another lane (prints `2`, residue in the followups file §1.1).
+    let source = "function mk(){ return {a:2}; } console.log(mk()[\"\"]);";
+    assert_eq!(read_refusals(source), 0, "{:?}", diagnostics_for(source));
+}
+
+#[test]
+fn a_numeric_index_read_keeps_the_array_backstop_message() {
+    // The numeric-index arm owns `o[0]` and ends in its own floor; the
+    // generic read gate never sees it (precedence, Task 7 ruling 2).
+    let source = "const o = {42n: 1}; console.log(o[0]);";
+    let diagnostics = diagnostics_for(source);
+    assert_e5506(
+        &diagnostics,
+        "no lane proves this receiver is an array",
+        source,
+    );
+    assert_eq!(read_refusals(source), 0, "{source}: {diagnostics:?}");
+}
+
+#[test]
+fn a_host_root_keeps_its_read() {
+    for source in [
+        "const f = Object.freeze(Math.log2); console.log(f(8));",
+        "const finite = Number.isFinite; console.log(finite(1));",
+        "const n = Object.freeze(Number[\"isNaN\"]); console.log(n(1));",
+        "let t=globalThis.performance; t.now(); console.log(\"ok\");",
+        "const p = Object.freeze(globalThis.String.fromCharCode); console.log(p(72));",
+        "const o = Object.fromEntries([[\"a\", 1]]); console.log(o.a);",
+        "let a = (console.log(\"x\"), 7); console.log(\"a=\" + a);",
+        "console.log(Object.fromEntries([[\"a\",1]]).a);",
+    ] {
+        assert_eq!(
+            read_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
+    }
+}
+
+#[test]
+fn a_shadowed_global_root_refuses() {
+    let source = "let Math = {a:1}; console.log(Math.b);";
+    let diagnostics = diagnostics_for(source);
+    assert!(
+        diagnostics.iter().any(|d| d.code == Some(5506)),
+        "{source}: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn a_this_root_in_a_plain_class_refuses() {
+    // The unit harness runs no repr inference, so `this.x` reaches the read
+    // fallback here; the real pipeline refuses it earlier ("field `x` is not
+    // declared on class `C`").
+    let source = "class C{ m(){ return this.x; } } console.log(new C().m());";
+    assert_e5506(&diagnostics_for(source), UNRES_READ, source);
+}
+
+#[test]
+fn a_resolved_read_is_not_refused() {
+    assert_eq!(read_refusals("const o={a:1}; console.log(o.a);"), 0);
+    // Closure reads resolve only through the env plans the real driver derives.
+    let source = "function outer(){ const obj={n:4}; function rd(){ return obj.n; } return rd(); } console.log(outer());";
+    let diagnostics = diagnostics_with_host_classes(source, &[]);
+    assert!(
+        !diagnostics.iter().any(|d| d.message.contains(UNRES_READ)),
+        "{source}: {diagnostics:?}"
+    );
+}
+
+const UNRES_STORE: &str = "no lowering for that store";
+
+#[test]
+fn a_store_to_a_const_binding_refuses() {
+    for source in [
+        "const x = 1; x = 2; console.log(\"r=\" + x);",
+        "function main() { const x = 1; x = 2; console.log(\"r=\" + x); } main();",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert_e5506(&diagnostics, UNRES_STORE, source);
+        assert_e5506(&diagnostics, "assigning to `x`", source);
+    }
+}
+
+#[test]
+fn a_store_to_a_free_global_keeps_its_lowering() {
+    for source in [
+        // The brief's class `this.a = v` case is omitted: the unit harnesses
+        // run no class repr inference, so they over-refuse it (reads too);
+        // the real CLI prints node's `5`, covered by the black-box cases.
+        "globalThis.zz = 3; console.log(\"ok\");",
+        // The real CLI refuses an undeclared `zz` earlier (E3100); here it only must not be a store refusal.
+        "zz = 3; console.log(\"ok\");",
+        "function mk(){ return {a:1}; } const o=mk(); o[\"a\"] = 5; console.log(o.a);",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert!(
+            !diagnostics.iter().any(|d| d.message.contains(UNRES_STORE)),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}
+
+fn store_refusals(source: &str) -> usize {
+    diagnostics_for(source)
+        .iter()
+        .filter(|d| d.code == Some(5506) && d.message.contains(UNRES_STORE))
+        .count()
+}
+
+#[test]
+fn an_export_specifier_is_not_a_member_read() {
+    // Task 8 fix round, human partner's ruling 2026-10-07: an export
+    // specifier lowers to `Value(exported) -> [Value(local)]`, the shape of
+    // `local.exported`. It is not an expression and must not reach the read
+    // gate.
+    for source in [
+        "export function main(input) { return 1; } export { main as alias };",
+        "function f() { return 1; } export { f as g }; console.log(f());",
+        "const o = {a:1}; export { o as p }; console.log(o.a);",
+    ] {
+        assert_eq!(
+            read_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
+    }
+    // A real member read in an export default is still gated.
+    let source = "const o = {a:1}; export default o.z;";
+    assert_e5506(&diagnostics_for(source), UNRES_READ, source);
+}
+
+#[test]
+fn a_store_to_a_write_only_object_literal_is_not_gated() {
+    // Task 8 fix round, human partner's ruling 2026-10-07: after the
+    // optimizer's enumeration timeline folds every read of `literal`
+    // (object-enumeration-delete-reinsert-benchmark-v1), only its declarator
+    // and the store's base are left. Nothing observes the object, so the
+    // fallback's dropped store is exact.
+    for source in [
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3;",
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; literal.c = 4; console.log(\"ok\");",
+    ] {
+        assert_eq!(
+            store_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
+    }
+}
+
+#[test]
+fn a_store_to_an_observed_object_literal_still_refuses() {
+    // The A-9 exemption needs every other occurrence of the name to be a
+    // store base. This harness runs no optimizer, so nothing is folded.
+    for source in [
+        // a later read observes the store
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; console.log(Object.keys(literal).length);",
+        // an unconsumed delete names the object
+        "const literal = { 1: 4, 2: 2, b: 1 }; delete literal.b; literal.b = 3;",
+        // not a module-scope `const`
+        "let literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3;",
+        "function f() { const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; } f();",
+        // the assignment's value is used: the fallback yields `left + right`
+        "const literal = { 1: 4, b: 1 }; const y = (literal.b = 3); console.log(y);",
+        "const literal = { 1: 4, b: 1 }; console.log(literal.b = 3);",
+        // a parameter of the same name is another occurrence
+        "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; function g(literal) { return 1; } console.log(g(2));",
+    ] {
+        assert_e5506(&diagnostics_for(source), UNRES_STORE, source);
+    }
+}

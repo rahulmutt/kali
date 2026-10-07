@@ -393,6 +393,7 @@ renders as its uncaptured twin does), and none is claimed by the maturity row.
   literal is. A data-flow taint instead of the whole-program test would narrow
   this.
 - **Objects passed through a `const` copy of a parameter** (CB-19, from §5.10):
+  **CLOSED (refused) 2026-10-07 by unresolved-member-read (`docs/superpowers/specs/2026-10-06-unresolved-member-read-design.md`): c8, c9, e1, m6 and q8 (including the two `const`-copy programs here, e1 and m6) refuse with E5506 under `run`; `check` exits 0 (spec §3.4 gap).** None of them prints node's value; see `unresolved-member-read-discovered-defects.md` for what that project left.
   `e1` and `m6` print `0` while their direct-parameter twins are refused
   (`… function rd(){ return show(p); } …` and `const g=()=>p["a"]`: E5506
   value type at HEAD). The copy's capture is lowered as a C2 object cell, and
@@ -523,6 +524,8 @@ for it.
 - The uncaptured `function f(){ let x=1.5; return Math.floor(x); } console.log(f());` (node `1`) is E4201 at all three binaries.
 
 ### §5.10 Captured objects read through a call, an argument or a computed key are silent `0`
+
+**CLOSED (refused) 2026-10-07 by unresolved-member-read (`docs/superpowers/specs/2026-10-06-unresolved-member-read-design.md`): c8, c9, e1, m6 and q8 refuse with E5506 under `run`; `check` exits 0 (spec §3.4 gap).** None of them prints node's value; see `unresolved-member-read-discovered-defects.md` for what that project left.
 
 These are the same at all three binaries, with `check` 0. Each capture is a
 plan-listed local that the capture lane lowers (a C2 object cell, or a `const`

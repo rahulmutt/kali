@@ -459,7 +459,16 @@ name = "member_probe_does_not_invent_a_property_from_quote_characters_module_sco
 rationale = """
 PINNED BY TASK 5. PARTLY FIXED, and the residual line is WRONG ON PURPOSE.
 
-node prints `1`, `undefined`, `false`. kali prints `1`, `0`, `false`.
+node prints `1`, `undefined`, `false`. ~~kali prints `1`, `0`, `false`.~~
+
+RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): kali
+now exits 1 with empty stdout and `error[E5506]: reading `.a` is unavailable in
+the current phase: the receiver is a value this program built, and kali has no
+lowering for that read; ...`. Line 2's absent-property read on a `const` object
+literal no longer reaches the silent-0 fallback, so the whole program is refused
+at compile time and the line-1 control is no longer observed. The pinned ~~`0`~~
+below is history; the WHY LINE 2 paragraph describes the defect the refusal now
+fences.
 
 WHAT MOVED. Line 2 is the point of this case. `p` has exactly one own
 property, named `"a"` with the quote characters in the name; `p['a']` probes
@@ -495,15 +504,17 @@ Line 1 is a CONTROL inside the same program: `p['"a"']` names the property that
 exists and must keep reading `1`. A fix that repairs line 2 by breaking line 1
 cannot pass."""
 args = ["run", "quoted_key_member_probe_module.js"]
-exit = "success"
-stdout = "1\n0\nfalse\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that read"]
 
 [[case]]
 name = "member_probe_does_not_invent_a_property_from_quote_characters_in_function"
-rationale = "PINNED BY TASK 5, same three probes in function scope; node prints `1`, `undefined`, `false` and kali prints `1`, `0`, `false`. WRONG ON PURPOSE on line 2 for the reason given on the module-scope case: the invented property is gone (it read `1` at `f563a0ecf4`), and what remains is the pre-existing absent-property-read defect that fabricates `0` instead of `undefined`."
+rationale = "PINNED BY TASK 5, same three probes in function scope; node prints `1`, `undefined`, `false` and kali ~~prints `1`, `0`, `false`~~ -- RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): kali now exits 1 with E5506 `no lowering for that read` on line 2's absent-property read, identical to the module scope. ~~WRONG ON PURPOSE on line 2 for the reason given on the module-scope case: the invented property is gone (it read `1` at `f563a0ecf4`), and what remains is the pre-existing absent-property-read defect that fabricates `0` instead of `undefined`.~~"
 args = ["run", "quoted_key_member_probe_function.js"]
-exit = "success"
-stdout = "1\n0\nfalse\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that read"]
 
 [[case]]
 name = "escaped_quote_in_a_key_is_stored_undecoded_module_scope"
@@ -511,8 +522,18 @@ rationale = """
 PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW. WRONG ON
 PURPOSE, all four answers, and NO TASK IN THIS PLAN OWNS CLOSING IT.
 
-node prints `a"b 3`, `true`, then `1`. kali prints `a\\"b 6`, `false`, then
-`0`, at exit 0.
+node prints `a"b 3`, `true`, then `1`. ~~kali prints `a\\"b 6`, `false`, then
+`0`, at exit 0.~~
+
+RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): kali
+now exits 1 with empty stdout and `error[E5506]: reading `.a"b` is unavailable
+in the current phase: the receiver is a value this program built, and kali has
+no lowering for that read; ...`. The member probe `o['a"b']` misses the
+undecoded four-character stored key exactly as described below, but the
+absent-property read it falls into now refuses instead of fabricating ~~`0`~~,
+so the whole program is refused at compile time and the first three answers are
+no longer observed. R-57 (the undecoded key) is NOT closed by this; it is only
+no longer observable through this program. The `r57a` oracle pair still pins it.
 
 WHAT THIS FALSIFIES. Task 3's invariant, as this project has been stating it --
 "an HIR key-slot node's text IS the property name, `String(key)`, for every
@@ -574,15 +595,17 @@ change that alters ANY of these four answers is a surprise this case makes
 visible.
 """
 args = ["run", "escaped_quote_key_module.js"]
-exit = "success"
-stdout = "a\\\"b 6\nfalse\n0\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that read"]
 
 [[case]]
 name = "escaped_quote_in_a_key_is_stored_undecoded_in_function"
-rationale = "PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW, same four probes in function scope; node prints `a\"b 3`, `true`, then `1`, kali prints `a\\\"b 6`, `false`, then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the FOUR-character stored key text is not the three-character property name, and a second escaping pass in the enumeration fold (not the stored text itself) is what stretches `.length` to `6`. The added `k === \"a\\\"b\"` probe is `false` even though the printed text reads the same as the literal it is compared against -- measured identical before and after Task 5; no task in this plan owns closing it. FILED 2026-09-08 as R-57 (register section 2, Tier 2), with an `r57a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose."
+rationale = "PINNED BY TASK 5's REVIEW, EXTENDED BY THE FINAL WHOLE-BRANCH REVIEW, same four probes in function scope; node prints `a\"b 3`, `true`, then `1`. RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): kali now exits 1 with E5506 `no lowering for that read` on the member probe's absent-property read, identical to the module scope; R-57 itself is not closed. Before: ~~kali prints `a\\\"b 6`, `false`, then `0`. WRONG ON PURPOSE for the reason given on the module-scope case: `unquote_string_literal` strips a key's delimiters without decoding its escape sequences, so the FOUR-character stored key text is not the three-character property name, and a second escaping pass in the enumeration fold (not the stored text itself) is what stretches `.length` to `6`. The added `k === \"a\\\"b\"` probe is `false` even though the printed text reads the same as the literal it is compared against -- measured identical before and after Task 5; no task in this plan owns closing it. FILED 2026-09-08 as R-57 (register section 2, Tier 2), with an `r57a` oracle pair in both scopes; this case is unchanged and stays wrong on purpose.~~"
 args = ["run", "escaped_quote_key_function.js"]
-exit = "success"
-stdout = "a\\\"b 6\nfalse\n0\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that read"]
 
 [[case]]
 name = "octal_leading_zero_numeric_key_is_read_as_decimal_module_scope"

@@ -788,11 +788,35 @@ impl<'a> FunctionEmitter<'a> {
                 // silently and wrongly. The REJECT-DON'T-MISCOMPILE arms above
                 // are the shape a fix for it would take.
                 //
+                // R-60's `fromEntries` receiver is host-rooted and still reaches the
+                // warning below.
+                //
                 // Captured-bindings spec §3.1 (followups §6 CB-9, CB-13): a member read
                 // off any capture of this function that reaches here (no lane
                 // resolved it) is refused rather than read as the placeholder.
                 if let Some(message) = self.capture_member_fallback_refusal(node) {
                     return self.deny_e5506(function, &message);
+                }
+                // Unresolved-member-read spec §3.2: a read off a value this
+                // program built refuses rather than read the placeholder.
+                // Host-rooted receivers keep warn+0 (builtin aliases such as
+                // `Object.freeze(Math.log2)` store this `0` and never read it).
+                // A comma expression (LIR text `""` with two or more operands, spec A-1) is not gated: the
+                // `(0, x)` indirection idiom's placeholder is usually stored and
+                // never read, and refusing it broke correct programs. R-27's
+                // `(1, 7)` printing `0` is residue (human partner's ruling,
+                // 2026-10-07). A spread (`"spread"`) still refuses. Names with
+                // their own arm above (`length`, a numeric index) never get
+                // here; the `check` mirror defers to those arms' floors
+                // (`kali_common::member_read_has_own_refusing_floor`).
+                if !is_unary_operator_text(op)
+                    && !(op.is_empty() && node.children.len() >= 2)
+                    && self.unresolved_member_read_refuses(arg)
+                {
+                    return self.deny_e5506(
+                        function,
+                        &kali_common::unresolved_member_read_unavailable_message(op),
+                    );
                 }
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
@@ -2711,6 +2735,18 @@ impl<'a> FunctionEmitter<'a> {
             }
             "&" | "|" | "^" | "<<" | ">>" | ">>>" => self.emit_bitwise(function, op, left, right),
             _ => {
+                // Unresolved-member-read spec §3.3: a plain `=` that no lane
+                // stored refuses when its target is rooted at a value this
+                // program built (R-29's `const x = 1; x = 2` is the measured
+                // case), instead of evaluating `left + right`. Exempt (A-9):
+                // `name.k = v` where `name` is a module `const` plain-data
+                // object literal that nothing else reads (the store is
+                // unobservable; see `binding_is_write_only_object_literal`).
+                if op == "=" {
+                    if let Some(message) = self.unresolved_store_refusal(left) {
+                        return self.deny_e5506(function, &message);
+                    }
+                }
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported binary operator '{}'", op),

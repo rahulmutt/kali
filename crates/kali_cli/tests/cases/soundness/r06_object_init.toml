@@ -362,10 +362,13 @@ May not print node's "7" yet (R-14 escape is a later stage), but it must not pri
 
 A non-success exit (fail-closed) is also acceptable — the only forbidden outcome is a silent NONZERO-wrong value, guarded above.
 
-Verified against the real built kali binary: this program currently exits success with stdout "0", one of the two tolerated outcomes -- pinned as the exact, strictly stronger, currently-observed behavior rather than left as an unpinned OR the case format cannot express natively."""
+~~Verified against the real built kali binary: this program currently exits success with stdout "0", one of the two tolerated outcomes -- pinned as the exact, strictly stronger, currently-observed behavior rather than left as an unpinned OR the case format cannot express natively.~~
+
+RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): the pinned ~~"0"~~ moved to the OTHER tolerated outcome. `h()` returns an object this program built, so `h().f` no longer reaches the silent-0 fallback: kali exits 1 with empty stdout and `error[E5506]: reading `.f` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; ...`. node prints "7". Fail-closed is inside this guard's own tolerated set, pinned exactly as before."""
 args = ["run", "returned_object_member_read_no_worse.js"]
-exit = "success"
-stdout = "0\n"
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that read"]
 
 [[case]]
 name = "object_literal_reassignment_no_worse"

@@ -5,12 +5,18 @@ use kali_common::js_number::format_js_number;
 
 impl TypeContext {
     pub(crate) fn resolve_member_expression(&mut self, expr: &MemberExpression) {
+        let before = self.diagnostics.len();
         self.reject_unprovable_string_length(expr);
         self.reject_nonuniform_forin_key_object_access(expr);
         self.reject_runtime_array_negative_index(expr);
 
         if !self.gate_static_string_receiver_index(expr) {
             self.gate_nameless_computed_member(expr);
+        }
+        // Spec §3.4: the read mirror speaks only when the more specific
+        // member checks above stayed quiet (one defect, one diagnostic).
+        if self.diagnostics.len() == before {
+            self.reject_unresolved_member_read(expr);
         }
 
         if self.resolve_late_intl_member(expr) {
@@ -459,6 +465,8 @@ impl TypeContext {
     /// The array-mutator gate, then (only if it stayed quiet) the
     /// unresolved-member-call gate: one diagnostic per member.
     pub(crate) fn reject_member_call_gates(&mut self, member: &MemberExpression) {
+        self.read_mirror_skipped_members
+            .insert(member as *const MemberExpression as usize);
         let before = self.diagnostics.len();
         self.reject_array_mutator_member(member);
         if self.diagnostics.len() == before {
@@ -512,18 +520,75 @@ impl TypeContext {
         ));
     }
 
+    /// The `check` mirror of the unresolved-member-read gate (spec §3.4): a
+    /// property name missing from a `const` object literal's keys or a
+    /// program class chain's members. Callees and `typeof` operands are
+    /// skipped (A-3); wherever the member set is unknown `kali run` alone
+    /// refuses.
+    ///
+    /// It defers to the more specific refusals that own the same read:
+    /// * a name codegen routes to an arm with its own E5506 floor
+    ///   (`kali_common::member_read_has_own_refusing_floor`) is that floor's,
+    ///   since the generic read gate it mirrors never sees it;
+    /// * a class-instance receiver's refusal is held in
+    ///   `deferred_read_mirror_diagnostics`: the class-instance rewrite, which
+    ///   runs after the resolver, refuses an undeclared field by name, and the
+    ///   driver adds the held diagnostic only when that pass stayed quiet.
+    pub(crate) fn reject_unresolved_member_read(&mut self, member: &MemberExpression) {
+        if self
+            .read_mirror_skipped_members
+            .contains(&(member as *const MemberExpression as usize))
+        {
+            return;
+        }
+        let Some(name) = member.property.as_deref() else {
+            return;
+        };
+        if kali_common::OBJECT_PROTOTYPE_NAMES.contains(&name)
+            || self.assigned_property_names.contains(name)
+            || kali_common::member_read_has_own_refusing_floor(name)
+        {
+            return;
+        }
+        let Some((members, is_class_instance)) = self.known_member_set_and_kind(&member.object)
+        else {
+            return;
+        };
+        if members.contains(name) {
+            return;
+        }
+        let diagnostic = Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            kali_common::unresolved_member_read_unavailable_message(name),
+        );
+        if is_class_instance {
+            self.deferred_read_mirror_diagnostics.push(diagnostic);
+        } else {
+            self.diagnostics.push(diagnostic);
+        }
+    }
+
     fn known_member_set(&self, object: &Expression) -> Option<std::collections::BTreeSet<String>> {
+        self.known_member_set_and_kind(object)
+            .map(|(members, _)| members)
+    }
+
+    /// The known member set, and whether it is a program class instance's.
+    fn known_member_set_and_kind(
+        &self,
+        object: &Expression,
+    ) -> Option<(std::collections::BTreeSet<String>, bool)> {
         let Expression::Identifier(name) = super::expression::unwrap_transparent(object) else {
             return None;
         };
         match self.nearest_const_member_receiver(name)? {
-            MemberReceiver::ObjectLiteral(keys) => Some(keys.clone()),
+            MemberReceiver::ObjectLiteral(keys) => Some((keys.clone(), false)),
             MemberReceiver::ClassInstance(class_name) => {
                 let classes = self.program_classes.as_ref()?;
                 if !classes.is_program_class(class_name) {
                     return None;
                 }
-                classes.member_names(class_name)
+                Some((classes.member_names(class_name)?, true))
             }
         }
     }

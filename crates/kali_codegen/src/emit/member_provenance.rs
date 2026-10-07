@@ -60,16 +60,24 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         }
         let root = self.receiver_chain_root(receiver);
+        self.program_built_root_verdict(root).unwrap_or(false)
+    }
+
+    /// The root verdict the member-call and member-read gates share
+    /// (unresolved-member-read spec §3.1): `Some(true)` refuse, `Some(false)`
+    /// keep warn+0, `None` for a call or any other root, which each gate
+    /// decides for itself.
+    fn program_built_root_verdict(&self, root: LirNodeId) -> Option<bool> {
         let root_node = self.node(root);
         match root_node.kind {
-            LirNodeKind::Literal => true,
+            LirNodeKind::Literal => Some(true),
             LirNodeKind::Value if root_node.children.is_empty() => {
-                match root_node.text.as_deref() {
+                Some(match root_node.text.as_deref() {
                     Some(name) if !name.is_empty() => {
                         // No lexical scope chain (the current body is not
                         // reachable from the module root): not proven, refuse.
                         let Some(scopes) = self.lexical_scopes() else {
-                            return true;
+                            return Some(true);
                         };
                         !self.root_has_host_provenance(name, &scopes, 0, &mut HashSet::new())
                     }
@@ -79,12 +87,199 @@ impl<'a> FunctionEmitter<'a> {
                     // `this` like `{}` / `[]`, so an empty literal start in
                     // such a method keeps warn+0 too.
                     _ => !self.emitting_method_of_host_derived_class(),
-                }
+                })
             }
             // An array or object literal with two or more children.
-            LirNodeKind::Value if root_node.text.is_none() && root_node.children.len() >= 2 => true,
-            _ => false,
+            LirNodeKind::Value if root_node.text.is_none() && root_node.children.len() >= 2 => {
+                Some(true)
+            }
+            _ => None,
         }
+    }
+
+    /// Unresolved-member-read spec §3.1: a member read that reached the
+    /// placeholder fallback. Same roots as the call gate, plus a call root
+    /// (`g().a`, `mk().a`), which refuses unless its callee is host.
+    pub(crate) fn unresolved_member_read_refuses(&self, receiver: LirNodeId) -> bool {
+        let root = self.receiver_chain_root(receiver);
+        if let Some(verdict) = self.program_built_root_verdict(root) {
+            return verdict;
+        }
+        if self.node(root).kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(scopes) = self.lexical_scopes() else {
+            return true;
+        };
+        !self.init_has_host_provenance(root, &scopes, 0, &mut HashSet::new())
+    }
+
+    /// Unresolved-member-read spec §3.3 and A-2: a plain `=` that reached
+    /// `emit_binary`'s final fallback. The target's chain root decides, as
+    /// for a read; an identifier target is its own root, so a store to a
+    /// `const` refuses and a store to a free global keeps warn+0.
+    pub(crate) fn unresolved_store_refusal(&self, target: LirNodeId) -> Option<String> {
+        let target = self.unwrap_transparent(target);
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Value {
+            return None;
+        }
+        let name = node.text.as_deref().filter(|name| !name.is_empty())?;
+        let shown = match node.children.len() {
+            0 => name.to_string(),
+            // Member stores normally reach a store lane or an earlier refusal (A-2).
+            1 | 2 => format!(".{name}"),
+            _ => return None,
+        };
+        // A-9: a dot store into an object nothing reads is unobservable.
+        if node.children.len() == 1 {
+            let base = self.node(node.children[0]);
+            if base.kind == LirNodeKind::Value && base.children.is_empty() {
+                if let Some(base_name) = base.text.as_deref().filter(|t| !t.is_empty()) {
+                    if self.binding_is_write_only_object_literal(base_name) {
+                        return None;
+                    }
+                }
+            }
+        }
+        self.unresolved_member_read_refuses(target)
+            .then(|| kali_common::unresolved_store_unavailable_message(&shown))
+    }
+
+    /// Unresolved-member-read spec A-9: an `export { local as exported }`
+    /// list. HIR lowers it to an `ExportDecl` whose text is the re-export
+    /// source (`""` for a local list) and whose children are specifiers
+    /// `Ident(exported) -> [Ident(local)]`; below MIR that is an
+    /// `Instruction(Some(source))` over `Value(exported) -> [Value(local)]`,
+    /// the shape of the member read `local.exported`. `export default` has
+    /// no text and import specifiers are childless, so neither matches. A
+    /// TS `enum` whose members all have bare-identifier initializers
+    /// (`EnumDecl(name)` over `Ident(member) -> [Ident(init)]`) does match,
+    /// but enums are refused with E3100 before codegen today; skipping such
+    /// a node would drop only those initializer reads. The specifiers have
+    /// no runtime effect: library exports are collected from the AST.
+    pub(crate) fn is_export_specifier_list(&self, node: &LirNode) -> bool {
+        node.kind == LirNodeKind::Instruction
+            && node.text.is_some()
+            && !matches!(node.text.as_deref(), Some("const" | "let" | "var"))
+            && !node.children.is_empty()
+            && node.children.iter().all(|&child| {
+                let specifier = self.node(child);
+                let named = |n: &LirNode| {
+                    n.kind == LirNodeKind::Value && n.text.as_deref().is_some_and(|t| !t.is_empty())
+                };
+                named(specifier)
+                    && specifier.children.len() == 1
+                    && named(self.node(specifier.children[0]))
+                    && self.node(specifier.children[0]).children.is_empty()
+            })
+    }
+
+    /// Unresolved-member-read spec A-9: `name` is a module-scope `const`
+    /// bound to a plain-data object literal (every property an `init` pair,
+    /// so no accessor can observe a store), declared once, and every other
+    /// occurrence of `name` reachable from the program root is the base of a
+    /// plain `=` dot-member store target (`name.k = v`) in STATEMENT
+    /// position: the direct child (or the one-child statement wrapper's
+    /// child) of the program or a block, so the assignment's value is
+    /// discarded. Nothing reads the object or the assignment's value, so a
+    /// store that reached `emit_binary`'s fallback (which still evaluates
+    /// `v`, then yields `left + right`, never `v`) is unobservable. An
+    /// assignment in value position (`const y = (o.b = 3)`) is not exempt:
+    /// the fallback's value is wrong. The measured case is the optimizer's
+    /// enumeration timeline (`kali_optimize::object_fold`): it models
+    /// `delete name.k` / `name.k = v`, folds every `Object.keys` /
+    /// `entries` / `values` of `name` against that model and erases the
+    /// delete, leaving the store as the only code that names the object.
+    /// The walk is over reachable nodes: folded-away nodes stay in the arena.
+    fn binding_is_write_only_object_literal(&self, name: &str) -> bool {
+        let mut declarations = 0;
+        let mut stack = vec![self.program.root];
+        while let Some(id) = stack.pop() {
+            let node = self.node(id);
+            if node.kind == LirNodeKind::Instruction && node.text.as_deref() == Some(name) {
+                // A declarator `Instruction(name) -> [Value(name), init]`.
+                let Some(&init) = node.children.get(1) else {
+                    return false;
+                };
+                if !self.is_module_const_declarator(id) || !self.is_plain_data_object_literal(init)
+                {
+                    return false;
+                }
+                declarations += 1;
+                stack.extend(node.children.iter().skip(1).copied());
+                continue;
+            }
+            if matches!(node.kind, LirNodeKind::Program | LirNodeKind::Block) {
+                for &statement in &node.children {
+                    match self.statement_store_value(statement, name) {
+                        // Only the stored value is evaluated for its reads.
+                        Some(value) => stack.push(value),
+                        None => stack.push(statement),
+                    }
+                }
+                continue;
+            }
+            if node.children.is_empty() && node.text.as_deref() == Some(name) {
+                return false;
+            }
+            stack.extend(node.children.iter().copied());
+        }
+        declarations == 1
+    }
+
+    /// `statement` is `name.k = v` in statement position (bare, or under a
+    /// one-child text-less statement wrapper): returns `v`.
+    fn statement_store_value(&self, statement: LirNodeId, name: &str) -> Option<LirNodeId> {
+        let mut assignment = self.node(statement);
+        if assignment.kind == LirNodeKind::Value
+            && assignment.text.is_none()
+            && assignment.children.len() == 1
+        {
+            assignment = self.node(assignment.children[0]);
+        }
+        if assignment.kind != LirNodeKind::Value
+            || assignment.text.as_deref() != Some("=")
+            || assignment.children.len() != 2
+        {
+            return None;
+        }
+        let target = self.node(assignment.children[0]);
+        let is_store_base = target.kind == LirNodeKind::Value
+            && target.children.len() == 1
+            && target.text.as_deref().is_some_and(|t| !t.is_empty())
+            && {
+                let base = self.node(target.children[0]);
+                base.kind == LirNodeKind::Value
+                    && base.children.is_empty()
+                    && base.text.as_deref() == Some(name)
+            };
+        is_store_base.then_some(assignment.children[1])
+    }
+
+    fn is_module_const_declarator(&self, declarator: LirNodeId) -> bool {
+        self.node(self.program.root)
+            .children
+            .iter()
+            .any(|&statement| {
+                let statement = self.node(statement);
+                statement.kind == LirNodeKind::Instruction
+                    && statement.text.as_deref() == Some("const")
+                    && statement.children.contains(&declarator)
+            })
+    }
+
+    fn is_plain_data_object_literal(&self, init: LirNodeId) -> bool {
+        let literal = self.node(init);
+        literal.kind == LirNodeKind::Value
+            && literal.text.is_none()
+            && literal.children.iter().all(|&property| {
+                let property = self.node(property);
+                property.kind == LirNodeKind::Value
+                    && property.text.as_deref() == Some("init")
+                    && property.children.len() == 2
+                    && self.node(property.children[0]).kind == LirNodeKind::Literal
+            })
     }
 
     /// `Array.prototype.m` / `Object.prototype.m` / `String.prototype.m` as

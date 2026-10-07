@@ -239,6 +239,35 @@ fn unresolved_member_call_message_is_stable() {
 }
 
 #[test]
+fn unresolved_member_read_message_names_the_property() {
+    assert_eq!(
+        unresolved_member_read_unavailable_message("a"),
+        "reading `.a` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; node would read a property or `undefined`, so kali refuses rather than read 0"
+    );
+}
+
+#[test]
+fn unresolved_member_read_message_is_neutral_for_spread_and_sequence_text() {
+    // LIR spells a spread `...a` as text "spread" and a comma expression as
+    // text "" (spec A-1); neither is a property read.
+    let neutral = "this expression is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; kali refuses rather than evaluate it to 0";
+    assert_eq!(
+        unresolved_member_read_unavailable_message("spread"),
+        neutral
+    );
+    assert_eq!(unresolved_member_read_unavailable_message(""), neutral);
+}
+
+#[test]
+fn unresolved_store_message_names_the_target() {
+    assert_eq!(
+        unresolved_store_unavailable_message("x"),
+        "assigning to `x` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that store; node would store the value or throw a TypeError, so kali refuses rather than drop the store"
+    );
+    assert!(unresolved_store_unavailable_message(".a").starts_with("assigning to `.a` is"));
+}
+
+#[test]
 fn object_prototype_names_are_the_eleven_inherited_methods() {
     assert_eq!(
         OBJECT_PROTOTYPE_NAMES,

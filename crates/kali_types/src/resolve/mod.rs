@@ -360,6 +360,7 @@ impl TypeContext {
             scopes: self.scopes.clone(),
             global_scope: self.global_scope.clone(),
             repr_table: self.repr_table.clone(),
+            deferred_read_mirror_diagnostics: self.deferred_read_mirror_diagnostics.clone(),
         }
     }
 

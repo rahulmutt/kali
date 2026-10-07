@@ -821,6 +821,117 @@ fn check_stays_quiet_where_it_cannot_know() {
     }
 }
 
+const UNRES_READ: &str = "no lowering for that read";
+
+fn read_mirror_count(source: &str) -> usize {
+    e5506_messages(source)
+        .iter()
+        .filter(|m| m.contains(UNRES_READ))
+        .count()
+}
+
+#[test]
+fn check_refuses_an_absent_field_read_on_a_known_member_set() {
+    for source in [
+        "const o={a:1}; console.log(\"z=\"+o.z);",
+        "const o={a:1}; console.log(\"z=\"+o[\"z\"]);",
+        "function main(){ const o={a:1}; console.log(\"z=\"+o.z); } main();",
+        "const o={a:1}; console.log(o.z ?? 5);",
+        "const o={a:1}; console.log(\"z=\"+o?.z);",
+    ] {
+        assert_eq!(read_mirror_count(source), 1, "{source}");
+    }
+}
+
+#[test]
+fn check_read_mirror_skips_callees_typeof_and_unknown_sets() {
+    for source in [
+        // callees belong to the call mirror (one defect, one diagnostic)
+        "const o={k:1}; console.log(o.zork(4));",
+        "const o={k:1}; o.zork?.();",
+        // typeof goes through a different placeholder (spec A-3)
+        "const o={a:1}; console.log(typeof o.z);",
+        "const o={a:1}; console.log(typeof (o.z));",
+        // present, prototype, assigned
+        "const o={a:1}; console.log(o.a);",
+        "const o={a:1}; console.log(o.toString());",
+        "const o={a:1}; o.z = 5; console.log(o.z);",
+        // unknown member sets: run-only (spec §3.4)
+        "let o={a:1}; console.log(o.z);",
+        "function f(p){ return p.z; }",
+        "function mk(){ return {a:1}; } console.log(mk().a);",
+    ] {
+        assert_eq!(read_mirror_count(source), 0, "{source}");
+    }
+}
+
+#[test]
+fn check_read_mirror_counts_one_diagnostic_per_callee_with_the_call_mirror() {
+    // The call mirror's count stays 1 with the read mirror present.
+    for source in [
+        "const o={k:1}; console.log(o.zork(4));",
+        "const o={k:1}; o.zork?.();",
+    ] {
+        assert_eq!(unres_count(source), 1, "{source}");
+    }
+}
+
+#[test]
+fn check_read_mirror_defers_a_class_instance_read_to_the_class_rewrite() {
+    // Task 7 ruling 2: the class-instance rewrite runs after the resolver and
+    // refuses an undeclared field by name, so the mirror holds its refusal
+    // back instead of pre-empting that message.
+    let source = "class C{ constructor(){ this.n=1; } } const c=new C(); console.log(c.zz);";
+    let statements = parse_statements(source);
+    let resolved = TypeContext::new().resolve_statements(&statements);
+    assert!(
+        !resolved
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains(UNRES_READ)),
+        "{:?}",
+        resolved.diagnostics
+    );
+    assert_eq!(
+        resolved
+            .deferred_read_mirror_diagnostics
+            .iter()
+            .filter(|d| d.message.contains(UNRES_READ))
+            .count(),
+        1
+    );
+    let mut rewritten = statements;
+    let rewrite = crate::class_instances::rewrite_class_instances(&mut rewritten);
+    assert!(
+        rewrite
+            .diagnostics
+            .iter()
+            .any(|d| d.message.contains("is not declared on class `C`")),
+        "{:?}",
+        rewrite.diagnostics
+    );
+}
+
+#[test]
+fn check_read_mirror_defers_to_names_with_their_own_codegen_floor() {
+    // A numeric index and `.length` reach codegen arms with their own E5506
+    // floors (array-return backstop, `.length` floor), never the read gate.
+    for source in [
+        "const o = {42n: 1}; console.log(Object.hasOwn(o, 0)); console.log(o[0]); console.log(o[42]);",
+        "const o={a:1}; console.log(\"v=\"+o[3]);",
+        "const o={a:1}; console.log(\"v=\"+o.length);",
+    ] {
+        assert_eq!(read_mirror_count(source), 0, "{source}");
+    }
+    // Names whose arm does not refuse stay with the mirror.
+    for source in [
+        "const o={a:1}; console.log(\"v=\"+o.version);",
+        "const o={a:1}; console.log(\"v=\"+o.pid);",
+    ] {
+        assert_eq!(read_mirror_count(source), 1, "{source}");
+    }
+}
+
 #[test]
 fn the_nearest_binding_wins() {
     // Outer: a class instance that has `zork`. Inner: an object literal that does not.
