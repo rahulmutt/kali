@@ -91,9 +91,13 @@ impl Parser {
     /// the export is still visible.
     fn refuse_exported_defaults(&mut self, declaration: &FunctionDeclaration) {
         if !declaration.defaults.is_empty() {
-            self.push_feature_unavailable(kali_common::default_param_exported_message(
-                &declaration.name,
-            ));
+            // `export default function (…)` has no name; call it `default`.
+            let name = if declaration.name.is_empty() {
+                "default"
+            } else {
+                &declaration.name
+            };
+            self.push_feature_unavailable(kali_common::default_param_exported_message(name));
         }
     }
 

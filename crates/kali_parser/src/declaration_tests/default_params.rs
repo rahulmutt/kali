@@ -170,3 +170,15 @@ fn an_annotated_arrow_without_a_default_is_accepted() {
     let messages = diagnostics("const h = (a): number => a;");
     assert!(messages.is_empty(), "{messages:?}");
 }
+
+#[test]
+fn an_anonymous_default_export_is_named_default_in_the_refusal() {
+    let messages = diagnostics("export default function (a = 1) { return a; }");
+    assert!(
+        messages
+            .iter()
+            .any(|m| m == &kali_common::default_param_exported_message("default")),
+        "{messages:?}"
+    );
+    assert!(!messages.iter().any(|m| m.contains("``")), "{messages:?}");
+}
