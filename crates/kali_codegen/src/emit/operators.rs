@@ -650,7 +650,7 @@ impl<'a> FunctionEmitter<'a> {
                     // observable scalar: fail closed E5506. Allowlist the safe
                     // positions at this single read site — do NOT denylist sinks
                     // (Spec-4a headline lesson). The three legacy sink guards
-                    // (multi-arg console `subtree_mentions_growable`, host.rs
+                    // (multi-arg console `subtree_mentions_growable_field`, host.rs
                     // render fold, the optimizer fold) are now redundant
                     // defense-in-depth; left in place deliberately.
                     if !self.admit_growable_field_read

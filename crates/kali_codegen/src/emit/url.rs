@@ -214,7 +214,7 @@ impl<'a> FunctionEmitter<'a> {
         let cap = seed_len.max(crate::emit::growable::GROWABLE_INITIAL_CAP);
         // Leaves the tagged handle on the stack and the header pointer in the
         // dedicated growable scratch.
-        let allocated = self.emit_growable_alloc(function, seed_len, cap);
+        let allocated = self.emit_growable_alloc(function, seed_len, cap, false);
         if !allocated.produced {
             function.instruction(&Instruction::I64Const(0));
         }

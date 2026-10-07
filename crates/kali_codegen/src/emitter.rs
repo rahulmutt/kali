@@ -671,8 +671,13 @@ impl<'a> FunctionEmitter<'a> {
         // element load/store, `.length`, and `.fill` paths fire. Scalar params
         // are left untouched, so integer programs are byte-identical.
         let mut array_bindings = HashSet::new();
+        // A growable parameter (growable-runtime-arrays spec §3.2) carries a
+        // tagged header handle, never a plain `[len][elem…]` base: it stays off
+        // the plain lane and is registered only in `growable_array_bindings`.
         for name in params {
-            if repr_table.is_array_binding(function_name, name) {
+            if repr_table.is_array_binding(function_name, name)
+                && !repr_table.is_growable_array_binding(function_name, name)
+            {
                 array_bindings.insert(name.clone());
             }
         }
@@ -1345,6 +1350,13 @@ impl<'a> FunctionEmitter<'a> {
     /// element read and write.
     pub(crate) fn array_elem_addr_fn_index(&self) -> u32 {
         self.functions["__array_elem_addr"]
+    }
+
+    /// Wasm function index of `__growable_elem_addr(arr, idx, msg) -> i64`
+    /// (growable-runtime-arrays spec §3.5): every growable element read and
+    /// write routes its address through it.
+    pub(crate) fn growable_elem_addr_fn_index(&self) -> u32 {
+        self.functions["__growable_elem_addr"]
     }
 
     /// Selects the string-concat host import for the concat node `id` (fasta

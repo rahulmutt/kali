@@ -1,0 +1,161 @@
+# Growable runtime arrays: layout, memory and element access
+# (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md §3.1,
+# §3.3-§3.5). Every expected stdout is node v26.10.0's for the same file,
+# measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`. Spec §5.2: each
+# program is pinned in module scope and inside `function main() { … } main();`.
+
+[source]
+"alias_module.js" = """
+const a = [];
+a.push(5);
+const b = a;
+b.push(6);
+console.log(a.length, a[1], b.length);
+"""
+"alias_function.js" = """
+function main() { const a = []; a.push(5); const b = a; b.push(6); console.log(a.length, a[1], b.length); }
+main();
+"""
+"multi_push_module.js" = """
+const a = []; const n = a.push(1, 2, 3); console.log(n, a.length, a.join(""));
+"""
+"multi_push.js" = """
+function main() { const a = []; const n = a.push(1, 2, 3); console.log(n, a.length, a.join("")); }
+main();
+"""
+"seeded_module.js" = """
+const a = [1, 2]; a.push(3); console.log(a.length, a.join("+"));
+"""
+"seeded.js" = """
+function main() { const a = [1, 2]; a.push(3); console.log(a.length, a.join("+")); }
+main();
+"""
+"three_index_module.js" = """
+function make() { const xs = []; xs.push(1); return xs; }
+function addTwo(a) { a.push(2); a.push(3); }
+function total(a) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s; }
+const xs = make(); addTwo(xs); console.log(xs.length, total(xs));
+"""
+"three_index.js" = """
+function make() { const xs = []; xs.push(1); return xs; }
+function addTwo(a) { a.push(2); a.push(3); }
+function total(a) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s; }
+function main() { const xs = make(); addTwo(xs); console.log(xs.length, total(xs)); }
+main();
+"""
+"two_builds.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+const a = build(3);
+const b = build(2);
+console.log(a[0], a[2], b[1], a.length + b.length);
+"""
+"two_builds_function.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+function main() { const a = build(3); const b = build(2); console.log(a[0], a[2], b[1], a.length + b.length); }
+main();
+"""
+"f64_rw_module.js" = """
+const a = []; a.push(1.5); a.push(2); a[1] = a[1] / 4; console.log(a[0], a[1], a.length);
+"""
+"f64_rw.js" = """
+function main() { const a = []; a.push(1.5); a.push(2); a[1] = a[1] / 4; console.log(a[0], a[1], a.length); }
+main();
+"""
+"arrow_alias_module.js" = """
+const mk = () => { const o = []; o.push(1); o.push(2); return o; };
+console.log(mk().length);
+"""
+"arrow_alias_function.js" = """
+function main() { const mk = () => { const o = []; o.push(1); o.push(2); return o; }; console.log(mk().length); }
+main();
+"""
+
+[[case]]
+name = "alias_push_is_seen_through_the_original_module_scope"
+rationale = "Review Focus 2: `b` aliases `a`'s header, so `b.push` grows `a` (spec §3.1 alias edge, A-16 global allocation)."
+args = ["run", "alias_module.js"]
+exit = "success"
+stdout = "2 6 2\n"
+
+[[case]]
+name = "alias_push_is_seen_through_the_original"
+args = ["run", "alias_function.js"]
+exit = "success"
+stdout = "2 6 2\n"
+
+[[case]]
+name = "push_appends_every_argument_and_returns_the_new_length_module_scope"
+args = ["run", "multi_push_module.js"]
+exit = "success"
+stdout = "3 3 123\n"
+
+[[case]]
+name = "push_appends_every_argument_and_returns_the_new_length"
+args = ["run", "multi_push.js"]
+exit = "success"
+stdout = "3 3 123\n"
+
+[[case]]
+name = "a_seeded_literal_keeps_its_seeds_when_pushed_module_scope"
+args = ["run", "seeded_module.js"]
+exit = "success"
+stdout = "3 1+2+3\n"
+
+[[case]]
+name = "a_seeded_literal_keeps_its_seeds_when_pushed"
+args = ["run", "seeded.js"]
+exit = "success"
+stdout = "3 1+2+3\n"
+
+[[case]]
+name = "an_array_built_in_one_function_grown_in_a_second_and_read_in_a_third_module_scope"
+rationale = "Spec §5.2: the return edge, the argument edge into a parameter that pushes, and a third function reading through its parameter; the caller is module scope."
+args = ["run", "three_index_module.js"]
+exit = "success"
+stdout = "3 6\n"
+
+[[case]]
+name = "an_array_built_in_one_function_grown_in_a_second_and_read_in_a_third"
+rationale = "Spec §5.2: the return edge, the argument edge into a parameter that pushes, and a third function reading through its parameter."
+args = ["run", "three_index.js"]
+exit = "success"
+stdout = "3 6\n"
+
+[[case]]
+name = "returned_string_arrays_survive_later_allocations"
+rationale = "Spec §3.3: an escaping growable array and the strings in it outlive the creating call; the second `build` must not overwrite the first array's data."
+args = ["run", "two_builds.js"]
+exit = "success"
+stdout = "a abb ab 5\n"
+
+[[case]]
+name = "returned_string_arrays_survive_later_allocations_inside_a_function"
+args = ["run", "two_builds_function.js"]
+exit = "success"
+stdout = "a abb ab 5\n"
+
+[[case]]
+name = "f64_elements_are_stored_and_read_back_exactly_module_scope"
+args = ["run", "f64_rw_module.js"]
+exit = "success"
+stdout = "1.5 0.5 2\n"
+
+[[case]]
+name = "f64_elements_are_stored_and_read_back_exactly"
+rationale = "Spec §3.4: f64 elements are bit-reinterpreted into the 8-byte slots; an integer pushed into an f64 array is converted."
+args = ["run", "f64_rw.js"]
+exit = "success"
+stdout = "1.5 0.5 2\n"
+
+[[case]]
+name = "length_of_a_call_through_a_const_arrow_alias_module_scope"
+rationale = "Task 9 ruling W2: the callee key of `mk()` is inference's own (`array_return_callee_key` resolves the `const` alias to `__kali_fn_N`), the same fact the resolver uses."
+args = ["run", "arrow_alias_module.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "length_of_a_call_through_a_const_arrow_alias"
+args = ["run", "arrow_alias_function.js"]
+exit = "success"
+stdout = "2\n"

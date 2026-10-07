@@ -117,7 +117,9 @@ impl<'a> FunctionEmitter<'a> {
     /// second ladder, and so this lane gains the ladder's repr knowledge
     /// (a boolean renders `true`/`false`, not `1`/`0` — R-30).
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
-        if self.is_runtime_array_value(id) {
+        // Growable-runtime-arrays spec A-9: a whole growable array is refused
+        // like a plain runtime array (inference refuses it first, M9; belt).
+        if self.is_runtime_array_value(id) || self.growable_value_elem(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 kali_common::runtime_array_print_unavailable_message().to_string(),
@@ -163,7 +165,7 @@ impl<'a> FunctionEmitter<'a> {
     /// position 0, or printing an object in a later position would silently
     /// render a pointer.
     fn emit_console_argument_as_string(&mut self, function: &mut Function, id: LirNodeId) {
-        if self.is_runtime_array_value(id) {
+        if self.is_runtime_array_value(id) || self.growable_value_elem(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 kali_common::runtime_array_print_unavailable_message().to_string(),
@@ -1055,21 +1057,15 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            // Stage 4 Task 6 re-review fix: the dynamic lane below emits ONLY
-            // the first argument and drops the rest — a pre-existing lane
-            // limitation. For a MULTI-argument call whose arguments read a
-            // GROWABLE array (a lane new in this stage, so nothing green can
-            // depend on it), that would be a brand-new silent divergence
-            // (`console.log(o.length, o[0])` printed `2`, node `2 1`): fail
-            // closed instead. Non-growable multi-arg calls keep the
-            // pre-existing behavior byte-identically (documented follow-up in
-            // the stage triage doc).
+            // Growable-runtime-arrays spec A-9: named growable arrays print
+            // through the multi-argument lane below; only a growable object
+            // FIELD read keeps this pre-existing refusal.
             if node.children.len() > 2
                 && node
                     .children
                     .iter()
                     .skip(1)
-                    .any(|arg| self.subtree_mentions_growable(*arg))
+                    .any(|arg| self.subtree_mentions_growable_field(*arg))
             {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -3726,7 +3722,12 @@ impl<'a> FunctionEmitter<'a> {
             if resolved.is_some() {
                 let arg_is_allocation = self.resolve_array_alloc_call(*arg).is_some()
                     || self.resolve_array_fill_call(*arg).is_some();
+                // Growable-runtime-arrays: a growable value (even a seeded
+                // literal, `const xs = [1]; xs.push(2); f(xs)`) is passed as
+                // its tagged handle, never folded.
+                let arg_is_growable = self.growable_value_elem(*arg).is_some();
                 let fold_lane_array = !arg_is_allocation
+                    && !arg_is_growable
                     && self
                         .resolve_literal_aggregate(*arg)
                         .map(|id| self.node(id).clone())
@@ -6223,6 +6224,16 @@ impl<'a> FunctionEmitter<'a> {
                     );
                 }
             }
+        }
+        // Growable-runtime-arrays: f64 growable arrays now lower (push, index
+        // read/write), but no join body renders f64 slots — `__join_growable_i64`
+        // would print the raw bits. Refused until Task 10 adds
+        // `__join_growable_f64`.
+        if self.growable_value_elem(receiver) == Some(kali_common::Repr::F64) {
+            return self.deny_e5506(
+                function,
+                "Array.prototype.join on a growable array of floating-point numbers is unavailable in the current phase",
+            );
         }
         // C-2: a growable-array FIELD receiver (`o.values.join(...)`) is an
         // allowlisted SAFE position — read its handle through the gate-lifting
