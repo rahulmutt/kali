@@ -67,27 +67,34 @@ fn assert_fails_closed_without_truncating(source: &str, construct: &str) {
 
 // --- function declarations -------------------------------------------------
 
-#[test]
-fn default_param_in_function_declaration_fails_closed() {
-    assert_fails_closed_without_truncating(
-        "function g(b = 5) { return b; }\nconsole.log(\"after\");",
-        "default parameter",
+/// Default parameters on a declaration are accepted now (default-parameters
+/// spec §3.1); the module must still not be truncated.
+fn assert_accepted_without_truncating(source: &str) {
+    let output = parse(source);
+    assert!(
+        output.diagnostics.is_empty(),
+        "{source}: {:?}",
+        output.diagnostics
     );
+    assert_module_not_truncated(&output, source);
 }
 
 #[test]
-fn default_param_after_plain_param_fails_closed() {
-    assert_fails_closed_without_truncating(
+fn default_param_in_function_declaration_is_accepted() {
+    assert_accepted_without_truncating("function g(b = 5) { return b; }\nconsole.log(\"after\");");
+}
+
+#[test]
+fn default_param_after_plain_param_is_accepted() {
+    assert_accepted_without_truncating(
         "function g(a, b = 5) { return a; }\nconsole.log(\"after\");",
-        "default parameter",
     );
 }
 
 #[test]
-fn multiple_default_params_fail_closed() {
-    assert_fails_closed_without_truncating(
+fn multiple_default_params_are_accepted() {
+    assert_accepted_without_truncating(
         "function g(a = 1, b = 2) { return a; }\nconsole.log(\"after\");",
-        "default parameter",
     );
 }
 

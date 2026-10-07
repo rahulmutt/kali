@@ -824,6 +824,18 @@ fn analyze_source_file_inner(
         )]);
     }
 
+    // Default-parameters spec §3.2: fill each omitted literal default in at
+    // its call site and strip the defaults, AFTER the rename (names are
+    // unique) and BEFORE every stage that keys a function by its arity.
+    let default_refusals =
+        crate::build::default_params::apply_default_params(&mut parsed.statements, compat_eval);
+    if !default_refusals.is_empty() {
+        return Err(default_refusals
+            .into_iter()
+            .map(|message| Diagnostic::error(e5::FEATURE_UNAVAILABLE as u32, message))
+            .collect());
+    }
+
     // Captured-bindings spec §3.2 / A-1: a captured parameter becomes a `let`
     // initialized from the renamed parameter, so it takes the local cell path.
     let rewritten_params =

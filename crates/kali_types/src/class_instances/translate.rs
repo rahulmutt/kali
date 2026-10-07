@@ -85,6 +85,7 @@ fn function(
     Statement::FunctionDeclaration(FunctionDeclaration {
         name,
         params,
+        defaults: Vec::new(),
         body: Box::new(BlockStatement { body }),
         is_async: source.is_some_and(|m| m.is_async),
         generator: source.is_some_and(|m| m.generator),

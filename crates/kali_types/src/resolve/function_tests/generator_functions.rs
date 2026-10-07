@@ -7,6 +7,7 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
         Statement::FunctionDeclaration(FunctionDeclaration {
             name: "main".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement { body: vec![] }),
             is_async: false,
             generator: true,
@@ -40,6 +41,7 @@ fn test_resolution_reports_generator_lowering_as_unavailable() {
         Statement::FunctionDeclaration(FunctionDeclaration {
             name: "asyncMain".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement { body: vec![] }),
             is_async: true,
             generator: true,
@@ -90,6 +92,7 @@ fn test_resolution_rejects_generator_function_lowering() {
     let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
         name: "main".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
@@ -128,6 +131,7 @@ fn test_resolution_rejects_generator_yield_delegation_lowering() {
     let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
         name: "main".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
@@ -169,6 +173,7 @@ fn test_resolution_rejects_generator_function_lowering_in_js_input() {
     let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
         name: "main".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
@@ -209,6 +214,7 @@ fn test_resolution_rejects_async_generator_function_lowering_in_js_input() {
     let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
         name: "main".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
@@ -252,6 +258,7 @@ fn test_resolution_rejects_mixed_generator_function_lowering_in_js_input() {
         Statement::FunctionDeclaration(FunctionDeclaration {
             name: "syncMain".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement {
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
                     expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
@@ -268,6 +275,7 @@ fn test_resolution_rejects_mixed_generator_function_lowering_in_js_input() {
         Statement::FunctionDeclaration(FunctionDeclaration {
             name: "asyncMain".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement {
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
                     expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {
@@ -307,6 +315,7 @@ fn test_resolution_rejects_generator_function_lowering_in_tsx_input() {
     let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
         name: "main".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {

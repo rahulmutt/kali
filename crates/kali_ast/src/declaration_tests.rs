@@ -5,6 +5,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
     let function = FunctionDeclaration {
         name: "generatorFn".to_string(),
         params: vec!["value".to_string()],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement { body: vec![] }),
         is_async: true,
         generator: true,
@@ -135,6 +136,7 @@ fn test_function_kind_metadata_survives_serde_roundtrip() {
         ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
             name: "DefaultAsyncGenerator".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement { body: vec![] }),
             is_async: true,
             generator: true,
@@ -178,6 +180,7 @@ fn test_ast_roundtrips_default_export_anonymous_generator_function_declaration()
         ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
             name: "".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement { body: vec![] }),
             is_async: false,
             generator: true,
@@ -191,4 +194,40 @@ fn test_ast_roundtrips_default_export_anonymous_generator_function_declaration()
         round_tripped_default_export_generator,
         default_export_generator
     );
+}
+
+#[test]
+fn a_function_declaration_without_defaults_serializes_without_the_field() {
+    let declaration = FunctionDeclaration {
+        name: "f".to_string(),
+        params: vec!["a".to_string()],
+        defaults: Vec::new(),
+        body: Box::new(crate::BlockStatement { body: Vec::new() }),
+        is_async: false,
+        generator: false,
+    };
+    let json = serde_json::to_string(&declaration).expect("serializes");
+    assert!(!json.contains("defaults"), "{json}");
+    let back: FunctionDeclaration = serde_json::from_str(&json).expect("deserializes");
+    assert_eq!(back, declaration);
+}
+
+#[test]
+fn a_function_declaration_with_a_default_round_trips() {
+    let declaration = FunctionDeclaration {
+        name: "f".to_string(),
+        params: vec!["a".to_string(), "b".to_string()],
+        defaults: vec![
+            None,
+            Some(Box::new(crate::Expression::Literal(
+                crate::LiteralValue::Number(2.0),
+            ))),
+        ],
+        body: Box::new(crate::BlockStatement { body: Vec::new() }),
+        is_async: false,
+        generator: false,
+    };
+    let json = serde_json::to_string(&declaration).expect("serializes");
+    let back: FunctionDeclaration = serde_json::from_str(&json).expect("deserializes");
+    assert_eq!(back, declaration);
 }

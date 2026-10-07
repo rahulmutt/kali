@@ -40,6 +40,7 @@ fn test_resolution_rejects_generator_function_lowering_in_jsx_input() {
     let statements = vec![Statement::FunctionDeclaration(FunctionDeclaration {
         name: "main".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(BlockStatement {
             body: vec![Statement::ExpressionStatement(ExpressionStatement {
                 expression: Box::new(Expression::YieldExpression(Box::new(YieldExpression {

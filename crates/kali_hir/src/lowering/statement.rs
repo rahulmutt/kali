@@ -283,6 +283,7 @@ impl HirLowerer {
                 body,
                 is_async,
                 generator,
+                ..
             }) => {
                 let name = if name.is_empty() {
                     self.next_synthetic_function_name()

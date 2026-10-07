@@ -66,6 +66,12 @@ pub(crate) trait Hooks {
     /// An expression statement that is an assignment (its value is
     /// discarded), seen before it is walked.
     fn assignment_statement(&mut self, _assign: &kali_ast::AssignmentExpression) {}
+    /// A function declaration, seen before its name is bound and its body
+    /// walked, with mutable access (default-parameters spec §3.2).
+    fn function_declaration(&mut self, _decl: &mut FunctionDeclaration) {}
+    /// A call expression, seen with mutable access before `call` and before
+    /// its callee and arguments are walked (default-parameters spec §3.2).
+    fn call_expression(&mut self, _call: &mut CallExpression) {}
 }
 
 pub(crate) fn walk_program(statements: &mut [Statement], hooks: &mut impl Hooks) {
@@ -255,6 +261,7 @@ fn walk_statement(statement: &mut Statement, hooks: &mut impl Hooks) {
             hooks.exit_loop();
         }
         Statement::FunctionDeclaration(f) => {
+            hooks.function_declaration(f);
             hooks.bind(&mut f.name, BindKind::FunctionDecl);
             let label = f.name.clone();
             walk_function_parts(
@@ -298,6 +305,7 @@ fn walk_statement(statement: &mut Statement, hooks: &mut impl Hooks) {
         Statement::ExportDefault(d) => match d {
             ExportDefaultDeclaration::Expression(e) => walk_expression(e, hooks),
             ExportDefaultDeclaration::FunctionDeclaration(f) => {
+                hooks.function_declaration(f);
                 if !f.name.is_empty() {
                     hooks.bind(&mut f.name, BindKind::FunctionDecl);
                 }
@@ -356,6 +364,7 @@ fn walk_expression(expr: &mut Expression, hooks: &mut impl Hooks) {
         }
         Expression::UnaryExpression(e) => walk_expression(&mut e.argument, hooks),
         Expression::CallExpression(e) => {
+            hooks.call_expression(e);
             hooks.call(&e.callee);
             walk_expression(&mut e.callee, hooks);
             for arg in e.args.iter_mut() {

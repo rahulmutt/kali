@@ -1,0 +1,126 @@
+# Every default-parameter refusal (default-parameters spec §3.3, A-2..A-6),
+# under both `check` and `run`, so the two commands are shown to agree.
+
+[matrix]
+cmd = ["check", "run"]
+
+[source]
+"not_literal.js" = "function f(a, b = a * 2) { return b; }\nconsole.log(f(1));\n"
+"composite.js" = "function f(a, o = {}) { return a; }\nconsole.log(f(1));\n"
+"async.js" = "async function f(a = 1) { return a; }\nf();\n"
+"value_use.js" = "function f(a = 1) { return a; }\nconst g = f;\nconsole.log(g());\n"
+"export_specifier.js" = "function f(a = 1) { return a; }\nexport { f as g };\n"
+"export_declaration.js" = "export function f(a = 1) { return a; }\n"
+"rebound.js" = "function h() { function f(a = 41) { return a; } return f(); }\nfunction g() { const f = (a) => a; return f(undefined); }\nconsole.log(h(), g());\n"
+"typeof_use.js" = "function f(a = 1) { return a; }\nconsole.log(typeof f);\n"
+"call_method_use.js" = "function f(a = 1) { return a; }\nconsole.log(f.call(null));\n"
+"optional_call_use.js" = "function f(a = 1) { return a; }\nconsole.log(f?.());\n"
+"omitted.js" = "function f(a = 1, b) { return a; }\nconsole.log(f());\n"
+"arrow.js" = "const f = (a = 1) => a;\nconsole.log(f());\n"
+"method.js" = "class C { m(a = 1) { return a; } }\nconsole.log(new C().m());\n"
+"expression.js" = "const f = function (a = 1) { return a; };\nconsole.log(f());\n"
+"out_of_scope.js" = "function h() { function isNaN(a = 1) { return a; } return 0; }\nconsole.log(h(), isNaN(undefined));\n"
+"eval.js" = "function f(a = 1) { return a; }\nconsole.log(f());\n"
+
+[[case]]
+name = "a_non_literal_default_is_refused"
+args = ["${cmd}", "not_literal.js"]
+exit = "failure"
+stderr_contains = ["E5506", "must be a number, string, boolean, null or BigInt literal", "`b` in `f`"]
+
+[[case]]
+name = "an_object_default_is_refused"
+rationale = "Spec A-7: kali refuses an object literal passed directly as a call argument, so an object default is refused with its own message rather than that one."
+args = ["${cmd}", "composite.js"]
+exit = "failure"
+stderr_contains = ["E5506", "object or array default parameter", "`o` in `f`"]
+
+[[case]]
+name = "an_async_defaulted_function_is_refused"
+args = ["${cmd}", "async.js"]
+exit = "failure"
+stderr_contains = ["E5506", "generator or `async` function"]
+
+[[case]]
+name = "a_defaulted_function_used_as_a_value_is_refused"
+args = ["${cmd}", "value_use.js"]
+exit = "failure"
+stderr_contains = ["E5506", "can only be called directly by name", "`f` is used as a value"]
+
+[[case]]
+name = "an_export_specifier_of_a_defaulted_function_is_refused"
+rationale = "Written `export { f as g }`: the plain `export { f }` of any function, defaulted or not, is already refused with E5511 duplicate export name before the default-parameter check is reached (measured at HEAD, not a default-parameter matter)."
+args = ["${cmd}", "export_specifier.js"]
+exit = "failure"
+stderr_contains = ["E5506", "cannot be exported", "`f`"]
+
+[[case]]
+name = "an_exported_defaulted_declaration_is_refused"
+args = ["${cmd}", "export_declaration.js"]
+exit = "failure"
+stderr_contains = ["E5506", "cannot be exported", "`f`"]
+
+[[case]]
+name = "a_defaulted_function_whose_name_is_bound_elsewhere_is_refused"
+rationale = "Block-scope rename only gives unique spellings along a scope chain, so a sibling `const f` in another function would otherwise be filled with this default (node prints `41 undefined`)."
+args = ["${cmd}", "rebound.js"]
+exit = "failure"
+stderr_contains = ["E5506", "no other binding in the program uses", "`f` is also bound elsewhere"]
+
+[[case]]
+name = "an_omitted_argument_without_a_default_is_refused"
+args = ["${cmd}", "omitted.js"]
+exit = "failure"
+stderr_contains = ["E5506", "omits an argument for `b`"]
+
+[[case]]
+name = "an_arrow_default_is_refused"
+args = ["${cmd}", "arrow.js"]
+exit = "failure"
+stderr_contains = ["E5506", "only available on function declarations"]
+
+[[case]]
+name = "a_method_default_is_refused"
+args = ["${cmd}", "method.js"]
+exit = "failure"
+stderr_contains = ["E5506", "only available on function declarations"]
+
+[[case]]
+name = "a_function_expression_default_is_refused"
+args = ["${cmd}", "expression.js"]
+exit = "failure"
+stderr_contains = ["E5506", "only available on function declarations"]
+
+[[case]]
+name = "a_defaulted_function_under_compat_eval_is_refused"
+args = ["${cmd}", "--compat", "eval", "eval.js"]
+exit = "failure"
+stderr_contains = ["E5506", "unavailable under --compat eval"]
+
+[[case]]
+name = "a_typeof_of_a_defaulted_function_is_refused"
+rationale = "`typeof f` is a value use of a defaulted function; node prints `function`. Refused with the value-use message under check and run alike (spec A-6 for the optional call)."
+args = ["${cmd}", "typeof_use.js"]
+exit = "failure"
+stderr_contains = ["E5506", "can only be called directly by name", "`f` is used as a value"]
+
+[[case]]
+name = "a_call_method_on_a_defaulted_function_is_refused"
+rationale = "`f.call(null)` is a value use of a defaulted function; node prints `1`. Refused with the value-use message under check and run alike (spec A-6 for the optional call)."
+args = ["${cmd}", "call_method_use.js"]
+exit = "failure"
+stderr_contains = ["E5506", "can only be called directly by name", "`f` is used as a value"]
+
+[[case]]
+name = "an_optional_call_of_a_defaulted_function_is_refused"
+rationale = "`f?.()` is a value use of a defaulted function; node prints `1`. Refused with the value-use message under check and run alike (spec A-6 for the optional call)."
+args = ["${cmd}", "optional_call_use.js"]
+exit = "failure"
+stderr_contains = ["E5506", "can only be called directly by name", "`f` is used as a value"]
+
+[[case]]
+name = "a_nested_defaulted_function_used_outside_its_scope_is_refused"
+rationale = "Spec A-11: calls are matched by name, so the top-level `isNaN(undefined)` would otherwise be filled with the nested `isNaN`'s default; node prints `0 true` (the global `isNaN`)."
+args = ["${cmd}", "out_of_scope.js"]
+exit = "failure"
+stderr_contains = ["E5506", "can only be called inside that scope", "`isNaN` is used outside it"]

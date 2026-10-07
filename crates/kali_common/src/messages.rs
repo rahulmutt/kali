@@ -457,3 +457,81 @@ pub fn captured_binding_unavailable_message(
     );
     crate::display_names_in(&text).into_owned()
 }
+
+/// Default-parameters spec §3.3. A default on an arrow, method or function
+/// expression (spec A-2: refused by the parser).
+pub const fn default_param_non_declaration_message() -> &'static str {
+    "default parameters are only available on function declarations in the current phase"
+}
+
+/// Default-parameters spec §3.3, A-3. An exported function has call sites the
+/// pass cannot see.
+pub fn default_param_exported_message(function: &str) -> String {
+    format!(
+        "a function with default parameters cannot be exported in the current phase: `{function}`"
+    )
+}
+
+/// Default-parameters spec §3.2 step 1, A-7.
+pub fn default_param_not_literal_message(function: &str, param: &str) -> String {
+    format!(
+        "a default parameter value must be a number, string, boolean, null or BigInt literal in the current phase: `{param}` in `{function}`"
+    )
+}
+
+/// Default-parameters spec A-7: kali refuses an object or array literal
+/// passed directly as a call argument, which is what the call-site fill would
+/// produce.
+pub fn default_param_composite_message(function: &str, param: &str) -> String {
+    format!(
+        "an object or array default parameter is unavailable in the current phase: kali cannot pass an object or array literal directly as a call argument; `{param}` in `{function}`"
+    )
+}
+
+/// Default-parameters spec §3.2 step 1.
+pub fn default_param_async_or_generator_message(function: &str) -> String {
+    format!(
+        "default parameters are only available on function declarations in the current phase: `{function}` is a generator or `async` function"
+    )
+}
+
+/// Default-parameters spec §3.2 step 2.
+pub fn default_param_value_use_message(function: &str) -> String {
+    format!(
+        "a function with default parameters can only be called directly by name in the current phase; `{function}` is used as a value here"
+    )
+}
+
+/// Default-parameters spec §3.2: calls are matched to the declaration by name.
+pub fn default_param_rebound_name_message(function: &str) -> String {
+    format!(
+        "a function with default parameters must have a name no other binding in the program uses in the current phase: `{function}` is also bound elsewhere"
+    )
+}
+
+/// Default-parameters spec A-5.
+pub fn default_param_spread_call_message(function: &str) -> String {
+    format!(
+        "a function with default parameters cannot be called with a spread argument in the current phase: `{function}(...)`"
+    )
+}
+
+/// Default-parameters spec §3.2 step 3 / §3.3.
+pub fn default_param_omitted_argument_message(function: &str, param: &str) -> String {
+    format!("`{function}(…)` omits an argument for `{param}`, which has no default")
+}
+
+/// Default-parameters spec A-11: calls are matched to the declaration by
+/// name, so a defaulted function declared inside a function or block may be
+/// used only inside that scope.
+pub fn default_param_out_of_scope_use_message(function: &str) -> String {
+    format!(
+        "a function with default parameters declared inside a function or block can only be called inside that scope in the current phase: `{function}` is used outside it"
+    )
+}
+
+/// Default-parameters spec §3.2: `eval` can call a function by a name the
+/// pass never sees.
+pub const fn default_param_eval_refused_message() -> &'static str {
+    "default parameters are unavailable under --compat eval"
+}

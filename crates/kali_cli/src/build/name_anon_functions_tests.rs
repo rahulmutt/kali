@@ -174,6 +174,7 @@ fn every_anonymous_function_shaped_position_gets_a_distinct_id() {
     let s12 = Statement::FunctionDeclaration(FunctionDeclaration {
         name: "outer".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(block(vec![return_stmt(arrow(lit(12.0)))])),
         is_async: false,
         generator: false,
@@ -252,6 +253,7 @@ fn every_anonymous_function_shaped_position_gets_a_distinct_id() {
     let s27 = Statement::FunctionDeclaration(FunctionDeclaration {
         name: "af".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(block(vec![expr_stmt(Expression::AwaitExpression(
             Box::new(AwaitExpression {
                 argument: arrow(lit(27.0)),
@@ -264,6 +266,7 @@ fn every_anonymous_function_shaped_position_gets_a_distinct_id() {
     let s28 = Statement::FunctionDeclaration(FunctionDeclaration {
         name: "gen".to_string(),
         params: vec![],
+        defaults: Vec::new(),
         body: Box::new(block(vec![expr_stmt(Expression::YieldExpression(
             Box::new(YieldExpression {
                 delegate: false,
@@ -575,6 +578,7 @@ fn collision_with_user_declared_name_is_avoided() {
         Statement::FunctionDeclaration(FunctionDeclaration {
             name: "__kali_fn_0".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(block(vec![])),
             is_async: false,
             generator: false,
@@ -614,6 +618,7 @@ fn collision_guard_is_independent_of_declaration_order() {
         Statement::FunctionDeclaration(FunctionDeclaration {
             name: "__kali_fn_0".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(block(vec![])),
             is_async: false,
             generator: false,
@@ -673,6 +678,7 @@ fn export_default_anonymous_function_declaration_gets_a_name() {
         ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
             name: String::new(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(block(vec![return_stmt(lit(1.0))])),
             is_async: false,
             generator: false,
@@ -708,6 +714,7 @@ fn export_default_named_function_declaration_keeps_its_name() {
         ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
             name: "foo".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(block(vec![return_stmt(lit(1.0))])),
             is_async: false,
             generator: false,

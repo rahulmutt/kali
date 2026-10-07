@@ -234,6 +234,7 @@ fn collect_library_exports_rejects_generator_default_export_declaration() {
         kali_ast::ExportDefaultDeclaration::FunctionDeclaration(kali_ast::FunctionDeclaration {
             name: "main".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(kali_ast::BlockStatement { body: vec![] }),
             is_async: false,
             generator: true,
@@ -264,6 +265,7 @@ fn collect_library_exports_rejects_async_generator_default_export_declaration() 
         kali_ast::ExportDefaultDeclaration::FunctionDeclaration(kali_ast::FunctionDeclaration {
             name: "main".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(kali_ast::BlockStatement { body: vec![] }),
             is_async: true,
             generator: true,
@@ -345,6 +347,7 @@ fn collect_library_exports_infers_literal_return_types_for_function_declarations
         Statement::FunctionDeclaration(kali_ast::FunctionDeclaration {
             name: "main".to_string(),
             params: vec!["input".to_string()],
+            defaults: Vec::new(),
             body: Box::new(kali_ast::BlockStatement {
                 body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
                     argument: Some(Expression::Literal(kali_ast::LiteralValue::Number(1.0))),
@@ -389,6 +392,7 @@ fn collect_library_exports_infers_template_literal_return_types_for_function_dec
         Statement::FunctionDeclaration(kali_ast::FunctionDeclaration {
             name: "main".to_string(),
             params: vec!["input".to_string()],
+            defaults: Vec::new(),
             body: Box::new(kali_ast::BlockStatement {
                 body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
                     argument: Some(Expression::TemplateLiteral(kali_ast::TemplateLiteral {
@@ -698,6 +702,7 @@ fn collect_library_exports_infers_async_function_declarations_and_aliases() {
         Statement::FunctionDeclaration(kali_ast::FunctionDeclaration {
             name: "main".to_string(),
             params: vec!["input".to_string()],
+            defaults: Vec::new(),
             body: Box::new(kali_ast::BlockStatement {
                 body: vec![Statement::ReturnStatement(kali_ast::ReturnStatement {
                     argument: Some(Expression::AwaitExpression(Box::new(

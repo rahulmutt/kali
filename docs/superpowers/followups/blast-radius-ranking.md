@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `76fbdc20e6` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `027409c91f` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -345,7 +345,7 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 | R-67 | 2 | 12 | 7 | FIXED |
 | R-65 | 2 | 58 | 5 | FAIL_CLOSED |
 | R-10 | 2 | 11 | 1 | FIXED |
-| R-01 | 1 | 18 | 0 | FAIL_CLOSED |
+| R-01 | 1 | 18 | 0 | FIXED / FAIL_CLOSED |
 | R-02 | 1 | 2 | 0 | FAIL_CLOSED |
 | R-03 | 1 | 15 | 0 | FAIL_CLOSED |
 | R-04 | 1 | 112 | 0 | FIXED |
@@ -1362,6 +1362,29 @@ singleton cluster (numeric-literal-grammar project,
   which was not committed. Two extension programs (`crc32_checksum.js`,
   `hex_dump.js`) no longer fail on a hex literal, but each has other
   blockers.
+
+**AMENDMENT 2026-10-07 — a THIRTEENTH regeneration: R-01 splits into a FIXED
+declaration lane and a FAIL_CLOSED function-expression lane (default-parameters
+project, `docs/superpowers/followups/default-parameters-discovered-defects.md`).**
+
+- **What moved: R-01.** The `r01` oracle cases (a function declaration with a
+  scalar literal default) now assert FIXED: the default is filled at each direct
+  call site and kali prints `A` then `B` at exit 0, as node v26.10.0 does. The
+  function-expression form (`const g = function (b = 5) {…}`) still refuses with
+  E5506; two new `r01b` oracle cases pin that lane as FAIL_CLOSED, so §0.2
+  records R-01 as FIXED and FAIL_CLOSED lanes, as it does for R-06. Only the
+  declaration form is fixed. Arrow and method defaults also refuse, but have no
+  oracle case of their own.
+- **What changed in §2–§5:** only §3's R-01 verdict cell, now the lane set. R-01
+  was already not damage (it failed closed), so it stays in §3.1's "removed"
+  set and no band moves.
+- **No band moved on either axis, and the accept set did not move.**
+  `accepts.mjs`, re-run against this branch's binary, still reads anchor
+  125/137 and extension 0/40. None of the 14 extension programs that carry a
+  default parameter is accepted, each for other reasons (`task_queue.js` for its
+  `hooks = {}` object default, which stays refused). `accepts.json` and
+  `counts.json` are unchanged apart from the binary path, which was not
+  committed.
 
 ### 6.1 The most important thing here is not a rank
 

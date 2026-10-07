@@ -370,3 +370,51 @@ fn class_instance_messages_are_stable() {
         "the name `__this` that kali would generate for class `C` is already used by this program; this is unavailable in the current phase"
     );
 }
+
+#[test]
+fn default_parameter_messages_name_the_function_and_parameter() {
+    assert_eq!(
+        default_param_non_declaration_message(),
+        "default parameters are only available on function declarations in the current phase"
+    );
+    assert_eq!(
+        default_param_exported_message("f"),
+        "a function with default parameters cannot be exported in the current phase: `f`"
+    );
+    assert_eq!(
+        default_param_not_literal_message("f", "b"),
+        "a default parameter value must be a number, string, boolean, null or BigInt literal in the current phase: `b` in `f`"
+    );
+    assert_eq!(
+        default_param_composite_message("f", "o"),
+        "an object or array default parameter is unavailable in the current phase: kali cannot pass an object or array literal directly as a call argument; `o` in `f`"
+    );
+    assert_eq!(
+        default_param_async_or_generator_message("f"),
+        "default parameters are only available on function declarations in the current phase: `f` is a generator or `async` function"
+    );
+    assert_eq!(
+        default_param_value_use_message("f"),
+        "a function with default parameters can only be called directly by name in the current phase; `f` is used as a value here"
+    );
+    assert_eq!(
+        default_param_rebound_name_message("f"),
+        "a function with default parameters must have a name no other binding in the program uses in the current phase: `f` is also bound elsewhere"
+    );
+    assert_eq!(
+        default_param_spread_call_message("f"),
+        "a function with default parameters cannot be called with a spread argument in the current phase: `f(...)`"
+    );
+    assert_eq!(
+        default_param_omitted_argument_message("f", "b"),
+        "`f(…)` omits an argument for `b`, which has no default"
+    );
+    assert_eq!(
+        default_param_eval_refused_message(),
+        "default parameters are unavailable under --compat eval"
+    );
+    assert_eq!(
+        default_param_out_of_scope_use_message("f"),
+        "a function with default parameters declared inside a function or block can only be called inside that scope in the current phase: `f` is used outside it"
+    );
+}

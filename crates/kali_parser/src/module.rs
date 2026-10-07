@@ -4,7 +4,8 @@ use crate::literal::unquote_string_literal;
 use crate::Parser;
 use kali_ast::{
     ExportAllDeclaration, ExportDefaultDeclaration, ExportNamedDeclaration, ExportSpecifier,
-    ImportDeclaration, ImportName, ImportNamedSpecifier, ImportSpecifier, Statement,
+    FunctionDeclaration, ImportDeclaration, ImportName, ImportNamedSpecifier, ImportSpecifier,
+    Statement,
 };
 use kali_lexer::TokenType;
 
@@ -85,6 +86,34 @@ impl Parser {
         }))
     }
 
+    /// Default-parameters spec A-3: an exported function has call sites the
+    /// call-site rewrite cannot see, so its defaults are refused here, where
+    /// the export is still visible.
+    fn refuse_exported_defaults(&mut self, declaration: &FunctionDeclaration) {
+        if !declaration.defaults.is_empty() {
+            // `export default function (…)` has no name; call it `default`.
+            let name = if declaration.name.is_empty() {
+                "default"
+            } else {
+                &declaration.name
+            };
+            self.push_feature_unavailable(kali_common::default_param_exported_message(name));
+        }
+    }
+
+    fn parse_export_default_function(
+        &mut self,
+        is_async: bool,
+    ) -> Option<ExportDefaultDeclaration> {
+        match self.parse_function_declaration_with_async(is_async, true)? {
+            Statement::FunctionDeclaration(function) => {
+                self.refuse_exported_defaults(&function);
+                Some(ExportDefaultDeclaration::FunctionDeclaration(function))
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse_export_declaration(&mut self) -> Option<Statement> {
         let _ = self.stream.advance();
 
@@ -94,22 +123,9 @@ impl Parser {
                 Some(TokenType::Async)
                     if self.stream.peek_next_kind() == Some(&TokenType::Function) =>
                 {
-                    self.parse_function_declaration_with_async(true, true)
-                        .and_then(|statement| match statement {
-                            Statement::FunctionDeclaration(function) => {
-                                Some(ExportDefaultDeclaration::FunctionDeclaration(function))
-                            }
-                            _ => None,
-                        })
+                    self.parse_export_default_function(true)
                 }
-                Some(TokenType::Function) => self
-                    .parse_function_declaration_with_async(false, true)
-                    .and_then(|statement| match statement {
-                        Statement::FunctionDeclaration(function) => {
-                            Some(ExportDefaultDeclaration::FunctionDeclaration(function))
-                        }
-                        _ => None,
-                    }),
+                Some(TokenType::Function) => self.parse_export_default_function(false),
                 Some(TokenType::Class) => {
                     self.parse_class_declaration()
                         .and_then(|statement| match statement {
@@ -130,11 +146,19 @@ impl Parser {
         if self.stream.current_kind() == Some(&TokenType::Async)
             && self.stream.peek_next_kind() == Some(&TokenType::Function)
         {
-            return self.parse_function_declaration_with_async(true, false);
+            let statement = self.parse_function_declaration_with_async(true, false);
+            if let Some(Statement::FunctionDeclaration(declaration)) = &statement {
+                self.refuse_exported_defaults(declaration);
+            }
+            return statement;
         }
 
         if self.stream.current_kind() == Some(&TokenType::Function) {
-            return self.parse_function_declaration();
+            let statement = self.parse_function_declaration();
+            if let Some(Statement::FunctionDeclaration(declaration)) = &statement {
+                self.refuse_exported_defaults(declaration);
+            }
+            return statement;
         }
 
         if self.stream.current_kind() == Some(&TokenType::Class) {
