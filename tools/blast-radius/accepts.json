@@ -4,7 +4,7 @@
   "kaliVersion": "kali 0.1.0",
   "rates": {
     "anchor": {
-      "accepted": 126,
+      "accepted": 125,
       "total": 137
     },
     "extension": {
@@ -686,7 +686,7 @@
     {
       "path": "anchor/unknown_field_read_is_fold_first_until_materialized_01.js",
       "stratum": "anchor",
-      "accepted": true
+      "accepted": false
     },
     {
       "path": "anchor/unknown_field_read_is_fold_first_until_materialized_02.js",

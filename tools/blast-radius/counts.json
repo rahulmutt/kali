@@ -5,11 +5,11 @@
   "programs": {
     "pooled": {
       "programs": 177,
-      "accepted": 126
+      "accepted": 125
     },
     "anchor": {
       "programs": 137,
-      "accepted": 126
+      "accepted": 125
     },
     "extension": {
       "programs": 40,
@@ -17,7 +17,7 @@
     }
   },
   "population": {
-    "reachableColumn": "126 of 177 programs are reachable, and 126 of those 126 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.",
+    "reachableColumn": "125 of 177 programs are reachable, and 125 of those 125 are ANCHOR programs -- a stratum that is 131 micro-snippets written to probe compiler behaviour plus 6 real CLBG programs. Every reachable ranking is therefore, in substance, a ranking over test snippets. Read the per-entry `strata` split before treating any reachable figure as a frequency in real code.",
     "extensionStratum": "0/40 extension programs are accepted (0.0%). The extension is the stratum written to do jobs rather than to probe the compiler, so almost everything it measures about real programs lands in the RAW column only. Its accept rate is a finding in its own right, not a defect of the corpus: curation was independent of acceptance.",
     "dialect": "The extension is written in the project's imperative-core dialect: no regex, no destructuring, no template literals, no `??`, no class/Map/Set/async. See corpus/README.md for which counts that biases and in which direction. A frequency here is a frequency in *programs of that dialect*, not in JavaScript generally."
   },
@@ -227,11 +227,11 @@
       "id": "R-07",
       "matcher": "constWithNonLiteralInitializer",
       "raw": 449,
-      "reachable": 78,
+      "reachable": 77,
       "strata": {
         "anchor": {
           "raw": 82,
-          "reachable": 78
+          "reachable": 77
         },
         "extension": {
           "raw": 367,
@@ -249,7 +249,7 @@
         "whyPublishedReadingWasChosen": "the main clause governs and the appositive illustrates; the register bounds the damage the other way round -- 'a `const` bound to a literal is correct' (register:1048-1049) -- and its Repro F is titled a shape SURVEY, not a closed list. But the disputed forms (`new`, object literal, array literal) are named in neither the record's list nor the register's survey, so the choice is an interpretation and is disclosed as one.",
         "published": {
           "raw": 449,
-          "reachable": 78
+          "reachable": 77
         },
         "alternate": {
           "raw": 286,
@@ -789,11 +789,11 @@
       "id": "R-30",
       "matcher": "consoleLogOfNonInlineBooleanProducer",
       "raw": 73,
-      "reachable": 57,
+      "reachable": 56,
       "strata": {
         "anchor": {
           "raw": 61,
-          "reachable": 57
+          "reachable": 56
         },
         "extension": {
           "raw": 12,

@@ -52,9 +52,16 @@ After this project:
 1. All five §5.10 programs refuse under `run` (§2.1).
 2. The ~30 builtin-alias cases that pass at the baseline still pass (§2.2,
    group B).
-3. `kali check` refuses an absent-field read on a `const` object-literal or
-   program-class binding (§3.4). Every other refused shape exits 0 under
-   `check`; that gap is pinned by cases and recorded.
+3. ~~`kali check` refuses an absent-field read on a `const` object-literal or
+   program-class binding (§3.4).~~ `kali check` refuses an absent-field read
+   on a `const` object-literal or program-class binding (§3.4) when no more
+   specific refusal speaks first. On a program-class binding the refusal is
+   held until the class rewrite reports no error. `length` and numeric names
+   are left to codegen's own floors (A-6). Every other refused shape exits 0
+   under `check`; that gap is pinned by cases and recorded.
+4. *(Added 2026-10-07.)* Comma expressions are **not** refused (A-5), so R-27
+   stays silent. `typeof` on a program-built member read **is** refused under
+   `run` (A-7).
 
 **Not in scope:** making any refused program print node's value; the
 `Object.fromEntries` family (R-60), whose receiver is host-rooted and stays
@@ -233,7 +240,8 @@ plan was written:
   kind (`crates/kali_hir/src/lowering/expression.rs:54,152,192`), so all three
   reach the read fallback the same way. R-25's `console.log([...a])` (op
   `spread`) and R-27's `let a = (1, 2)` (op `""`) are refused by the same gate,
-  and both are SILENT today, so the refusal is correct. Their message must
+  and both are SILENT today, so the refusal is correct. *(Amended 2026-10-07
+  by A-5: the gate no longer refuses op `""`, so R-27 is not refused.)* Their message must
   not claim a property read: for op text `""` or `"spread"`, the read helper
   returns a neutral "this expression …" text (§3.5). A property literally
   named `spread` gets the neutral text as well, which is still a true E5506.
@@ -249,7 +257,8 @@ plan was written:
   placeholder ("unsupported unary operator 'typeof'"), not through
   `operators.rs:805`. The `check` mirror therefore skips a member that is the
   operand of `typeof`; otherwise `check` would refuse what `run` accepts.
-  `typeof` on a program-built value stays silent and is residue (§5).
+  ~~`typeof` on a program-built value stays silent and is residue (§5).~~
+  *(Corrected 2026-10-07 by A-7: under `run` it is refused.)*
 * **A-4. A measured capability loss.** `const o={a:1}; console.log(o.z ?? 5)`
   prints node's `5` at the baseline only because kali stores `undefined` and
   `0` alike, so the placeholder reads as nullish. The read reaches the
@@ -270,6 +279,71 @@ plan was written:
 | `function mk(){ return {a:1}; } const o=mk(); o["a"] = 5; console.log(o.a);` | `5` | `5` | 0 | a store lane |
 | `let a = (console.log("x"), 7); console.log("a=" + a);` | `x`, `a=7` | silent | 0 | the read fallback, host root (kept) |
 | `globalThis.zz = 3; console.log("ok");` | `ok` | `ok` | 0 | the read fallback, host root (kept) |
+
+### 3.8 Amendments from execution (2026-10-07)
+
+Recorded after Tasks 3–7 ran. Each one corrects or adds to the text above.
+The lines above that became false are struck through in place.
+
+* **A-5. Comma expressions are excluded from the read gate (human partner's
+  ruling, 2026-10-07).** A-1 refused op `""` along with `spread`. The full
+  `cases` run then showed that refusal breaking correct programs that use the
+  `(0, x)` indirection idiom, where the sequence's value is stored and the
+  placeholder is never observed:
+  * `const w=(0,o); Object.hasOwn(w,"a")` prints `true` in node;
+  * ``await import((0, `./${name}`))`` in a dynamic-import harness;
+  * 92 trials across `object/has_own_js_input`,
+    `misc/object_has_own_frozen_js_input`,
+    `browser/object_has_own_from_entries` and
+    `browser/template_literal_dynamic_import_harness`.
+
+  The read gate now also requires the op text to be non-empty
+  (`crates/kali_codegen/src/emit/operators.rs`). Spread still refuses with
+  the neutral text. The `""` arm of
+  `unresolved_member_read_unavailable_message` is kept so that the function
+  stays total.
+
+  Consequence: R-27 stays SILENT and is residue (§5). So is every comma
+  expression whose value is read, including
+  ``const s=(0, `./${n}`); console.log(s)``, which prints `2` where node
+  prints `./x`.
+* **A-6. The `check` mirror defers to more specific refusals (human
+  partner's second ruling, 2026-10-07).** §3.4 put the mirror first. Under
+  `run` too it pre-empted the class rewrite's ``is not declared on class
+  `C` `` message and the array-return backstop's `no lane proves this
+  receiver is an array`, because `run` runs the resolver first and stops on
+  its errors. The mirror now follows three precedence rules:
+  * **It runs last.** It runs after the other member checks in
+    `resolve_member_expression`, and only if none of them pushed a
+    diagnostic for that member.
+  * **Class-instance refusals are held.** A refusal on a class-instance
+    receiver is held in `ResolutionResult::deferred_read_mirror_diagnostics`.
+    The driver (`crates/kali_cli/src/build/compile.rs`) adds the held
+    refusals only if `rewrite_class_instances` reports no error. So:
+    * an in-slice class gets the class message;
+    * an out-of-slice class is refused at `new`;
+    * a stateless `extends` chain that is neither rewritten nor refused gets
+      the held read refusal.
+
+    **A class-rewrite error drops every held read refusal, including those
+    on other receivers.** The program is still refused (fail-closed), but it
+    shows fewer diagnostics than it has defects.
+  * **It skips names that have their own codegen floor.** These are listed
+    by `kali_common::member_read_has_own_refusing_floor`: `length` and
+    numeric indexes. The generic read gate never sees those names.
+    Consequence: `check` again exits 0 on `o[0]` and `o.length` for a `const`
+    object literal. `run` refuses them through the array backstop and the
+    `.length` floor. `version` and `pid` have dedicated arms that do **not**
+    refuse, so they stay with the mirror.
+* **A-7. `typeof` correction (controller ruling).** A-3's premise was wrong.
+  Under `run`, `const o={a:1}; typeof o.z` evaluates the operand `o.z`, and
+  that read reaches the read gate. The program is refused with E5506, after
+  the `typeof` arm's `E8001` warning. `check` still skips the `typeof`
+  operand, so this shape is one more `check` / `run` gap. It is not silent.
+* **A-8. R-29 measures `both_reject`.** §6.1 predicted `fail_closed`. The
+  classifier spells FAIL_CLOSED only when node exits 0, and node throws
+  `TypeError: Assignment to constant variable.` Both engines exit 1, so the
+  live verdict is BOTH_REJECT. The register retires R-29 at BOTH_REJECT.
 
 ---
 
@@ -295,8 +369,14 @@ plan was written:
 * **Reads off genuine host objects** (`globalThis.performance.foo`, a value
   returned by a host call), as for member calls.
 * **The `check` / `run` gap** of §3.4.
-* **`typeof` on a program-built value** (A-3): `typeof o.z` prints `0`.
-* **A comma expression whose first operand is host-rooted** (A-1): `(console.log("x"), 7)` still evaluates to `0`.
+* ~~**`typeof` on a program-built value** (A-3): `typeof o.z` prints `0`.~~
+  Refused under `run` since execution (A-7). `check` still exits 0 on it.
+* ~~**A comma expression whose first operand is host-rooted** (A-1): `(console.log("x"), 7)` still evaluates to `0`.~~
+  **Every comma expression** (A-5): R-27 and the `(0, x)` family stay
+  silent wherever the sequence's value is read.
+* **A member read rooted at an index expression** (found in execution):
+  `t[0].v`, where `t[0]` holds a program-built object, still reads `0`
+  (`misc/arena_reclamation_runtime_sandboxed`).
 * **The capability loss of A-4** (`o.z ?? d` on a `const` object literal).
 
 These go into a new
@@ -314,10 +394,10 @@ struck through and states what moved.
 
 | case(s) | baseline | after |
 |---|---|---|
-| `oracle/tier2` R-21f, R-25l, R-27 (both scopes) | `verdict = "silent"` | `fail_closed` |
-| `oracle/tier3` R-29 (both scopes) | `accepts_invalid` | `fail_closed` (A-2) |
+| `oracle/tier2` R-21f, R-25l, ~~R-27~~ (both scopes) | `verdict = "silent"` | `fail_closed` (R-27 did not move, A-5) |
+| `oracle/tier3` R-29 (both scopes) | `accepts_invalid` | ~~`fail_closed` (A-2)~~ `both_reject` (A-2, A-8) |
 | `object/property_key_identity` escaped-quote and member-probe rows (×4, not the from-entries rows) | pins `0` | E5506 |
-| `object/computed_member_static_name` ×2, `soundness/r06_object_init::returned_object_member_read_no_worse`, `soundness/bitwise_compound` ×2 | pin a silent `0`, a dropped write, or E4201 | E5506 |
+| `object/computed_member_static_name` ~~×2~~ ×1 (the absent-property row; ~~the argv-index row~~ did not move, because it already refuses through the array-return backstop: `process.argv` is a host root), `soundness/r06_object_init::returned_object_member_read_no_worse`, `soundness/bitwise_compound` ×2 | pin a silent `0`, a dropped write, or E4201 | E5506 |
 | `misc/arena_reclamation_runtime_sandboxed::function_scratch_is_reclaimed` | `x.v - x.v` cancels to the right total | the program stops reading the field; its subject is reclamation |
 | `browser/promise_all_settled_bundle`, `browser/template_literal_dynamic_import_harness` | succeed | if the gate refuses them, execution stops and asks the human partner before re-pinning |
 
@@ -329,7 +409,7 @@ and goes to the human partner. It is not re-pinned silently.
 The oracle verdict flips trip
 `crates/kali_blast_radius/src/oracle_tests.rs:132`
 (`every_zero_two_row_is_the_class_set_its_live_cases_assert`). The register's
-§0.2 rows for R-21, R-25, R-27 and R-29 are re-derived for the lanes that
+§0.2 rows for R-21, R-25, ~~R-27~~ and R-29 are re-derived for the lanes that
 moved, on the R-12 / R-13 precedent: an entry is retired only when every one
 of its lanes moved. If a SILENT lane leaves the filter, `tools/blast-radius/clusters.json`
 and `docs/superpowers/followups/blast-radius-ranking.md` get their next §6
@@ -347,8 +427,9 @@ this spec cited.
   * **Refuse under `run`:** c8, c9, e1, m6 and q8 verbatim; `mk().a`;
     `id(o).a`; an identifier store to a `const` (R-29's shape, A-2); an
     absent field on a `const` object literal (dot and bracket); the same under
-    `??` (A-4); a nested `p.a.b.c` rooted at a parameter; R-25's spread and
-    R-27's comma (A-1, neutral message); a shadowed
+    `??` (A-4); a nested `p.a.b.c` rooted at a parameter; R-25's spread ~~and
+    R-27's comma~~ (A-1, neutral message; the comma row now pins R-27's
+    silent `b=0` under `run`, A-5); a shadowed
     `let Math = {a:1}; console.log(Math.b)` (any E5506; it already refuses
     at the baseline through the fixed-shape gate).
   * **Under `check`:** the absent-field rows (including `??`) refuse; every

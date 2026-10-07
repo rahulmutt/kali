@@ -241,6 +241,11 @@ Use `E5506` for cases such as:
   - `` `x` is two or more closures away`` (spec §3.1, §1.1)
   - `` `x` is a parameter of `f` `` (spec §3.1, A-1): the phase-1 reason for a captured parameter. Since the parameter-to-local rewrite, a captured parameter reaches both passes as a local, so `check` no longer gives this reason and an unlowered one gets the value-type reason; codegen keeps it as a backstop for a capture that MIR still records as a parameter
   - `a closure that captures a parameter is unavailable with `--compat eval` in the current phase: kali gives the captured parameter a renamed local so a closure can share it, and `eval` code could name the parameter` (`captured_parameter_eval_refused_message`; spec §3.2, A-5; raised by `run` and `check` under `--compat eval` when the parameter-to-local rewrite renames at least one parameter; followups §2.2 records the loss)
+- a member read or a plain `=` store that kali cannot lower, on a receiver or target the program built (an object or array literal, a parameter, a user-function result, or a binding of one); host-rooted receivers are not refused (unresolved-member-read design `docs/superpowers/specs/2026-10-06-unresolved-member-read-design.md`). Every message contains `the receiver is a value this program built`:
+  - ``reading `.name` is unavailable in the current phase: … kali has no lowering for that read; …`` (a member read)
+  - ``this expression is unavailable in the current phase: … kali has no lowering for that read; kali refuses rather than evaluate it to 0`` (an array spread `[...a]` in a position kali cannot lower; comma expressions are not refused, spec A-5)
+  - ``assigning to `x` is unavailable in the current phase: … kali has no lowering for that store; …`` (`x` is `.name` for a member target and the bare name for an identifier target, such as a `const` binding)
+  - `kali check` reports the read message only for an absent field on a `const` object literal or a program-class binding, and only where no more specific refusal applies (spec §3.4, A-6). Every other case is refused by `run` / `build` only.
 - any parse-supported construct that is intentionally not semantically enabled in the current availability context
 
 Boundary clarification:

@@ -782,9 +782,9 @@ pub fn render(root: &Path) -> String {
          - **Outside this ranking's question** — `ACCEPTS_INVALID`, `FL_INTERNAL`, `TIMEOUT`, \
          `NONDETERMINISTIC`. §8.1 *reports* these in the regenerated table and keeps them out \
          of the ranking, whose question is *what silent defect should be fixed next*. {} \
-         entries leave this way: {}. The distinction is not pedantic: R-29's §0.2 row records \
-         kali printing `r=1` at exit 0 with no diagnostic, which is silent by any plain \
-         reading. It is out because accepting a program node rejects is a different defect \
+         entries leave this way: {}. The distinction is not pedantic: R-54's §0.2 row records \
+         kali printing `v=d2` and `g=5` at exit 0 with no diagnostic for a file node rejects \
+         with a `SyntaxError`, which is silent by any plain reading. It is out because accepting a program node rejects is a different defect \
          class from giving a wrong answer to a valid one — not because nothing bad happens.\n\n\
          Their counts are printed because the removal is not cosmetic: it takes the largest \
          reachable count in the whole measurement out of the ranking.\n",
