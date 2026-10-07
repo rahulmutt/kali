@@ -418,6 +418,9 @@ fn a_store_to_an_observed_object_literal_still_refuses() {
         // not a module-scope `const`
         "let literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3;",
         "function f() { const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; } f();",
+        // the assignment's value is used: the fallback yields `left + right`
+        "const literal = { 1: 4, b: 1 }; const y = (literal.b = 3); console.log(y);",
+        "const literal = { 1: 4, b: 1 }; console.log(literal.b = 3);",
         // a parameter of the same name is another occurrence
         "const literal = { 1: 4, 2: 2, b: 1 }; literal.b = 3; function g(literal) { return 1; } console.log(g(2));",
     ] {

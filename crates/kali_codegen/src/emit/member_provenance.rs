@@ -151,10 +151,13 @@ impl<'a> FunctionEmitter<'a> {
     /// source (`""` for a local list) and whose children are specifiers
     /// `Ident(exported) -> [Ident(local)]`; below MIR that is an
     /// `Instruction(Some(source))` over `Value(exported) -> [Value(local)]`,
-    /// the shape of the member read `local.exported`. No other declaration
-    /// kind has text and only children of that shape (`export default` has
-    /// no text; import specifiers are childless). The specifiers have no
-    /// runtime effect: library exports are collected from the AST.
+    /// the shape of the member read `local.exported`. `export default` has
+    /// no text and import specifiers are childless, so neither matches. A
+    /// TS `enum` whose members all have bare-identifier initializers
+    /// (`EnumDecl(name)` over `Ident(member) -> [Ident(init)]`) does match,
+    /// but enums are refused with E3100 before codegen today; skipping such
+    /// a node would drop only those initializer reads. The specifiers have
+    /// no runtime effect: library exports are collected from the AST.
     pub(crate) fn is_export_specifier_list(&self, node: &LirNode) -> bool {
         node.kind == LirNodeKind::Instruction
             && node.text.is_some()
@@ -176,11 +179,16 @@ impl<'a> FunctionEmitter<'a> {
     /// bound to a plain-data object literal (every property an `init` pair,
     /// so no accessor can observe a store), declared once, and every other
     /// occurrence of `name` reachable from the program root is the base of a
-    /// plain `=` dot-member store target (`name.k = v`). Nothing reads the
-    /// object, so a store to it that reached `emit_binary`'s fallback (which
-    /// still evaluates `v`) is unobservable. The measured case is the
-    /// optimizer's enumeration timeline (`kali_optimize::object_fold`): it
-    /// models `delete name.k` / `name.k = v`, folds every `Object.keys` /
+    /// plain `=` dot-member store target (`name.k = v`) in STATEMENT
+    /// position: the direct child (or the one-child statement wrapper's
+    /// child) of the program or a block, so the assignment's value is
+    /// discarded. Nothing reads the object or the assignment's value, so a
+    /// store that reached `emit_binary`'s fallback (which still evaluates
+    /// `v`, then yields `left + right`, never `v`) is unobservable. An
+    /// assignment in value position (`const y = (o.b = 3)`) is not exempt:
+    /// the fallback's value is wrong. The measured case is the optimizer's
+    /// enumeration timeline (`kali_optimize::object_fold`): it models
+    /// `delete name.k` / `name.k = v`, folds every `Object.keys` /
     /// `entries` / `values` of `name` against that model and erases the
     /// delete, leaving the store as the only code that names the object.
     /// The walk is over reachable nodes: folded-away nodes stay in the arena.
@@ -202,23 +210,15 @@ impl<'a> FunctionEmitter<'a> {
                 stack.extend(node.children.iter().skip(1).copied());
                 continue;
             }
-            if node.kind == LirNodeKind::Value && node.text.as_deref() == Some("=") {
-                if let Some(&target) = node.children.first() {
-                    let target_node = self.node(target);
-                    let is_store_base = target_node.kind == LirNodeKind::Value
-                        && target_node.children.len() == 1
-                        && target_node.text.as_deref().is_some_and(|t| !t.is_empty())
-                        && {
-                            let base = self.node(target_node.children[0]);
-                            base.kind == LirNodeKind::Value
-                                && base.children.is_empty()
-                                && base.text.as_deref() == Some(name)
-                        };
-                    if is_store_base {
-                        stack.extend(node.children.iter().skip(1).copied());
-                        continue;
+            if matches!(node.kind, LirNodeKind::Program | LirNodeKind::Block) {
+                for &statement in &node.children {
+                    match self.statement_store_value(statement, name) {
+                        // Only the stored value is evaluated for its reads.
+                        Some(value) => stack.push(value),
+                        None => stack.push(statement),
                     }
                 }
+                continue;
             }
             if node.children.is_empty() && node.text.as_deref() == Some(name) {
                 return false;
@@ -226,6 +226,35 @@ impl<'a> FunctionEmitter<'a> {
             stack.extend(node.children.iter().copied());
         }
         declarations == 1
+    }
+
+    /// `statement` is `name.k = v` in statement position (bare, or under a
+    /// one-child text-less statement wrapper): returns `v`.
+    fn statement_store_value(&self, statement: LirNodeId, name: &str) -> Option<LirNodeId> {
+        let mut assignment = self.node(statement);
+        if assignment.kind == LirNodeKind::Value
+            && assignment.text.is_none()
+            && assignment.children.len() == 1
+        {
+            assignment = self.node(assignment.children[0]);
+        }
+        if assignment.kind != LirNodeKind::Value
+            || assignment.text.as_deref() != Some("=")
+            || assignment.children.len() != 2
+        {
+            return None;
+        }
+        let target = self.node(assignment.children[0]);
+        let is_store_base = target.kind == LirNodeKind::Value
+            && target.children.len() == 1
+            && target.text.as_deref().is_some_and(|t| !t.is_empty())
+            && {
+                let base = self.node(target.children[0]);
+                base.kind == LirNodeKind::Value
+                    && base.children.is_empty()
+                    && base.text.as_deref() == Some(name)
+            };
+        is_store_base.then_some(assignment.children[1])
     }
 
     fn is_module_const_declarator(&self, declarator: LirNodeId) -> bool {
