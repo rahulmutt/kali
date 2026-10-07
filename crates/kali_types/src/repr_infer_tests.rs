@@ -2341,3 +2341,126 @@ fn the_solved_refusals_become_shape_conflicts() {
         );
     }
 }
+
+#[test]
+fn float_pushes_give_f64_elements_through_parameters_and_returns() {
+    let t = reprs(
+        "function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }\n\
+         const data = [];\nfor (let i = 1; i <= 5; i++) data.push(i * 1.5);\nconst avg = averages(data, 2);\nconsole.log(avg.length);\n",
+    );
+    assert_eq!(t.array_element("_start", "data"), Repr::F64);
+    assert_eq!(t.array_element("averages", "xs"), Repr::F64);
+    assert_eq!(t.array_element("_start", "avg"), Repr::F64);
+    assert_eq!(t.growable_return("averages"), Some(Repr::F64));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn a_for_of_loop_variable_takes_the_element_repr() {
+    let t = reprs(
+        "function main() { const ws = []; ws.push(\"a\"); const fs = []; fs.push(0.5); let n = \"\"; let s = 0;\n\
+         for (const w of ws) n = n + w;\nfor (const f of fs) s = s + f;\nfor (const x of fs.slice(0)) s = s + x;\nconsole.log(n, s); }\nmain();\n",
+    );
+    assert_eq!(t.scalar("main", "w"), Repr::String);
+    assert_eq!(t.scalar("main", "f"), Repr::F64);
+    assert_eq!(t.scalar("main", "x"), Repr::F64);
+}
+
+#[test]
+fn a_for_of_over_a_call_takes_the_returned_element_repr() {
+    let t = reprs(
+        "function build() { const out = []; out.push(\"a\"); return out; }\nfor (const line of build()) console.log(line);\n",
+    );
+    assert_eq!(t.scalar("_start", "line"), Repr::String);
+}
+
+#[test]
+fn pop_yields_the_element_repr() {
+    let t = reprs(
+        "function main() { const s = []; s.push(\"x\"); const top = s.pop(); const f = []; f.push(1.5); const v = f.pop(); console.log(top, v); }\nmain();\n",
+    );
+    assert_eq!(t.scalar("main", "top"), Repr::String);
+    assert_eq!(t.scalar("main", "v"), Repr::F64);
+}
+
+#[test]
+fn a_float_search_value_makes_the_array_f64() {
+    // Spec A-14.
+    let t = reprs("function main() { const a = []; a.push(1); let h = 0.5; console.log(a.indexOf(h)); }\nmain();\n");
+    assert_eq!(t.array_element("main", "a"), Repr::F64);
+}
+
+#[test]
+fn a_string_search_value_in_a_number_array_is_the_mixed_element_conflict() {
+    let t = reprs(
+        "function main() { const a = []; a.push(1); console.log(a.includes(\"1\")); }\nmain();\n",
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("used as both strings and numbers")),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn unsupported_elements_are_refused() {
+    for src in [
+        "function main() { const o = []; o.push({a: 1}); console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; o.push(true); console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
+        "function main() { const o = [1, , 2]; o.push(3); console.log(o.length); }\nmain();\n",
+        "function g() { return 1; }\nfunction main() { const o = []; o.push(g); console.log(o.length); }\nmain();\n",
+        "function main() { const inner = []; inner.push(1); const o = []; o.push(inner); console.log(o.length); }\nmain();\n",
+        "function main() { const obj = {a: 1}; const o = []; o.push(obj); console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn number_and_string_elements_are_not_refused_as_unsupported() {
+    let t = reprs(
+        "function main() { const o = []; const n = 2; o.push(1, n, n * 3); const s = []; const w = \"x\"; s.push(w, \"y\"); console.log(o.length, s.length); }\nmain();\n",
+    );
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+// Controller ruling W1: a pushed identifier is judged by its solved scalar
+// repr, not by whether `.length` gave it an element node.
+#[test]
+fn a_pushed_string_whose_length_is_read_is_a_string_element() {
+    let t = reprs(
+        "function main() { const ws = []; ws.push(\"a\"); ws.push(\"bb\"); const out = [];\n\
+         for (const w of ws) { if (w.length > 1) out.push(w); }\n\
+         const z = \"zz\"; if (z.length > 1) out.push(z);\nconsole.log(out.length); }\nmain();\n",
+    );
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert_eq!(t.scalar("main", "w"), Repr::String);
+    assert_eq!(t.array_element("main", "out"), Repr::String);
+}
+
+#[test]
+fn a_pushed_object_or_array_identifier_is_refused() {
+    for src in [
+        "function main() { const x = {a: 1}; const o = []; o.push(x); console.log(o.length); console.log(o[0]); }\nmain();\n",
+        "function main() { const inner = [1]; const o = []; o.push(inner); console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}

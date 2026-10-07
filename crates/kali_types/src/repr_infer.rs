@@ -3673,6 +3673,24 @@ impl ReprInfer {
                         }
                     }
                 }
+                // Growable-runtime-arrays spec §3.5: the loop variable holds
+                // the elements, so it carries their repr (both axes, like an
+                // element read).
+                if let Some(elem) = self.growable_elem_node_of(func, &stmt.right) {
+                    let loop_var = match &stmt.left {
+                        kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+                            decl.declarations.first().map(|d| d.id.clone())
+                        }
+                        kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) => {
+                            Some(name.clone())
+                        }
+                        kali_ast::ForOfLefthand::Expression(_) => None,
+                    };
+                    if let Some(var) = loop_var {
+                        let node = self.scalar_node_for(func, &var);
+                        self.add_edge(elem, node);
+                    }
+                }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
             }
@@ -4982,6 +5000,37 @@ impl ReprInfer {
             .contains_key(&(func.to_string(), name.to_string()))
     }
 
+    /// Growable-runtime-arrays spec §3.4: the element node of a growable value
+    /// expression — a growable binding, a direct call to a growable-returning
+    /// function, or a `slice` of either. `None` for anything else.
+    fn growable_elem_node_of(&mut self, func: &str, expr: &Expression) -> Option<usize> {
+        match crate::array_return::unparen(expr) {
+            Expression::Identifier(name) if self.growable.is_growable_binding(func, name) => {
+                Some(self.array_elem_node_for(func, name))
+            }
+            Expression::CallExpression(call) => {
+                if let Expression::MemberExpression(member) =
+                    crate::array_return::unparen(&call.callee)
+                {
+                    return if member.dot_name() == Some("slice") {
+                        self.growable_elem_node_of(func, &member.object)
+                    } else {
+                        None
+                    };
+                }
+                let Expression::Identifier(callee) = crate::array_return::unparen(&call.callee)
+                else {
+                    return None;
+                };
+                let key = self.array_return_callee(func, callee)?;
+                self.growable
+                    .is_growable(&crate::growable::flow::GrowNode::Return(key.clone()))
+                    .then(|| self.array_elem_node_for(&key, crate::array_return::RETURN_ARRAY_KEY))
+            }
+            _ => None,
+        }
+    }
+
     fn visit_member(&mut self, func: &str, member: &kali_ast::MemberExpression) -> usize {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
@@ -5379,6 +5428,35 @@ impl ReprInfer {
                             self.visit_expr(func, &member.object);
                         }
                         // `.fill` returns the array handle (i64).
+                        self.new_node()
+                    }
+                    // Growable-runtime-arrays spec §3.5: `pop` yields an element.
+                    "pop" => {
+                        let elem = self.growable_elem_node_of(func, &member.object);
+                        self.visit_expr(func, &member.object);
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        if let Some(elem) = elem {
+                            self.add_edge(elem, result);
+                        }
+                        result
+                    }
+                    // Spec A-14: the search value counts as an element store,
+                    // so a float needle makes the array f64 and a
+                    // number/string mismatch is the mixed-store conflict.
+                    "indexOf" | "includes" => {
+                        let elem = self.growable_elem_node_of(func, &member.object);
+                        self.visit_expr(func, &member.object);
+                        let mut nodes = Vec::with_capacity(call.args.len());
+                        for arg in &call.args {
+                            nodes.push(self.visit_expr(func, arg));
+                        }
+                        if let (Some(elem), Some(&needle)) = (elem, nodes.first()) {
+                            self.add_edge(needle, elem);
+                            self.element_store_sources.push((elem, needle));
+                        }
                         self.new_node()
                     }
                     _ => {
@@ -7468,6 +7546,50 @@ impl ReprInfer {
             }
         }
 
+        // Growable-runtime-arrays spec §3.4, A-4: a growable array holds only
+        // numbers or only strings. A mix of the two is the element pass's
+        // conflict above; everything else is refused here. Placed after every
+        // scalar seeding pass (abort/URL/bytes/event handles), so a pushed
+        // identifier is judged by its final solved repr (ruling W1).
+        {
+            use crate::growable::flow::{ElementValue, GrowNode};
+            let mut unsupported: BTreeSet<GrowNode> = BTreeSet::new();
+            for (node, value) in &self.growable_facts.element_values {
+                if !self.growable.is_growable(node) {
+                    continue;
+                }
+                let bad = match (value, node) {
+                    (ElementValue::Unsupported, _) => true,
+                    (ElementValue::Identifier(name), GrowNode::Binding(func, _)) => !self
+                        .growable_push_identifier_ok(func, name, &table, &fields_of, &materialized),
+                    _ => false,
+                };
+                if bad {
+                    unsupported.insert(node.clone());
+                }
+            }
+            for node in self.growable.growable_members() {
+                if let GrowNode::Binding(func, name) = node {
+                    let slot = ObjSlot::ArrayElem(func.clone(), name.clone());
+                    if materialized.contains(&slot) || fields_of.contains_key(&slot) {
+                        unsupported.insert(node.clone());
+                    }
+                }
+            }
+            for node in unsupported {
+                let subject = match &node {
+                    GrowNode::Binding(func, name) => {
+                        kali_common::growable_binding_subject(name, func)
+                    }
+                    GrowNode::Return(func) => kali_common::growable_return_subject(func),
+                    GrowNode::Temp(_) => continue,
+                };
+                table.add_shape_conflict(kali_common::growable_unsupported_element_message(
+                    &subject,
+                ));
+            }
+        }
+
         // Stage P5 T-new-E: finalize the whole-program String()-result deny
         // taint over the seeds + edges collected during the body walk.
         self.resolve_string_result_taint(&mut table);
@@ -7475,25 +7597,25 @@ impl ReprInfer {
         table
     }
 
-    /// True when identifier `name`, pushed into a growable array inside
-    /// `func`, provably holds a plain scalar: it must be a DECLARED binding
-    /// (an undeclared name — `undefined`, `NaN`, … — has no i64 value), and
-    /// must not name a function reference, an array binding, an
-    /// object-shaped binding, or a `for..in` key (all of whose raw
-    /// handles/ordinals would be stored and read back as numbers — silent
-    /// miscompiles). Float/string-ness is separately covered by the pushed
-    /// value node's solved axes at the call site of this check.
-    // Task 7's element-kind check in `emit_table` is its consumer; unused
-    // between the Stage 4 allowlist's retirement (Task 6) and then.
-    #[allow(dead_code)]
+    /// Growable-runtime-arrays spec §3.4, A-4, controller ruling W1: true
+    /// when identifier `name`, pushed into a growable array inside `func`,
+    /// holds a number or a string — judged by the name's SOLVED scalar repr
+    /// (`I64`/`F64`/`String`), not by whether it has an element node (a
+    /// `.length` read gives ANY identifier one, strings included). Refused:
+    /// an undeclared name (`undefined`, `NaN`, …), a function or function
+    /// alias, a `for..in` key, a boolean `const`, an object-shaped binding
+    /// (literal-bound, materialized or field-read), and an array (a growable
+    /// or array-literal/allocation origin, an array-argument parameter, or an
+    /// element-node binding whose scalar is the shared `I64` default).
     fn growable_push_identifier_ok(
         &self,
         func: &str,
         name: &str,
+        table: &ReprTable,
         fields_of: &BTreeMap<ObjSlot, Vec<String>>,
         materialized: &BTreeSet<ObjSlot>,
     ) -> bool {
-        if self.functions.contains_key(name) {
+        if self.functions.contains_key(name) || self.fn_alias_target(func, name).is_some() {
             return false;
         }
         let local = self.is_locally_declared(func, name);
@@ -7507,38 +7629,48 @@ impl ReprInfer {
         } else {
             func
         };
-        if self
-            .for_in_key_names
-            .contains(&(scope.to_string(), name.to_string()))
+        let key = (scope.to_string(), name.to_string());
+        if self.for_in_key_names.contains(&key)
             || self
                 .for_in_key_names
                 .contains(&(func.to_string(), name.to_string()))
+            || table.binding_is_boolean_const(scope, name)
         {
             return false;
         }
-        if self
-            .array_elem_node
-            .contains_key(&(scope.to_string(), name.to_string()))
-        {
-            return false;
-        }
+        // Object-shaped: `obj_literal_slots` covers every literal-bound slot
+        // (an object literal reaches `fields_of`/`materialized` only when its
+        // fields are read); the taken object-pass locals cover the rest.
         let slot = ObjSlot::Binding(scope.to_string(), name.to_string());
         let func_slot = ObjSlot::Binding(func.to_string(), name.to_string());
-        // Task 6 review fix (silent-miscompile close): an object-LITERAL-bound
-        // name (`const obj = {a:1}; o.push(obj)`) reaches
-        // `obj_materialized`/`obj_fields_of` only when its fields are READ
-        // somewhere (`resolve_objects`); a never-field-read literal passed
-        // this guard and its raw object pointer was stored as an i64 element
-        // (`o[0]` printed the pointer's low bits vs node's `{ a: 1 }`).
-        // `obj_literal_slots` covers every literal-bound slot and is never
-        // `mem::take`n (unlike `object_initialized_bindings`, `obj_fields_of`
-        // and `obj_materialized`, all consumed earlier in `emit_table` —
-        // which also made the two checks below dead; they now consult the
-        // taken locals passed in by the promotion loop).
-        if self.obj_literal_slots.contains(&slot) || self.obj_literal_slots.contains(&func_slot) {
+        if self.obj_literal_slots.contains(&slot)
+            || self.obj_literal_slots.contains(&func_slot)
+            || materialized.contains(&slot)
+            || fields_of.contains_key(&slot)
+            || table.object_initialized_binding(scope, name)
+        {
             return false;
         }
-        !materialized.contains(&slot) && !fields_of.contains_key(&slot)
+        // Positive array evidence, whatever the scalar axis solved to.
+        let node = crate::growable::flow::GrowNode::Binding(scope.to_string(), name.to_string());
+        if self.growable.is_growable_binding(scope, name)
+            || self.growable_facts.literal_origins.contains(&node)
+            || self.growable_facts.plain_origins.contains(&node)
+            || self.const_literal_array_bindings.contains(&key)
+            || self.const_bad_literal_array_bindings.contains(&key)
+            || self.const_computed_literal_array_bindings.contains(&key)
+            || self.let_literal_array_bindings.contains(&key)
+            || table.is_non_scalar_param(scope, name)
+        {
+            return false;
+        }
+        match table.scalar(scope, name) {
+            Repr::String | Repr::F64 => true,
+            // `I64` is also every aggregate's untouched default: an
+            // element-node binding with no string/float solve is an array.
+            Repr::I64 => !self.array_elem_node.contains_key(&key),
+            _ => false,
+        }
     }
 }
 
