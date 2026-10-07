@@ -803,115 +803,10 @@ fn for_in_key_is_seeded_and_not_a_string_repr_by_default() {
     assert_eq!(t.scalar("m", "c"), Repr::I64);
 }
 
-// ---- throw-fallout Stage 4: growable-array promotion gate ----
-
-#[test]
-fn growable_promotion_fires_for_safe_numeric_push_bindings() {
-    let t = reprs(
-        "function main() { const o = []; o.push(1); o.push(2); \
-         console.log(o.length); console.log(o[0]); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_accepts_identifier_and_arithmetic_pushes() {
-    let t = reprs(
-        "function main() { const o = []; \
-         for (let i = 0; i < 10; i++) { o.push(i * 2); } \
-         for (const item of [1, 2]) { o.push(item); } \
-         console.log(o.length); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_blocks_non_i64_pushes() {
-    // Float push.
-    let t =
-        reprs("function main() { const o = []; o.push(1.5); console.log(o.length); }\nmain();\n");
-    assert!(!t.is_growable_array_binding("main", "o"));
-    // Float-solved identifier push.
-    let t = reprs(
-        "function main() { const f = 1 / 2; const o = []; o.push(f); console.log(o.length); }\nmain();\n",
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-    // Undeclared identifier push (`undefined` has no i64 value).
-    let t = reprs(
-        "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_promotes_uniform_string_pushes() {
-    // Task 3: a uniform-String push set promotes, with the element axis
-    // solving `Repr::String` (deliberate flip of the pre-Task-3 pin above,
-    // which used to assert a string push blocks promotion — see the Task 3
-    // report for the recorded intent).
-    let t = reprs(
-        "function main() { const o = []; o.push(\"a\"); o.push(\"b\"); \
-         console.log(o[0]); console.log(o.length); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-    assert_eq!(t.array_element("main", "o"), Repr::String);
-    assert!(t.shape_conflicts().is_empty());
-}
-
-#[test]
-fn growable_promotion_accepts_string_identifier_pushes() {
-    // A declared (non-function/array/object/for-in-key) string-valued
-    // identifier push is allowed — the Task 2 identifier guard is
-    // repr-agnostic and stays intact for the String lane too.
-    let t = reprs(
-        "function main() { const s = \"x\"; const o = []; o.push(s); \
-         console.log(o.length); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-    assert_eq!(t.array_element("main", "o"), Repr::String);
-}
-
-#[test]
-fn growable_promotion_rejects_mixed_i64_and_string_pushes() {
-    // Task 3 fail-closed requirement: a MIXED i64+String push set on the
-    // SAME growable candidate must not silently fall back to the
-    // pre-promotion no-op lane — it is a shape conflict (E5506), mirroring
-    // the pre-existing mixed-store rejection idiom for ordinary array
-    // element stores.
-    let t = reprs(
-        "function main() { const o = []; o.push(1); o.push(\"a\"); \
-         console.log(o.length); }\nmain();\n",
-    );
-    assert!(
-        !t.shape_conflicts().is_empty(),
-        "expected a shape conflict for a mixed i64/String push set"
-    );
-    assert!(
-        t.shape_conflicts()
-            .iter()
-            .any(|m| m.contains("used as both strings and numbers")),
-        "shape_conflicts: {:?}",
-        t.shape_conflicts()
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_blocks_escaping_and_module_scope_bindings() {
-    // Escaping (call argument) — not a candidate.
-    let t = reprs(
-        "function f(x) { return x; }\nfunction main() { const o = []; o.push(1); f(o); }\nmain();\n",
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-    // Module-scope push receiver — deliberately not analyzed.
-    let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
-    assert!(!t.is_growable_array_binding("_start", "o"));
-}
-
 // ---- F-AB-2 lockstep tripwire ----------------------------------------------
 //
-// These pin the two `__kali_fn_N` sets the shared Phase-A descent (walks 1-3)
-// and Phase B (walk 4) build. The product code carries a hard
+// These pin the two `__kali_fn_N` sets the shared Phase-A descent (walks 1-2)
+// and Phase B (walk 3) build. The product code carries a hard
 // `debug_assert!(seeded ⊆ registered)` in `assert_nested_fn_lockstep`; these
 // tests pin BOTH directions — that common callback positions are in exact
 // lockstep (seeded == registered) and that the KNOWN-exotic positions form the
@@ -935,7 +830,7 @@ fn nested_fn_lockstep_common_positions_are_equal() {
     ));
     assert!(
         registered.contains("cb"),
-        "walks 1-3 must register the fn-expr id; registered={registered:?}"
+        "walks 1-2 must register the fn-expr id; registered={registered:?}"
     );
     assert_eq!(
         registered, seeded,
@@ -946,7 +841,7 @@ fn nested_fn_lockstep_common_positions_are_equal() {
 #[test]
 fn nested_fn_lockstep_ternary_and_arg_positions_are_equal() {
     // Ternary branch + bare call-argument callback — both common positions
-    // that walk 4 seeds. Still exact lockstep.
+    // that walk 3 seeds. Still exact lockstep.
     let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
         "function run(cb){ return cb; }\n\
              let g = true ? function a(){ let x = 1; } : function b(){ let y = 2; };\n\
@@ -964,7 +859,7 @@ fn nested_fn_lockstep_ternary_and_arg_positions_are_equal() {
 fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
     // F-AB-2 exotic position: a fn-expr inside an object literal passed
     // DIRECTLY as a call argument (`sink({ f: function(){…} })`). The shared
-    // Phase-A descent (walks 1-3) descends the object-property value and
+    // Phase-A descent (walks 1-2) descends the object-property value and
     // REGISTERS it, but Phase B's walk-4 `_` arm has no `ObjectExpression`
     // recursion, so it is NOT seeded. This is the documented, allowed reverse
     // gap `registered − seeded` — pinned here rather than by a hard
@@ -975,15 +870,15 @@ fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
     ));
     assert!(
         registered.contains("exotic"),
-        "walks 1-3 must register the exotic-position fn-expr; registered={registered:?}"
+        "walks 1-2 must register the exotic-position fn-expr; registered={registered:?}"
     );
     assert!(
         !seeded.contains("exotic"),
-        "walk 4 must NOT seed the object-literal-as-direct-call-arg position \
+        "walk 3 must NOT seed the object-literal-as-direct-call-arg position \
          (F-AB-2 known gap); seeded={seeded:?}"
     );
     // The SAFE-direction invariant the debug_assert enforces still holds:
-    // everything walk 4 seeds was registered by walks 1-3.
+    // everything walk 3 seeds was registered by walks 1-2.
     assert!(
         seeded.is_subset(&registered),
         "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
@@ -1035,11 +930,11 @@ fn nested_fn_lockstep_yield_operand_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("yieldfn"),
-        "walks 1-3 must register the yield-operand fn-expr; registered={registered:?}"
+        "walks 1-2 must register the yield-operand fn-expr; registered={registered:?}"
     );
     assert!(
         !seeded.contains("yieldfn"),
-        "walk 4 must NOT seed the yield-operand position (F-AB-2 known gap); \
+        "walk 3 must NOT seed the yield-operand position (F-AB-2 known gap); \
          seeded={seeded:?}"
     );
     assert!(
@@ -1072,12 +967,12 @@ fn nested_fn_lockstep_optional_chain_operand_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("optfn"),
-        "walks 1-3 must register the optional-chain-operand fn-expr; \
+        "walks 1-2 must register the optional-chain-operand fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("optfn"),
-        "walk 4 must NOT seed the optional-chain-operand position (F-AB-2 \
+        "walk 3 must NOT seed the optional-chain-operand position (F-AB-2 \
          known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1111,12 +1006,12 @@ fn nested_fn_lockstep_bare_array_literal_call_arg_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("barecallarg"),
-        "walks 1-3 must register the bare-array-literal-call-arg fn-expr; \
+        "walks 1-2 must register the bare-array-literal-call-arg fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("barecallarg"),
-        "walk 4 must NOT seed the bare-array-literal-call-arg position \
+        "walk 3 must NOT seed the bare-array-literal-call-arg position \
          (F-AB-2 known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1150,12 +1045,12 @@ fn nested_fn_lockstep_doubly_nested_array_literal_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("nestedfn"),
-        "walks 1-3 must register the doubly-nested-array-literal fn-expr; \
+        "walks 1-2 must register the doubly-nested-array-literal fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("nestedfn"),
-        "walk 4 must NOT seed the doubly-nested-array-literal position \
+        "walk 3 must NOT seed the doubly-nested-array-literal position \
          (F-AB-2 known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1193,12 +1088,12 @@ fn nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("spreadfn"),
-        "walks 1-3 must register the array-literal-spread fn-expr; \
+        "walks 1-2 must register the array-literal-spread fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("spreadfn"),
-        "walk 4 must NOT seed the array-literal-spread position (F-AB-2 \
+        "walk 3 must NOT seed the array-literal-spread position (F-AB-2 \
          known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1950,21 +1845,6 @@ fn array_return_absent_for_programs_without_array_returns() {
     assert!(t.shape_conflicts().is_empty());
 }
 
-// Ruling R3: a growable binding is never admitted as an array return.
-#[test]
-fn array_return_growable_const_literal_taints_growable() {
-    let t = reprs(
-        "function f() { const a = []; a.push(1); a.push(2); return a; }\n\
-         function main() { const b = f(); console.log(b[1]); }\nmain();\n",
-    );
-    assert_eq!(t.array_return("f"), None);
-    assert_eq!(
-        t.array_return_taint("f"),
-        Some(kali_common::ARRAY_RETURN_GROWABLE)
-    );
-    assert!(!t.is_call_bound_array_binding("main", "b"));
-}
-
 // Obligation 2: a `const` literal is the literal class only when its elements
 // are integer-shaped.
 #[test]
@@ -2340,4 +2220,122 @@ fn a_let_from_a_parameter_with_numeric_call_sites_is_proven_numeric() {
 fn a_let_from_a_parameter_with_a_string_call_site_is_not_proven_numeric() {
     let t = reprs("function f(kp){ let k = kp; const g=()=>k; return g(); } f(\"a\");");
     assert!(!t.binding_is_proven_numeric("f", "k"));
+}
+
+// ---- growable-runtime-arrays: the solve, published --------------------------
+
+#[test]
+fn a_returned_growable_array_reaches_the_call_bound_binding() {
+    let t = reprs(
+        "function build(n) { const out = []; for (let i = 0; i < n; i++) out.push(i * i); return out; }\n\
+         const xs = build(5);\nconsole.log(xs.length, xs[2]);\n",
+    );
+    assert!(t.is_growable_array_binding("build", "out"));
+    assert!(t.is_growable_array_binding("_start", "xs"));
+    assert_eq!(t.growable_return("build"), Some(Repr::I64));
+    assert_eq!(t.array_return("build"), None);
+    assert_eq!(t.array_return_taint("build"), None);
+    assert!(!t.is_growable_local_only("build", "out"));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn an_argument_makes_the_parameter_growable() {
+    let t = reprs(
+        "function add(a) { a.push(2); }\n\
+         function main() { const xs = [1]; add(xs); console.log(xs.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "xs"));
+    assert!(t.is_growable_array_binding("add", "a"));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn an_alias_shares_the_growable_array_and_escapes() {
+    let t = reprs(
+        "function main() { const a = []; a.push(5); const b = a; b.push(6); console.log(a.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "a"));
+    assert!(t.is_growable_array_binding("main", "b"));
+    assert!(!t.is_growable_local_only("main", "a"));
+}
+
+#[test]
+fn a_slice_result_is_growable_when_its_receiver_is() {
+    let t = reprs(
+        "function main() { const a = []; a.push(1); const t = a.slice(0); console.log(t.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "t"));
+}
+
+#[test]
+fn a_module_scope_growable_array_is_growable_but_never_local_only() {
+    let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
+    assert!(t.is_growable_array_binding("_start", "o"));
+    assert!(!t.is_growable_local_only("_start", "o"));
+}
+
+#[test]
+fn a_growable_array_that_stays_in_its_function_is_local_only() {
+    let t = reprs("function main() { const o = []; o.push(1); console.log(o.length); }\nmain();\n");
+    assert!(t.is_growable_array_binding("main", "o"));
+    assert!(t.is_growable_local_only("main", "o"));
+}
+
+#[test]
+fn a_returned_literal_nobody_mutates_stays_on_the_array_return_lane() {
+    // Spec A-2, measured on `ret1.js`: this program runs today.
+    let t = reprs("function f() { const a = [1, 2, 3]; return a; }\nconst xs = f();\nconsole.log(xs.length);\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert_eq!(t.growable_return("f"), None);
+    assert!(!t.is_growable_array_binding("_start", "xs"));
+}
+
+#[test]
+fn string_pushes_give_string_elements_across_the_return() {
+    let t = reprs(
+        "function build(n) { const out = []; let w = \"a\"; for (let i = 0; i < n; i++) { out.push(w); w = w + \"b\"; } return out; }\n\
+         const ws = build(3);\nconsole.log(ws.length);\n",
+    );
+    assert_eq!(t.array_element("build", "out"), Repr::String);
+    assert_eq!(t.array_element("_start", "ws"), Repr::String);
+    assert_eq!(t.growable_return("build"), Some(Repr::String));
+}
+
+#[test]
+fn a_mixed_number_and_string_push_set_is_the_existing_element_conflict() {
+    // Spec A-4.
+    let t = reprs("function main() { const o = []; o.push(1); o.push(\"a\"); console.log(o.length); }\nmain();\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("used as both strings and numbers")),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn the_solved_refusals_become_shape_conflicts() {
+    for (src, needle) in [
+        (
+            "function total(a) { return a.length; }\nconst xs = []; xs.push(1); const p = new Array(2);\nconsole.log(total(xs), total(p));\n",
+            "`a` in `total` would hold both a growable array",
+        ),
+        (
+            "const out = []; out.push(1);\nfunction size() { return out.length; }\nconsole.log(size());\n",
+            "function `size` uses the module-level growable array `out`",
+        ),
+        (
+            "function main() { const o = []; o.push(1); const f = () => o.length; console.log(f()); }\nmain();\n",
+            "the growable array `o` in `main` is captured",
+        ),
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts().iter().any(|m| m.contains(needle)),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
 }

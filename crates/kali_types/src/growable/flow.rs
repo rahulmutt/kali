@@ -20,10 +20,6 @@
 //! The walk that fills [`GrowFacts`] is `super::facts`; the checks that turn
 //! uses into refusals are `super::positions`.
 
-// Consumed by the fact walk (Task 4) and repr inference (Task 6); unused until
-// then.
-#![allow(dead_code)]
-
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The synthetic module-scope function, as `repr_infer` keys it.

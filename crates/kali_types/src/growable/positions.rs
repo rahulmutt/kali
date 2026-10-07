@@ -1,6 +1,3 @@
-// Consumed by repr inference (Task 6); unused until then.
-#![allow(dead_code)]
-
 //! Growable-runtime-arrays spec §3.3, §3.5-§3.6, A-3, A-6, A-8: every
 //! refusal the solved growable property implies, as message text. Pure: the
 //! facts and the solution in, strings out; repr inference turns each into a

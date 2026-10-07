@@ -6,9 +6,6 @@
 //! value in a position (uses), every `for-of` frame and every stored element
 //! value. It decides nothing: `flow::solve` and `positions` do.
 
-// Consumed by repr inference (Task 6); unused until then.
-#![allow(dead_code)]
-
 use std::collections::BTreeMap;
 
 use kali_ast::{

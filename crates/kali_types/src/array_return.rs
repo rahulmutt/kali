@@ -508,6 +508,10 @@ pub(crate) struct ArrayReturnFacts {
     /// candidate forms; like an anonymous `__kali_fn_N` they are also never
     /// tainted and keep their pre-project lane.
     pub(crate) non_taintable: BTreeSet<String>,
+    /// Growable-runtime-arrays spec §3.1: functions whose return value is in
+    /// a growable component. They return a growable handle, so they are
+    /// neither admitted to this lane nor tainted by it.
+    pub(crate) growable_returning: BTreeSet<String>,
 }
 
 /// One call-edge argument position, as the array-fed param fact (A3) sees it.
@@ -577,6 +581,7 @@ pub(crate) fn solve(
         .iter()
         .filter(|(f, args)| {
             facts.is_candidate(f)
+                && !facts.growable_returning.contains(*f)
                 && !facts.falls_off_end.contains(*f)
                 && !args.is_empty()
                 && args.iter().all(syntactically_possible)
@@ -658,6 +663,9 @@ pub(crate) fn solve(
                 .collect();
             let mut tainted = BTreeMap::new();
             for (f, args) in &facts.returns {
+                if facts.growable_returning.contains(f) {
+                    continue;
+                }
                 // Ruling R8: an uncalled, non-escaping function's result
                 // reaches no kali code; it keeps its pre-project lane.
                 if taint_exempt.contains(f) {

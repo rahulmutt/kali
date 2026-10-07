@@ -640,3 +640,24 @@ fn named_iife_is_not_a_call() {
     let arg = first_return_arg(src).expect("argument");
     assert_eq!(arg_shape(&arg), ArgShape::Other);
 }
+
+#[test]
+fn a_growable_returning_function_is_neither_admitted_nor_tainted() {
+    let mut facts = ArrayReturnFacts::default();
+    facts.declaration_counts.insert("f".to_string(), 1);
+    facts.candidate_forms.insert("f".to_string());
+    facts.called.insert("f".to_string());
+    facts.returns.insert(
+        "f".to_string(),
+        vec![ReturnArg::BadArray(kali_common::ARRAY_RETURN_LET_LITERAL)],
+    );
+    let none: BTreeSet<String> = BTreeSet::new();
+    let params: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    // Without the growable fact, the `let` literal return taints `f`.
+    let before = solve(&facts, &[], &params, &none, &|_, _| false);
+    assert!(before.tainted.contains_key("f"));
+    facts.growable_returning.insert("f".to_string());
+    let after = solve(&facts, &[], &params, &none, &|_, _| false);
+    assert!(after.array_returning.is_empty());
+    assert!(after.tainted.is_empty());
+}

@@ -192,11 +192,11 @@ fn an_array_literal_element_store_refuses_even_with_a_literal_index() {
             "{source}: one owner per refusal: {messages:?}"
         );
     }
-    // A nameless index that does NOT fold stays with the nameless gate, still
-    // exactly once.
+    // Growable-runtime-arrays moved pin (Task 6): an index write makes the
+    // literal a growable array (spec §3.1), so a nameless index store on it is
+    // no longer the nameless gate's (it used to refuse exactly once, COMPUTED).
     let unfoldable = e5506_messages("const a = [5, 6]; let i = 1; a[i] = 9;");
-    assert_eq!(unfoldable.len(), 1, "{unfoldable:?}");
-    assert!(unfoldable[0].contains(COMPUTED), "{unfoldable:?}");
+    assert!(!any_contains(&unfoldable, COMPUTED), "{unfoldable:?}");
     // A literal-array READ with a folded index keeps its lane: measured,
     // `run` prints the element.
     assert!(e5506_messages("const a = [5, 6]; const i = 1; console.log(a[i]);").is_empty());
@@ -283,8 +283,9 @@ fn the_admit_list_does_not_reach_past_the_lanes_codegen_actually_has() {
     for source in [
         // A string-element array LITERAL, read and store: codegen registers no
         // `array_bindings` entry for a literal, so both refuse at `run`.
+        // (The store twin, `a[i] = "z"`, moved with growable-runtime-arrays
+        // Task 6: an index write makes the literal a growable array.)
         "const a = [\"x\", \"y\"]; let i = 0; console.log(a[i]);",
-        "const a = [\"x\", \"y\"]; let i = 0; a[i] = \"z\";",
         // A shadowing parameter must not fold the outer `const` of the same
         // name.
         "const k = \"b\"; const o = {a:1, b:2}; function f(k) { return o[k]; }",
@@ -596,9 +597,10 @@ const LIT_LEN: &str = "assigning to `.length` of a literal array is unavailable"
 
 #[test]
 fn each_in_place_mutator_on_a_literal_array_refuses_at_top_level_and_in_a_function() {
+    // Growable-runtime-arrays moved pin (Task 6): `a.push(4)` and `a.pop()` make
+    // the literal a growable array at every scope (spec §3.1), so they are no
+    // longer literal-array mutators.
     for call in [
-        "a.push(4)",
-        "a.pop()",
         "a.shift()",
         "a.unshift(0)",
         "a.splice(0, 1)",
@@ -615,15 +617,10 @@ fn each_in_place_mutator_on_a_literal_array_refuses_at_top_level_and_in_a_functi
             let messages = e5506_messages(&source);
             assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
         }
-        // An in-function `push` promotes the literal to the growable lane,
-        // which keeps node's output (guarded by the do-not-refuse test).
-        if call != "a.push(4)" {
-            let source = format!(
-                "function main(){{ const a = [1,2,3]; {call}; console.log(a[0]); }} main();"
-            );
-            let messages = e5506_messages(&source);
-            assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
-        }
+        let source =
+            format!("function main(){{ const a = [1,2,3]; {call}; console.log(a[0]); }} main();");
+        let messages = e5506_messages(&source);
+        assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
     }
 }
 
@@ -642,9 +639,12 @@ fn a_length_write_on_a_literal_array_refuses_for_every_operator() {
 
 #[test]
 fn wrapped_nameless_and_captured_literal_receivers_refuse() {
+    // Growable-runtime-arrays moved pin (Task 6): a wrapped `pop` receiver the
+    // fact walk sees through makes the literal growable (spec §3.1), so the
+    // wrapper spellings are pinned on `reverse`, which is no growable demand.
     for source in [
-        "const a = [1,2,3]; (a).pop();",
-        "const a = [1,2,3]; (a as number[]).pop();",
+        "const a = [1,2,3]; (a).reverse();",
+        "const a = [1,2,3]; (a as number[]).reverse();",
         "const a = [1,2,3]; a[\"pop\"]();",
         "const a = [1,2,3]; a?.pop();",
         "const a = [1,2,3]; a.push?.(4);",
@@ -681,7 +681,11 @@ fn the_plain_lane_refuses_the_reorderers_and_an_optional_call_but_not_fill() {
 
 #[test]
 fn an_object_element_literal_gets_exactly_one_mutator_refusal() {
-    let messages = e5506_messages("function main(){ const a = [{v:1},{v:2}]; a.pop(); } main();");
+    // Growable-runtime-arrays moved pin (Task 6): `pop` would make `a` growable
+    // (spec §3.1; its object elements are Task 7's refusal), so the
+    // one-refusal property is pinned on `reverse`, which is no growable demand.
+    let messages =
+        e5506_messages("function main(){ const a = [{v:1},{v:2}]; a.reverse(); } main();");
     let count = messages
         .iter()
         .filter(|m| m.contains(MUT) || m.contains(LIT))
@@ -710,16 +714,13 @@ fn growable_push_reads_and_non_mutators_on_a_literal_do_not_refuse() {
 }
 
 #[test]
-fn a_push_mixed_with_pop_in_a_function_refuses_the_pop_in_the_resolve_pass() {
-    // Spec A-3: the resolve pass reports this before repr_infer's growable reject.
+fn a_push_mixed_with_pop_in_a_function_is_one_growable_array() {
+    // Growable-runtime-arrays moved pin (Task 6): `push` and `pop` are both
+    // growable demands (spec §3.1), so the literal is a growable array and the
+    // literal-array mutator refusal no longer claims the `pop`.
     let messages =
         e5506_messages("function main(){ const a = [1,2]; a.push(3); a.pop(); } main();");
-    assert!(
-        messages
-            .iter()
-            .any(|m| m.contains(LIT) && m.contains("`.pop()`")),
-        "{messages:?}"
-    );
+    assert!(!any_contains(&messages, LIT), "{messages:?}");
 }
 
 #[test]
@@ -758,10 +759,11 @@ fn an_inner_binding_shadowing_an_outer_literal_is_not_a_literal_receiver() {
         );
     }
     // The outer literal itself still refuses, and so does an inner literal
-    // that shadows an outer non-literal.
+    // that shadows an outer non-literal. (Growable-runtime-arrays moved pin,
+    // Task 6: these used `a.pop()`, which now makes the literal growable.)
     for source in [
-        "const a = [1,2,3]; class Box { sort(){ return 7; } } function main(){ const a = new Box(); a.sort(); } main(); a.pop();",
-        "const a = 1; function main(){ const a = [1,2,3]; a.pop(); } main();",
+        "const a = [1,2,3]; class Box { sort(){ return 7; } } function main(){ const a = new Box(); a.sort(); } main(); a.reverse();",
+        "const a = 1; function main(){ const a = [1,2,3]; a.reverse(); } main();",
     ] {
         let messages = e5506_messages(source);
         assert!(any_contains(&messages, LIT), "{source}: {messages:?}");
@@ -944,7 +946,10 @@ fn the_nearest_binding_wins() {
 
 #[test]
 fn a_literal_array_mutator_gets_one_diagnostic_not_two() {
-    let messages = e5506_messages("const a=[1,2,3]; a.pop(); console.log(a.length);");
+    // Growable-runtime-arrays moved pin (Task 6): `a.pop()` made `a` a growable
+    // array (spec §3.1: a popped literal is a source), so this pins the refusal
+    // plumbing on `reverse`, which is no growable demand.
+    let messages = e5506_messages("const a=[1,2,3]; a.reverse(); console.log(a.length);");
     assert_eq!(messages.len(), 1, "{messages:?}");
     assert!(!messages[0].contains(UNRES));
 }
