@@ -218,27 +218,54 @@ fn a_member_read_on_a_program_built_root_refuses() {
         "const o={a:1}; console.log(\"z=\"+o[\"z\"]);",
         "const o={a:1}; console.log(o.z ?? 5);",
         "const o={a:1}; console.log(\"z=\"+o?.z);",
-        // spread and comma reach the same fallback (spec A-1)
+        // a spread reaches the same fallback (spec A-1)
         "const a=[1,2]; console.log([...a]);",
-        "function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bump(), 7); console.log(\"b=\" + b); } main();",
     ] {
         assert_e5506(&diagnostics_for(source), UNRES_READ, source);
     }
 }
 
 #[test]
-fn spread_and_comma_get_the_neutral_message() {
+fn spread_gets_the_neutral_message() {
+    let source = "const a=[1,2]; console.log([...a]);";
+    let diagnostics = diagnostics_for(source);
+    assert_e5506(&diagnostics, "this expression is unavailable", source);
+    assert!(
+        !diagnostics.iter().any(|d| d.message.contains("reading `.")),
+        "{source}: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn a_comma_expression_is_not_gated() {
+    // Human partner's ruling 2026-10-07: the `(0, x)` idiom must keep
+    // working, so a comma expression is outside the read gate (R-27 residue).
     for source in [
-        "const a=[1,2]; console.log([...a]);",
         "function main(){ let b = (1, 7); console.log(\"b=\" + b); } main();",
+        "function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bump(), 7); console.log(\"b=\" + b); } main();",
+        "const o={a:1}; const w=(0,o); console.log(Object.hasOwn(w,\"a\"));",
     ] {
-        let diagnostics = diagnostics_for(source);
-        assert_e5506(&diagnostics, "this expression is unavailable", source);
-        assert!(
-            !diagnostics.iter().any(|d| d.message.contains("reading `.")),
-            "{source}: {diagnostics:?}"
+        assert_eq!(
+            read_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
         );
     }
+}
+
+#[test]
+fn a_numeric_index_read_keeps_the_array_backstop_message() {
+    // The numeric-index arm owns `o[0]` and ends in its own floor; the
+    // generic read gate never sees it (precedence, Task 7 ruling 2).
+    let source = "const o = {42n: 1}; console.log(o[0]);";
+    let diagnostics = diagnostics_for(source);
+    assert_e5506(
+        &diagnostics,
+        "no lane proves this receiver is an array",
+        source,
+    );
+    assert_eq!(read_refusals(source), 0, "{source}: {diagnostics:?}");
 }
 
 #[test]

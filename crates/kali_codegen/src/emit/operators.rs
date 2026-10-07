@@ -801,7 +801,18 @@ impl<'a> FunctionEmitter<'a> {
                 // program built refuses rather than read the placeholder.
                 // Host-rooted receivers keep warn+0 (builtin aliases such as
                 // `Object.freeze(Math.log2)` store this `0` and never read it).
-                if !is_unary_operator_text(op) && self.unresolved_member_read_refuses(arg) {
+                // A comma expression (LIR text `""`, spec A-1) is not gated: the
+                // `(0, x)` indirection idiom's placeholder is usually stored and
+                // never read, and refusing it broke correct programs. R-27's
+                // `(1, 7)` printing `0` is residue (human partner's ruling,
+                // 2026-10-07). A spread (`"spread"`) still refuses. Names with
+                // their own arm above (`length`, a numeric index) never get
+                // here; the `check` mirror defers to those arms' floors
+                // (`kali_common::member_read_has_own_refusing_floor`).
+                if !is_unary_operator_text(op)
+                    && !op.is_empty()
+                    && self.unresolved_member_read_refuses(arg)
+                {
                     return self.deny_e5506(
                         function,
                         &kali_common::unresolved_member_read_unavailable_message(op),

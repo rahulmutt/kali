@@ -10,6 +10,11 @@ pub struct ResolutionResult {
     pub scopes: IndexMap<NodeId, Scope>,
     pub global_scope: Scope,
     pub repr_table: kali_common::ReprTable,
+    /// Read-mirror refusals on class-instance receivers (unresolved-member-read
+    /// spec §3.4), held back so the class-instance rewrite's more specific
+    /// refusal of the same read speaks first. The driver adds them only when
+    /// that rewrite reports no error.
+    pub deferred_read_mirror_diagnostics: Vec<Diagnostic>,
 }
 
 /// Type / name-resolution context.
@@ -50,6 +55,8 @@ pub struct TypeContext {
     /// call callees (the call mirror owns them) and `typeof` operands
     /// (unresolved-member-read spec §3.4, A-3).
     pub(crate) read_mirror_skipped_members: HashSet<usize>,
+    /// See `ResolutionResult::deferred_read_mirror_diagnostics`.
+    pub(crate) deferred_read_mirror_diagnostics: Vec<Diagnostic>,
     /// Stack of enclosing function names; module scope is `_start`.
     pub(crate) current_function: Vec<String>,
     /// Stack of scope ids parallel to `current_function`: the `ScopeType::Function`
@@ -116,6 +123,7 @@ impl TypeContext {
             program_classes: None,
             assigned_property_names: std::collections::BTreeSet::new(),
             read_mirror_skipped_members: HashSet::new(),
+            deferred_read_mirror_diagnostics: Vec::new(),
             current_function: vec!["_start".to_string()],
             current_function_scopes: Vec::new(),
             declared_binding_names: HashSet::new(),
@@ -265,6 +273,7 @@ impl TypeContext {
 
     pub fn clear_diagnostics(&mut self) {
         self.diagnostics.clear();
+        self.deferred_read_mirror_diagnostics.clear();
         self.has_generator_function = false;
         self.has_async_generator_function = false;
         self.has_generator_yield_delegation = false;

@@ -875,6 +875,12 @@ fn analyze_source_file_inner(
         // the program as written, then re-infer reprs over the rewritten
         // program. A program with nothing to rewrite is untouched.
         let rewrite = kali_types::class_instances::rewrite_class_instances(&mut parsed.statements);
+        // Unresolved-member-read spec §3.4: the read mirror's refusals on
+        // class-instance receivers defer to this pass, which refuses an
+        // undeclared field by name; they speak only when it stayed quiet.
+        if !has_errors(&rewrite.diagnostics) {
+            diagnostics.extend(resolved.deferred_read_mirror_diagnostics);
+        }
         diagnostics.extend(rewrite.diagnostics);
         if has_errors(&diagnostics) {
             return Err(diagnostics);
@@ -1273,3 +1279,7 @@ main();
 #[cfg(test)]
 #[path = "compile_cache_tests.rs"]
 mod compile_cache_tests;
+
+#[cfg(test)]
+#[path = "compile_read_mirror_tests.rs"]
+mod compile_read_mirror_tests;
