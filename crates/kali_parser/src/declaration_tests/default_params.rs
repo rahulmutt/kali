@@ -137,3 +137,14 @@ fn an_exported_defaulted_declaration_is_refused() {
 fn an_exported_declaration_without_defaults_is_still_accepted() {
     assert!(diagnostics("export function f(a) { return a; }").is_empty());
 }
+
+#[test]
+fn a_parenthesized_assignment_is_not_an_arrow_default() {
+    for source in [
+        "let b = 5; const x = (b = b + 1);",
+        "let b = 0; g((b = 7));",
+    ] {
+        let messages = diagnostics(source);
+        assert!(messages.is_empty(), "{source}: {messages:?}");
+    }
+}

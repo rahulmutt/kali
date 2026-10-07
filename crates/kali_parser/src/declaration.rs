@@ -692,7 +692,12 @@ impl Parser {
     fn scan_arrow_param_list(&mut self, start: usize) -> ArrowParams {
         match self.scan_param_list(start) {
             ParamListScan::Simple { after, params } => {
-                if params.iter().any(|param| param.default.is_some()) {
+                // Only `=>` after the list makes these tokens arrow
+                // parameters; `(b = 6)` is a parenthesized assignment.
+                if params.iter().any(|param| param.default.is_some())
+                    && self.stream.tokens.get(after).map(|token| &token.kind)
+                        == Some(&TokenType::Arrow)
+                {
                     self.push_feature_unavailable(
                         kali_common::default_param_non_declaration_message(),
                     );
