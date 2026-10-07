@@ -56,6 +56,7 @@ use kali_ast::{
 
 pub(crate) mod facts;
 pub(crate) mod flow;
+pub(crate) mod positions;
 
 /// Why a growable-shape `.push` receiver failed promotion (Task 6): drives
 /// which E5506 message `repr_infer` emits, so the diagnostic names the actual
