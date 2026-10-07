@@ -251,7 +251,10 @@ fn unresolved_member_read_message_is_neutral_for_spread_and_sequence_text() {
     // LIR spells a spread `...a` as text "spread" and a comma expression as
     // text "" (spec A-1); neither is a property read.
     let neutral = "this expression is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; kali refuses rather than evaluate it to 0";
-    assert_eq!(unresolved_member_read_unavailable_message("spread"), neutral);
+    assert_eq!(
+        unresolved_member_read_unavailable_message("spread"),
+        neutral
+    );
     assert_eq!(unresolved_member_read_unavailable_message(""), neutral);
 }
 
