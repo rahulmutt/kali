@@ -11,6 +11,12 @@ mod declaration_tests;
 pub struct FunctionDeclaration {
     pub name: String,
     pub params: Vec<String>,
+    /// Default values, index-aligned with `params` (default-parameters spec
+    /// §3.1, A-1). Empty when no parameter has a default; otherwise exactly
+    /// `params.len()` long. Only the parser fills it, and `kali_cli`'s
+    /// `default_params` pass empties it before any later stage runs.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub defaults: Vec<Option<Box<Expression>>>,
     pub body: Box<BlockStatement>,
     pub is_async: bool,
     pub generator: bool,

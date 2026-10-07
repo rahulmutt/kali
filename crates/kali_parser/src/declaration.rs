@@ -286,6 +286,7 @@ impl Parser {
         Some(Statement::FunctionDeclaration(FunctionDeclaration {
             name,
             params,
+            defaults: Vec::new(),
             body: Box::new(body_block),
             is_async,
             generator,

@@ -283,6 +283,7 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
         ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
             name: "describe".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement {
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
                     expression: Box::new(Expression::Identifier("missing".to_string())),
@@ -321,6 +322,7 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
         ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
             name: "describe".to_string(),
             params: vec![],
+            defaults: Vec::new(),
             body: Box::new(BlockStatement {
                 body: vec![Statement::ExpressionStatement(ExpressionStatement {
                     expression: Box::new(Expression::Identifier("missing".to_string())),
@@ -361,6 +363,7 @@ fn test_resolution_reports_unresolved_identifiers_inside_default_export_function
             ExportDefaultDeclaration::FunctionDeclaration(FunctionDeclaration {
                 name: "describe".to_string(),
                 params: vec![],
+                defaults: Vec::new(),
                 body: Box::new(BlockStatement {
                     body: vec![Statement::ExpressionStatement(ExpressionStatement {
                         expression: Box::new(Expression::Identifier("missing".to_string())),
