@@ -794,7 +794,9 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
     // join twins `__join_growable_i64` / `__join_growable_str` (throw-fallout
     // Stage 4), the runtime-array bounds guard `__array_elem_addr`
     // (array-bounds), and its growable twins `__growable_elem_addr` and
-    // `__growable_store` (growable-runtime-arrays)) are compiler-internal fixed slots present in EVERY module
+    // `__growable_store` plus the growable method helpers `__growable_pop`,
+    // `__growable_find`, `__growable_slice` and `__join_growable_f64`
+    // (growable-runtime-arrays)) are compiler-internal fixed slots present in EVERY module
     // regardless of what the source does — `__substring`'s handle-field masking,
     // `__join`'s (and the identical `__join_arena`'s) length-field masking /
     // two-pass copy loop, `__streq`'s tag guard and offset masking, and the
@@ -826,6 +828,10 @@ fn count_tag_boxing_ops(bytes: &[u8]) -> usize {
         "__array_elem_addr",
         "__growable_elem_addr",
         "__growable_store",
+        "__growable_pop",
+        "__growable_find",
+        "__growable_slice",
+        "__join_growable_f64",
     ];
     let mut imported_functions = 0u32;
     let mut synthetic_indices = Vec::new();

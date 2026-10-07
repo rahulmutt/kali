@@ -1,0 +1,278 @@
+# Growable runtime arrays: pop, indexOf, includes, slice and float join
+# (spec §3.5, A-12..A-14). Every expected stdout is node v26.10.0's for the
+# same file, measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`.
+
+[source]
+"pop_module.js" = """
+const a = [];
+a.push(4); a.push(5); a.push(6);
+let last = 0;
+while (a.length > 1) { last = a.pop(); }
+console.log(last, a.length, a[0]);
+const s = [];
+s.push("x"); s.push("y");
+const top = s.pop();
+console.log(top, s.length);
+a[0] = 9;
+a.push(7);
+a[a.length - 1] = 8;
+console.log(a.join(","));
+"""
+"pop_function.js" = """
+function main() {
+  const a = [];
+  a.push(4); a.push(5); a.push(6);
+  let last = 0;
+  while (a.length > 1) { last = a.pop(); }
+  console.log(last, a.length, a[0]);
+  const s = [];
+  s.push("x"); s.push("y");
+  const top = s.pop();
+  console.log(top, s.length);
+  a[0] = 9;
+  a.push(7);
+  a[a.length - 1] = 8;
+  console.log(a.join(","));
+}
+main();
+"""
+"search_module.js" = """
+const n = [];
+n.push(3); n.push(7); n.push(3);
+console.log(n.indexOf(3), n.indexOf(9), n.includes(7), n.includes(8));
+const f = [];
+let big = 0.5;
+f.push(0 / (big - 0.5)); f.push(-1 / big * 0); f.push(2.5);
+console.log(f.indexOf(0 / (big - 0.5)), f.includes(0 / (big - 0.5)), f.indexOf(0), f.includes(0), f.indexOf(2.5));
+const s = [];
+let w = "a";
+s.push(w + "b"); s.push("cd");
+console.log(s.indexOf("ab"), s.includes("cd"), s.indexOf("x"));
+"""
+"search_function.js" = """
+function main() {
+  const n = [];
+  n.push(3); n.push(7); n.push(3);
+  console.log(n.indexOf(3), n.indexOf(9), n.includes(7), n.includes(8));
+  const f = [];
+  let big = 0.5;
+  f.push(0 / (big - 0.5)); f.push(-1 / big * 0); f.push(2.5);
+  console.log(f.indexOf(0 / (big - 0.5)), f.includes(0 / (big - 0.5)), f.indexOf(0), f.includes(0), f.indexOf(2.5));
+  const s = [];
+  let w = "a";
+  s.push(w + "b"); s.push("cd");
+  console.log(s.indexOf("ab"), s.includes("cd"), s.indexOf("x"));
+}
+main();
+"""
+"slice_module.js" = """
+const a = [];
+for (let i = 0; i < 5; i++) a.push(i * 10);
+console.log(a.slice(1, 3).join(","), a.slice(-2).join(","), a.slice(3, 99).join(","), a.slice(4, 1).length, a.slice().length);
+const t = a.slice(1);
+t.push(99);
+console.log(t.length, a.length, t.join("-"));
+const u = t.slice(1, -1);
+console.log(u.join("-"), a.slice(1, 4).slice(1).join(","));
+"""
+"slice_function.js" = """
+function main() {
+  const a = [];
+  for (let i = 0; i < 5; i++) a.push(i * 10);
+  console.log(a.slice(1, 3).join(","), a.slice(-2).join(","), a.slice(3, 99).join(","), a.slice(4, 1).length, a.slice().length);
+  const t = a.slice(1);
+  t.push(99);
+  console.log(t.length, a.length, t.join("-"));
+  const u = t.slice(1, -1);
+  console.log(u.join("-"), a.slice(1, 4).slice(1).join(","));
+}
+main();
+"""
+"floats_methods.js" = """
+function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }
+function floats() { const out = []; let big = 0.5; for (let i = 0; i < 71; i++) big = big * 2; out.push(0.5); out.push(big); out.push(-1 / big * 0); out.push(1 / 3); return out; }
+function main() {
+  const data = [];
+  for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+  const avg = averages(data, 2);
+  console.log(avg.length, avg[0], avg.join(" "));
+  console.log(floats().join(","));
+}
+main();
+"""
+"floats_methods_module.js" = """
+function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }
+function floats() { const out = []; let big = 0.5; for (let i = 0; i < 71; i++) big = big * 2; out.push(0.5); out.push(big); out.push(-1 / big * 0); out.push(1 / 3); return out; }
+const data = [];
+for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+const avg = averages(data, 2);
+console.log(avg.length, avg[0], avg.join(" "));
+console.log(floats().join(","));
+"""
+"pop_value_module.js" = """
+const s = [];
+let w = "a";
+s.push(w + "b"); s.push("cd");
+console.log(s.pop() + "!", s.pop().length, s.length);
+const f = [];
+f.push(0.5); f.push(2.25);
+const g = f.pop() * 2;
+console.log(g, f.pop() + 1, f.length);
+const n = [];
+n.push(3); n.push(4);
+console.log(n.pop() + n.pop(), n.length);
+"""
+"pop_value_function.js" = """
+function main() {
+  const s = [];
+  let w = "a";
+  s.push(w + "b"); s.push("cd");
+  console.log(s.pop() + "!", s.pop().length, s.length);
+  const f = [];
+  f.push(0.5); f.push(2.25);
+  const g = f.pop() * 2;
+  console.log(g, f.pop() + 1, f.length);
+  const n = [];
+  n.push(3); n.push(4);
+  console.log(n.pop() + n.pop(), n.length);
+}
+main();
+"""
+"slice_float_module.js" = """
+const a = [];
+for (let i = 0; i < 5; i++) a.push(i);
+let h = 1.5;
+let z = 0;
+console.log(a.slice(h).join(","), a.slice(-h).join(","), a.slice(0, h * 3).join(","), a.slice(0 / z).join(","), a.slice(1 / z).length, a.slice(-1 / z).length);
+"""
+"slice_float_function.js" = """
+function main() {
+  const a = [];
+  for (let i = 0; i < 5; i++) a.push(i);
+  let h = 1.5;
+  let z = 0;
+  console.log(a.slice(h).join(","), a.slice(-h).join(","), a.slice(0, h * 3).join(","), a.slice(0 / z).join(","), a.slice(1 / z).length, a.slice(-1 / z).length);
+}
+main();
+"""
+"write_value_module.js" = """
+const f = [];
+f.push(0.5); f.push(1.5);
+const r = (f[0] = f[1] * 2);
+f[1] = (f[0] = 0.25);
+console.log(r, f[0], f[1], f.join(","));
+const s = [];
+let w = "a";
+s.push(w + "b"); s.push("c");
+const q = (s[0] = w + "d");
+s[1] = (s[0] = "e");
+console.log(q, s[0], s[1], s.join("-"), "x" + (s[0] = "g"));
+"""
+"write_value_function.js" = """
+function main() {
+  const f = [];
+  f.push(0.5); f.push(1.5);
+  const r = (f[0] = f[1] * 2);
+  f[1] = (f[0] = 0.25);
+  console.log(r, f[0], f[1], f.join(","));
+  const s = [];
+  let w = "a";
+  s.push(w + "b"); s.push("c");
+  const q = (s[0] = w + "d");
+  s[1] = (s[0] = "e");
+  console.log(q, s[0], s[1], s.join("-"), "x" + (s[0] = "g"));
+}
+main();
+"""
+
+[[case]]
+name = "pop_until_one_element_remains_module_scope"
+rationale = "Spec §3.5: `pop` returns and removes the last element (i64 and string), index writes stay in bounds."
+args = ["run", "pop_module.js"]
+exit = "success"
+stdout = "5 1 4\ny 1\n9,8\n"
+
+[[case]]
+name = "pop_until_one_element_remains"
+args = ["run", "pop_function.js"]
+exit = "success"
+stdout = "5 1 4\ny 1\n9,8\n"
+
+[[case]]
+name = "f64_search_follows_strict_and_same_value_zero_module_scope"
+rationale = "Review Focus 5: over [NaN, -0, 2.5], indexOf(NaN) is -1 and includes(NaN) true (SameValueZero); indexOf(0) finds -0. Strings compare by content (a runtime concat finds the literal)."
+args = ["run", "search_module.js"]
+exit = "success"
+stdout = "0 -1 true false\n-1 true 1 true 2\n0 true -1\n"
+
+[[case]]
+name = "f64_search_follows_strict_and_same_value_zero"
+args = ["run", "search_function.js"]
+exit = "success"
+stdout = "0 -1 true false\n-1 true 1 true 2\n0 true -1\n"
+
+[[case]]
+name = "slice_of_a_slice_matches_node_module_scope"
+rationale = "Review Focus 3, spec §3.5: negative and out-of-range bounds clamp; a slice is a new growable array (pushing it leaves the original alone); a slice of a slice re-slices the temporary."
+args = ["run", "slice_module.js"]
+exit = "success"
+stdout = "10,20 30,40 30,40 0 5\n5 5 10-20-30-40-99\n20-30-40 20,30\n"
+
+[[case]]
+name = "slice_of_a_slice_matches_node"
+args = ["run", "slice_function.js"]
+exit = "success"
+stdout = "10,20 30,40 30,40 0 5\n5 5 10-20-30-40-99\n20-30-40 20,30\n"
+
+[[case]]
+name = "floats_join_like_node"
+rationale = "Review Focus 5, spec A-11, A-12: f64 elements across a parameter and a return; `join` renders 0.5, 2^70 (built by doubling: a literal of 1e21 breaks codegen at the baseline), -0 as `0`, and 1/3."
+args = ["run", "floats_methods.js"]
+exit = "success"
+stdout = "4 2.25 2.25 3.75 5.25 6.75\n0.5,1.1805916207174113e+21,0,0.3333333333333333\n"
+
+[[case]]
+name = "floats_join_like_node_module_scope"
+rationale = "The module-scope twin of `floats_join_like_node`: a module-level f64 growable array passed to a function and a growable return joined at module scope."
+args = ["run", "floats_methods_module.js"]
+exit = "success"
+stdout = "4 2.25 2.25 3.75 5.25 6.75\n0.5,1.1805916207174113e+21,0,0.3333333333333333\n"
+
+[[case]]
+name = "pop_used_directly_as_a_value_module_scope"
+rationale = "Spec §3.5: `pop()` used inside an expression yields its element repr — a string (concat, `.length`), an f64 (arithmetic) or an i64."
+args = ["run", "pop_value_module.js"]
+exit = "success"
+stdout = "cd! 2 0\n4.5 1.5 0\n7 0\n"
+
+[[case]]
+name = "pop_used_directly_as_a_value"
+args = ["run", "pop_value_function.js"]
+exit = "success"
+stdout = "cd! 2 0\n4.5 1.5 0\n7 0\n"
+
+[[case]]
+name = "float_slice_bounds_truncate_module_scope"
+rationale = "Spec A-13: a float bound is truncated (ToIntegerOrInfinity): 1.5 -> 1, -1.5 -> -1, 4.5 -> 4, NaN -> 0, +Infinity and -Infinity saturate and clamp."
+args = ["run", "slice_float_module.js"]
+exit = "success"
+stdout = "1,2,3,4 4 0,1,2,3 0,1,2,3,4 0 5\n"
+
+[[case]]
+name = "float_slice_bounds_truncate"
+args = ["run", "slice_float_function.js"]
+exit = "success"
+stdout = "1,2,3,4 4 0,1,2,3 0,1,2,3,4 0 5\n"
+
+[[case]]
+name = "an_index_write_used_as_a_value_module_scope"
+rationale = "Task 9 re-review carried item: an f64 growable index write used as a value (`const r = (f[0] = f[1] * 2)`, `f[1] = (f[0] = 0.25)`) failed to load (E4201) because the assignment was not float-valued; the string analogue yields the stored handle."
+args = ["run", "write_value_module.js"]
+exit = "success"
+stdout = "3 0.25 0.25 0.25,0.25\nad e e e-e xg\n"
+
+[[case]]
+name = "an_index_write_used_as_a_value"
+args = ["run", "write_value_function.js"]
+exit = "success"
+stdout = "3 0.25 0.25 0.25,0.25\nad e e e-e xg\n"

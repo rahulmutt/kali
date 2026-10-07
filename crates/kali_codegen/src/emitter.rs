@@ -1366,6 +1366,30 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__growable_store"]
     }
 
+    /// Wasm function index of `__growable_pop(arr, msg) -> i64`
+    /// (growable-runtime-arrays spec §3.5): the removed last slot's raw bits.
+    pub(crate) fn growable_pop_fn_index(&self) -> u32 {
+        self.functions["__growable_pop"]
+    }
+
+    /// Wasm function index of `__growable_find(arr, needle, mode) -> i64`
+    /// (spec §3.5): the first matching index, else -1.
+    pub(crate) fn growable_find_fn_index(&self) -> u32 {
+        self.functions["__growable_find"]
+    }
+
+    /// Wasm function index of `__growable_slice(arr, start, end) -> i64`
+    /// (spec §3.5): a fresh growable handle on the global heap.
+    pub(crate) fn growable_slice_fn_index(&self) -> u32 {
+        self.functions["__growable_slice"]
+    }
+
+    /// Wasm function index of `__join_growable_f64(arr, sep) -> i64`
+    /// (spec §3.5, A-12).
+    pub(crate) fn join_growable_f64_fn_index(&self) -> u32 {
+        self.functions["__join_growable_f64"]
+    }
+
     /// Selects the string-concat host import for the concat node `id` (fasta
     /// Spec 7 Task 4d) — the codegen half of the string-site "both-sides
     /// oracle", exactly mirroring `emit_runtime_join`'s join selection. Returns

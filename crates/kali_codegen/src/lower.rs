@@ -72,6 +72,10 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__array_elem_addr",
     "__growable_elem_addr",
     "__growable_store",
+    "__growable_pop",
+    "__growable_find",
+    "__growable_slice",
+    "__join_growable_f64",
 ];
 
 /// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
@@ -930,6 +934,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Growable-runtime-arrays spec §3.5: `pop`, `indexOf`/`includes`,
+    // `slice` and f64 `join` over the header layout. Present in every
+    // module; bodies hand-emitted below.
+    for (name, params) in [
+        ("__growable_pop", &["arr", "msg"][..]),
+        ("__growable_find", &["arr", "needle", "mode"][..]),
+        ("__growable_slice", &["arr", "start", "end"][..]),
+        ("__join_growable_f64", &["arr", "sep"][..]),
+    ] {
+        all_functions.push(FunctionPlan {
+            name: name.to_string(),
+            params: params.iter().map(|p| p.to_string()).collect(),
+            locals: Vec::new(),
+            body: lir.root,
+            result: true,
+            is_entry: false,
+            flavor: None,
+        });
+    }
     // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
     // appended AFTER the fixed synthetics and BEFORE any source-defined function
     // so, like the fixed synthetics, they shift every later function's index by
@@ -1303,12 +1326,17 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             )
         } else if matches!(
             function.name.as_str(),
-            "__join" | "__join_arena" | "__join_growable_i64" | "__join_growable_str"
+            "__join"
+                | "__join_arena"
+                | "__join_growable_i64"
+                | "__join_growable_str"
+                | "__join_growable_f64"
+                | "__growable_pop"
         ) {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
         } else if matches!(
             function.name.as_str(),
-            "__array_elem_addr" | "__growable_elem_addr"
+            "__array_elem_addr" | "__growable_elem_addr" | "__growable_find" | "__growable_slice"
         ) {
             (
                 vec![ValType::I64, ValType::I64, ValType::I64],
@@ -1667,7 +1695,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((6, ValType::I64));
         } else if matches!(
             function.name.as_str(),
-            "__join_growable_i64" | "__join_growable_str"
+            "__join_growable_i64" | "__join_growable_str" | "__join_growable_f64"
         ) {
             // `emit_join_growable_body`: 7 i64 — `n`, `i`, `total`, `out`,
             // `cur`, `h`, `data` (locals 2-8; locals 0-1 are `arr`/`sep`). One
@@ -1679,6 +1707,15 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         } else if function.name == "__growable_store" {
             // `emit_growable_store_body`: 1 i64 — `hdr` (local 4).
             local_decls.push((1, ValType::I64));
+        } else if function.name == "__growable_pop" {
+            // `emit_growable_pop_body`: 2 i64 — `hdr`, `len` (locals 2-3).
+            local_decls.push((2, ValType::I64));
+        } else if function.name == "__growable_find" {
+            // `emit_growable_find_body`: 4 i64 — `len`, `i`, `data`, `elem` (locals 3-6).
+            local_decls.push((4, ValType::I64));
+        } else if function.name == "__growable_slice" {
+            // `emit_growable_slice_body`: 7 i64 — `len`, `s`, `e`, `count`, `hdr`, `cap`, `data` (locals 3-9).
+            local_decls.push((7, ValType::I64));
         } else if function.name.starts_with("__clone_shape_") {
             // Hand-emitted deep-clone synthetic (Stage P2 Lane 2): its i64
             // locals (1=dst, 2=srch, 3=new_hdr, 4=new_data, 5=len, 6=cap; local
@@ -1809,15 +1846,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // result must not dangle across an arena reset); the `_i64`
                 // variant renders each raw slot via `int_to_string`.
                 "__join_growable_i64" => {
-                    emit_join_growable_body(&mut body, alloc_global_index, true)
+                    emit_join_growable_body(&mut body, alloc_global_index, GrowableJoinRender::Int)
                 }
                 "__join_growable_str" => {
-                    emit_join_growable_body(&mut body, alloc_global_index, false)
+                    emit_join_growable_body(&mut body, alloc_global_index, GrowableJoinRender::Raw)
                 }
+                "__join_growable_f64" => emit_join_growable_body(
+                    &mut body,
+                    alloc_global_index,
+                    GrowableJoinRender::Float,
+                ),
                 "__streq" => emit_streq_body(&mut body),
                 "__array_elem_addr" => emit_array_elem_addr_body(&mut body),
                 "__growable_elem_addr" => emit_growable_elem_addr_body(&mut body),
                 "__growable_store" => emit_growable_store_body(&mut body),
+                "__growable_pop" => emit_growable_pop_body(&mut body),
+                "__growable_find" => {
+                    emit_growable_find_body(&mut body, function_name_to_index["__streq"])
+                }
+                "__growable_slice" => emit_growable_slice_body(&mut body, alloc_global_index),
                 // URLSearchParams scan/mutation helpers (Stage P4 Task 4). The
                 // `__streq` index is threaded for key comparison; getall/set also
                 // take `__alloc_global` (fresh result / grown block must outlive
@@ -9302,7 +9349,7 @@ fn emit_join_body(func: &mut Function, alloc_index: u32) {
 ///     header pointer is `arr & !TAG` (masked), NOT `arr` directly;
 ///   * `n = *(hdr+0)`, `data = *(hdr+16)` (header indirection), and each
 ///     element handle is `*(data + i*8)` (offset 0, NOT the inline `+8`);
-///   * when `render_int` is set the raw i64 slot is a NUMBER, not a string
+///   * when `render` is `Int` the raw i64 slot is a NUMBER, not a string
 ///     handle — it is rendered to a decimal string handle by the runtime
 ///     `int_to_string` import (fixed index 17, always present) BEFORE its
 ///     bytes are measured/copied. `int_to_string` renders negatives with a
@@ -9312,14 +9359,16 @@ fn emit_join_body(func: &mut Function, alloc_index: u32) {
 ///     GC-less by design, reclaimed only by arena scope; the target fixtures
 ///     are small.)
 ///
-/// `render_int == false` is the String-element body (`__join_growable_str`):
-/// the slot already IS a string handle, copied verbatim.
+/// `render == Raw` is the String-element body (`__join_growable_str`): the
+/// slot already IS a string handle, copied verbatim. `render == Float` is
+/// `__join_growable_f64` (growable-runtime-arrays spec §3.5, A-12): the slot
+/// holds f64 bits, rendered through the `float_to_string` import.
 ///
 /// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h 8=data —
 /// one more (`data`) than `emit_join_body` for the cached header→data pointer.
 /// `alloc_index` is `__alloc_global` (a join result must not dangle across an
 /// arena reset — same rule as the global `__join`).
-fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bool) {
+fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render: GrowableJoinRender) {
     let mask = !(crate::ARRAY_HANDLE_TAG) as i64;
     // hdr = arr & !TAG (masked header pointer, reused below via I32WrapI64).
     // n = *(hdr + 0)
@@ -9362,7 +9411,7 @@ fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bo
     func.instruction(&Instruction::LocalSet(3));
     // pass 1: total += len(render(elem_i)) for each i
     func.instruction(&Instruction::Loop(BlockType::Empty));
-    emit_growable_join_element_handle(func, render_int);
+    emit_growable_join_element_handle(func, render);
     func.instruction(&Instruction::LocalSet(7));
     //   total = total + (h & 0xFFFF_FFFF)
     func.instruction(&Instruction::LocalGet(4));
@@ -9409,7 +9458,7 @@ fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bo
     func.instruction(&Instruction::LocalSet(3));
     // pass 2: copy elements, separator between them
     func.instruction(&Instruction::Loop(BlockType::Empty));
-    emit_growable_join_element_handle(func, render_int);
+    emit_growable_join_element_handle(func, render);
     func.instruction(&Instruction::LocalSet(7));
     //   memory.copy(dst=cur, src=(h>>32)&0x7FFF_FFFF, len=h&0xFFFF_FFFF)
     func.instruction(&Instruction::LocalGet(6));
@@ -9483,9 +9532,10 @@ fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bo
 
 /// Push the string handle of growable element `i` onto the stack: load the raw
 /// i64 slot `*(data + i*8)` (data = local 8, i = local 3), then — for the i64
-/// body — coerce it to a decimal-string handle via `int_to_string`. The String
-/// body's slot is already a handle, so it is left as-is.
-fn emit_growable_join_element_handle(func: &mut Function, render_int: bool) {
+/// body — coerce it to a decimal-string handle via `int_to_string`, or — for
+/// the f64 body — via `float_to_string`. The String body's slot is already a
+/// handle, so it is left as-is.
+fn emit_growable_join_element_handle(func: &mut Function, render: GrowableJoinRender) {
     // raw = *(data + (i << 3))
     func.instruction(&Instruction::LocalGet(8));
     func.instruction(&Instruction::LocalGet(3));
@@ -9498,9 +9548,279 @@ fn emit_growable_join_element_handle(func: &mut Function, render_int: bool) {
         align: 3,
         memory_index: 0,
     }));
-    if render_int {
-        func.instruction(&Instruction::Call(crate::INT_TO_STRING_IMPORT_INDEX));
+    match render {
+        GrowableJoinRender::Raw => {}
+        GrowableJoinRender::Int => {
+            func.instruction(&Instruction::Call(crate::INT_TO_STRING_IMPORT_INDEX));
+        }
+        // Spec §3.5, A-12: the slot holds f64 bits; `float_to_string` is JS
+        // `String(number)` (`-0` renders `0`, as `join` does).
+        GrowableJoinRender::Float => {
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::Call(crate::FLOAT_TO_STRING_IMPORT_INDEX));
+        }
     }
+}
+
+/// How `emit_join_growable_body` renders one element slot.
+#[derive(Clone, Copy)]
+enum GrowableJoinRender {
+    /// The slot is already a string handle.
+    Raw,
+    /// The slot is an i64 number.
+    Int,
+    /// The slot holds f64 bits.
+    Float,
+}
+
+fn growable_slot(offset: u64) -> MemArg {
+    MemArg {
+        offset,
+        align: 3,
+        memory_index: 0,
+    }
+}
+
+/// `__growable_pop(arr, msg) -> i64` (growable-runtime-arrays spec §3.5):
+/// removes and returns the last element's raw slot bits; an empty array
+/// hands `msg` to `console.error` and traps. Locals: 0 arr, 1 msg, 2 hdr,
+/// 3 len.
+fn emit_growable_pop_body(func: &mut Function) {
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Store(growable_slot(0)));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(16)));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+}
+
+/// `__growable_find(arr, needle, mode) -> i64` (spec §3.5): the first index
+/// whose element matches `needle`, else -1. Mode 0: i64 `==`. Mode 1: f64
+/// `===` (NaN is never found, `-0 === 0`). Mode 2: f64 SameValueZero (also
+/// NaN finds NaN). Mode 3: string content equality through `__streq`.
+/// Locals: 0 arr, 1 needle, 2 mode, 3 len, 4 i, 5 data, 6 elem.
+fn emit_growable_find_body(func: &mut Function, streq_index: u32) {
+    let mask = crate::emit::growable::GROWABLE_HANDLE_MASK;
+    for (offset, local) in [(0u64, 3u32), (16, 5)] {
+        func.instruction(&Instruction::LocalGet(0));
+        func.instruction(&Instruction::I64Const(mask));
+        func.instruction(&Instruction::I64And);
+        func.instruction(&Instruction::I32WrapI64);
+        func.instruction(&Instruction::I64Load(growable_slot(offset)));
+        func.instruction(&Instruction::LocalSet(local));
+    }
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    // if i >= len break
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64GeS);
+    func.instruction(&Instruction::BrIf(1));
+    // elem = data[i]
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+    func.instruction(&Instruction::LocalSet(6));
+    // match: i32
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    {
+        func.instruction(&Instruction::LocalGet(6));
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::Call(streq_index));
+        func.instruction(&Instruction::I64Const(0));
+        func.instruction(&Instruction::I64Ne);
+    }
+    func.instruction(&Instruction::Else);
+    {
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I64Const(0));
+        func.instruction(&Instruction::I64Eq);
+        func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+        func.instruction(&Instruction::LocalGet(6));
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::I64Eq);
+        func.instruction(&Instruction::Else);
+        // f64 `===`
+        func.instruction(&Instruction::LocalGet(6));
+        func.instruction(&Instruction::F64ReinterpretI64);
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::F64ReinterpretI64);
+        func.instruction(&Instruction::F64Eq);
+        // | (mode == 2 & elem is NaN & needle is NaN)
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I64Const(2));
+        func.instruction(&Instruction::I64Eq);
+        for local in [6u32, 1] {
+            func.instruction(&Instruction::LocalGet(local));
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::LocalGet(local));
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::F64Ne);
+        }
+        func.instruction(&Instruction::I32And);
+        func.instruction(&Instruction::I32And);
+        func.instruction(&Instruction::I32Or);
+        func.instruction(&Instruction::End);
+    }
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // i += 1; continue
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::End); // block
+    func.instruction(&Instruction::I64Const(-1));
+}
+
+/// `local[out] = bound < 0 ? max(len + bound, 0) : min(bound, len)`, `len` in
+/// local 3 (JS `slice` relative-index clamping).
+fn emit_growable_slice_bound(func: &mut Function, bound: u32, out: u32) {
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalTee(out));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(out));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalSet(out));
+}
+
+/// `__growable_slice(arr, start, end) -> i64` (spec §3.5): a fresh growable
+/// array on the global heap holding `arr[s..e]` with JS clamping (a negative
+/// bound counts from the end; both clamp to `[0, len]`; `e <= s` is empty).
+/// The caller passes 0 and `i64::MAX` for omitted bounds. Locals: 0 arr,
+/// 1 start, 2 end, 3 len, 4 s, 5 e, 6 count, 7 hdr, 8 cap, 9 data.
+fn emit_growable_slice_body(func: &mut Function, alloc_index: u32) {
+    let mask = crate::emit::growable::GROWABLE_HANDLE_MASK;
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+    func.instruction(&Instruction::LocalSet(3));
+    emit_growable_slice_bound(func, 1, 4);
+    emit_growable_slice_bound(func, 2, 5);
+    // count = e > s ? e - s : 0
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(6));
+    // cap = max(count, GROWABLE_INITIAL_CAP)
+    let initial = crate::emit::growable::GROWABLE_INITIAL_CAP as i64;
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(initial));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(initial));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(8));
+    // hdr = alloc(24); data = alloc(cap * 8)
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::Call(alloc_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(9));
+    // hdr = [count, cap, data]
+    for (offset, local) in [(0u64, 6u32), (8, 8), (16, 9)] {
+        func.instruction(&Instruction::LocalGet(7));
+        func.instruction(&Instruction::I32WrapI64);
+        func.instruction(&Instruction::LocalGet(local));
+        func.instruction(&Instruction::I64Store(growable_slot(offset)));
+    }
+    // memory.copy(data, old_data + s * 8, count * 8)
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(16)));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    // result: hdr | ARRAY_HANDLE_TAG
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(crate::ARRAY_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

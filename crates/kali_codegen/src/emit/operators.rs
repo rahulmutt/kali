@@ -1140,6 +1140,17 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(base) = self.growable_array_read_base(self.node(id)) {
             return self.array_elem_repr(&base) == kali_common::Repr::String;
         }
+        // Growable-runtime-arrays spec §3.5: a string growable index write
+        // used as a value leaves the stored string handle.
+        if let Some(elem) = self.growable_index_write_elem(self.node(id)) {
+            return elem == kali_common::Repr::String;
+        }
+        // Growable-runtime-arrays spec §3.5: `pop` on a string-element array.
+        if let Some((crate::emit::growable::GrowableMethod::Pop, receiver, _)) =
+            self.growable_method_call_parts(self.node(id))
+        {
+            return self.growable_value_elem(receiver) == Some(kali_common::Repr::String);
+        }
         // Runtime `a.join(sep)` produces a string (Spec 3). Same recognizer the
         // emitter dispatch routes with, so the oracle and emitter agree.
         if self.runtime_join_call_parts(self.node(id)).is_some() {
@@ -1409,6 +1420,22 @@ impl<'a> FunctionEmitter<'a> {
             return self
                 .repr_table
                 .is_array_element_concat_tainted(&self.function_name, &base);
+        }
+        // A growable string element (index read or `pop`) is a runtime handle
+        // when any stored string was a runtime concat — identity `==` on it
+        // must refuse, exactly as for a plain array element.
+        if let Some(base) = self.growable_array_read_base(self.node(id)) {
+            return self
+                .repr_table
+                .is_array_element_concat_tainted(&self.function_name, &base);
+        }
+        if let Some((crate::emit::growable::GrowableMethod::Pop, receiver, _)) =
+            self.growable_method_call_parts(self.node(id))
+        {
+            return self.bare_identifier_name(receiver).is_none_or(|base| {
+                self.repr_table
+                    .is_array_element_concat_tainted(&self.function_name, &base)
+            });
         }
         // Runtime `a.join(sep)` yields a FRESH runtime buffer: interned identity
         // never holds, so it is always concat-tainted (identity `==` must
@@ -1696,6 +1723,11 @@ impl<'a> FunctionEmitter<'a> {
         // which already calls `resolve_bound_node` for the same reason.
         let id = self.resolve_bound_node(id);
         let node = self.node(id);
+        // Growable-runtime-arrays spec §3.5: an f64 growable index write used
+        // as a value leaves the stored f64.
+        if let Some(elem) = self.growable_index_write_elem(node) {
+            return elem == kali_common::Repr::F64;
+        }
         // Fixed-shape object field read: the repr comes from the shape table.
         if node.kind == LirNodeKind::Value && node.children.len() == 1 {
             if let (Some(field), Some(shape)) = (
@@ -1744,6 +1776,11 @@ impl<'a> FunctionEmitter<'a> {
                         .get(1)
                         .copied()
                         .is_some_and(|arg| self.math_sqrt_constant_root(arg).is_none());
+                }
+                if let Some((crate::emit::growable::GrowableMethod::Pop, receiver, _)) =
+                    self.growable_method_call_parts(node)
+                {
+                    return self.growable_value_elem(receiver) == Some(kali_common::Repr::F64);
                 }
                 callee_node
                     .text

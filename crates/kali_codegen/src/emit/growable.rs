@@ -882,6 +882,28 @@ impl<'a> FunctionEmitter<'a> {
     /// computed 2-child form) whose base is a growable binding. Same shape
     /// guards as the plain-lane recognizer (`.length` excluded — the length
     /// lane wins first; binary operators and static index folds excluded).
+    /// Growable-runtime-arrays spec §3.5: the element repr of a growable
+    /// index write `a[i] = v` used as a value (`f[1] = (f[0] = 0.25)`,
+    /// `const r = (f[0] = …)`). The write leaves the stored value in the
+    /// element's own repr (`emit_growable_index_write`), so the value oracles
+    /// (`is_float_valued`, `is_string_valued`) classify the assignment by it.
+    /// Same target recognizer as the read lane (`growable_array_read_base`)
+    /// over the same store-target view `emit_assignment` takes.
+    pub(crate) fn growable_index_write_elem(&self, node: &LirNode) -> Option<kali_common::Repr> {
+        if node.kind != LirNodeKind::Value
+            || node.children.len() != 2
+            || node.text.as_deref() != Some("=")
+        {
+            return None;
+        }
+        let target = self.store_target_node(node.children[0]);
+        if target.kind != LirNodeKind::Value {
+            return None;
+        }
+        let base = self.growable_array_read_base(&target)?;
+        Some(self.array_elem_repr(&base))
+    }
+
     pub(crate) fn growable_array_read_base(&self, node: &LirNode) -> Option<String> {
         match node.children.len() {
             1 => {
@@ -962,6 +984,180 @@ impl<'a> FunctionEmitter<'a> {
         node.children
             .iter()
             .any(|child| self.subtree_mentions_growable_field(*child))
+    }
+}
+
+/// A growable method this lane lowers (growable-runtime-arrays spec §3.5);
+/// `push` and `join` have their own recognizers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GrowableMethod {
+    Pop,
+    IndexOf,
+    Includes,
+    Slice,
+}
+
+impl<'a> FunctionEmitter<'a> {
+    /// `(method, receiver, args)` iff `node` is `<growable value>.<method>(…)`.
+    pub(crate) fn growable_method_call_parts(
+        &self,
+        node: &LirNode,
+    ) -> Option<(GrowableMethod, LirNodeId, Vec<LirNodeId>)> {
+        if node.kind != LirNodeKind::Call || node.children.is_empty() {
+            return None;
+        }
+        let callee = self.resolve_transparent_callable_node(node.children[0])?;
+        let callee_node = self.node(callee);
+        if callee_node.children.len() != 1 {
+            return None;
+        }
+        let method = match callee_node.text.as_deref()? {
+            "pop" => GrowableMethod::Pop,
+            "indexOf" => GrowableMethod::IndexOf,
+            "includes" => GrowableMethod::Includes,
+            "slice" => GrowableMethod::Slice,
+            _ => return None,
+        };
+        let receiver = callee_node.children[0];
+        self.growable_value_elem(receiver)?;
+        Some((method, receiver, node.children[1..].to_vec()))
+    }
+
+    /// `a.pop()`: the last element, removed; an empty array traps with the
+    /// kali pop message.
+    pub(crate) fn emit_growable_pop(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+    ) -> EmittedValue {
+        let elem = self
+            .growable_value_elem(receiver)
+            .unwrap_or(kali_common::Repr::I64);
+        // Belt for inference's snapshot refusal (spec A-8).
+        if let Some(name) = self.bare_identifier_name(receiver) {
+            if self.growable_for_of_active.as_deref() == Some(name.as_str()) {
+                let message = kali_common::growable_for_of_mutation_message(
+                    &kali_common::growable_binding_subject(&name, &self.function_name),
+                );
+                return self.deny_e5506(function, &message);
+            }
+        }
+        let base = self.emit_growable_receiver_handle(function, receiver);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        let (offset, len) = self
+            .strings
+            .intern(kali_common::growable_pop_empty_message());
+        function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+        function.instruction(&Instruction::Call(self.growable_pop_fn_index()));
+        if elem == kali_common::Repr::F64 {
+            function.instruction(&Instruction::F64ReinterpretI64);
+        }
+        EmittedValue {
+            produced: true,
+            shape: if elem == kali_common::Repr::String {
+                ValueShape::String
+            } else {
+                ValueShape::Scalar
+            },
+        }
+    }
+
+    /// `a.indexOf(x)` (strict) / `a.includes(x)` (SameValueZero).
+    pub(crate) fn emit_growable_search(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        needle: Option<LirNodeId>,
+        includes: bool,
+    ) -> EmittedValue {
+        let elem = self
+            .growable_value_elem(receiver)
+            .unwrap_or(kali_common::Repr::I64);
+        let base = self.emit_growable_receiver_handle(function, receiver);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        let Some(needle) = needle else {
+            // `indexOf()` searches for `undefined`, which a number or string
+            // array never holds.
+            function.instruction(&Instruction::Drop);
+            function.instruction(&Instruction::I64Const(if includes { 0 } else { -1 }));
+            return EmittedValue {
+                produced: true,
+                shape: if includes {
+                    ValueShape::Boolean
+                } else {
+                    ValueShape::Scalar
+                },
+            };
+        };
+        let value = self.emit_node(function, needle, true);
+        if !value.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        if elem == kali_common::Repr::F64 {
+            if !value.produced || !self.is_float_valued(needle) {
+                function.instruction(&Instruction::F64ConvertI64S);
+            }
+            function.instruction(&Instruction::I64ReinterpretF64);
+        }
+        let mode = match elem {
+            kali_common::Repr::F64 if includes => 2,
+            kali_common::Repr::F64 => 1,
+            kali_common::Repr::String => 3,
+            _ => 0,
+        };
+        function.instruction(&Instruction::I64Const(mode));
+        function.instruction(&Instruction::Call(self.growable_find_fn_index()));
+        if includes {
+            function.instruction(&Instruction::I64Const(0));
+            function.instruction(&Instruction::I64GeS);
+            function.instruction(&Instruction::I64ExtendI32U);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
+    /// `a.slice(s?, e?)`: a new growable array (spec §3.5). A float bound is
+    /// truncated with `i64.trunc_sat_f64_s` (ToIntegerOrInfinity, A-13).
+    pub(crate) fn emit_growable_slice(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        args: &[LirNodeId],
+    ) -> EmittedValue {
+        let base = self.emit_growable_receiver_handle(function, receiver);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        for (position, default) in [(0usize, 0i64), (1, i64::MAX)] {
+            match args.get(position).copied() {
+                None => {
+                    function.instruction(&Instruction::I64Const(default));
+                }
+                Some(bound) => {
+                    let value = self.emit_node(function, bound, true);
+                    if !value.produced {
+                        function.instruction(&Instruction::I64Const(default));
+                    } else if self.is_float_valued(bound) {
+                        function.instruction(&Instruction::I64TruncSatF64S);
+                    }
+                }
+            }
+        }
+        function.instruction(&Instruction::Call(self.growable_slice_fn_index()));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
     }
 }
 

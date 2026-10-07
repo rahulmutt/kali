@@ -1,3 +1,4 @@
+use crate::emit::growable::GrowableMethod;
 use crate::emit::operators::StringSink;
 use crate::*;
 use kali_common::computed_member_access_unavailable_message;
@@ -1700,6 +1701,23 @@ impl<'a> FunctionEmitter<'a> {
         // falling through to the generic drop-args no-op.
         if let Some((receiver, args)) = self.growable_push_call_parts(node) {
             return self.emit_growable_push_call(function, receiver, &args);
+        }
+
+        // Growable-runtime-arrays spec §3.5: `pop`, `indexOf`, `includes` and
+        // `slice` on a growable value. Before the plain-array mutator refusal
+        // and every static array lane, which would read a growable binding's
+        // stale declarator literal.
+        if let Some((method, receiver, args)) = self.growable_method_call_parts(node) {
+            return match method {
+                GrowableMethod::Pop => self.emit_growable_pop(function, receiver),
+                GrowableMethod::IndexOf => {
+                    self.emit_growable_search(function, receiver, args.first().copied(), false)
+                }
+                GrowableMethod::Includes => {
+                    self.emit_growable_search(function, receiver, args.first().copied(), true)
+                }
+                GrowableMethod::Slice => self.emit_growable_slice(function, receiver, &args),
+            };
         }
 
         // A fixed-length runtime array cannot grow or shrink (array-bounds
@@ -6086,18 +6104,19 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         let receiver = callee_node.children.first().copied()?;
-        let receiver_node = self.node(self.unwrap_transparent(receiver));
-        let base = receiver_node.text.as_deref()?;
-        // Growable receiver (throw-fallout Stage 4 Task 5): a tagged-handle
-        // growable array admits for BOTH element reprs — `I64` (rendered via
-        // `int_to_string`) and `String`. Checked FIRST and independently of
-        // `array_bindings`: the two lanes are layout-distinct, and
-        // `emit_runtime_join` re-derives the growable-ness to pick the
-        // header-indirected `__join_growable_*` synthetic. Float growables
-        // never promote, so no float element repr can reach here.
-        if self.is_growable_array(base) {
+        // Growable receiver (growable-runtime-arrays spec §3.5): any growable
+        // VALUE — a growable binding, a call to a growable-returning function,
+        // or a `slice` of either — admits for every element repr (`I64`
+        // through `int_to_string`, `F64` through `float_to_string`, `String`
+        // copied). Checked FIRST and independently of `array_bindings`: the
+        // two lanes are layout-distinct, and `emit_runtime_join` re-derives
+        // the element repr through the same `growable_value_elem` to pick the
+        // header-indirected `__join_growable_*` synthetic.
+        if self.growable_value_elem(receiver).is_some() {
             return Some((receiver, node.children.get(1).copied()));
         }
+        let receiver_node = self.node(self.unwrap_transparent(receiver));
+        let base = receiver_node.text.as_deref()?;
         // Growable-array FIELD receiver `o.values.join(...)` (Stage P2 Lane 1
         // Task 5): a `GrowableArrayI64` object field carries the same tagged
         // handle; admit it through the positive `object_field_is_growable_array`
@@ -6225,16 +6244,6 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
         }
-        // Growable-runtime-arrays: f64 growable arrays now lower (push, index
-        // read/write), but no join body renders f64 slots — `__join_growable_i64`
-        // would print the raw bits. Refused until Task 10 adds
-        // `__join_growable_f64`.
-        if self.growable_value_elem(receiver) == Some(kali_common::Repr::F64) {
-            return self.deny_e5506(
-                function,
-                "Array.prototype.join on a growable array of floating-point numbers is unavailable in the current phase",
-            );
-        }
         // C-2: a growable-array FIELD receiver (`o.values.join(...)`) is an
         // allowlisted SAFE position — read its handle through the gate-lifting
         // helper. Harmless for a named/plain-array receiver (no field gate).
@@ -6255,33 +6264,22 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
             }
         }
-        // Growable receiver (Task 5): a tagged-handle growable array joins
-        // through the header-indirected `__join_growable_*` synthetic, picked
-        // by the binding's element repr (`String` → the string-handle copy
-        // body; default `I64` → the `int_to_string`-render body). Both allocate
-        // globally (no arena twin this task — a join result must outlive any
-        // reset), so the arena routing below is bypassed. The base name is
-        // re-derived exactly as `runtime_join_call_parts` recognized it.
-        let growable_base = self
-            .node(self.unwrap_transparent(receiver))
-            .text
-            .as_deref()
-            .filter(|base| self.is_growable_array(base))
-            .map(str::to_string);
-        // Field receiver `o.values.join(...)` (Task 5): a `GrowableArrayI64`
-        // field is provably i64 (Task 3 conflicts string array fields to
-        // E5506), so it always joins via `__join_growable_i64` — no name to key
-        // an element-repr lookup on. Checked when the base-name lane found no
-        // named growable.
-        let field_growable =
-            growable_base.is_none() && self.object_field_is_growable_array(receiver);
-        let join_index = if let Some(base) = growable_base {
-            if self.array_elem_repr(&base) == kali_common::Repr::String {
-                self.join_growable_str_fn_index()
-            } else {
-                self.join_growable_i64_fn_index()
+        // Growable receiver (growable-runtime-arrays spec §3.5): a growable
+        // value joins through the header-indirected `__join_growable_*`
+        // synthetic picked by its element repr (`String` → the string-handle
+        // copy body, `F64` → the `float_to_string` body, `I64` → the
+        // `int_to_string` body), re-derived exactly as
+        // `runtime_join_call_parts` recognized it. All allocate globally (a
+        // join result must outlive any reset), so the arena routing below is
+        // bypassed. A `GrowableArrayI64` field (`o.values.join(...)`, Task 5)
+        // is provably i64 and joins via `__join_growable_i64`.
+        let join_index = if let Some(elem) = self.growable_value_elem(receiver) {
+            match elem {
+                kali_common::Repr::String => self.join_growable_str_fn_index(),
+                kali_common::Repr::F64 => self.join_growable_f64_fn_index(),
+                _ => self.join_growable_i64_fn_index(),
             }
-        } else if field_growable {
+        } else if self.object_field_is_growable_array(receiver) {
             self.join_growable_i64_fn_index()
         } else {
             // Per-site arena routing (fasta Spec 7 Task 4c): select the

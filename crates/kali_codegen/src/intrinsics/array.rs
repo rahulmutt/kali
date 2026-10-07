@@ -895,6 +895,11 @@ impl<'a> FunctionEmitter<'a> {
         separator: &str,
     ) -> Option<String> {
         let source = callee_node.children.first().copied()?;
+        // Growable-runtime-arrays spec §3.5: a growable receiver is never
+        // folded from its declarator literal (its contents are runtime).
+        if self.growable_value_elem(source).is_some() {
+            return None;
+        }
         let source = self.resolve_literal_aggregate(source)?;
         let source_node = self.node(source);
         let source_node = if source_node.kind == LirNodeKind::Value

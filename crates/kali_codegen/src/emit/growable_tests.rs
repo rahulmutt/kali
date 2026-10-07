@@ -59,21 +59,19 @@ fn an_f64_growable_array_push_read_and_write_lower_to_valid_wasm() {
 }
 
 #[test]
-fn an_f64_growable_join_is_refused_until_a_float_join_body_exists() {
-    // Task 9 carried item 7: `__join_growable_i64` would print the raw f64
-    // bits; Task 10 adds `__join_growable_f64` and replaces this refusal.
+fn an_f64_growable_join_lowers_through_the_float_join_body() {
+    // Task 10 replaces Task 9's interim refusal (carried item 7): an f64
+    // growable `join` calls `__join_growable_f64`, which renders each slot
+    // through `float_to_string` (spec §3.5, A-12).
     let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::F64);
     let program = parse_and_lower_lir(
         "function main() { const a = []; a.push(1.5); console.log(a.join(\",\")); } main();",
     );
     let result = lower_lir_to_wasm(&mut ctx, &program);
-    assert!(
-        result.diagnostics.iter().any(|d| d.code == Some(5506)
-            && d.message
-                .contains("join on a growable array of floating-point numbers")),
-        "{:?}",
-        result.diagnostics
-    );
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
 
 #[test]
@@ -83,7 +81,8 @@ fn a_float_index_on_a_growable_write_is_refused_not_lowered_to_invalid_wasm() {
     // the index slot, and the module failed to load).
     let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::I64);
     // Inference would make `f` an f64 scalar; set by hand (no inference here).
-    ctx.repr_table.set_scalar("main", "f", kali_common::Repr::F64);
+    ctx.repr_table
+        .set_scalar("main", "f", kali_common::Repr::F64);
     let program = parse_and_lower_lir(
         "function main() { const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length); } main();",
     );
@@ -114,4 +113,57 @@ fn a_growable_index_write_stores_through_the_store_time_bounds_guard() {
         .expect("generated wasm should validate");
     let names = exported_function_names(&result.wasm_bytes);
     assert!(names.iter().any(|n| n == "__growable_store"), "{names:?}");
+}
+
+#[test]
+fn every_module_carries_the_growable_method_synthetics_and_validates() {
+    let (bytes, _) = compile_and_measure(&sample_program());
+    let names = exported_function_names(&bytes);
+    for name in [
+        "__growable_pop",
+        "__growable_find",
+        "__growable_slice",
+        "__join_growable_f64",
+    ] {
+        assert!(
+            names.iter().any(|n| n == name),
+            "{name} missing from {names:?}"
+        );
+    }
+}
+
+#[test]
+fn f64_pop_search_slice_and_join_lower_to_valid_wasm() {
+    let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::F64);
+    ctx.repr_table.set_growable_array_binding("main", "t");
+    ctx.repr_table.set_array_binding("main", "t");
+    ctx.repr_table
+        .set_array_element("main", "t", kali_common::Repr::F64);
+    let program = parse_and_lower_lir(
+        "function main() { const a = []; a.push(1.5); a.push(0.25); const t = a.slice(0, 1); console.log(a.indexOf(0.25), a.includes(1.5), a.join(\",\"), t.length, a.pop()); } main();",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn an_f64_growable_index_write_used_as_a_value_lowers_to_valid_wasm() {
+    // Task 9 re-review carried item: the assignment node is the value of an
+    // outer store (`f[1] = (f[0] = 0.25)`) or a declaration (`const r = (f[0]
+    // = …)`); `is_float_valued` must see it as f64, or the slot encoder
+    // converts an f64 as if it were an i64 and the module fails to load.
+    let mut ctx = ctx_with_growable("main", "f", kali_common::Repr::F64);
+    ctx.repr_table
+        .set_scalar("main", "r", kali_common::Repr::F64);
+    let program = parse_and_lower_lir(
+        "function main() { const f = []; f.push(0.5); f.push(1.5); f[1] = (f[0] = 0.25); const r = (f[0] = f[1] * 2); console.log(r, f[0], f[1]); } main();",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
 }
