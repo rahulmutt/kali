@@ -4,6 +4,7 @@ pub mod block_scope_rename;
 pub mod capture_param_rewrite;
 mod capture_refusals;
 mod compile;
+pub mod default_params;
 mod entrypoint;
 mod eval;
 mod exports;
