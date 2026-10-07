@@ -219,7 +219,9 @@ fn a_function_declaration_with_a_default_round_trips() {
         params: vec!["a".to_string(), "b".to_string()],
         defaults: vec![
             None,
-            Some(Box::new(crate::Expression::Literal(crate::LiteralValue::Number(2.0)))),
+            Some(Box::new(crate::Expression::Literal(
+                crate::LiteralValue::Number(2.0),
+            ))),
         ],
         body: Box::new(crate::BlockStatement { body: Vec::new() }),
         is_async: false,

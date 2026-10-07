@@ -293,24 +293,28 @@ name = "r01_default_parameter_module_scope"
 kind = "oracle"
 register_entry = "R-01"
 program = "r01_module.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-01, module scope. A `function` declaration carrying a default parameter, with a `console.log` on either side of it.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9` (2026-07-29), §2's R-01 records node printing `A` and `B` at exit 0 against kali printing `A` at exit 0 with "nothing on stderr, no E-code" -- both engines exit 0, stdout differs, which is SILENT.
 
-RE-MEASURED 2026-08-15 at `c4f665e5f5` against node v26.7.0: FAIL_CLOSED, SUPERSEDING SILENT. kali exits 1 with empty stdout and `error[E5506]: a default parameter is not supported — kali functions take a fixed list of plain named parameters`; node prints `A` then `B` at exit 0. `E5506` is inside the documented `E55xx` range, so `classify` reads a documented refusal against a clean node run as FAIL_CLOSED. What is directly observable is the whole move: kali's stdout is EMPTY, so it no longer prints `A` and drops the rest -- the file is refused outright, by name, with a diagnostic naming the construct. That is a move out of Tier 1's "silently drops code or output" cell -- a loud denial is not a silent drop -- and the §0.2 regeneration should re-rank it accordingly."""
+RE-MEASURED 2026-08-15 at `c4f665e5f5` against node v26.7.0: FAIL_CLOSED, SUPERSEDING SILENT. kali exits 1 with empty stdout and `error[E5506]: a default parameter is not supported — kali functions take a fixed list of plain named parameters`; node prints `A` then `B` at exit 0. `E5506` is inside the documented `E55xx` range, so `classify` reads a documented refusal against a clean node run as FAIL_CLOSED. What is directly observable is the whole move: kali's stdout is EMPTY, so it no longer prints `A` and drops the rest -- the file is refused outright, by name, with a diagnostic naming the construct. That is a move out of Tier 1's "silently drops code or output" cell -- a loud denial is not a silent drop -- and the §0.2 regeneration should re-rank it accordingly.
+
+RE-PINNED 2026-10-07 by the default-parameters project: FIXED, SUPERSEDING FAIL_CLOSED. A defaulted function declaration whose every call is direct now gets the default filled at the call site; kali prints `A` then `B` at exit 0, byte-identical to node v26.10.0."""
 
 [[case]]
 name = "r01_default_parameter_in_function"
 kind = "oracle"
 register_entry = "R-01"
 program = "r01_function.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-01, in-function scope. The module-scope repro verbatim inside `function main() { ... }` with a trailing `main();` -- the wrapper is the only addition.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2's R-01 records "Scopes affected: both", so the in-function scope was expected to behave as the module one and classify SILENT.
 
-RE-MEASURED 2026-08-15 at `c4f665e5f5` against node v26.7.0: FAIL_CLOSED, SUPERSEDING SILENT. kali exits 1 with empty stdout and `error[E5506]: a default parameter is not supported — kali functions take a fixed list of plain named parameters`; node prints `A` then `B` at exit 0. Byte-identical to the module-scope case, so the register's "Scopes affected: both" still holds -- what changed is the class both scopes now carry, not the agreement between them."""
+RE-MEASURED 2026-08-15 at `c4f665e5f5` against node v26.7.0: FAIL_CLOSED, SUPERSEDING SILENT. kali exits 1 with empty stdout and `error[E5506]: a default parameter is not supported — kali functions take a fixed list of plain named parameters`; node prints `A` then `B` at exit 0. Byte-identical to the module-scope case, so the register's "Scopes affected: both" still holds -- what changed is the class both scopes now carry, not the agreement between them.
+
+RE-PINNED 2026-10-07 by the default-parameters project: FIXED, SUPERSEDING FAIL_CLOSED. A defaulted function declaration whose every call is direct now gets the default filled at the call site; kali prints `A` then `B` at exit 0, byte-identical to node v26.10.0."""
 
 [[case]]
 name = "r02_call_through_a_function_value_module_scope"

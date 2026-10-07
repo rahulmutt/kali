@@ -79,11 +79,12 @@ The defect: `function g(b = 5) { ... }` left the token stream parked on `=`, `pa
 
 The invariant: an unsupported parameter shape fails closed (E5506, nonzero exit). It never produces a partial module with a zero exit code.
 
-The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit."""
+The whole point of the test: a program using an unsupported parameter shape must NOT exit 0 with the post-declaration statements silently dropped. It must produce an E5506 naming the construct and a nonzero exit.
+
+RE-PINNED 2026-10-07 by the default-parameters project: a scalar literal default on a function declaration is now supported (call-site fill), so this program runs and prints `after` at exit 0, as node does. The case keeps its name; the no-silent-truncation invariant still holds, because the statements after the declaration run. Unsupported shapes (object default, arrow, function expression, method) stay refused in the sibling cases.""""
 args = ["run", "default_param_function_declaration_fails_closed.ts"]
-exit = "failure"
-stdout = ""
-stderr_contains = ["E5506", "default parameter"]
+exit = "success"
+stdout = "after\n"
 
 [[case]]
 name = "default_param_function_expression_fails_closed"

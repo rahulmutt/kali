@@ -258,3 +258,23 @@ Worktree `/workspace/.worktrees/default-parameters`, branch
 committed off `main` at `76fbdc20e`. Implementation starts after lane A
 (`numeric-literal-grammar`, which also edits `kali_parser`) merges, with this
 branch rebased onto that merge.
+
+---
+
+## 7. Amendments
+
+Found while planning (`docs/superpowers/plans/2026-10-07-default-parameters.md`), before any code was written:
+
+* **A-1.** Defaults live on `FunctionDeclaration::defaults` (index-aligned with `params`), not on `FunctionParam`. `FunctionDeclaration::params` is a `Vec<String>`; `FunctionParam` is only used by arrows and function expressions. §3.1's `FunctionParam::plain` constructor is not needed.
+* **A-2.** A default on an arrow, method or function expression is refused by the parser, with §3.3's message, rather than by the pass. Those forms never carry a default on the AST.
+* **A-3.** `export function f(…)` parses to a plain function declaration, so the pass cannot see the export. The parser refuses an exported defaulted declaration; the pass refuses `export { f }`.
+* **A-4.** AST nodes carry no spans. Diagnostics name the function and parameter instead (§3.3's "spans" sentence is withdrawn).
+* **A-5.** A spread argument to a defaulted function (`f(...xs)`) is refused: the pass cannot count the arguments. New message `default_param_spread_call_message`.
+* **A-6.** `f?.(…)` parses as `OptionalChainExpression { object: f }` and the call is dropped (pre-existing). The pass sees a value use and refuses it with the value-use message.
+* **A-7 (human partner's ruling, 2026-10-07).** Scalar literal defaults only. Kali refuses an object or array literal passed directly as a call argument ("an object literal passed directly as a call argument is unavailable in the current phase; bind it to a const first"), so filling `{}` or `[]` at the call site would be refused with a message about an argument the user never wrote. An object or array default is refused by the pass with its own message. §1's "17 numbers or strings and one `hooks = {}`" now reads: 20 of the corpus's 21 defaults are in scope, and `task_queue.js`'s `hooks = {}` is refused. The §5.2 `{}`-freshness case is withdrawn.
+
+Measured during execution:
+
+* **A-8. Rebound names.** `block_scope_rename` only gives a binding a unique spelling when a rival sits in its own enclosing frame chain, or when both are program-wide declarations. A `const`, `let`, parameter or arrow named `f` in a sibling function keeps the spelling `f`. Matching calls by name would then fill the wrong call: `function h() { function f(a = 41) { return a; } return f(); } function g() { const f = (a) => a; return f(undefined); } console.log(h(), g());` printed `41 41` (node prints `41 undefined`). The pass therefore refuses a defaulted function whose name is bound more than once anywhere in the program, with a tenth message, `default_param_rebound_name_message`: "a function with default parameters must have a name no other binding in the program uses in the current phase: `f` is also bound elsewhere".
+* **A-9. Spread calls are unreachable.** The parser silently drops a spread call: `function g(a) { return a; } const xs = [2]; console.log(g(...xs));` gives `check` exit 0, and `run` prints `0` where node prints `2`. This is pre-existing, with no defaults involved, and is related to register FL-06. The pass keeps its spread refusal, unit-tested on a hand-built AST, but no case file can reach it.
+* **A-10. Export specifier.** `export { f };` of any function fails first with the pre-existing E5511 "duplicate export name `f`". The case file therefore pins the export-specifier refusal with `export { f as g };`.
