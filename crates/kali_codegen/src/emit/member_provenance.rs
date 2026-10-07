@@ -114,6 +114,26 @@ impl<'a> FunctionEmitter<'a> {
         !self.init_has_host_provenance(root, &scopes, 0, &mut HashSet::new())
     }
 
+    /// Unresolved-member-read spec §3.3 and A-2: a plain `=` that reached
+    /// `emit_binary`'s final fallback. The target's chain root decides, as
+    /// for a read; an identifier target is its own root, so a store to a
+    /// `const` refuses and a store to a free global keeps warn+0.
+    pub(crate) fn unresolved_store_refusal(&self, target: LirNodeId) -> Option<String> {
+        let target = self.unwrap_transparent(target);
+        let node = self.node(target);
+        if node.kind != LirNodeKind::Value {
+            return None;
+        }
+        let name = node.text.as_deref().filter(|name| !name.is_empty())?;
+        let shown = match node.children.len() {
+            0 => name.to_string(),
+            1 | 2 => format!(".{name}"),
+            _ => return None,
+        };
+        self.unresolved_member_read_refuses(target)
+            .then(|| kali_common::unresolved_store_unavailable_message(&shown))
+    }
+
     /// `Array.prototype.m` / `Object.prototype.m` / `String.prototype.m` as
     /// the receiver of `.call` / `.apply`, rooted at the unshadowed global.
     fn is_intrinsic_prototype_borrow(&self, receiver: LirNodeId) -> bool {

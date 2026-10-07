@@ -290,3 +290,34 @@ fn a_resolved_read_is_not_refused() {
         );
     }
 }
+
+const UNRES_STORE: &str = "no lowering for that store";
+
+#[test]
+fn a_store_to_a_const_binding_refuses() {
+    for source in [
+        "const x = 1; x = 2; console.log(\"r=\" + x);",
+        "function main() { const x = 1; x = 2; console.log(\"r=\" + x); } main();",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert_e5506(&diagnostics, UNRES_STORE, source);
+        assert_e5506(&diagnostics, "assigning to `x`", source);
+    }
+}
+
+#[test]
+fn a_store_to_a_free_global_keeps_its_lowering() {
+    for source in [
+        // The brief's class `this.a = v` case is omitted: the unit harnesses
+        // run no class repr inference, so they over-refuse it (reads too);
+        // the real CLI prints node's `5`, covered by the black-box cases.
+        "globalThis.zz = 3; console.log(\"ok\");",
+        "function mk(){ return {a:1}; } const o=mk(); o[\"a\"] = 5; console.log(o.a);",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert!(
+            !diagnostics.iter().any(|d| d.message.contains(UNRES_STORE)),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}

@@ -2724,6 +2724,15 @@ impl<'a> FunctionEmitter<'a> {
             }
             "&" | "|" | "^" | "<<" | ">>" | ">>>" => self.emit_bitwise(function, op, left, right),
             _ => {
+                // Unresolved-member-read spec §3.3: a plain `=` that no lane
+                // stored refuses when its target is rooted at a value this
+                // program built (R-29's `const x = 1; x = 2` is the measured
+                // case), instead of evaluating `left + right`.
+                if op == "=" {
+                    if let Some(message) = self.unresolved_store_refusal(left) {
+                        return self.deny_e5506(function, &message);
+                    }
+                }
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,
                     format!("unsupported binary operator '{}'", op),
