@@ -54,6 +54,7 @@ use kali_ast::{
     Expression, ExpressionOrSpread, ForInLefthand, ForInit, ForOfLefthand, LiteralValue, Statement,
 };
 
+pub(crate) mod facts;
 pub(crate) mod flow;
 
 /// Why a growable-shape `.push` receiver failed promotion (Task 6): drives

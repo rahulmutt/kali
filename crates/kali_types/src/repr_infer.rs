@@ -1524,6 +1524,15 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     table
 }
 
+/// Growable-runtime-arrays test hook: Phase A, A2, then the fact walk.
+#[cfg(test)]
+pub(crate) fn growable_facts_for(statements: &[Statement]) -> crate::growable::flow::GrowFacts {
+    let mut infer = ReprInfer::default();
+    infer.collect_functions(statements);
+    infer.collect_local_names(TOP_LEVEL, statements);
+    infer.collect_growable_facts(statements)
+}
+
 /// F-AB-2 lockstep test hook: run Phase A (walks 1-3 registration) and Phase B
 /// (walk 4 seeding), then return the two `__kali_fn_N` sets — `(registered,
 /// seeded)` — so unit tests can pin the exact membership of the reverse gap
@@ -2820,6 +2829,27 @@ impl ReprInfer {
             }
             _ => {}
         }
+    }
+
+    /// Growable-runtime-arrays spec §3.1: the growable facts, from Phase A's
+    /// function table and Phase A2's local names (both must be complete).
+    /// A call reaches a declared function exactly as the array-return lane
+    /// resolves it (`array_return_callee`: `const` arrow aliases included,
+    /// shadowed names excluded).
+    // Unused outside the test hook until Task 6 wires it into inference.
+    #[allow(dead_code)]
+    fn collect_growable_facts(&self, statements: &[Statement]) -> crate::growable::flow::GrowFacts {
+        let is_declared = |func: &str, name: &str| self.is_locally_declared(func, name);
+        let resolve_callee = |site: &str, name: &str| {
+            self.array_return_callee(site, name)
+                .filter(|key| self.functions.contains_key(key))
+        };
+        let ctx = crate::growable::facts::WalkContext {
+            is_declared: &is_declared,
+            resolve_callee: &resolve_callee,
+            params: &self.functions,
+        };
+        crate::growable::facts::collect_facts(statements, &ctx)
     }
 
     // ---- Phase A3: growable-array candidate collection -------------------
