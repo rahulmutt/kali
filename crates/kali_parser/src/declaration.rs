@@ -57,13 +57,15 @@ enum ArrowParams {
     Ok {
         after: usize,
         params: Vec<String>,
+        /// A parameter had a default. The refusal is deferred to the caller,
+        /// which reports it only once the arrow's `=>` is confirmed (past any
+        /// return-type annotation); `(b = 6)` is a parenthesized assignment.
+        had_default: bool,
     },
     /// Provably an arrow parameter list (a `=>` follows the `)`) that kali
     /// cannot lower. The E5506 has already been reported; `after` indexes the
     /// `=>` so the caller can consume the whole arrow.
-    Rejected {
-        after: usize,
-    },
+    Rejected { after: usize },
     /// Not an arrow parameter list — the caller must fall back to its other
     /// interpretations (typically a parenthesized expression) unchanged.
     No,
@@ -692,18 +694,10 @@ impl Parser {
     fn scan_arrow_param_list(&mut self, start: usize) -> ArrowParams {
         match self.scan_param_list(start) {
             ParamListScan::Simple { after, params } => {
-                // Only `=>` after the list makes these tokens arrow
-                // parameters; `(b = 6)` is a parenthesized assignment.
-                if params.iter().any(|param| param.default.is_some())
-                    && self.stream.tokens.get(after).map(|token| &token.kind)
-                        == Some(&TokenType::Arrow)
-                {
-                    self.push_feature_unavailable(
-                        kali_common::default_param_non_declaration_message(),
-                    );
-                }
+                let had_default = params.iter().any(|param| param.default.is_some());
                 ArrowParams::Ok {
                     after,
+                    had_default,
                     params: params.into_iter().map(|param| param.name).collect(),
                 }
             }
@@ -743,12 +737,18 @@ impl Parser {
     ) -> Option<Expression> {
         let mut scan = start;
         let mut params = Vec::new();
+        let mut had_default = false;
         let mut allow_return_type = false;
         match self.stream.tokens.get(scan).map(|token| &token.kind) {
             Some(TokenType::LeftParen) => {
                 allow_return_type = true;
                 match self.scan_arrow_param_list(scan) {
-                    ArrowParams::Ok { after, params: p } => {
+                    ArrowParams::Ok {
+                        after,
+                        params: p,
+                        had_default: d,
+                    } => {
+                        had_default = d;
                         scan = after;
                         params = p;
                     }
@@ -790,6 +790,9 @@ impl Parser {
             return None;
         }
 
+        if had_default {
+            self.push_feature_unavailable(kali_common::default_param_non_declaration_message());
+        }
         self.stream.position = scan + 1;
         let body = self.parse_arrow_function_body_expression();
         Some(Expression::ArrowFunctionExpression(Box::new(
@@ -817,8 +820,12 @@ impl Parser {
         if self.stream.tokens.get(start).map(|token| &token.kind) != Some(&TokenType::LeftParen) {
             return None;
         }
-        let (scan, params) = match self.scan_arrow_param_list(start) {
-            ArrowParams::Ok { after, params } => (after, params),
+        let (scan, params, had_default) = match self.scan_arrow_param_list(start) {
+            ArrowParams::Ok {
+                after,
+                params,
+                had_default,
+            } => (after, params, had_default),
             ArrowParams::Rejected { after } => {
                 return Some(self.consume_rejected_arrow(after));
             }
@@ -833,6 +840,9 @@ impl Parser {
             return None;
         }
 
+        if had_default {
+            self.push_feature_unavailable(kali_common::default_param_non_declaration_message());
+        }
         self.stream.position = scan + 1;
         let Some(Statement::BlockStatement(block)) = self.parse_block_statement() else {
             self.stream.position = start;

@@ -148,3 +148,25 @@ fn a_parenthesized_assignment_is_not_an_arrow_default() {
         assert!(messages.is_empty(), "{source}: {messages:?}");
     }
 }
+
+#[test]
+fn an_annotated_arrow_with_a_default_is_refused() {
+    for source in [
+        "const f = (a = 1): number => a;",
+        "const g = async (a = 1): Promise<number> => a;",
+    ] {
+        let messages = diagnostics(source);
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.contains(kali_common::default_param_non_declaration_message())),
+            "{source}: {messages:?}"
+        );
+    }
+}
+
+#[test]
+fn an_annotated_arrow_without_a_default_is_accepted() {
+    let messages = diagnostics("const h = (a): number => a;");
+    assert!(messages.is_empty(), "{messages:?}");
+}
