@@ -200,3 +200,50 @@ fn test_empty_interpolation_reports_e2004() {
     expect_string_literal(quasi, "`v: `");
     expect_string_literal(empty, "``");
 }
+
+fn expect_number_init(source: &str, expected: f64) {
+    let (init, diagnostics) = parse_single_init_expression(source);
+    assert!(diagnostics.is_empty(), "{source}: {diagnostics:?}");
+    match init {
+        Expression::Literal(kali_ast::LiteralValue::Number(value)) => {
+            assert_eq!(value, expected, "{source}")
+        }
+        other => panic!("{source}: expected a number literal, got {other:?}"),
+    }
+}
+
+#[test]
+fn prefixed_separated_and_legacy_octal_numbers_read_their_javascript_value() {
+    expect_number_init("const v = 0xff;", 255.0);
+    expect_number_init("const v = 0b101;", 5.0);
+    expect_number_init("const v = 0o17;", 15.0);
+    expect_number_init("const v = 1_000;", 1000.0);
+    // Register entry R-58, expression position: `042` is 34, not 42.
+    expect_number_init("const v = 042;", 34.0);
+    expect_number_init("const v = 08;", 8.0);
+}
+
+#[test]
+fn a_separated_bigint_keeps_only_its_digits() {
+    let (init, diagnostics) = parse_single_init_expression("const v = 1_000n;");
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    match init {
+        Expression::BigIntLiteral(value) => assert_eq!(value, "1000n"),
+        other => panic!("Expected BigIntLiteral, got {other:?}"),
+    }
+}
+
+#[test]
+fn malformed_and_non_decimal_bigint_numbers_are_refused_not_zero() {
+    // The parser used to read an unparseable literal as `0.0`. A token it
+    // cannot read is refused, whether or not the lexer's E1100 is in view.
+    for source in [
+        "const v = 0x;",
+        "const v = 1__0;",
+        "const v = 0xffn;",
+        "const v = 1.5n;",
+    ] {
+        let (_, diagnostics) = parse_single_init_expression(source);
+        assert!(!diagnostics.is_empty(), "{source}: expected a refusal");
+    }
+}
