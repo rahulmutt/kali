@@ -14,6 +14,10 @@ use super::flow::GrowNode;
 pub(crate) enum ElemProof {
     /// Always a number or a string (a literal, arithmetic, a template, …).
     Yes,
+    /// Always a string. Task 7 fix round 2: holds only where the growable
+    /// array's solved element repr is `String` — a string the element solve
+    /// did not see would be stored into a number array and printed as one.
+    Str,
     /// May be an object, array, function, boolean, `null` or `undefined`.
     No,
     /// The bare identifier `name`, read in `func`: every value it is ever
@@ -107,8 +111,11 @@ fn unwrap(expr: &Expression) -> &Expression {
     }
 }
 
-/// Methods whose result is a number or a string whenever the receiver is a
-/// number or a string.
+/// Methods whose result is a number whenever the receiver is a string.
+const NUMBER_RESULT_METHODS: &[&str] = &["charCodeAt", "codePointAt", "localeCompare", "search"];
+
+/// Methods whose result is a string whenever the receiver is a number or a
+/// string.
 const SCALAR_RECEIVER_METHODS: &[&str] = &[
     "toUpperCase",
     "toLowerCase",
@@ -121,15 +128,11 @@ const SCALAR_RECEIVER_METHODS: &[&str] = &[
     "padEnd",
     "repeat",
     "charAt",
-    "charCodeAt",
-    "codePointAt",
     "substring",
     "substr",
     "replace",
     "replaceAll",
     "normalize",
-    "localeCompare",
-    "search",
     "toFixed",
     "toPrecision",
     "toString",
@@ -170,8 +173,10 @@ pub(crate) fn elem_proof(func: &str, expr: &Expression) -> ElemProof {
         name: name.to_string(),
     };
     match unwrap(expr) {
-        Expression::Literal(LiteralValue::Number(_) | LiteralValue::String(_)) => ElemProof::Yes,
-        Expression::TemplateLiteral(_) => ElemProof::Yes,
+        Expression::Literal(LiteralValue::Number(_)) => ElemProof::Yes,
+        Expression::Literal(LiteralValue::String(_)) | Expression::TemplateLiteral(_) => {
+            ElemProof::Str
+        }
         // `undefined`, `NaN`, … are undeclared: `Binding` refuses them.
         Expression::Identifier(name) => binding(name),
         // `-x`, `+x`, `~x` are numbers and `typeof x` a string, whatever `x`
@@ -180,7 +185,7 @@ pub(crate) fn elem_proof(func: &str, expr: &Expression) -> ElemProof {
             "-" | "+" | "~" if !matches!(unwrap(&u.argument), Expression::BigIntLiteral(_)) => {
                 ElemProof::all(vec![elem_proof(func, &u.argument)])
             }
-            "typeof" => ElemProof::Yes,
+            "typeof" => ElemProof::Str,
             _ => ElemProof::No,
         },
         // Arithmetic and `+` yield a number or a string (or a BigInt, so the
@@ -285,11 +290,14 @@ fn call_proof(func: &str, call: &kali_ast::CallExpression) -> ElemProof {
                     name: "Math".to_string(),
                 };
             }
-            if SCALAR_RECEIVER_METHODS.contains(&method) {
+            if NUMBER_RESULT_METHODS.contains(&method) {
                 return ElemProof::all(vec![elem_proof(func, receiver)]);
             }
+            if SCALAR_RECEIVER_METHODS.contains(&method) {
+                return ElemProof::all(vec![elem_proof(func, receiver), ElemProof::Str]);
+            }
             if BUILTIN_RECEIVER_METHODS.contains(&method) {
-                return match chain_root(receiver) {
+                let receiver_ok = match chain_root(receiver) {
                     Some(root) => ElemProof::ArrayOrString {
                         func: func.to_string(),
                         name: root.to_string(),
@@ -300,6 +308,12 @@ fn call_proof(func: &str, call: &kali_ast::CallExpression) -> ElemProof {
                         | Expression::ArrayExpression(_) => ElemProof::Yes,
                         _ => ElemProof::No,
                     },
+                };
+                // `join` is a string; the searches are numbers.
+                return if method == "join" {
+                    ElemProof::all(vec![receiver_ok, ElemProof::Str])
+                } else {
+                    receiver_ok
                 };
             }
             match (method, receiver) {
@@ -314,7 +328,7 @@ fn call_proof(func: &str, call: &kali_ast::CallExpression) -> ElemProof {
                     }
                 }
                 ("slice" | "at" | "concat", Expression::Literal(LiteralValue::String(_))) => {
-                    ElemProof::Yes
+                    ElemProof::Str
                 }
                 _ => ElemProof::No,
             }

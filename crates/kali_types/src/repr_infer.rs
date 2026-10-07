@@ -776,19 +776,25 @@ impl NumProofCheck<'_> {
 /// Growable-runtime-arrays M2 (spec §3.4, A-4, Task 7 fix round 1): a fact
 /// the number-or-string proof of a stored element leans on.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// The `bool` is the context (Task 7 fix round 2): `true` when the value
+/// lands in a growable array whose solved element repr is `String`. Outside
+/// that context a string is refused — the element solve did not see it, so it
+/// would be stored and printed as a number.
 enum ElemFact {
     /// Every value written to declared binding `(scope, name)` is proven.
-    Binding(String, String),
+    Binding(String, String, bool),
     /// Every call site of `func` passes a proven argument for param `name`,
     /// and every write in its body is proven.
-    Param(String, String),
+    Param(String, String, bool),
     /// Every return of `func` is proven.
-    Return(String),
-    /// Every value stored into the growable component is proven.
+    Return(String, bool),
+    /// Every value stored into the growable component is proven, in the
+    /// component's own context.
     Grow(usize),
     /// Every value stored into the plain (non-growable) array component —
     /// its literal seeds — is proven (`plain_component_closed` holds).
-    Plain(usize),
+    Plain(usize, bool),
 }
 
 /// Growable-runtime-arrays M2: the evaluator behind the unsupported-element
@@ -808,6 +814,8 @@ struct ElemProofCheck<'a> {
     grow_values: BTreeMap<usize, Vec<&'a crate::growable::elem_proof::ElemProof>>,
     num_proven: Option<BTreeSet<usize>>,
     num_goals: std::cell::RefCell<BTreeSet<usize>>,
+    /// Growable components whose solved element repr is `String`.
+    string_components: BTreeSet<usize>,
     refuted: BTreeSet<ElemFact>,
 }
 
@@ -874,12 +882,13 @@ impl ElemProofCheck<'_> {
     }
 
     /// The bare identifier `name`, read in `func`, holds a number or a string
-    /// (and is a string, when `string`).
+    /// (and is a string, when `string`), in context `s`.
     fn binding_holds(
         &self,
         func: &str,
         name: &str,
         string: bool,
+        s: bool,
         deps: &mut Vec<ElemFact>,
     ) -> bool {
         if self.unwalked || self.infer.functions.contains_key(name) {
@@ -897,23 +906,25 @@ impl ElemProofCheck<'_> {
             return false;
         }
         match self.table.scalar(&scope, name) {
-            Repr::String => {}
+            Repr::String if s => {}
             Repr::I64 | Repr::F64 if !string => {}
             _ => return false,
         }
         if self.param_index(func, name).is_some() {
-            return self.assume(ElemFact::Param(func.to_string(), name.to_string()), deps);
+            return self.assume(ElemFact::Param(func.to_string(), name.to_string(), s), deps);
         }
-        self.assume(ElemFact::Binding(scope, name.to_string()), deps)
+        self.assume(ElemFact::Binding(scope, name.to_string(), s), deps)
     }
 
     /// One element of `name`, read in `func` (a string's character is a
-    /// string), is a number or a string (a string, when `string`).
+    /// string), is a number or a string (a string, when `string`), in
+    /// context `s`.
     fn elements_hold(
         &self,
         func: &str,
         name: &str,
         string: bool,
+        s: bool,
         deps: &mut Vec<ElemFact>,
     ) -> bool {
         let scope = if self.param_index(func, name).is_some() {
@@ -922,7 +933,7 @@ impl ElemProofCheck<'_> {
             self.infer.binding_scope(func, name)
         };
         if self.table.scalar(&scope, name) == Repr::String && !self.is_array(&scope, name) {
-            return self.binding_holds(func, name, true, deps);
+            return s && self.binding_holds(func, name, true, s, deps);
         }
         if self.is_object(func, &scope, name)
             || self.slot_is_object(&ObjSlot::ArrayElem(scope.clone(), name.to_string()))
@@ -930,7 +941,7 @@ impl ElemProofCheck<'_> {
             return false;
         }
         let element = self.table.array_element(&scope, name);
-        if string && element != Repr::String {
+        if (string || !s) && (element == Repr::String) != string {
             return false;
         }
         let node = crate::growable::flow::GrowNode::Binding(scope.clone(), name.to_string());
@@ -939,7 +950,7 @@ impl ElemProofCheck<'_> {
         }
         if let Some(component) = self.infer.growable.component_of(&node) {
             if self.plain_component_closed(component)
-                && self.assume(ElemFact::Plain(component), deps)
+                && self.assume(ElemFact::Plain(component, s), deps)
             {
                 return true;
             }
@@ -948,7 +959,7 @@ impl ElemProofCheck<'_> {
             return false;
         };
         match element {
-            Repr::String => true,
+            Repr::String => s,
             Repr::I64 => {
                 let root = self.roots[elem];
                 match &self.num_proven {
@@ -1048,23 +1059,31 @@ impl ElemProofCheck<'_> {
                 })
     }
 
+    /// `proof` holds in context `s` (see [`ElemFact`]).
     fn proof_holds(
         &self,
         proof: &crate::growable::elem_proof::ElemProof,
+        s: bool,
         deps: &mut Vec<ElemFact>,
     ) -> bool {
         use crate::growable::elem_proof::ElemProof;
         match proof {
             ElemProof::Yes => true,
+            ElemProof::Str => s,
             ElemProof::No => false,
-            ElemProof::All(parts) => parts.iter().all(|p| self.proof_holds(p, deps)),
-            ElemProof::Binding { func, name } => self.binding_holds(func, name, false, deps),
-            ElemProof::StringBinding { func, name } => self.binding_holds(func, name, true, deps),
-            ElemProof::Elements { func, name } => self.elements_hold(func, name, false, deps),
-            ElemProof::StringElements { func, name } => self.elements_hold(func, name, true, deps),
-            ElemProof::GrowElements(node) => self
-                .grow_component(node)
-                .is_some_and(|component| self.assume(ElemFact::Grow(component), deps)),
+            ElemProof::All(parts) => parts.iter().all(|p| self.proof_holds(p, s, deps)),
+            ElemProof::Binding { func, name } => self.binding_holds(func, name, false, s, deps),
+            ElemProof::StringBinding { func, name } => {
+                s && self.binding_holds(func, name, true, s, deps)
+            }
+            ElemProof::Elements { func, name } => self.elements_hold(func, name, false, s, deps),
+            ElemProof::StringElements { func, name } => {
+                s && self.elements_hold(func, name, true, s, deps)
+            }
+            ElemProof::GrowElements(node) => self.grow_component(node).is_some_and(|component| {
+                (s || !self.string_components.contains(&component))
+                    && self.assume(ElemFact::Grow(component), deps)
+            }),
             ElemProof::Global { func, name } => self.is_global(func, name),
             ElemProof::ArrayOrString { func, name } => {
                 let scope = if self.param_index(func, name).is_some() {
@@ -1075,17 +1094,21 @@ impl ElemProofCheck<'_> {
                 if self.is_object(func, &scope, name) {
                     return false;
                 }
-                self.is_array(&scope, name) || self.binding_holds(func, name, true, deps)
+                // The result (`.length`, `.indexOf()`, …) is a number
+                // whatever the receiver, so the receiver is checked in the
+                // string context.
+                self.is_array(&scope, name) || self.binding_holds(func, name, true, true, deps)
             }
             ElemProof::Call { caller, callee } => {
                 if crate::growable::elem_proof::is_scalar_global_function(callee)
                     && self.is_global(caller, callee)
                 {
-                    return true;
+                    // `String(x)` is a string; the others are numbers.
+                    return s || callee != "String";
                 }
                 self.infer
                     .array_return_callee(caller, callee)
-                    .is_some_and(|key| self.assume(ElemFact::Return(key), deps))
+                    .is_some_and(|key| self.assume(ElemFact::Return(key, s), deps))
             }
         }
     }
@@ -1104,25 +1127,25 @@ impl ElemProofCheck<'_> {
                     .any(|e| e.callee == func))
     }
 
-    fn writes_hold(&self, scope: &str, name: &str, deps: &mut Vec<ElemFact>) -> bool {
+    fn writes_hold(&self, scope: &str, name: &str, s: bool, deps: &mut Vec<ElemFact>) -> bool {
         !self.infer.elem_unkeyed_names.contains(name)
             && self
                 .infer
                 .binding_elem_proofs
                 .get(&(scope.to_string(), name.to_string()))
-                .is_none_or(|proofs| proofs.iter().all(|p| self.proof_holds(p, deps)))
+                .is_none_or(|proofs| proofs.iter().all(|p| self.proof_holds(p, s, deps)))
     }
 
     fn fact_holds(&self, fact: &ElemFact, deps: &mut Vec<ElemFact>) -> bool {
         match fact {
-            ElemFact::Binding(scope, name) => {
+            ElemFact::Binding(scope, name, s) => {
                 self.infer
                     .binding_elem_proofs
                     .get(&(scope.clone(), name.clone()))
                     .is_some_and(|proofs| !proofs.is_empty())
-                    && self.writes_hold(scope, name, deps)
+                    && self.writes_hold(scope, name, *s, deps)
             }
-            ElemFact::Param(func, name) => {
+            ElemFact::Param(func, name, s) => {
                 let Some(index) = self.param_index(func, name) else {
                     return false;
                 };
@@ -1135,11 +1158,11 @@ impl ElemProofCheck<'_> {
                         .all(|edge| {
                             edge.elem
                                 .get(index)
-                                .is_some_and(|proof| self.proof_holds(proof, deps))
+                                .is_some_and(|proof| self.proof_holds(proof, *s, deps))
                         })
-                    && self.writes_hold(func, name, deps)
+                    && self.writes_hold(func, name, *s, deps)
             }
-            ElemFact::Return(func) => {
+            ElemFact::Return(func, s) => {
                 let facts = &self.infer.array_return_facts;
                 facts.candidate_forms.contains(func)
                     && facts.declaration_counts.get(func) == Some(&1)
@@ -1154,7 +1177,8 @@ impl ElemProofCheck<'_> {
                         .return_elem_proofs
                         .get(func)
                         .is_some_and(|proofs| {
-                            !proofs.is_empty() && proofs.iter().all(|p| self.proof_holds(p, deps))
+                            !proofs.is_empty()
+                                && proofs.iter().all(|p| self.proof_holds(p, *s, deps))
                         })
             }
             ElemFact::Grow(component) => {
@@ -1168,17 +1192,17 @@ impl ElemProofCheck<'_> {
                         }
                         _ => true,
                     })
-                    && self
-                        .grow_values
-                        .get(component)
-                        .is_none_or(|values| values.iter().all(|p| self.proof_holds(p, deps)))
+                    && self.grow_values.get(component).is_none_or(|values| {
+                        let s = self.string_components.contains(component);
+                        values.iter().all(|p| self.proof_holds(p, s, deps))
+                    })
             }
-            ElemFact::Plain(component) => {
+            ElemFact::Plain(component, s) => {
                 self.plain_component_closed(*component)
                     && self
                         .grow_values
                         .get(component)
-                        .is_none_or(|values| values.iter().all(|p| self.proof_holds(p, deps)))
+                        .is_none_or(|values| values.iter().all(|p| self.proof_holds(p, *s, deps)))
             }
         }
     }
@@ -2636,7 +2660,7 @@ impl ReprInfer {
             other => other,
         };
         match for_of_string_items(right) {
-            ForOfStringItems::Seed => return ElemProof::Yes,
+            ForOfStringItems::Seed => return ElemProof::Str,
             // `Object.values(s)` yields a string's characters; an object's
             // field values are refused.
             ForOfStringItems::ValuesOperandIdentifier(name) => {
@@ -2763,7 +2787,7 @@ impl ReprInfer {
             },
             // A number-or-string iterable (`a + b`, a template) yields a
             // string's characters (a number throws).
-            other => elem_proof(func, other),
+            other => ElemProof::all(vec![elem_proof(func, other), ElemProof::Str]),
         }
     }
 
@@ -4385,6 +4409,8 @@ impl ReprInfer {
                         let node = self.scalar_node_for(func, &var);
                         self.add_edge(elem, node);
                     }
+                } else {
+                    self.flow_plain_for_of_items(func, stmt);
                 }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
@@ -5694,6 +5720,85 @@ impl ReprInfer {
     fn binding_has_element_node(&self, func: &str, name: &str) -> bool {
         self.array_elem_node
             .contains_key(&(func.to_string(), name.to_string()))
+    }
+
+    /// Task 7 fix round 2: the loop variable of a `for..of` over a plain
+    /// (non-growable) array or a string holds its items, so it carries their
+    /// repr, which then reaches any growable array it is pushed onto:
+    ///   * a bound array: its element node flows in (both axes);
+    ///   * a bound string: its scalar node flows in (a string's items are
+    ///     strings);
+    ///   * an inline array literal: each literal element seeds it (a string
+    ///     and a number together are the both-axes conflict, a refusal);
+    ///   * a string literal, a template or `a + b`: its items are strings.
+    ///
+    /// Any other iterable leaves the loop variable plain; the M2 proof then
+    /// refuses a string item it cannot see (`ElemProof::Str`).
+    fn flow_plain_for_of_items(&mut self, func: &str, stmt: &kali_ast::ForOfStatement) {
+        let loop_var = match &stmt.left {
+            kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+                decl.declarations.first().map(|d| d.id.clone())
+            }
+            kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
+            kali_ast::ForOfLefthand::Expression(_) => None,
+        };
+        let Some(var) = loop_var else {
+            return;
+        };
+        match crate::array_return::unparen(&stmt.right) {
+            Expression::Identifier(name) => {
+                let scope = self.binding_scope(func, name);
+                let key = (scope.clone(), name.clone());
+                let elem = self.array_elem_node.get(&key).copied();
+                let source = self.scalar_node.get(&key).copied();
+                let node = self.scalar_node_for(func, &var);
+                if let Some(elem) = elem {
+                    self.add_edge(elem, node);
+                }
+                if let Some(source) = source {
+                    self.add_edge(source, node);
+                }
+            }
+            Expression::ArrayExpression(array) => {
+                let mut string = false;
+                let mut number = false;
+                for element in &array.elements {
+                    let Some(ExpressionOrSpread::Expression(e)) = element else {
+                        continue;
+                    };
+                    match crate::array_return::unparen(e) {
+                        Expression::Literal(LiteralValue::String(_))
+                        | Expression::TemplateLiteral(_) => string = true,
+                        Expression::Literal(LiteralValue::Number(n)) => {
+                            number = true;
+                            if n.fract() != 0.0 || !n.is_finite() {
+                                let node = self.scalar_node_for(func, &var);
+                                self.add_seed(node);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if string {
+                    let node = self.scalar_node_for(func, &var);
+                    self.add_string_seed(node);
+                    if number {
+                        self.add_seed(node);
+                    }
+                }
+            }
+            // A string literal, a template, and `a + b` (a string, or a
+            // number, whose iteration throws) yield strings.
+            Expression::Literal(LiteralValue::String(_)) | Expression::TemplateLiteral(_) => {
+                let node = self.scalar_node_for(func, &var);
+                self.add_string_seed(node);
+            }
+            Expression::BinaryExpression(binary) if binary.operator == "+" => {
+                let node = self.scalar_node_for(func, &var);
+                self.add_string_seed(node);
+            }
+            _ => {}
+        }
     }
 
     /// Growable-runtime-arrays spec §3.4: the element node of a growable value
@@ -8286,6 +8391,20 @@ impl ReprInfer {
                 })
                 .map(|&c| ElemFact::Grow(c))
                 .collect();
+            // Task 7 fix round 2: the context each growable component's
+            // values are proven in — `String` when its solved element repr is.
+            let string_components: BTreeSet<usize> = infer
+                .growable
+                .growable_members()
+                .filter(|member| match member {
+                    GrowNode::Binding(func, name) => {
+                        table.array_element(func, name) == Repr::String
+                    }
+                    GrowNode::Return(func) => table.growable_return(func) == Some(Repr::String),
+                    GrowNode::Temp(_) => false,
+                })
+                .filter_map(|member| infer.growable.component_of(member))
+                .collect();
             let mut check = ElemProofCheck {
                 infer,
                 table: &table,
@@ -8300,6 +8419,7 @@ impl ReprInfer {
                 grow_values,
                 num_proven: None,
                 num_goals: std::cell::RefCell::new(BTreeSet::new()),
+                string_components,
                 refuted: BTreeSet::new(),
             };
             // Pass 1 discovers the plain integer element classes the proof
@@ -8318,7 +8438,14 @@ impl ReprInfer {
             check.refute(goals);
             let mut unsupported: BTreeSet<GrowNode> = BTreeSet::new();
             for (node, proof) in &infer.growable_facts.element_values {
-                if infer.growable.is_growable(node) && !check.proof_holds(proof, &mut Vec::new()) {
+                if !infer.growable.is_growable(node) {
+                    continue;
+                }
+                let s = infer
+                    .growable
+                    .component_of(node)
+                    .is_some_and(|c| check.string_components.contains(&c));
+                if !check.proof_holds(proof, s, &mut Vec::new()) {
                     unsupported.insert(node.clone());
                 }
             }

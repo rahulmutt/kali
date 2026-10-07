@@ -2517,10 +2517,10 @@ fn provable_number_and_string_elements_are_admitted() {
         "function main() { const nums = [1, 2, 3]; const out = []; for (let i = 0; i < nums.length; i++) { if (nums[i] > 1) out.push(nums[i]); } console.log(out.length); }\nmain();\n",
         "function sq(n) { return n * n; }\nfunction main() { const out = []; out.push(sq(3)); const s = \"ab\"; out.push(s.length); console.log(out.length); }\nmain();\n",
         "function add(xs, v) { xs.push(v); }\nfunction main() { const o = []; add(o, 3); add(o, 4); console.log(o.length); }\nmain();\n",
-        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) out.push(w.toUpperCase()); const c = ws.pop(); out.push(c); console.log(out.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) out.push(w); const c = ws.pop(); out.push(c); console.log(out.length); }\nmain();\n",
         "function add(xs, s) { xs.push(s); }\nfunction main() { const o = []; add(o, \"a\"); console.log(o.length); }\nmain();\n",
         "function main() { const xs = []; xs.push(1); const out = []; for (const x of xs) out.push(x); console.log(out.length); }\nmain();\n",
-        "function main() { const out = []; const x = 2.5; const s = \"abc\"; out.push(String(3)); out.push(Math.floor(x)); console.log(out.length); const t = []; t.push(s.slice(1)); console.log(t.length); }\nmain();\n",
+        "function main() { const out = []; const x = 2.5; out.push(Math.floor(x)); console.log(out.length); }\nmain();\n",
         "function main() { const o = {a: 1, b: 2}; const out = []; for (const k of Object.keys(o)) out.push(k); console.log(out.length); }\nmain();\n",
         "function main() { const s = \"ab\"; const o = []; for (const v of Object.values(s)) { o.push(v); } console.log(o.join(\",\")); }\nmain();\n",
     ] {
@@ -2574,5 +2574,50 @@ fn for_of_over_unprovable_iterables_refuses_the_loop_variable() {
             "{src}\n{:?}",
             t.shape_conflicts()
         );
+    }
+}
+
+// Task 7 fix round 2: a string loop variable of a for-of over a plain
+// (non-growable) array or a string carries the String repr into the growable
+// array it is pushed onto.
+#[test]
+fn a_string_loop_variable_over_a_plain_array_makes_the_pushed_elements_strings() {
+    for (src, func) in [
+        ("const words = [\"a\", \"bb\", \"ccc\"]; const out = []; for (const w of words) out.push(w); console.log(out.join(\",\"));\n", "_start"),
+        ("const words = [\"a\", \"bb\", \"ccc\"]; const out = []; for (const w of words) { if (w.length > 1) out.push(w); } console.log(out.join(\",\"));\n", "_start"),
+        ("const out = []; for (const w of [\"a\", \"bb\"]) out.push(w); console.log(out.join(\",\"));\n", "_start"),
+        ("function main() { const words = [\"a\", \"bb\", \"ccc\"]; const out = []; for (const w of words) { if (w.length > 1) out.push(w); } console.log(out.join(\",\")); }\nmain();\n", "main"),
+        ("function main() { const out = []; for (const w of [\"a\", \"bb\"]) { if (w.length > 1) out.push(w); } console.log(out.join(\",\")); }\nmain();\n", "main"),
+        ("function main() { const s = \"abc\"; const out = []; for (const c of s) out.push(c); console.log(out.join(\",\")); }\nmain();\n", "main"),
+        ("function main() { const out = []; for (const c of \"abc\") out.push(c); console.log(out.join(\",\")); }\nmain();\n", "main"),
+    ] {
+        let t = reprs(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}\n{:?}", t.shape_conflicts());
+        assert_eq!(t.array_element(func, "out"), Repr::String, "{src}");
+    }
+}
+
+// Whatever cannot be given the String element repr is refused, never stored
+// into a number-element array.
+#[test]
+fn a_string_value_the_element_repr_cannot_see_is_refused() {
+    for src in [
+        "function main() { const out = []; for (const w of [\"a\", \"b\"].filter((x) => x)) out.push(w); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const out = []; for (const w of Object.values({ a: \"x\" })) out.push(w); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const words = [\"a\", \"b\"]; const out = []; for (const w of Array.from(words)) out.push(w); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const words = [\"a\", \"b\"]; const out = []; for (let i = 0; i < words.length; i++) out.push(words[i]); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const p = \"ab\"; const q = \"c\"; const out = []; for (const c of p + q) out.push(c); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) out.push(w.toUpperCase()); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const out = []; out.push(String(3)); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const s = \"abc\"; const out = []; out.push(s.slice(1)); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const out = []; const xs = [1, 2]; out.push(xs.join(\"-\")); console.log(out.join(\",\")); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        let ok = t.array_element("main", "out") == Repr::String
+            || t
+                .shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is"));
+        assert!(ok, "{src}\n{:?} {:?}", t.array_element("main", "out"), t.shape_conflicts());
     }
 }
