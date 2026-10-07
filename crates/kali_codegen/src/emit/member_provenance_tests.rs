@@ -192,3 +192,101 @@ fn a_host_derived_class_name_rebound_in_scope_is_not_the_class() {
         source,
     );
 }
+
+const UNRES_READ: &str = "no lowering for that read";
+
+fn read_refusals(source: &str) -> usize {
+    diagnostics_for(source)
+        .iter()
+        .filter(|d| d.code == Some(5506) && d.message.contains(UNRES_READ))
+        .count()
+}
+
+#[test]
+fn a_member_read_on_a_program_built_root_refuses() {
+    for source in [
+        // captured-bindings followups §5.10
+        "function mk(){ return {a:1}; } function f(){ let o=mk(); const g=()=>o; return g().a; } console.log(f());",
+        "function mk(){ return {a:1}; } function show(z){ console.log(z.a); } function f(){ let o=mk(); const g=()=>{ show(o); }; g(); } f();",
+        "function show(z){ return z.n * 10; } function outer(p){ const obj = p; function rd(){ return show(obj); } console.log(rd()); } const x={n:4}; outer(x);",
+        "function f(p){ const o=p; const g=()=>o[\"a\"]; return g(); } const x={a:1}; console.log(f(x));",
+        "function mk(){ return {a:1, s:\"xy\", arr:[1,2]}; } function f(){ let o=mk(); const g=()=>o[\"a\"]; return g(); } console.log(f());",
+        // call roots and absent fields
+        "function mk(){ return {a:1}; } console.log(mk().a);",
+        "function id(o){ return o; } const x={a:1}; console.log(id(x).a);",
+        "const o={a:1}; console.log(\"z=\"+o.z);",
+        "const o={a:1}; console.log(\"z=\"+o[\"z\"]);",
+        "const o={a:1}; console.log(o.z ?? 5);",
+        "const o={a:1}; console.log(\"z=\"+o?.z);",
+        // spread and comma reach the same fallback (spec A-1)
+        "const a=[1,2]; console.log([...a]);",
+        "function main(){ let n = 0; function bump() { n = n + 1; return 5; } let b = (bump(), 7); console.log(\"b=\" + b); } main();",
+    ] {
+        assert_e5506(&diagnostics_for(source), UNRES_READ, source);
+    }
+}
+
+#[test]
+fn spread_and_comma_get_the_neutral_message() {
+    for source in [
+        "const a=[1,2]; console.log([...a]);",
+        "function main(){ let b = (1, 7); console.log(\"b=\" + b); } main();",
+    ] {
+        let diagnostics = diagnostics_for(source);
+        assert_e5506(&diagnostics, "this expression is unavailable", source);
+        assert!(
+            !diagnostics.iter().any(|d| d.message.contains("reading `.")),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}
+
+#[test]
+fn a_host_root_keeps_its_read() {
+    for source in [
+        "const f = Object.freeze(Math.log2); console.log(f(8));",
+        "const finite = Number.isFinite; console.log(finite(1));",
+        "const n = Object.freeze(Number[\"isNaN\"]); console.log(n(1));",
+        "let t=globalThis.performance; t.now(); console.log(\"ok\");",
+        "const p = Object.freeze(globalThis.String.fromCharCode); console.log(p(72));",
+        "const o = Object.fromEntries([[\"a\", 1]]); console.log(o.a);",
+        "let a = (console.log(\"x\"), 7); console.log(\"a=\" + a);",
+        "console.log(Object.fromEntries([[\"a\",1]]).a);",
+    ] {
+        assert_eq!(read_refusals(source), 0, "{source}: {:?}", diagnostics_for(source));
+    }
+}
+
+#[test]
+fn a_shadowed_global_root_refuses() {
+    let source = "let Math = {a:1}; console.log(Math.b);";
+    let diagnostics = diagnostics_for(source);
+    assert!(
+        diagnostics.iter().any(|d| d.code == Some(5506)),
+        "{source}: {diagnostics:?}"
+    );
+}
+
+#[test]
+fn a_this_root_in_a_plain_class_refuses() {
+    // The unit harness runs no repr inference, so `this.x` reaches the read
+    // fallback here; the real pipeline refuses it earlier ("field `x` is not
+    // declared on class `C`").
+    let source = "class C{ m(){ return this.x; } } console.log(new C().m());";
+    assert_e5506(&diagnostics_for(source), UNRES_READ, source);
+}
+
+#[test]
+fn a_resolved_read_is_not_refused() {
+    assert_eq!(read_refusals("const o={a:1}; console.log(o.a);"), 0);
+    // Closure reads resolve only through the env plans the real driver derives.
+    for source in [
+        "function outer(){ const obj={n:4}; function rd(){ return obj.n; } return rd(); } console.log(outer());",
+    ] {
+        let diagnostics = diagnostics_with_host_classes(source, &[]);
+        assert!(
+            !diagnostics.iter().any(|d| d.message.contains(UNRES_READ)),
+            "{source}: {diagnostics:?}"
+        );
+    }
+}

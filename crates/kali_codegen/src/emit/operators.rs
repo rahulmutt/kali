@@ -788,11 +788,24 @@ impl<'a> FunctionEmitter<'a> {
                 // silently and wrongly. The REJECT-DON'T-MISCOMPILE arms above
                 // are the shape a fix for it would take.
                 //
+                // R-60's `fromEntries` receiver is host-rooted and still reaches the
+                // warning below.
+                //
                 // Captured-bindings spec §3.1 (followups §6 CB-9, CB-13): a member read
                 // off any capture of this function that reaches here (no lane
                 // resolved it) is refused rather than read as the placeholder.
                 if let Some(message) = self.capture_member_fallback_refusal(node) {
                     return self.deny_e5506(function, &message);
+                }
+                // Unresolved-member-read spec §3.2: a read off a value this
+                // program built refuses rather than read the placeholder.
+                // Host-rooted receivers keep warn+0 (builtin aliases such as
+                // `Object.freeze(Math.log2)` store this `0` and never read it).
+                if !is_unary_operator_text(op) && self.unresolved_member_read_refuses(arg) {
+                    return self.deny_e5506(
+                        function,
+                        &kali_common::unresolved_member_read_unavailable_message(op),
+                    );
                 }
                 self.diagnostics.push(Diagnostic::warning(
                     e8::UNIMPLEMENTED as u32,

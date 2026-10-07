@@ -60,16 +60,24 @@ impl<'a> FunctionEmitter<'a> {
             return true;
         }
         let root = self.receiver_chain_root(receiver);
+        self.program_built_root_verdict(root).unwrap_or(false)
+    }
+
+    /// The root verdict the member-call and member-read gates share
+    /// (unresolved-member-read spec §3.1): `Some(true)` refuse, `Some(false)`
+    /// keep warn+0, `None` for a call or any other root, which each gate
+    /// decides for itself.
+    fn program_built_root_verdict(&self, root: LirNodeId) -> Option<bool> {
         let root_node = self.node(root);
         match root_node.kind {
-            LirNodeKind::Literal => true,
+            LirNodeKind::Literal => Some(true),
             LirNodeKind::Value if root_node.children.is_empty() => {
-                match root_node.text.as_deref() {
+                Some(match root_node.text.as_deref() {
                     Some(name) if !name.is_empty() => {
                         // No lexical scope chain (the current body is not
                         // reachable from the module root): not proven, refuse.
                         let Some(scopes) = self.lexical_scopes() else {
-                            return true;
+                            return Some(true);
                         };
                         !self.root_has_host_provenance(name, &scopes, 0, &mut HashSet::new())
                     }
@@ -79,12 +87,31 @@ impl<'a> FunctionEmitter<'a> {
                     // `this` like `{}` / `[]`, so an empty literal start in
                     // such a method keeps warn+0 too.
                     _ => !self.emitting_method_of_host_derived_class(),
-                }
+                })
             }
             // An array or object literal with two or more children.
-            LirNodeKind::Value if root_node.text.is_none() && root_node.children.len() >= 2 => true,
-            _ => false,
+            LirNodeKind::Value if root_node.text.is_none() && root_node.children.len() >= 2 => {
+                Some(true)
+            }
+            _ => None,
         }
+    }
+
+    /// Unresolved-member-read spec §3.1: a member read that reached the
+    /// placeholder fallback. Same roots as the call gate, plus a call root
+    /// (`g().a`, `mk().a`), which refuses unless its callee is host.
+    pub(crate) fn unresolved_member_read_refuses(&self, receiver: LirNodeId) -> bool {
+        let root = self.receiver_chain_root(receiver);
+        if let Some(verdict) = self.program_built_root_verdict(root) {
+            return verdict;
+        }
+        if self.node(root).kind != LirNodeKind::Call {
+            return false;
+        }
+        let Some(scopes) = self.lexical_scopes() else {
+            return true;
+        };
+        !self.init_has_host_provenance(root, &scopes, 0, &mut HashSet::new())
     }
 
     /// `Array.prototype.m` / `Object.prototype.m` / `String.prototype.m` as
