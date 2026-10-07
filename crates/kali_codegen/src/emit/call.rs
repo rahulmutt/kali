@@ -1708,6 +1708,24 @@ impl<'a> FunctionEmitter<'a> {
         // and every static array lane, which would read a growable binding's
         // stale declarator literal.
         if let Some((method, receiver, args)) = self.growable_method_call_parts(node) {
+            // Belt for inference's refusal (Task 10 review I1): an argument
+            // these lanes would not evaluate is never silently dropped.
+            let extra = match method {
+                GrowableMethod::Pop if !args.is_empty() => Some("`.pop()` with an argument"),
+                GrowableMethod::Slice if args.len() > 2 => {
+                    Some("`.slice()` with more than two arguments")
+                }
+                _ => None,
+            };
+            if let Some(operation) = extra {
+                let subject = match self.bare_identifier_name(receiver) {
+                    Some(name) => kali_common::growable_binding_subject(&name, &self.function_name),
+                    None => "value".to_string(),
+                };
+                let message =
+                    kali_common::growable_unsupported_operation_message(operation, &subject);
+                return self.deny_e5506(function, &message);
+            }
             return match method {
                 GrowableMethod::Pop => self.emit_growable_pop(function, receiver),
                 GrowableMethod::IndexOf => {

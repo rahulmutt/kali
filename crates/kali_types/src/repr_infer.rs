@@ -999,6 +999,9 @@ impl ElemProofCheck<'_> {
             "`.values(",
             "`.entries(",
             "`.toString(",
+            // `slice` with more than two arguments (refused on a growable
+            // array, Task 10 review I1) still only reads a plain one.
+            "`.slice(",
         ];
         let infer = self.infer;
         let facts = &infer.growable_facts;

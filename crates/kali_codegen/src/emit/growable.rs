@@ -1097,12 +1097,10 @@ impl<'a> FunctionEmitter<'a> {
         if !value.produced {
             function.instruction(&Instruction::I64Const(0));
         }
-        if elem == kali_common::Repr::F64 {
-            if !value.produced || !self.is_float_valued(needle) {
-                function.instruction(&Instruction::F64ConvertI64S);
-            }
-            function.instruction(&Instruction::I64ReinterpretF64);
-        }
+        // The needle is encoded exactly as a stored slot (spec A-14: the
+        // search value is an element store), so `__growable_find` compares
+        // slot bits.
+        self.emit_growable_slot_encode(function, elem, needle, value.produced);
         let mode = match elem {
             kali_common::Repr::F64 if includes => 2,
             kali_common::Repr::F64 => 1,

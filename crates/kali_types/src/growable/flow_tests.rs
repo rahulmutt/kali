@@ -80,7 +80,10 @@ fn a_parameter_fed_a_growable_and_an_allocation_is_a_mixed_layout_at_the_paramet
     facts.edges.push((b("total", "a"), b("_start", "xs")));
     facts.edges.push((b("total", "a"), b("_start", "p")));
     let solution = solve(&facts);
-    assert_eq!(solution.conflicts, vec![GrowConflict::MixedLayout(b("total", "a"))]);
+    assert_eq!(
+        solution.conflicts,
+        vec![GrowConflict::MixedLayout(b("total", "a"))]
+    );
 }
 
 #[test]
@@ -102,9 +105,14 @@ fn a_literal_expression_in_a_growable_component_is_a_conflict_naming_its_functio
     facts.demands.insert(b("f", "o"));
     facts.edges.push((r("f"), b("f", "o")));
     facts.edges.push((r("f"), GrowNode::Temp(0)));
-    facts.temp_kinds.insert(0, (TempKind::LiteralExpression, "f".to_string()));
+    facts
+        .temp_kinds
+        .insert(0, (TempKind::LiteralExpression, "f".to_string()));
     let solution = solve(&facts);
-    assert_eq!(solution.conflicts, vec![GrowConflict::LiteralExpression("f".to_string())]);
+    assert_eq!(
+        solution.conflicts,
+        vec![GrowConflict::LiteralExpression("f".to_string())]
+    );
 }
 
 #[test]
@@ -116,7 +124,10 @@ fn a_non_array_write_in_a_growable_component_is_a_conflict_at_that_node() {
     facts.demands.insert(b("f", "a"));
     facts.non_array_writes.insert(b("f", "a"));
     let solution = solve(&facts);
-    assert_eq!(solution.conflicts, vec![GrowConflict::NonArrayWrite(b("f", "a"))]);
+    assert_eq!(
+        solution.conflicts,
+        vec![GrowConflict::NonArrayWrite(b("f", "a"))]
+    );
 }
 
 #[test]
@@ -137,6 +148,9 @@ fn growable_members_lists_every_node_of_every_growable_component() {
     let solution = solve(&facts);
     let members: Vec<GrowNode> = solution.growable_members().cloned().collect();
     assert_eq!(members, vec![b("main", "a"), b("main", "b")]);
-    assert_eq!(solution.members_of(&b("main", "b")), &[b("main", "a"), b("main", "b")][..]);
+    assert_eq!(
+        solution.members_of(&b("main", "b")),
+        &[b("main", "a"), b("main", "b")][..]
+    );
     assert!(solution.members_of(&b("main", "zzz")).is_empty());
 }

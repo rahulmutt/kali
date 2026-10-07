@@ -59,7 +59,10 @@ pub(crate) enum UseKind {
     ForOf,
     Join,
     Slice,
-    Search { method: String, from_index: bool },
+    Search {
+        method: String,
+        from_index: bool,
+    },
     /// A whole array handed to `console.log` and friends.
     Console,
     /// Any other method call; the text is the quoted operation, e.g.
@@ -195,7 +198,10 @@ impl GrowSolution {
     /// not at module scope.
     pub(crate) fn is_local_only(&self, func: &str, name: &str) -> bool {
         func != TOP_LEVEL
-            && self.members_of(&GrowNode::Binding(func.to_string(), name.to_string())).len() == 1
+            && self
+                .members_of(&GrowNode::Binding(func.to_string(), name.to_string()))
+                .len()
+                == 1
     }
 }
 
@@ -226,14 +232,20 @@ pub(crate) fn solve(facts: &GrowFacts) -> GrowSolution {
     all.extend(facts.non_array_writes.iter().cloned());
     all.extend(facts.temp_kinds.keys().map(|&n| GrowNode::Temp(n)));
     let nodes: Vec<GrowNode> = all.into_iter().collect();
-    let position: BTreeMap<&GrowNode, usize> =
-        nodes.iter().enumerate().map(|(i, node)| (node, i)).collect();
+    let position: BTreeMap<&GrowNode, usize> = nodes
+        .iter()
+        .enumerate()
+        .map(|(i, node)| (node, i))
+        .collect();
 
     // 2. Union along every edge; the smaller index is always the root, so a
     //    component's root is its first member.
     let mut parent: Vec<usize> = (0..nodes.len()).collect();
     for (a, b) in &facts.edges {
-        let (ra, rb) = (find(&mut parent, position[a]), find(&mut parent, position[b]));
+        let (ra, rb) = (
+            find(&mut parent, position[a]),
+            find(&mut parent, position[b]),
+        );
         if ra != rb {
             let (low, high) = if ra < rb { (ra, rb) } else { (rb, ra) };
             parent[high] = low;

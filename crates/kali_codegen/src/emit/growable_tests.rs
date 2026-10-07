@@ -167,3 +167,31 @@ fn an_f64_growable_index_write_used_as_a_value_lowers_to_valid_wasm() {
         .validate_all(&result.wasm_bytes)
         .expect("generated wasm should validate");
 }
+
+#[test]
+fn an_extra_pop_or_slice_argument_is_refused_not_dropped() {
+    // Task 10 review I1, the codegen belt: the lanes evaluate no `pop`
+    // argument and only two `slice` bounds, so more is refused (inference
+    // refuses first under `check` and `run`).
+    for (src, needle) in [
+        (
+            "function main() { const a = []; a.push(1); a.pop(1); console.log(a.length); } main();",
+            "`.pop()` with an argument on the growable array `a` in `main`",
+        ),
+        (
+            "function main() { const a = []; a.push(1); console.log(a.slice(0, 1, 2).length); } main();",
+            "`.slice()` with more than two arguments on the growable array `a` in `main`",
+        ),
+    ] {
+        let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::I64);
+        let result = lower_lir_to_wasm(&mut ctx, &parse_and_lower_lir(src));
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|d| d.code == Some(5506) && d.message.contains(needle)),
+            "{src}: {:?}",
+            result.diagnostics
+        );
+    }
+}

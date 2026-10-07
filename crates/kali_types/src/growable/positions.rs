@@ -34,7 +34,9 @@ pub(crate) fn growable_refusals(
         let node = &occurrence.node;
         let message = match &occurrence.kind {
             UseKind::Push | UseKind::Pop | UseKind::IndexRead | UseKind::IndexWrite if !named => {
-                Some(kali_common::growable_temporary_use_message(&source(node, facts)))
+                Some(kali_common::growable_temporary_use_message(&source(
+                    node, facts,
+                )))
             }
             UseKind::Flow
             | UseKind::Push
@@ -45,26 +47,34 @@ pub(crate) fn growable_refusals(
             | UseKind::ForOf
             | UseKind::Join
             | UseKind::Slice
-            | UseKind::Search { from_index: false, .. } => None,
-            UseKind::Search { method, from_index: true } => {
-                Some(kali_common::growable_from_index_message(method))
-            }
-            UseKind::LengthWrite => {
-                Some(kali_common::growable_length_write_message(&subject(node, facts)))
-            }
+            | UseKind::Search {
+                from_index: false, ..
+            } => None,
+            UseKind::Search {
+                method,
+                from_index: true,
+            } => Some(kali_common::growable_from_index_message(method)),
+            UseKind::LengthWrite => Some(kali_common::growable_length_write_message(&subject(
+                node, facts,
+            ))),
             UseKind::Console => {
                 Some(kali_common::runtime_array_print_unavailable_message().to_string())
             }
-            UseKind::Method(operation) => Some(kali_common::growable_unsupported_operation_message(
-                operation,
-                &subject(node, facts),
-            )),
-            UseKind::Plain => Some(kali_common::growable_plain_use_message(&subject(node, facts))),
+            UseKind::Method(operation) => {
+                Some(kali_common::growable_unsupported_operation_message(
+                    operation,
+                    &subject(node, facts),
+                ))
+            }
+            UseKind::Plain => Some(kali_common::growable_plain_use_message(&subject(
+                node, facts,
+            ))),
             UseKind::Captured => Some(kali_common::growable_capture_message(&subject(node, facts))),
             UseKind::ModuleRead => match node {
-                GrowNode::Binding(_, name) => {
-                    Some(kali_common::growable_module_read_message(name, &occurrence.site))
-                }
+                GrowNode::Binding(_, name) => Some(kali_common::growable_module_read_message(
+                    name,
+                    &occurrence.site,
+                )),
                 _ => None,
             },
         };

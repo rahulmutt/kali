@@ -2,6 +2,10 @@
 # (spec §3.5, A-12..A-14). Every expected stdout is node v26.10.0's for the
 # same file, measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`.
 
+[constants]
+POP_ARG = "`.pop()` with an argument on the growable array `a`"
+SLICE_ARGS = "`.slice()` with more than two arguments on the growable array `a`"
+
 [source]
 "pop_module.js" = """
 const a = [];
@@ -184,6 +188,24 @@ function main() {
 }
 main();
 """
+"extra_args_pop_module.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+const a = []; a.push(1); a.push(2); a.push(3); a.pop(bump()); console.log(c, a.length);
+"""
+"extra_args_pop_function.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+function main() { const a = []; a.push(1); a.push(2); a.push(3); a.pop(bump()); console.log(c, a.length); }
+main();
+"""
+"extra_args_slice_module.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+const a = []; a.push(1); a.push(2); a.push(3); const t = a.slice(0, 1, bump()); console.log(c, t.length);
+"""
+"extra_args_slice_function.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+function main() { const a = []; a.push(1); a.push(2); a.push(3); const t = a.slice(0, 1, bump()); console.log(c, t.length); }
+main();
+"""
 
 [[case]]
 name = "pop_until_one_element_remains_module_scope"
@@ -276,3 +298,53 @@ name = "an_index_write_used_as_a_value"
 args = ["run", "write_value_function.js"]
 exit = "success"
 stdout = "3 0.25 0.25 0.25,0.25\nad e e e-e xg\n"
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_run_module_scope"
+rationale = "Task 10 review I1: the argument was dropped unevaluated, so `bump()` never ran (node prints `1 2`; kali printed `0 …` at exit 0). Refused in inference, so `check` and `run` agree."
+args = ["run", "extra_args_pop_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} at module scope"]
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_check_module_scope"
+args = ["check", "extra_args_pop_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} at module scope"]
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_run"
+args = ["run", "extra_args_pop_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} in `main`"]
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_check"
+args = ["check", "extra_args_pop_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} in `main`"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_run_module_scope"
+rationale = "Task 10 review I1: the argument was dropped unevaluated, so `bump()` never ran (node prints `1 1`; kali printed `0 …` at exit 0). Refused in inference, so `check` and `run` agree."
+args = ["run", "extra_args_slice_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} at module scope"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_check_module_scope"
+args = ["check", "extra_args_slice_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} at module scope"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_run"
+args = ["run", "extra_args_slice_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} in `main`"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_check"
+args = ["check", "extra_args_slice_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} in `main`"]

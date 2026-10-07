@@ -80,17 +80,35 @@ fn a_class_body_beside_a_growable_array_is_refused_as_a_capture() {
 
 #[test]
 fn from_index_length_writes_and_unsupported_methods_are_refused() {
-    assert_one("const a = []; a.push(1); a.indexOf(1, 1);", "`indexOf` with a `fromIndex` argument");
-    assert_one("const a = []; a.push(1); a.includes(1, 1);", "`includes` with a `fromIndex` argument");
-    assert_one("const a = []; a.push(1); a.length = 0;", "assigning to `.length` of the growable array `a` at module scope");
-    assert_one("const a = []; a.push(1); a.reverse();", "`.reverse()` on the growable array `a` at module scope");
-    assert_one("const a = []; a.push(1); a[\"push\"](2);", "`[\"push\"]()` on the growable array `a`");
+    assert_one(
+        "const a = []; a.push(1); a.indexOf(1, 1);",
+        "`indexOf` with a `fromIndex` argument",
+    );
+    assert_one(
+        "const a = []; a.push(1); a.includes(1, 1);",
+        "`includes` with a `fromIndex` argument",
+    );
+    assert_one(
+        "const a = []; a.push(1); a.length = 0;",
+        "assigning to `.length` of the growable array `a` at module scope",
+    );
+    assert_one(
+        "const a = []; a.push(1); a.reverse();",
+        "`.reverse()` on the growable array `a` at module scope",
+    );
+    assert_one(
+        "const a = []; a.push(1); a[\"push\"](2);",
+        "`[\"push\"]()` on the growable array `a`",
+    );
 }
 
 #[test]
 fn indexing_or_mutating_a_call_result_directly_is_refused() {
     let src = "function make() { const o = []; o.push(1); return o; } console.log(make()[0]); make().push(2);";
-    assert_one(src, "indexing, `push` or `pop` directly on the array `make(…)` returns");
+    assert_one(
+        src,
+        "indexing, `push` or `pop` directly on the array `make(…)` returns",
+    );
 }
 
 #[test]
@@ -146,6 +164,40 @@ fn a_loop_that_pushes_another_array_or_only_reads_its_own_is_admitted() {
 fn a_program_without_growable_arrays_is_quiet() {
     assert_eq!(
         refusals("function f() { const a = [1, 2]; return a.length; } const p = new Array(3); p[0] = 1; console.log(f(), typeof p);"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
+fn pop_with_an_argument_is_refused() {
+    // Task 10 review I1: the argument was dropped unevaluated (its side
+    // effects lost) in codegen; inference refuses so `check` agrees.
+    assert_one(
+        "let c = 0; function bump() { c++; return 0; } function main() { const a = []; a.push(1); a.push(2); a.pop(bump()); console.log(c, a.length); } main();",
+        "`.pop()` with an argument on the growable array `a` in `main` is unavailable",
+    );
+    assert_one(
+        "const a = []; a.push(1); a.pop(1);",
+        "`.pop()` with an argument on the growable array `a` at module scope is unavailable",
+    );
+}
+
+#[test]
+fn slice_with_more_than_two_arguments_is_refused() {
+    assert_one(
+        "function main() { const a = []; a.push(1); console.log(a.slice(0, 1, 2).length); } main();",
+        "`.slice()` with more than two arguments on the growable array `a` in `main` is unavailable",
+    );
+    assert_one(
+        "const a = []; a.push(1); const t = a.slice(0, 1, 2); console.log(t.length);",
+        "`.slice()` with more than two arguments on the growable array `a` at module scope is unavailable",
+    );
+}
+
+#[test]
+fn slice_with_two_arguments_and_pop_without_one_stay_quiet() {
+    assert_eq!(
+        refusals("function main() { const a = []; a.push(1); a.push(2); const t = a.slice(0, 1); console.log(t.length, a.pop()); } main();"),
         Vec::<String>::new()
     );
 }

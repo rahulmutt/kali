@@ -713,6 +713,15 @@ impl Walker<'_, '_> {
             }
             "pop" => {
                 self.record(&receiver, UseKind::Pop);
+                // Spec §3.5 (Task 10 review I1): `pop` takes no argument, and
+                // codegen does not evaluate one, so one is refused rather
+                // than dropped with its side effects.
+                if !args.is_empty() {
+                    self.record(
+                        &receiver,
+                        UseKind::Method("`.pop()` with an argument".to_string()),
+                    );
+                }
                 self.mutation(&receiver);
                 self.plain_args(args);
                 None
@@ -724,6 +733,16 @@ impl Walker<'_, '_> {
             }
             "slice" => {
                 self.record(&receiver, UseKind::Slice);
+                // Spec §3.5 (Task 10 review I1): codegen evaluates only the two
+                // bounds, so a third argument is refused rather than dropped
+                // with its side effects. The text starts with "`.slice(",
+                // which `plain_component_closed` counts as read-only.
+                if args.len() > 2 {
+                    self.record(
+                        &receiver,
+                        UseKind::Method("`.slice()` with more than two arguments".to_string()),
+                    );
+                }
                 self.plain_args(args);
                 let t = self.temp(TempKind::Slice);
                 self.edge(t.clone(), receiver);
