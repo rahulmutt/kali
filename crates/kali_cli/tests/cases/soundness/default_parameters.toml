@@ -28,6 +28,14 @@ console.log(greet("Ada"));
 console.log(greet("Bob", "Hi"));
 console.log(greet("Cy", "Yo", "?"));
 """
+"wrapped_undefined.js" = """
+function f(a = 5) { return a; }
+console.log(f(void(0)), f((undefined)), f(void (0)), f(((undefined))), f(void ("x")));
+"""
+"wrapped_undefined.ts" = """
+function f(a: number = 5): number { return a; }
+console.log(f(undefined as any), f((undefined) as any), f(void (0) as any), f(undefined satisfies undefined), f((void 0) as any));
+"""
 "recursion.js" = """
 function sum(n, acc = 0) { if (n === 0) return acc; return sum(n - 1, acc + n); }
 console.log(sum(4), sum(3, 10));
@@ -71,3 +79,17 @@ stdout = "10 16\n"
 name = "check_accepts_a_program_with_scalar_defaults"
 args = ["check", "greet.js"]
 exit = "success"
+
+[[case]]
+name = "a_parenthesized_literal_undefined_takes_the_default"
+rationale = "`void(0)`, `(undefined)` and `void (0)` are still a literal `undefined` once the parentheses are stripped."
+args = ["run", "wrapped_undefined.js"]
+exit = "success"
+stdout = "5 5 5 5 5\n"
+
+[[case]]
+name = "a_type_wrapped_literal_undefined_takes_the_default"
+rationale = "`as` and `satisfies` are type-level only, so `undefined as any` is still a literal `undefined`."
+args = ["run", "wrapped_undefined.ts"]
+exit = "success"
+stdout = "5 5 5 5 5\n"

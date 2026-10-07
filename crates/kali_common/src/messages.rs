@@ -521,6 +521,15 @@ pub fn default_param_omitted_argument_message(function: &str, param: &str) -> St
     format!("`{function}(…)` omits an argument for `{param}`, which has no default")
 }
 
+/// Default-parameters spec A-11: calls are matched to the declaration by
+/// name, so a defaulted function declared inside a function or block may be
+/// used only inside that scope.
+pub fn default_param_out_of_scope_use_message(function: &str) -> String {
+    format!(
+        "a function with default parameters declared inside a function or block can only be called inside that scope in the current phase: `{function}` is used outside it"
+    )
+}
+
 /// Default-parameters spec §3.2: `eval` can call a function by a name the
 /// pass never sees.
 pub const fn default_param_eval_refused_message() -> &'static str {

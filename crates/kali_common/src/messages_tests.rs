@@ -413,4 +413,8 @@ fn default_parameter_messages_name_the_function_and_parameter() {
         default_param_eval_refused_message(),
         "default parameters are unavailable under --compat eval"
     );
+    assert_eq!(
+        default_param_out_of_scope_use_message("f"),
+        "a function with default parameters declared inside a function or block can only be called inside that scope in the current phase: `f` is used outside it"
+    );
 }

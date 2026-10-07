@@ -19,6 +19,7 @@ cmd = ["check", "run"]
 "arrow.js" = "const f = (a = 1) => a;\nconsole.log(f());\n"
 "method.js" = "class C { m(a = 1) { return a; } }\nconsole.log(new C().m());\n"
 "expression.js" = "const f = function (a = 1) { return a; };\nconsole.log(f());\n"
+"out_of_scope.js" = "function h() { function isNaN(a = 1) { return a; } return 0; }\nconsole.log(h(), isNaN(undefined));\n"
 "eval.js" = "function f(a = 1) { return a; }\nconsole.log(f());\n"
 
 [[case]]
@@ -116,3 +117,10 @@ rationale = "`f?.()` is a value use of a defaulted function; node prints `1`. Re
 args = ["${cmd}", "optional_call_use.js"]
 exit = "failure"
 stderr_contains = ["E5506", "can only be called directly by name", "`f` is used as a value"]
+
+[[case]]
+name = "a_nested_defaulted_function_used_outside_its_scope_is_refused"
+rationale = "Spec A-11: calls are matched by name, so the top-level `isNaN(undefined)` would otherwise be filled with the nested `isNaN`'s default; node prints `0 true` (the global `isNaN`)."
+args = ["${cmd}", "out_of_scope.js"]
+exit = "failure"
+stderr_contains = ["E5506", "can only be called inside that scope", "`isNaN` is used outside it"]

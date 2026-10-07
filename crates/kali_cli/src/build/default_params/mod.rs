@@ -57,6 +57,8 @@ struct Defaulted {
     defaults: Vec<Option<Box<Expression>>>,
     /// Set when the declaration itself is out of scope (§3.2 step 1).
     refusal: Option<String>,
+    /// The scope that directly contains the declaration (spec A-11).
+    declaring_scope: usize,
 }
 
 /// One direct call `name(…)`.
@@ -76,6 +78,13 @@ struct Collector {
     bindings: BTreeMap<String, usize>,
     /// The callee name of the call whose callee is about to be walked.
     pending_callee: Option<String>,
+    /// The ids of the scopes enclosing the walk's position, outermost first.
+    scope_path: Vec<usize>,
+    /// Each scope's enclosing scope, indexed by scope id (ids are assigned in
+    /// entry order).
+    parent_scope: Vec<Option<usize>>,
+    /// The scope of every reference to each name, call or value use.
+    use_scopes: BTreeMap<String, Vec<usize>>,
 }
 
 impl Collector {
@@ -90,6 +99,8 @@ impl Collector {
                 refusals.push(kali_common::default_param_rebound_name_message(name));
             } else if exported.contains(name) {
                 refusals.push(kali_common::default_param_exported_message(name));
+            } else if self.used_outside_declaring_scope(name, defaulted) {
+                refusals.push(kali_common::default_param_out_of_scope_use_message(name));
             } else if self.value_uses.contains(name) {
                 refusals.push(kali_common::default_param_value_use_message(name));
             }
@@ -116,16 +127,54 @@ impl Collector {
         }
         refusals
     }
+
+    /// Spec A-11: calls are matched to a declaration by name, so a use outside
+    /// the declaring scope could belong to another function of that name (a
+    /// global such as `isNaN`). Module scope encloses every use.
+    fn used_outside_declaring_scope(&self, name: &str, defaulted: &Defaulted) -> bool {
+        self.use_scopes.get(name).is_some_and(|scopes| {
+            scopes
+                .iter()
+                .any(|&scope| !self.encloses(defaulted.declaring_scope, scope))
+        })
+    }
+
+    /// Whether `outer` is `scope` or one of its enclosing scopes.
+    fn encloses(&self, outer: usize, scope: usize) -> bool {
+        let mut current = Some(scope);
+        while let Some(id) = current {
+            if id == outer {
+                return true;
+            }
+            current = self.parent_scope[id];
+        }
+        false
+    }
+
+    /// The innermost scope enclosing the walk's position.
+    fn current_scope(&self) -> usize {
+        *self
+            .scope_path
+            .last()
+            .expect("the walk reports every name inside the module scope")
+    }
 }
 
 impl Hooks for Collector {
-    fn enter(&mut self, _kind: ScopeKind, _label: Option<&str>) {}
-    fn exit(&mut self) {}
+    fn enter(&mut self, _kind: ScopeKind, _label: Option<&str>) {
+        self.parent_scope.push(self.scope_path.last().copied());
+        self.scope_path.push(self.parent_scope.len() - 1);
+    }
+    fn exit(&mut self) {
+        self.scope_path.pop();
+    }
     fn bind(&mut self, name: &mut String, _kind: BindKind) {
         *self.bindings.entry(name.clone()).or_default() += 1;
     }
 
     fn reference(&mut self, name: &mut String) {
+        let scope = self.current_scope();
+        self.use_scopes.entry(name.clone()).or_default().push(scope);
         if self.pending_callee.as_deref() == Some(name.as_str()) {
             self.pending_callee = None;
         } else {
@@ -184,6 +233,7 @@ impl Hooks for Collector {
                 params: decl.params.clone(),
                 defaults: decl.defaults.clone(),
                 refusal,
+                declaring_scope: self.current_scope(),
             },
         );
     }
@@ -227,14 +277,30 @@ impl Hooks for Filler {
     }
 }
 
-/// A literal `undefined`, or `void` applied to a literal.
+/// A literal `undefined`, or `void` applied to a literal, possibly inside
+/// parentheses or a type-level `as` / `satisfies` (spec A-12).
 fn is_literal_undefined(argument: &Expression) -> bool {
-    match argument {
+    match unwrap_type_level(argument) {
         Expression::Identifier(name) => name == "undefined",
         Expression::UnaryExpression(unary) => {
-            unary.operator == "void" && matches!(unary.argument, Expression::Literal(_))
+            unary.operator == "void"
+                && matches!(unwrap_type_level(&unary.argument), Expression::Literal(_))
         }
         _ => false,
+    }
+}
+
+/// Strips the wrappers that do not change an expression's value:
+/// parentheses, `as` and `satisfies`. (The parser has no expression node for
+/// a non-null `!`.)
+fn unwrap_type_level(mut expression: &Expression) -> &Expression {
+    loop {
+        expression = match expression {
+            Expression::ParenthesizedExpression(inner) => &inner.expression,
+            Expression::TypeAssertion(inner) => &inner.expression,
+            Expression::SatisfiesExpression(inner) => &inner.expression,
+            _ => return expression,
+        };
     }
 }
 

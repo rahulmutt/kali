@@ -327,3 +327,119 @@ fn an_unrelated_binding_does_not_block_the_fill() {
     assert!(refusals.is_empty(), "{refusals:?}");
     assert_eq!(call_args(&mut got, "f"), vec![vec![number(1.0)]]);
 }
+
+/// A literal `undefined` or `void <literal>` inside parentheses or a
+/// type-level wrapper (`as`, `satisfies`) is still a literal `undefined`.
+#[test]
+fn a_wrapped_literal_undefined_is_replaced() {
+    for argument in [
+        "void(0)",
+        "void (0)",
+        "(undefined)",
+        "((undefined))",
+        "(void 0)",
+        "void ((0))",
+        "undefined as any",
+        "(undefined) as any",
+        "(void 0) as any",
+        "void (0) as any",
+        "undefined satisfies undefined",
+        "(undefined as any) satisfies any",
+    ] {
+        let source = format!("function f(a = 5) {{ return a; }} f({argument});");
+        let (refusals, mut got) = applied(&source);
+        assert!(refusals.is_empty(), "{source}: {refusals:?}");
+        assert_eq!(
+            call_args(&mut got, "f"),
+            vec![vec![number(5.0)]],
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_wrapped_non_literal_argument_passes_through() {
+    let (refusals, mut got) = applied("function f(a = 5) { return a; } let x = 3; f((x));");
+    assert!(refusals.is_empty(), "{refusals:?}");
+    assert!(
+        !matches!(call_args(&mut got, "f")[0][0], Expression::Literal(_)),
+        "{got:?}"
+    );
+}
+
+/// The A-11 ruling: a defaulted function declared inside a function or block
+/// may only be used inside that scope, so a same-named global called
+/// elsewhere is never filled with its default.
+#[test]
+fn a_use_outside_the_declaring_scope_is_refused() {
+    for (source, name) in [
+        (
+            "function h() { function isNaN(a = 1) { return a; } return 0; } \
+             console.log(h(), isNaN(undefined));",
+            "isNaN",
+        ),
+        (
+            "function h() { function isFinite(a = 1) { return a; } return 0; } \
+             console.log(h(), isFinite(undefined));",
+            "isFinite",
+        ),
+        (
+            "function h() { function String(a = 1) { return a; } return 0; } \
+             console.log(h(), String(undefined));",
+            "String",
+        ),
+        (
+            "function h() { { function f(a = 1) { return a; } } return f(); } h();",
+            "f",
+        ),
+        (
+            "function h() { function f(a = 1) { return a; } return f(); } \
+             function g() { return f(); } h(); g();",
+            "f",
+        ),
+        // Out-of-scope takes precedence over a value use.
+        (
+            "function h() { function f(a = 1) { return a; } return f(); } const g = f; h();",
+            "f",
+        ),
+    ] {
+        assert_eq!(
+            refused(source),
+            vec![kali_common::default_param_out_of_scope_use_message(name)],
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn a_use_in_a_scope_nested_inside_the_declaring_scope_is_filled() {
+    let (refusals, mut got) = applied(
+        "function outer() { function inner(a = 4) { return a; } \
+         function deeper() { { return inner(); } } return deeper(); } outer();",
+    );
+    assert!(refusals.is_empty(), "{refusals:?}");
+    assert_eq!(call_args(&mut got, "inner"), vec![vec![number(4.0)]]);
+}
+
+#[test]
+fn a_block_declaration_used_inside_its_block_is_filled() {
+    let (refusals, mut got) =
+        applied("function h() { { function f(a = 6) { return a; } return f(); } } h();");
+    assert!(refusals.is_empty(), "{refusals:?}");
+    assert_eq!(call_args(&mut got, "f"), vec![vec![number(6.0)]]);
+}
+
+#[test]
+fn rebound_and_exported_take_precedence_over_out_of_scope() {
+    assert_eq!(
+        refused(
+            "function h() { function f(a = 1) { return a; } return f(); } \
+             function g(f) { return f; } f(); g(1);"
+        ),
+        vec![kali_common::default_param_rebound_name_message("f")]
+    );
+    assert_eq!(
+        refused("function h() { function f(a = 1) { return a; } return f(); } export { f };"),
+        vec![kali_common::default_param_exported_message("f")]
+    );
+}
