@@ -235,6 +235,28 @@ pub fn unresolved_member_call_unavailable_message(method: &str) -> String {
     )
 }
 
+/// A member read that reached codegen's placeholder fallback on a receiver
+/// this program built (unresolved-member-read spec §3.5). LIR spells a spread
+/// (`"spread"`) and a comma expression (`""`) like a member read (spec A-1),
+/// so those texts get a message that does not claim a property.
+pub fn unresolved_member_read_unavailable_message(name: &str) -> String {
+    if name.is_empty() || name == "spread" {
+        return "this expression is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; kali refuses rather than evaluate it to 0".to_string();
+    }
+    format!(
+        "reading `.{name}` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; node would read a property or `undefined`, so kali refuses rather than read 0"
+    )
+}
+
+/// A plain `=` that reached codegen's final binary fallback with a target
+/// rooted at a value this program built (spec §3.3, A-2). `target` is
+/// `.name` for a member and `name` for an identifier.
+pub fn unresolved_store_unavailable_message(target: &str) -> String {
+    format!(
+        "assigning to `{target}` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that store; node would store the value or throw a TypeError, so kali refuses rather than drop the store"
+    )
+}
+
 /// Why a stateful out-of-slice class refuses at `new` (class-instances spec
 /// A-1, A-8, A-10). The text completes "it …".
 pub const CLASS_REASON_EXTENDS: &str =
