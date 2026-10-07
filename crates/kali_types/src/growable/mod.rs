@@ -54,6 +54,8 @@ use kali_ast::{
     Expression, ExpressionOrSpread, ForInLefthand, ForInit, ForOfLefthand, LiteralValue, Statement,
 };
 
+pub(crate) mod flow;
+
 /// Why a growable-shape `.push` receiver failed promotion (Task 6): drives
 /// which E5506 message `repr_infer` emits, so the diagnostic names the actual
 /// problem instead of enumerating positions that don't apply.
