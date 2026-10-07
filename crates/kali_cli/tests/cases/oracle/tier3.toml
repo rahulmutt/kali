@@ -86,8 +86,12 @@
 #   R-54   module     accepts_invalid    accepts_invalid   same
 #   R-54   function   accepts_invalid    accepts_invalid   same
 #
+# AMENDED 2026-10-07, unresolved-member-read: R-29 moved ACCEPTS_INVALID ->
+# BOTH_REJECT (see the MOVED rows above); the "did NOT move" text below is
+# ~~struck~~ as true only of the 2026-08-15 measurement.
+#
 # R-29's two cases are the only reconciliation in this file, and the behaviour
-# did NOT move -- the register's §0.2 SPELLING of it is what does not survive
+# ~~did NOT move~~ (as of 2026-08-15 only) -- the register's §0.2 SPELLING of it is what does not survive
 # translation into this project's eight-class taxonomy. Both R-29 cases record
 # that in full; read either one before touching the row. The short form:
 # §0.2 spells R-29 "**SILENT (node throws)**", but `silent` in this taxonomy

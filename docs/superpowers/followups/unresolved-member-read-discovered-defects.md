@@ -64,6 +64,8 @@ whose **value is read** therefore still evaluates to the placeholder.
 - `soundness/unresolved_member_read.toml` pins the `b=0` row WRONG ON PURPOSE.
   It also pins the `(0, o)` control as matching node.
 
+- Residue: `mk()[""]` prints `2` (same LIR conflation as A-1), measured against node.
+
 A fix must tell a stored-and-forwarded sequence value apart from one that
 is observed, or lower the sequence's last operand. Neither was attempted.
 

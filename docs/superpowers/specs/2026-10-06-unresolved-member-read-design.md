@@ -166,7 +166,7 @@ target's root is its receiver chain's root; an identifier target is its own
 root, A-2), deny with `unresolved_store_unavailable_message(target)`. The site is the
 final fallback, not `emit_assignment`'s `return false` (`literal.rs:848`),
 because lanes after `emit_assignment` may still lower a store that
-`emit_assignment` declines.
+`emit_assignment` declines. (amended: see A-9)
 
 ### 3.4 The `check` mirror
 
@@ -183,6 +183,8 @@ name is:
 
 It skips a member that is the operand of `typeof` (A-3), and a member that
 is a call's callee (the call gate owns those; one defect, one diagnostic).
+
+(amended: see A-6) The mirror also defers to codegen's own floors.
 
 That is exactly the absent-field-read shape (R-21f). It runs from the member
 expression resolution site that already hosts `reject_array_mutator_member`,
