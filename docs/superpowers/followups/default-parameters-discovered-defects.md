@@ -24,6 +24,8 @@ Each row re-measured with the branch binary and node on 2026-10-07.
 | `const f = (a, b) => a + b; console.log(f(1));` | `NaN` | `check` exit 0; `run` `error[E4201]: failed to load WASM module`. A sibling arrow called with fewer arguments than parameters breaks check/run parity at the baseline |
 | `function f(a = await w()) { return a; }` (TypeScript file) | not valid JS | the parser parses a default's expression with fresh async/generator flags, so `await` and `yield` inside a default are read as plain identifiers; the pass refuses the result as a non-literal default (`this default parameter value is unavailable in the current phase`), so it fails closed |
 | `function f(a: Map<string, number> = x) { return 1; }` (TypeScript file) | not valid JS | `error[E5506]: this parameter form is not supported`: the pre-existing parameter splitter breaks on the generic comma; fails closed |
+| `const f = (a): number => { return a; }; console.log(f(2));` (TypeScript) | `2` | `error[E3100]: undefined identifier 'a'`, check and run alike, with or without a default (`(a = 1): number => {…}` fails the same way). Pre-existing and loud: a block-bodied annotated arrow loses its parameter |
+| `const f = (...r): number => 1; console.log(f());` (TypeScript) | `1` | `error[E3100]: undefined identifier 'r'`, check and run alike. The parser's `Unsupported` arm (rest, destructured or optional parameters) has the same return-type-annotation gap the `Simple` arm had: an annotated arrow with such a parameter is not refused at the parameter list, it fails later and loudly |
 
 ## §2. What the 14 extension programs need next
 
@@ -146,5 +148,6 @@ the default-parameters project` note in its rationale:
 - `oracle/tier1::r01_default_parameter_module_scope` and
   `oracle/tier1::r01_default_parameter_in_function` (`oracle/tier1.toml`): were
   `fail_closed`; now `fixed` (kali prints `A` then `B`, exit 0, as node does).
-  Register §0.2's R-01 row and the ranking were re-derived with them (R-01 was
-  already not damage; no band moved).
+  Register §0.2's R-01 row is now two lanes: FIXED (declaration, `r01`) and
+  FAIL_CLOSED (function expression, `r01b`, two new oracle cases added in the
+  fix round); the ranking was re-derived with them (no band moved).

@@ -197,8 +197,8 @@ fn exactly_four_oracle_cases_are_unattributed_and_all_of_them_are_ground_truth()
     );
     assert_eq!(
         cases.len(),
-        177,
-        "§0.2 states that 177 oracle cases exist and that 173 of them back its 51 rows; a \
+        179,
+        "§0.2 states that 179 oracle cases exist and that 175 of them back its 51 rows; a \
          changed total needs that sentence regenerated with it"
     );
 }

@@ -239,8 +239,8 @@ entry's own repro; those cases agree with the tier files. *(**Corrected
 `var`-key computed read, which now refuses; the computed-member-static-name
 project replaced it with R-10's block-scoped shadow read — `let x = 1; { let x =
 2; } console.log("r=" + x);`, kali `r=2`, node `r=1`, exit 0 both — so the
-classifier still has a SILENT specimen and the count of five is unchanged.)* **173 cases back the 51
-rows.** ~~169 cases back the 49 rows … holds 173~~ (superseded 2026-09-11, when the inline-allocation-value-position project added **R-66** and **R-67** together, in one commit, each with its own two-case scope pair), ~~167 cases back the 48 rows … holds 171~~ (superseded 2026-09-11, when the same project added **R-65** with its own two-case scope pair), ~~165 cases back the 47 rows … holds 169~~ (superseded 2026-09-11, when the same project added **R-64** with its own two-case scope pair), ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
+classifier still has a SILENT specimen and the count of five is unchanged.)* **175 cases back the 51
+rows.** ~~173 cases back the 51 rows … holds 177~~ (superseded 2026-10-07, when the default-parameters project added the two `r01b` function-expression cases to R-01, an existing row), ~~169 cases back the 49 rows … holds 173~~ (superseded 2026-09-11, when the inline-allocation-value-position project added **R-66** and **R-67** together, in one commit, each with its own two-case scope pair), ~~167 cases back the 48 rows … holds 171~~ (superseded 2026-09-11, when the same project added **R-65** with its own two-case scope pair), ~~165 cases back the 47 rows … holds 169~~ (superseded 2026-09-11, when the same project added **R-64** with its own two-case scope pair), ~~163 cases back the 47 rows … holds 167~~ (superseded 2026-09-11, when the same project added R-15's element-only lane `r15e`), ~~161 cases back the 46 rows … holds 165~~ (superseded 2026-09-11, when the length-fails-closed project added **R-63** with its own two-case scope pair), ~~157 cases back the 44 rows … holds 161~~, ~~153 cases back the 42 rows … holds 157~~, ~~151 cases back the 41 rows …
 holds 155~~ — superseded 2026-08-16 at
 `3a636f62fb`, when the console-render-unification project's final whole-branch
 review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 at
@@ -249,7 +249,7 @@ review added **R-56** with its own two-case scope pair, and twice on 2026-09-08 
 branch added **R-59** and **R-60** the same way (~~`dde0f083c0`~~ — that is this
 branch's BASE and carries none of the four; corrected 2026-09-08 in final
 review). The oracle directory holds
-177 (~~173~~, ~~171~~, ~~169~~, ~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
+179 (~~177~~, ~~173~~, ~~171~~, ~~169~~, ~~167~~, ~~165~~, ~~161~~, ~~157~~); the other four carry
 `register_entry = "GROUND-TRUTH"`, measure the classifier rather than any entry,
 and are therefore attributable to no row — `agree.js`, `both_reject.js`,
 `hang.js` and `nondeterministic.js`. A reader auditing the mapping should expect
@@ -258,7 +258,7 @@ a defect.
 
 | entry | status measured at `62b11a78c3` (2026-08-16; three rows moved, the rest re-verified — except **R-56**, added 2026-08-16 at `3a636f62fb`, measured there, and **re-measured and RETIRED at `12fd424897`** the same day; and except **R-57** and **R-58**, added 2026-09-08 and measured at `dde0f083c0` against `node v26.8.1`; and except **R-59** and **R-60**, added 2026-09-08 and measured at `35e9ef4ef6` against `node v26.8.1`, which is the same tree plus this branch's own documentation) | note |
 |---|---|---|
-| R-01 default param truncates module | **FIXED** (both scopes) | **RE-DERIVED 2026-10-07 by the default-parameters project: FAIL_CLOSED → FIXED.** A scalar literal default on a function declaration now gets its default filled at each direct call site; kali prints `A` then `B` at exit 0, as node v26.10.0 does, in both scopes (the `r01a` oracle cases, `fixed`). The entry was already not damage (it failed closed), so no band moves. Object or array defaults, non-literal defaults, and a defaulted function used as a value still refuse with E5506; see `docs/superpowers/followups/default-parameters-discovered-defects.md`. Measured against node v26.10.0 on branch `default-parameters`. |
+| R-01 default param truncates module | **FIXED** (declaration lane `r01`) / **FAIL_CLOSED** (function-expression lane `r01b`) | **RE-DERIVED 2026-10-07 by the default-parameters project, and split into two lanes the way R-06 is.** **Declaration lane, FIXED (both scopes):** a scalar literal default on a function declaration gets its default filled at each direct call site; kali prints `A` then `B` at exit 0, as node v26.10.0 does (the `r01` oracle cases). **Function-expression lane, FAIL_CLOSED (both scopes):** `const g = function (b = 5) {…}` still exits 1 with E5506 "default parameters are only available on function declarations in the current phase", where node prints `A` then `B` (the `r01b` oracle cases, added the same day; they are the only live evidence for this lane). Arrow and method defaults refuse with the same message (`soundness/default_parameters_refused.toml`) but have no oracle case of their own. The entry was never silent after 2026-08-15, so no band moves. Object or array defaults, non-literal defaults and a defaulted function used as a value also refuse with E5506; see `docs/superpowers/followups/default-parameters-discovered-defects.md`. |
 | R-02 call through fn value → 0 | **FAIL_CLOSED** (both scopes) | every broken lane E5506 (the recommended G2 interim fix); callee never runs, but honestly. Supported set unchanged (direct call, const-arrow/fnlit, IIFE, sibling capture). The refusal is preceded by a `warning[E3100] undefined identifier … lowered through a zero placeholder compatibility fallback` — a warning, not the verdict. |
 | R-03 forEach / expr-arrow filter | **FAIL_CLOSED** (both scopes) | E5506 via the first-class-fn-value guard; the diagnostic text is word for word R-02's and R-05's, differing only in the quoted callee. `reduce`/`map` are a different program and are not what this row measures. |
 | R-04 console drops later args | **FIXED** (both scopes) | all sinks, both scopes; multi-arg routes booleans through `emit_as_string` correctly. The case measures one cell of R-04's boundary (a `var` reference in the middle position); five further boundary shapes were re-measured by hand at `4cfa218814` and **all agreed with node**, so the entry is fixed, not merely the cell. |
@@ -504,7 +504,7 @@ entries, **31 carry at least one SILENT lane** and **15 carry none**
   ranking's §6 fifth and SIXTH amendments for what the two regenerations
   printed; the second of them moved a band by SHRINKING a count.
 - **Tier 1's silent population is 2** — R-51 and R-52 — down from the eight
-  entries Tier 1 holds. R-01, R-02, R-03 and R-05 fail closed; R-04 is fixed;
+  entries Tier 1 holds. R-02, R-03 and R-05 fail closed; R-04 is fixed; R-01 is fixed for the declaration form and fails closed for the other forms (2026-10-07, default-parameters project; this sentence was written before that split);
   R-49 fails closed by R-35's gate.
 - **Movement since the 2026-07-24 net:** R-29 leaves the silent set (reclassified
   ACCEPTS_INVALID, same behaviour), taking the count from 30 entries to 29.
@@ -577,7 +577,7 @@ is dated `62d786e74` and must not be read as current.
 > **Net (2026-07-24 sweep, `62d786e74` — SUPERSEDED by the table above):** of the
 > register's ~29 silent-class entries, the sweep confirms **FIXED/fail-closed:
 > R-01, R-02, R-03, R-04, R-05, R-07, R-08(=== half), R-19, R-20**, plus **R-11,
-> CLOSED after this section's baseline** (`28f18b3ff`); **still SILENT: R-06-R2,
+> CLOSED after this section's baseline** (`28f18b3ff`) [2026-10-07 note: R-01 is now fixed for the declaration form only; the function-expression, arrow and method forms fail closed]; **still SILENT: R-06-R2,
 > R-06-R3, R-08(?? half), R-09, R-10, R-12, R-13, R-14, R-15, R-16, R-17, R-18,
 > R-21, R-22, R-23, R-24, R-25(residual), R-26, R-27, R-28, R-29, R-30, R-31,
 > R-32, R-33, R-34.** Added post-sweep 2026-07-25 and also **SILENT: R-47, R-48.**
@@ -1011,7 +1011,7 @@ context, because refusing to compile is the correct outcome and not a defect of 
 
 ### The five a reader must know first
 
-1. **R-01 — a default parameter silently truncates the module.** `function g(b=5){}` causes
+1. **R-01 — a default parameter silently truncates the module.** *(Historical text. 2026-10-07: the declaration form is now fixed; the function-expression, arrow and method forms fail closed with E5506.)* `function g(b=5){}` causes
    every later statement in the file to be dropped, exit 0, no diagnostic. This is
    *evidence-corrupting*: any fixture or probe in this repository that contains a default
    parameter has been silently truncated, so conclusions drawn from it may be invalid.
@@ -6178,7 +6178,7 @@ land. Each one silently invalidates probes rather than merely miscompiling progr
 
 | # | entry | effort | risk | note |
 |---|---|---|---|---|
-| 1 | **R-01** default param truncates the module | **small** | **low** | Traced to one discarded `accept` at `declaration.rs:29-30`. Make the failed `accept` a hard parse error; defaults then fail closed like the arrow form already does. Sweep the parser for sibling `let _ = …accept` sites in the same change. |
+| 1 | **R-01** default param truncates the module *(historical row; 2026-10-07: declaration form fixed, other forms fail closed)* | **small** | **low** | Traced to one discarded `accept` at `declaration.rs:29-30`. Make the failed `accept` a hard parse error; defaults then fail closed like the arrow form already does. Sweep the parser for sibling `let _ = …accept` sites in the same change. |
 | 2 | **R-04** console family drops arguments | small–medium | low | One choke point, four sinks. Must cover `log`/`error`/`warn`/`info` together (R-33's stray `[warn] ` prefix is in the same code and should go with it). Highest value per line of change in the document: it repairs the instrument every future investigation depends on. |
 | 3 | **R-07** `const` is not a binding | **medium** | **medium-high** | Traced to two sites. The obvious fix — promote all `const` declarators to local slots, reusing the `self.locals` arm that already handles arrays — is small to write, but `const` inlining is load-bearing for the module-constant lanes (for-in key tables, `is_pure_module_const_init`), so it will move a lot of generated code. Gate carefully and expect fixture churn. |
 
