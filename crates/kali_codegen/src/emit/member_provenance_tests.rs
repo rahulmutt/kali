@@ -253,7 +253,12 @@ fn a_host_root_keeps_its_read() {
         "let a = (console.log(\"x\"), 7); console.log(\"a=\" + a);",
         "console.log(Object.fromEntries([[\"a\",1]]).a);",
     ] {
-        assert_eq!(read_refusals(source), 0, "{source}: {:?}", diagnostics_for(source));
+        assert_eq!(
+            read_refusals(source),
+            0,
+            "{source}: {:?}",
+            diagnostics_for(source)
+        );
     }
 }
 
@@ -312,6 +317,8 @@ fn a_store_to_a_free_global_keeps_its_lowering() {
         // run no class repr inference, so they over-refuse it (reads too);
         // the real CLI prints node's `5`, covered by the black-box cases.
         "globalThis.zz = 3; console.log(\"ok\");",
+        // The real CLI refuses an undeclared `zz` earlier (E3100); here it only must not be a store refusal.
+        "zz = 3; console.log(\"ok\");",
         "function mk(){ return {a:1}; } const o=mk(); o[\"a\"] = 5; console.log(o.a);",
     ] {
         let diagnostics = diagnostics_for(source);

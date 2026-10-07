@@ -127,6 +127,7 @@ impl<'a> FunctionEmitter<'a> {
         let name = node.text.as_deref().filter(|name| !name.is_empty())?;
         let shown = match node.children.len() {
             0 => name.to_string(),
+            // Member stores normally reach a store lane or an earlier refusal (A-2).
             1 | 2 => format!(".{name}"),
             _ => return None,
         };
