@@ -457,8 +457,8 @@
 #   R-21   void return           function   silent          silent       same
 #   R-21   arithmetic            module     silent          silent       same
 #   R-21   arithmetic            function   silent          silent       same
-#   R-21   absent fld, `const`   module     silent          silent       same
-#   R-21   absent fld, `const`   function   silent          silent       same
+#   R-21   absent fld, `const`   module     silent          ~~silent~~ fail_closed ~~same~~ MOVED (2026-10-07)
+#   R-21   absent fld, `const`   function   silent          ~~silent~~ fail_closed ~~same~~ MOVED (2026-10-07)
 #   R-21   absent fld, `let`     module     fail_closed*    fail_closed  same
 #   R-21   absent fld, `let`     function   fail_closed*    fail_closed  same
 #   R-21   oob array read        module     silent          silent       same
@@ -1951,14 +1951,16 @@ name = "r21f_absent_object_field_const_receiver_module_scope"
 kind = "oracle"
 register_entry = "R-21"
 program = "r21f_module.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-21, ABSENT-FIELD lane with a `const` RECEIVER, module scope. §2's absent-reads bullet, first path: `const o={a:1}; "z="+o.z` -> `z=0` (node `undefined`).
 
 SCAFFOLDING: the register states this path as a bare concat expression with an arrow to the value, so a `console.log(…)` was wrapped around it. The receiver, its single field, the absent field name and the concat prefix are all the register's.
 
 Expected verdict set from the register's recorded status. This is the one lane in this file where two register sections disagree, and the expected class was taken from §0.2's row: as of `61c2d48ea9` it reads "**SILENT** | all forms (`null`/`undefined`/absent field/void call/template) render `0`/`false`". §0.1's 2026-07-29 amendment says the opposite of this lane -- that it "now **fails closed** `E5506 unknown field 'b' on fixed-shape object` at `64438bf0ef`" -- but states the lane as "`o.b` for undeclared `b`" WITHOUT a receiver declarator, so it does not name the program §2 states. SILENT was the expectation for §2's own program.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded in §0.2 -- no reconciliation, and the entry has NOT moved on its own repro. kali prints `z=0` at exit 0 with empty stderr; node prints `z=undefined` at exit 0.
+~~MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded in §0.2 -- no reconciliation, and the entry has NOT moved on its own repro. kali prints `z=0` at exit 0 with empty stderr; node prints `z=undefined` at exit 0.~~
+
+RE-MEASURED 2026-10-07 at `0fc2c3999` against node v26.10.0: FAIL_CLOSED (unresolved-member-read §3.2), SUPERSEDING SILENT. kali exits 1 with empty stdout and `error[E5506]: reading `.z` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that read; …`; node prints `z=undefined` at exit 0. The `const` receiver is an object literal this program built, so the absent-field read no longer reaches the silent-0 fallback. The declarator discriminator below is history: both `const` and `let` receivers now refuse with E5506, by different gates.
 
 THE RECONCILIATION IS A DISCRIMINATOR, NOT A CHANGED VERDICT. Both register sections are right about different programs, and the discriminator is the RECEIVER'S DECLARATOR KIND. Measured by hand at this same commit and node version while checking this case: `const o={a:1}; console.log("z="+o.z)` prints `z=0` at exit 0 (this case); `let o={a:1}; …` and `var o={a:1}; …` both exit 1 with `error[E5506]: unknown field 'z' on fixed-shape object Binding("_start", "o")`. §2 states the repro with `const`, so §0.2's SILENT row describes it correctly; the amendment's fail-closed lane is real but reachable only from a `let`/`var` receiver, and the `r21fl_*` cases in this file pin it. A §0.2 regenerated from these measurements should split this form by receiver declarator rather than record one class for it.
 
@@ -1969,12 +1971,14 @@ name = "r21f_absent_object_field_const_receiver_in_function"
 kind = "oracle"
 register_entry = "R-21"
 program = "r21f_function.js"
-verdict = "silent"
+verdict = "fail_closed"
 rationale = """R-21, ABSENT-FIELD lane with a `const` RECEIVER, in-function scope. The module-scope program -- the register's fragment plus the added `console.log` -- unchanged inside `function main() { … }` with a trailing `main();`.
 
 Expected verdict set from §0.2's SILENT row, as for the module scope. NO ELIMINATION ARGUMENT PLACES THIS PATH IN A BOTH-SCOPES GROUP, and an earlier draft of this rationale wrongly claimed one. As of `61c2d48ea9`, §2's Verification line puts "D-D-12's out-of-bounds cases and D-A-11" in the top-level-only group, and only the FIRST of those two is named by shape: D-A-11's contributed shape is unidentified and could itself be this missing-field bullet. The expected class was therefore set on the ASSUMPTION that the scopes agree -- see the `r21bn` in-function case for why none of this entry's bullets can be mapped to a sweep id.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `z=0` at exit 0; node prints `z=undefined` at exit 0. Identical to the module scope, so the `const`-receiver silence is not scope-dependent."""
+~~MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `z=0` at exit 0; node prints `z=undefined` at exit 0. Identical to the module scope, so the `const`-receiver silence is not scope-dependent.~~
+
+RE-MEASURED 2026-10-07 at `0fc2c3999` against node v26.10.0: FAIL_CLOSED (unresolved-member-read §3.2), SUPERSEDING SILENT. kali exits 1 with empty stdout and the same `error[E5506]: reading `.z` is unavailable in the current phase: …` word for word; node prints `z=undefined` at exit 0. Identical to the module scope, so the refusal is not scope-dependent."""
 
 [[case]]
 name = "r21fl_absent_object_field_let_receiver_module_scope"

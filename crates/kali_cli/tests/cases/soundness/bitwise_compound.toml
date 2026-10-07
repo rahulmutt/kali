@@ -2448,10 +2448,13 @@ This program hits `E4201` ("failed to load WASM module") — an INTERNAL codegen
 
 What T5 changes is REACHABILITY, not correctness: pre-T5, ANY bitwise compound-assign on a member target was denied at resolve (`E5506`) before codegen ever ran, so a program that also happens to contain `o.a &= 3` never got far enough to hit this pre-existing codegen bug. Post-T5 the admission lets compilation proceed into it.
 
-Closing this for real would need proving "this shape's field is never written a float by ANY function that receives it as a parameter" — the same interprocedural FLOAT-write taint infrastructure the Important-2 finding explicitly says not to build this task (partial coverage of only SOME write routes would be actively dangerous, a false sense of soundness — see `collect_bigint_tainted_shape_fields`'s doc). Recorded here as an explicit, PINNED, accepted unmasking rather than a silent one. If a future task closes the underlying float-into-i64-cell bug (or adds the missing parameter-write taint route), this test should start failing with a clean `E5506` instead — that is progress; update this assertion to `assert_fails_closed` at that point, don't just delete the test."""
+Closing this for real would need proving "this shape's field is never written a float by ANY function that receives it as a parameter" — the same interprocedural FLOAT-write taint infrastructure the Important-2 finding explicitly says not to build this task (partial coverage of only SOME write routes would be actively dangerous, a false sense of soundness — see `collect_bigint_tainted_shape_fields`'s doc). Recorded here as an explicit, PINNED, accepted unmasking rather than a silent one. If a future task closes the underlying float-into-i64-cell bug (or adds the missing parameter-write taint route), this test should start failing with a clean `E5506` instead — that is progress; update this assertion to `assert_fails_closed` at that point, don't just delete the test.
+
+RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1): THE PROGRESS THE PARAGRAPH ABOVE ASKED FOR. The pinned ~~`E4201`~~ internal codegen defect is no longer reached. `x.a = 1.5` is a store through the arrow's parameter `x`, a value this program built (the caller passes the object literal `o`), and kali has no lowering for that store, so compilation now stops before codegen with `error[E5506]: assigning to `.a` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that store; ...` (preceded by the matching `reading `.a`` refusal). node prints `1` at exit 0. The float-into-i64-cell bug itself is NOT closed; it is no longer reachable from this program. The case name keeps `e4201` so its history stays findable."""
 args = ["run", "bitwise_compound_object_field_unmasks_preexisting_float_into_i64_cell_e4201.ts"]
 exit = "failure"
-stderr_contains = ["E4201"]
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that store"]
 
 [[case]]
 name = "bitwise_compound_tripwire_computed_key_write_not_covered_by_bigint_taint_scan"
@@ -2493,11 +2496,13 @@ Every expected value here was captured from node v26.5.0.
 
 T5 review Important 2: `collect_bigint_tainted_shape_fields` sees only 2 of (at least) 5 source-language write routes into an admitted field. These three tripwires pin the CURRENT (write-silently-dropped) behavior for the uncovered routes — NOT as certified-correct output (all three diverge from node, which throws), but so that a future change which makes any of these writes real is caught immediately if it does not ALSO extend the taint scan first. See the scan's own doc in `lower.rs` for the full route inventory and why partial coverage is dangerous.
 
-A dot-field write off an arrow-function PARAMETER — params carry their `Repr::Object(shape)` via `ReprTable::set_param`, a different accessor than the `scalar()` lookup this scan's write-detection consults, so this base is invisible to it. Currently silently dropped (reproduces with no bitwise op at all), so `o.a` is still `6` when `o.a &= 3` runs: 6 & 3 = 2. node throws `TypeError: Cannot mix BigInt`."""
+A dot-field write off an arrow-function PARAMETER — params carry their `Repr::Object(shape)` via `ReprTable::set_param`, a different accessor than the `scalar()` lookup this scan's write-detection consults, so this base is invisible to it. ~~Currently silently dropped (reproduces with no bitwise op at all), so `o.a` is still `6` when `o.a &= 3` runs: 6 & 3 = 2.~~ node throws `TypeError: Cannot mix BigInt`.
+
+THE TRIPWIRE FIRED, AND IT FIRED SAFELY. RE-PINNED 2026-10-07 at `0fc2c3999` (unresolved-member-read, spec section 6.1). OLD READING: kali printed ~~`2`~~ at exit 0 -- the parameter write `x.a = 7n` was silently dropped. NEW READING (node v26.10.0): kali exits 1 with empty stdout and `error[E5506]: assigning to `.a` is unavailable in the current phase: the receiver is a value this program built, and kali has no lowering for that store; ...` (with a matching `reading `.a`` refusal). The write did NOT become real -- it is refused instead of dropped -- so the taint scan's blind spot for parameter writes is not exercised and stays uncovered. The tripwire still works: a later change that lowers this store makes this case go red again, which is the moment to extend the scan first. node still throws at exit 1. Both engines now refuse."""
 args = ["run", "bitwise_compound_tripwire_arrow_parameter_write_not_covered_by_bigint_taint_scan.ts"]
-exit = "success"
-stdout = """2
-"""
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "no lowering for that store"]
 
 [[case]]
 name = "bitwise_compound_tripwire_forof_element_write_not_covered_by_bigint_taint_scan"
