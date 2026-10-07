@@ -535,3 +535,132 @@ pub fn default_param_out_of_scope_use_message(function: &str) -> String {
 pub const fn default_param_eval_refused_message() -> &'static str {
     "default parameters are unavailable under --compat eval"
 }
+
+/// Growable-runtime-arrays spec §3.6: where a growable array lives, as a
+/// refusal names it. `_start` is the synthetic module-scope function.
+pub fn growable_scope_phrase(func: &str) -> String {
+    if func == "_start" {
+        "at module scope".to_string()
+    } else {
+        format!("in `{func}`")
+    }
+}
+
+/// Growable-runtime-arrays spec §3.6: a binding or parameter.
+pub fn growable_binding_subject(name: &str, func: &str) -> String {
+    format!("`{name}` {}", growable_scope_phrase(func))
+}
+
+/// Growable-runtime-arrays spec §3.6: a function's returned array.
+pub fn growable_return_subject(func: &str) -> String {
+    format!("the array `{func}` returns")
+}
+
+/// Growable-runtime-arrays spec A-6: a call result used without a binding.
+pub fn growable_call_result_source(callee: &str) -> String {
+    format!("the array `{callee}(…)` returns")
+}
+
+/// Growable-runtime-arrays spec A-6: a `slice` result used without a binding.
+pub const fn growable_slice_result_source() -> &'static str {
+    "a `slice()` result"
+}
+
+/// Growable-runtime-arrays spec §3.2 (M1).
+pub fn growable_mixed_layout_message(subject: &str) -> String {
+    format!(
+        "{subject} would hold both a growable array (built with `push`, `pop` or an index write) and a fixed-length `new Array(n)` array; mixing the two array layouts is unavailable in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.4, A-4 (M2).
+pub fn growable_unsupported_element_message(subject: &str) -> String {
+    format!(
+        "{subject} is a growable array with an element that is an object, an array, a function, a boolean, `null` or `undefined`; a growable array holds only numbers or only strings in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.3, A-18 (M3).
+pub fn growable_module_read_message(name: &str, func: &str) -> String {
+    format!(
+        "function `{func}` uses the module-level growable array `{name}`; a function can reach a module-level growable array only through a parameter in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §1.1 (M4).
+pub fn growable_capture_message(subject: &str) -> String {
+    format!(
+        "the growable array {subject} is captured by a closure, nested function or class body; capturing a growable array is unavailable in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.5, A-8 (M5).
+pub fn growable_for_of_mutation_message(subject: &str) -> String {
+    format!(
+        "`push` or `pop` on the growable array {subject}, directly, through an alias or through a function it is passed to, inside a `for-of` loop over that same array is unavailable in the current phase: kali fixes the iteration count when the loop starts"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.5 (M6).
+pub fn growable_from_index_message(method: &str) -> String {
+    format!(
+        "`{method}` with a `fromIndex` argument on a growable array is unavailable in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.5 (M7).
+pub fn growable_length_write_message(subject: &str) -> String {
+    format!(
+        "assigning to `.length` of the growable array {subject} is unavailable in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §1.1 (M8). `operation` is already quoted,
+/// e.g. "`.reverse()`" or "`[\"push\"]()`".
+pub fn growable_unsupported_operation_message(operation: &str, subject: &str) -> String {
+    format!(
+        "{operation} on the growable array {subject} is unavailable in the current phase; a growable array supports `push`, `pop`, `indexOf`, `includes`, `slice`, `join`, `.length`, index reads and writes, and `for-of`"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.5 (M9): printing a whole array, growable
+/// or plain. Moved verbatim from `kali_codegen/src/emit/call.rs`.
+pub const fn runtime_array_print_unavailable_message() -> &'static str {
+    "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
+}
+
+/// Growable-runtime-arrays spec A-3 (M10).
+pub fn growable_plain_use_message(subject: &str) -> String {
+    format!(
+        "the growable array {subject} is used as a plain value here; a growable array can only be bound, passed to a function, returned, iterated with `for-of`, or used through `.length`, an index or a supported method in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec A-5 (M11).
+pub fn growable_literal_expression_message(func: &str) -> String {
+    format!(
+        "an array literal written directly as a call argument or `return` value {} would be a growable array; bind it to a `const` first in the current phase",
+        growable_scope_phrase(func)
+    )
+}
+
+/// Growable-runtime-arrays spec A-6 (M12).
+pub fn growable_temporary_use_message(source: &str) -> String {
+    format!(
+        "indexing, `push` or `pop` directly on {source} is unavailable in the current phase; bind it to a `const` first"
+    )
+}
+
+/// Growable-runtime-arrays spec A-7 (M13).
+pub fn growable_non_array_write_message(subject: &str) -> String {
+    format!(
+        "{subject} holds a growable array and is also given a value that is not an array (another value, `undefined`, or a missing argument or `return`); this is unavailable in the current phase"
+    )
+}
+
+/// Growable-runtime-arrays spec §3.6: what `__growable_pop` prints on stderr
+/// before it traps. Names kali, like the bounds trap, because node raises
+/// nothing here.
+pub const fn growable_pop_empty_message() -> &'static str {
+    "kali: pop on empty array: node returns undefined here; kali refuses rather than return a value that is not there"
+}

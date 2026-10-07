@@ -418,3 +418,70 @@ fn default_parameter_messages_name_the_function_and_parameter() {
         "a function with default parameters declared inside a function or block can only be called inside that scope in the current phase: `f` is used outside it"
     );
 }
+
+#[test]
+fn growable_runtime_array_messages_name_the_array_and_say_why() {
+    assert_eq!(growable_scope_phrase("_start"), "at module scope");
+    assert_eq!(growable_scope_phrase("main"), "in `main`");
+    assert_eq!(growable_binding_subject("xs", "main"), "`xs` in `main`");
+    assert_eq!(growable_binding_subject("xs", "_start"), "`xs` at module scope");
+    assert_eq!(growable_return_subject("build"), "the array `build` returns");
+    assert_eq!(growable_call_result_source("build"), "the array `build(…)` returns");
+    assert_eq!(growable_slice_result_source(), "a `slice()` result");
+    assert_eq!(
+        growable_mixed_layout_message("`a` in `total`"),
+        "`a` in `total` would hold both a growable array (built with `push`, `pop` or an index write) and a fixed-length `new Array(n)` array; mixing the two array layouts is unavailable in the current phase"
+    );
+    assert_eq!(
+        growable_unsupported_element_message("`o` in `main`"),
+        "`o` in `main` is a growable array with an element that is an object, an array, a function, a boolean, `null` or `undefined`; a growable array holds only numbers or only strings in the current phase"
+    );
+    assert_eq!(
+        growable_module_read_message("out", "size"),
+        "function `size` uses the module-level growable array `out`; a function can reach a module-level growable array only through a parameter in the current phase"
+    );
+    assert_eq!(
+        growable_capture_message("`o` in `main`"),
+        "the growable array `o` in `main` is captured by a closure, nested function or class body; capturing a growable array is unavailable in the current phase"
+    );
+    assert_eq!(
+        growable_for_of_mutation_message("`a` in `main`"),
+        "`push` or `pop` on the growable array `a` in `main`, directly, through an alias or through a function it is passed to, inside a `for-of` loop over that same array is unavailable in the current phase: kali fixes the iteration count when the loop starts"
+    );
+    assert_eq!(
+        growable_from_index_message("indexOf"),
+        "`indexOf` with a `fromIndex` argument on a growable array is unavailable in the current phase"
+    );
+    assert_eq!(
+        growable_length_write_message("`a` in `main`"),
+        "assigning to `.length` of the growable array `a` in `main` is unavailable in the current phase"
+    );
+    assert_eq!(
+        growable_unsupported_operation_message("`.reverse()`", "`a` in `main`"),
+        "`.reverse()` on the growable array `a` in `main` is unavailable in the current phase; a growable array supports `push`, `pop`, `indexOf`, `includes`, `slice`, `join`, `.length`, index reads and writes, and `for-of`"
+    );
+    assert_eq!(
+        runtime_array_print_unavailable_message(),
+        "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
+    );
+    assert_eq!(
+        growable_plain_use_message("`a` in `main`"),
+        "the growable array `a` in `main` is used as a plain value here; a growable array can only be bound, passed to a function, returned, iterated with `for-of`, or used through `.length`, an index or a supported method in the current phase"
+    );
+    assert_eq!(
+        growable_literal_expression_message("f"),
+        "an array literal written directly as a call argument or `return` value in `f` would be a growable array; bind it to a `const` first in the current phase"
+    );
+    assert_eq!(
+        growable_temporary_use_message("the array `make(…)` returns"),
+        "indexing, `push` or `pop` directly on the array `make(…)` returns is unavailable in the current phase; bind it to a `const` first"
+    );
+    assert_eq!(
+        growable_non_array_write_message("`a` in `f`"),
+        "`a` in `f` holds a growable array and is also given a value that is not an array (another value, `undefined`, or a missing argument or `return`); this is unavailable in the current phase"
+    );
+    assert_eq!(
+        growable_pop_empty_message(),
+        "kali: pop on empty array: node returns undefined here; kali refuses rather than return a value that is not there"
+    );
+}

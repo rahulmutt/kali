@@ -120,8 +120,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_runtime_array_value(id) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
-                    .to_string(),
+                kali_common::runtime_array_print_unavailable_message().to_string(),
             ));
         }
         if self.object_shape_of_node(id).is_some() {
@@ -167,8 +166,7 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_runtime_array_value(id) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
-                    .to_string(),
+                kali_common::runtime_array_print_unavailable_message().to_string(),
             ));
         }
         if self.object_shape_of_node(id).is_some() {
