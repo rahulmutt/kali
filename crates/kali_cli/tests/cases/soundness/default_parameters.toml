@@ -1,0 +1,73 @@
+# Default parameters (default-parameters spec §3, §5.2, A-7). Every expected
+# stdout is node v26.10.0's for the same file, measured 2026-10-07 with
+# `env -u FORCE_COLOR node FILE.js`.
+
+[source]
+"kinds_module.js" = """
+function num(a, b = 2) { return a + b; }
+function str(s = "x") { return s + "!"; }
+function flag(b = true) { return b ? "yes" : "no"; }
+function neg(n = -1) { return n * 2; }
+console.log(num(1), num(1, 5), str(), str("y"), flag(), flag(false), neg(), neg(4));
+"""
+"kinds_function.js" = """
+function main() {
+  function num(a, b = 2) { return a + b; }
+  function str(s = "x") { return s + "!"; }
+  console.log(num(1), num(1, 5), str(), str("y"));
+}
+main();
+"""
+"omissions.js" = """
+function f(a = 1, b = 2) { return a * 10 + b; }
+console.log(f(), f(5), f(5, 6), f(undefined, 6), f(5, undefined));
+"""
+"greet.js" = """
+function greet(name, greeting = "Hello", punct = "!") { return greeting + ", " + name + punct; }
+console.log(greet("Ada"));
+console.log(greet("Bob", "Hi"));
+console.log(greet("Cy", "Yo", "?"));
+"""
+"recursion.js" = """
+function sum(n, acc = 0) { if (n === 0) return acc; return sum(n - 1, acc + n); }
+console.log(sum(4), sum(3, 10));
+"""
+
+[[case]]
+name = "scalar_defaults_fill_omitted_arguments_module_scope"
+rationale = "A number, string, boolean and negative-number default, each called with and without its argument."
+args = ["run", "kinds_module.js"]
+exit = "success"
+stdout = "3 6 x! y! yes no -2 8\n"
+
+[[case]]
+name = "scalar_defaults_fill_omitted_arguments_in_function"
+rationale = "The same fill for declarations nested in a function."
+args = ["run", "kinds_function.js"]
+exit = "success"
+stdout = "3 6 x! y!\n"
+
+[[case]]
+name = "omitted_and_literal_undefined_arguments_take_the_default"
+rationale = "`f(undefined, 6)` and `f(5, undefined)` take the default at the `undefined` position only."
+args = ["run", "omissions.js"]
+exit = "success"
+stdout = "12 52 56 16 52\n"
+
+[[case]]
+name = "string_defaults_fill_trailing_arguments"
+rationale = "The shape of the corpus's `wrap(text, width = 72, indent = \"\")`: two trailing defaults, omitted, one given, both given."
+args = ["run", "greet.js"]
+exit = "success"
+stdout = "Hello, Ada!\nHi, Bob!\nYo, Cy?\n"
+
+[[case]]
+name = "a_recursive_call_omitting_the_default_is_filled"
+args = ["run", "recursion.js"]
+exit = "success"
+stdout = "10 16\n"
+
+[[case]]
+name = "check_accepts_a_program_with_scalar_defaults"
+args = ["check", "greet.js"]
+exit = "success"
