@@ -467,7 +467,9 @@ pub const fn default_param_non_declaration_message() -> &'static str {
 /// Default-parameters spec §3.3, A-3. An exported function has call sites the
 /// pass cannot see.
 pub fn default_param_exported_message(function: &str) -> String {
-    format!("a function with default parameters cannot be exported in the current phase: `{function}`")
+    format!(
+        "a function with default parameters cannot be exported in the current phase: `{function}`"
+    )
 }
 
 /// Default-parameters spec §3.2 step 1, A-7.
@@ -497,6 +499,13 @@ pub fn default_param_async_or_generator_message(function: &str) -> String {
 pub fn default_param_value_use_message(function: &str) -> String {
     format!(
         "a function with default parameters can only be called directly by name in the current phase; `{function}` is used as a value here"
+    )
+}
+
+/// Default-parameters spec §3.2: calls are matched to the declaration by name.
+pub fn default_param_rebound_name_message(function: &str) -> String {
+    format!(
+        "a function with default parameters must have a name no other binding in the program uses in the current phase: `{function}` is also bound elsewhere"
     )
 }
 

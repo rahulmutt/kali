@@ -398,6 +398,10 @@ fn default_parameter_messages_name_the_function_and_parameter() {
         "a function with default parameters can only be called directly by name in the current phase; `f` is used as a value here"
     );
     assert_eq!(
+        default_param_rebound_name_message("f"),
+        "a function with default parameters must have a name no other binding in the program uses in the current phase: `f` is also bound elsewhere"
+    );
+    assert_eq!(
         default_param_spread_call_message("f"),
         "a function with default parameters cannot be called with a spread argument in the current phase: `f(...)`"
     );

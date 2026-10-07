@@ -72,6 +72,8 @@ struct Collector {
     calls: Vec<Call>,
     /// Every name referenced other than as the callee of a direct call.
     value_uses: BTreeSet<String>,
+    /// How many bindings of each name the program has, of any kind.
+    bindings: BTreeMap<String, usize>,
     /// The callee name of the call whose callee is about to be walked.
     pending_callee: Option<String>,
 }
@@ -84,6 +86,8 @@ impl Collector {
         for (name, defaulted) in &self.defaulted {
             if let Some(refusal) = &defaulted.refusal {
                 refusals.push(refusal.clone());
+            } else if self.bindings.get(name).copied().unwrap_or(0) > 1 {
+                refusals.push(kali_common::default_param_rebound_name_message(name));
             } else if exported.contains(name) {
                 refusals.push(kali_common::default_param_exported_message(name));
             } else if self.value_uses.contains(name) {
@@ -117,7 +121,9 @@ impl Collector {
 impl Hooks for Collector {
     fn enter(&mut self, _kind: ScopeKind, _label: Option<&str>) {}
     fn exit(&mut self) {}
-    fn bind(&mut self, _name: &mut String, _kind: BindKind) {}
+    fn bind(&mut self, name: &mut String, _kind: BindKind) {
+        *self.bindings.entry(name.clone()).or_default() += 1;
+    }
 
     fn reference(&mut self, name: &mut String) {
         if self.pending_callee.as_deref() == Some(name.as_str()) {

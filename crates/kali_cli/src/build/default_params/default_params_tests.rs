@@ -270,3 +270,60 @@ fn eval_compat_without_defaults_is_untouched() {
     let mut statements = parse("function f(a) { return a; } f(1);");
     assert!(apply_default_params(&mut statements, true).is_empty());
 }
+
+#[test]
+fn a_same_name_binding_elsewhere_is_refused() {
+    for source in [
+        "function h() { function f(a = 41) { return a; } return f(); } \
+         function g() { const f = (a) => a; return f(undefined); } \
+         console.log(h(), g());",
+        "function h() { function f(a = 41) { return a; } return f(); } \
+         function g(f) { return f; } console.log(h(), g(3));",
+    ] {
+        assert_eq!(
+            refused(source),
+            vec![kali_common::default_param_rebound_name_message("f")],
+            "{source}"
+        );
+    }
+}
+
+#[test]
+fn sibling_nested_defaulted_functions_are_filled() {
+    // The pass runs after the rename, which spells the two `f`s differently.
+    let mut got = parse(
+        "function h() { function f(a = 1) { return a; } return f(); } \
+         function g() { function f(a = 2) { return a; } return f(); } h(); g();",
+    );
+    crate::build::block_scope_rename::rename_block_scoped_bindings(&mut got);
+    let refusals = apply_default_params(&mut got, false);
+    assert!(refusals.is_empty(), "{refusals:?}");
+    let mut seen: Vec<Expression> = Vec::new();
+    #[derive(Default)]
+    struct Names(Vec<String>);
+    impl Hooks for Names {
+        fn enter(&mut self, _: ScopeKind, _: Option<&str>) {}
+        fn exit(&mut self) {}
+        fn bind(&mut self, name: &mut String, kind: BindKind) {
+            if kind == BindKind::FunctionDecl {
+                self.0.push(name.clone());
+            }
+        }
+        fn reference(&mut self, _: &mut String) {}
+    }
+    let mut names = Names::default();
+    walk::walk_program(&mut got, &mut names);
+    assert_eq!(names.0.iter().filter(|n| n.starts_with('f')).count(), 2);
+    assert_ne!(names.0[0], names.0[1], "{:?}", names.0);
+    for name in names.0.iter().filter(|n| n.starts_with('f')) {
+        seen.extend(call_args(&mut got, name).into_iter().flatten());
+    }
+    assert_eq!(seen, vec![number(1.0), number(2.0)]);
+}
+
+#[test]
+fn an_unrelated_binding_does_not_block_the_fill() {
+    let (refusals, mut got) = applied("function f(a = 1) { return a; } const g = 2; f();");
+    assert!(refusals.is_empty(), "{refusals:?}");
+    assert_eq!(call_args(&mut got, "f"), vec![vec![number(1.0)]]);
+}
