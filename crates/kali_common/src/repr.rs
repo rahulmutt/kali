@@ -101,6 +101,14 @@ pub struct ReprTable {
     /// a SEPARATE lane from `array_bindings`' inline `[len][elem…]` layout.
     /// Misses fail closed (not growable == the pre-existing plain lane).
     growable_array_bindings: HashSet<(String, String)>,
+    /// Functions whose every return is a growable array (growable-runtime-
+    /// arrays spec §3.1), with the element repr. Disjoint from
+    /// `array_returns`: a function is on one array-return lane or neither.
+    growable_returns: HashMap<String, Repr>,
+    /// Growable bindings whose array never leaves the creating function
+    /// (spec §3.3, A-16): codegen may allocate them from the function arena.
+    /// Every other growable binding allocates with `__alloc_global`.
+    growable_local_only: HashSet<(String, String)>,
     /// Functions that return a runtime `[len][elem…]` array on every path,
     /// with the element repr (array-return project, spec
     /// docs/superpowers/specs/2026-10-02-array-return-design.md §3.1).
@@ -626,6 +634,24 @@ impl ReprTable {
     /// pre-existing plain lane).
     pub fn is_growable_array_binding(&self, func: &str, binding: &str) -> bool {
         self.growable_array_bindings
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
+    pub fn set_growable_return(&mut self, func: &str, elem: Repr) {
+        self.growable_returns.insert(func.to_string(), elem);
+    }
+
+    pub fn growable_return(&self, func: &str) -> Option<Repr> {
+        self.growable_returns.get(func).copied()
+    }
+
+    pub fn mark_growable_local_only(&mut self, func: &str, binding: &str) {
+        self.growable_local_only
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    pub fn is_growable_local_only(&self, func: &str, binding: &str) -> bool {
+        self.growable_local_only
             .contains(&(func.to_string(), binding.to_string()))
     }
 

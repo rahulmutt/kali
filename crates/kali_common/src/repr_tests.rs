@@ -236,3 +236,22 @@ fn host_derived_classes_round_trip() {
     assert!(table.is_host_derived_class("X"));
     assert!(!table.is_host_derived_class("Y"));
 }
+
+#[test]
+fn growable_returns_carry_their_element_repr() {
+    let mut table = ReprTable::default();
+    assert_eq!(table.growable_return("build"), None);
+    table.set_growable_return("build", Repr::String);
+    assert_eq!(table.growable_return("build"), Some(Repr::String));
+    assert_eq!(table.growable_return("other"), None);
+}
+
+#[test]
+fn growable_bindings_are_global_unless_marked_local_only() {
+    let mut table = ReprTable::default();
+    table.set_growable_array_binding("main", "out");
+    assert!(!table.is_growable_local_only("main", "out"));
+    table.mark_growable_local_only("main", "out");
+    assert!(table.is_growable_local_only("main", "out"));
+    assert!(!table.is_growable_local_only("main", "other"));
+}
