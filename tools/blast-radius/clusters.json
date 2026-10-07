@@ -282,7 +282,18 @@
     "precedent (a member leaves a cluster that survives). R-21 and R-27 stay: R-21's `r21f` lane",
     "moved to FAIL_CLOSED but six of its lanes are still SILENT, and R-27 did not move (comma",
     "expressions are excluded from that project's read gate by the human partner's ruling). R-29",
-    "was never in this file (ACCEPTS_INVALID, now BOTH_REJECT). R-60 did not move."
+    "was never in this file (ACCEPTS_INVALID, now BOTH_REJECT). R-60 did not move.",
+    "",
+    "REMOVED 2026-10-07 by the numeric-literal-grammar project",
+    "(docs/superpowers/followups/numeric-literal-grammar-discovered-defects.md): R-58 leaves, and",
+    "so does its singleton cluster DEFINITION, which would otherwise have no members. Its one",
+    "SILENT lane (`r58a_legacy_octal_numeric_key_read_as_decimal_{module_scope,in_function}`) now",
+    "asserts FIXED: every numeric-literal reader goes through",
+    "`kali_common::numeric_literal::parse_js_numeric_literal`, so `{042: 1}` is the property `34` as",
+    "node v26.10.0 says. It is NOT retired: its strict-mode face (`\"use strict\"; {042: 1}`, a",
+    "SyntaxError in node, exit 0 in kali) is still ACCEPTS_INVALID and unpinned. R-57's",
+    "`alternate` text still names R-58 as the cluster it declines; that is history, not a live",
+    "assignment."
   ],
   "clusters": [
     {
@@ -364,11 +375,6 @@
       "name": "R-57 (unclustered)",
       "origin": "singleton",
       "why": "§2: 'unclustered, and deliberately not added to any of §3's eight ... not G1 ... not G8 ... and not N1, despite the name'. The N1 exclusion is explicit because of a word collision: N1 here is escape/provenance loss in the ARENA-ESCAPE sense (R-14/R-48), not the string-escape sense."
-    },
-    {
-      "name": "R-58 (unclustered)",
-      "origin": "singleton",
-      "why": "§2: 'unclustered ... It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion'. Declined because G3's stated remedy -- an allowlist at the choke point -- would refuse a program node runs."
     }
   ],
   "assignments": [
@@ -532,13 +538,6 @@
       "registerSource": "unclustered, and deliberately not added to any of §3's eight ... not G1 ... not G8 ... not N1, despite the name ... It shares a shape with R-58 ... but they are not one cluster, by clusters.json's own definition that a cluster is the unit a fix actually ships in.",
       "alternate": "A shared cluster with R-58 (`kali_parser` converting a literal's source text with Rust's grammar) is named and declined by the register itself, on the fix-unit rule this file states.",
       "alternateCluster": null
-    },
-    {
-      "id": "R-58",
-      "cluster": "R-58 (unclustered)",
-      "registerSource": "unclustered, and the interesting part is which group it declines. It has G3's shape exactly ... It is nonetheless not added to G3's member list, on G3's own criterion ... A cluster is the unit a fix ships in; this fix does not ship with G3's.",
-      "alternate": "G3 by shape, named and declined by the register because G3's remedy would refuse valid JavaScript; a shared cluster with R-57 is also named and declined, on the fix-unit rule.",
-      "alternateCluster": "G3 — guards whose own diagnostic text names the unsoundness that leaks past them"
     },
     {
       "id": "R-60",

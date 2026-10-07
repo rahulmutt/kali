@@ -107,6 +107,11 @@ Range clarification:
 - `E5108`: Effect type mismatch
 - `E5109`: Purity violation (side effect in pure function)
 
+### Lexical Errors (E1xxx)
+The lexer reports its errors in the `E1xxx` band (`crates/kali_error/src/_error_codes.rs`, module `e1`), before the parser runs. They are fatal under `check`, `build` and `run`.
+- `E1004`: Unsupported string escape sequence
+- `E1100`: Invalid numeric literal (a spelling JavaScript refuses with a SyntaxError, such as `0x`, `1__0`, `0_1`, `07.5`, `042n`)
+
 ### Syntax Errors (E52xx)
 - `E5201`: Unexpected token
 - `E5202`: Unterminated string literal
