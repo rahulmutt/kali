@@ -821,6 +821,61 @@ fn check_stays_quiet_where_it_cannot_know() {
     }
 }
 
+const UNRES_READ: &str = "no lowering for that read";
+
+fn read_mirror_count(source: &str) -> usize {
+    e5506_messages(source)
+        .iter()
+        .filter(|m| m.contains(UNRES_READ))
+        .count()
+}
+
+#[test]
+fn check_refuses_an_absent_field_read_on_a_known_member_set() {
+    for source in [
+        "const o={a:1}; console.log(\"z=\"+o.z);",
+        "const o={a:1}; console.log(\"z=\"+o[\"z\"]);",
+        "function main(){ const o={a:1}; console.log(\"z=\"+o.z); } main();",
+        "const o={a:1}; console.log(o.z ?? 5);",
+        "const o={a:1}; console.log(\"z=\"+o?.z);",
+    ] {
+        assert_eq!(read_mirror_count(source), 1, "{source}");
+    }
+}
+
+#[test]
+fn check_read_mirror_skips_callees_typeof_and_unknown_sets() {
+    for source in [
+        // callees belong to the call mirror (one defect, one diagnostic)
+        "const o={k:1}; console.log(o.zork(4));",
+        "const o={k:1}; o.zork?.();",
+        // typeof goes through a different placeholder (spec A-3)
+        "const o={a:1}; console.log(typeof o.z);",
+        "const o={a:1}; console.log(typeof (o.z));",
+        // present, prototype, assigned
+        "const o={a:1}; console.log(o.a);",
+        "const o={a:1}; console.log(o.toString());",
+        "const o={a:1}; o.z = 5; console.log(o.z);",
+        // unknown member sets: run-only (spec §3.4)
+        "let o={a:1}; console.log(o.z);",
+        "function f(p){ return p.z; }",
+        "function mk(){ return {a:1}; } console.log(mk().a);",
+    ] {
+        assert_eq!(read_mirror_count(source), 0, "{source}");
+    }
+}
+
+#[test]
+fn check_read_mirror_counts_one_diagnostic_per_callee_with_the_call_mirror() {
+    // The call mirror's count stays 1 with the read mirror present.
+    for source in [
+        "const o={k:1}; console.log(o.zork(4));",
+        "const o={k:1}; o.zork?.();",
+    ] {
+        assert_eq!(unres_count(source), 1, "{source}");
+    }
+}
+
 #[test]
 fn the_nearest_binding_wins() {
     // Outer: a class instance that has `zork`. Inner: an object literal that does not.

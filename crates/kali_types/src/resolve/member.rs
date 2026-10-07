@@ -5,6 +5,7 @@ use kali_common::js_number::format_js_number;
 
 impl TypeContext {
     pub(crate) fn resolve_member_expression(&mut self, expr: &MemberExpression) {
+        self.reject_unresolved_member_read(expr);
         self.reject_unprovable_string_length(expr);
         self.reject_nonuniform_forin_key_object_access(expr);
         self.reject_runtime_array_negative_index(expr);
@@ -459,6 +460,8 @@ impl TypeContext {
     /// The array-mutator gate, then (only if it stayed quiet) the
     /// unresolved-member-call gate: one diagnostic per member.
     pub(crate) fn reject_member_call_gates(&mut self, member: &MemberExpression) {
+        self.read_mirror_skipped_members
+            .insert(member as *const MemberExpression as usize);
         let before = self.diagnostics.len();
         self.reject_array_mutator_member(member);
         if self.diagnostics.len() == before {
@@ -509,6 +512,38 @@ impl TypeContext {
         self.diagnostics.push(Diagnostic::error(
             e5::FEATURE_UNAVAILABLE as u32,
             kali_common::unresolved_member_call_unavailable_message(method),
+        ));
+    }
+
+    /// The `check` mirror of the unresolved-member-read gate (spec §3.4): a
+    /// property name missing from a `const` object literal's keys or a
+    /// program class chain's members. Callees and `typeof` operands are
+    /// skipped (A-3); wherever the member set is unknown `kali run` alone
+    /// refuses.
+    pub(crate) fn reject_unresolved_member_read(&mut self, member: &MemberExpression) {
+        if self
+            .read_mirror_skipped_members
+            .contains(&(member as *const MemberExpression as usize))
+        {
+            return;
+        }
+        let Some(name) = member.property.as_deref() else {
+            return;
+        };
+        if kali_common::OBJECT_PROTOTYPE_NAMES.contains(&name)
+            || self.assigned_property_names.contains(name)
+        {
+            return;
+        }
+        let Some(members) = self.known_member_set(&member.object) else {
+            return;
+        };
+        if members.contains(name) {
+            return;
+        }
+        self.diagnostics.push(Diagnostic::error(
+            e5::FEATURE_UNAVAILABLE as u32,
+            kali_common::unresolved_member_read_unavailable_message(name),
         ));
     }
 

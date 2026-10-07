@@ -46,6 +46,10 @@ pub struct TypeContext {
     pub(crate) program_classes: Option<crate::program_classes::ProgramClasses>,
     /// Every property name some assignment writes (unresolved-member-call §3.3).
     pub(crate) assigned_property_names: std::collections::BTreeSet<String>,
+    /// Members the absent-field read mirror must not judge, by address:
+    /// call callees (the call mirror owns them) and `typeof` operands
+    /// (unresolved-member-read spec §3.4, A-3).
+    pub(crate) read_mirror_skipped_members: HashSet<usize>,
     /// Stack of enclosing function names; module scope is `_start`.
     pub(crate) current_function: Vec<String>,
     /// Stack of scope ids parallel to `current_function`: the `ScopeType::Function`
@@ -111,6 +115,7 @@ impl TypeContext {
             repr_table: kali_common::ReprTable::default(),
             program_classes: None,
             assigned_property_names: std::collections::BTreeSet::new(),
+            read_mirror_skipped_members: HashSet::new(),
             current_function: vec!["_start".to_string()],
             current_function_scopes: Vec::new(),
             declared_binding_names: HashSet::new(),
