@@ -73,6 +73,12 @@ function f(){ return 1; } export { f as g }; console.log(f());
 "ok_write_only_store.js" = '''
 const literal = { 1: 4, 2: 2, b: 1 }; delete literal.b; literal.b = 3; console.log(Object.keys(literal).join(","));
 '''
+"store_value_used.js" = '''
+const literal = { 1: 4, b: 1 }; const y = (literal.b = 3); console.log(y);
+'''
+"store_value_logged.js" = '''
+const literal = { 1: 4, b: 1 }; console.log(literal.b = 3);
+'''
 "shadow_math.js" = '''
 let Math = {a:1}; console.log(Math.b);
 '''
@@ -449,3 +455,19 @@ rationale = """No-regression control for spec A-9 (human partner's ruling 2026-1
 args = ["run", "ok_write_only_store.js"]
 exit = "success"
 stdout = "1,2,b\n"
+
+[[case]]
+name = "a_store_whose_value_is_used_refuses_under_run"
+rationale = """Spec A-9 exempts only a statement-position store, because the fallback yields `left + right` rather than the stored value. Before that qualification (at `ece3b9375`, MEASURED 2026-10-07 by the Task 8 review), kali printed `4` at exit 0 here; node v26.10.0 prints `3`. Now the store gate refuses it."""
+args = ["run", "store_value_used.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNSTORE}", "assigning to `.b`"]
+stdout = ""
+
+[[case]]
+name = "a_store_used_as_a_call_argument_refuses_under_run"
+rationale = """Spec A-9, as above: `console.log(literal.b = 3)` printed `4` at exit 0 at `ece3b9375` (MEASURED 2026-10-07 by the Task 8 review); node v26.10.0 prints `3`. Now the store gate refuses it."""
+args = ["run", "store_value_logged.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${UNSTORE}", "assigning to `.b`"]
+stdout = ""
