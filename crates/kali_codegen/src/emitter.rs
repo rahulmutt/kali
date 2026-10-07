@@ -1359,6 +1359,13 @@ impl<'a> FunctionEmitter<'a> {
         self.functions["__growable_elem_addr"]
     }
 
+    /// Wasm function index of `__growable_store(arr, idx, val, msg) -> i64`
+    /// (growable-runtime-arrays spec §3.5): every growable index write stores
+    /// through it, bounds-checked at store time.
+    pub(crate) fn growable_store_fn_index(&self) -> u32 {
+        self.functions["__growable_store"]
+    }
+
     /// Selects the string-concat host import for the concat node `id` (fasta
     /// Spec 7 Task 4d) — the codegen half of the string-site "both-sides
     /// oracle", exactly mirroring `emit_runtime_join`'s join selection. Returns

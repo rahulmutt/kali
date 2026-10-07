@@ -523,16 +523,25 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// Growable-runtime-arrays spec §3.5: push the i32 address of element
-    /// `index` of the growable value `handle`, bounds-checked by
-    /// `__growable_elem_addr` (`index < 0` or `index >= length` traps with the
-    /// kali bounds message). Load/store at `offset` 0.
-    pub(crate) fn emit_growable_element_address(
+    /// Push the growable value `handle`'s tagged handle, then `index` as an
+    /// i64 — the operand prefix every growable element read and write shares,
+    /// evaluated in JS order. A float-valued index is refused here (E5506) for
+    /// both lanes: it would put an f64 under the i64 index operand
+    /// (type-invalid wasm). Returns `false` after a refusal (the stack is
+    /// then polymorphic: `deny_e5506` emits `unreachable`).
+    fn emit_growable_handle_and_index(
         &mut self,
         function: &mut Function,
         handle: LirNodeId,
         index: LirNodeId,
-    ) {
+    ) -> bool {
+        if self.is_float_valued(index) {
+            let _ = self.deny_e5506(
+                function,
+                "indexing a growable array with a floating-point value is unavailable in the current phase",
+            );
+            return false;
+        }
         let base = self.emit_growable_receiver_handle(function, handle);
         if !base.produced {
             function.instruction(&Instruction::I64Const(0));
@@ -544,17 +553,47 @@ impl<'a> FunctionEmitter<'a> {
         if !index_value.produced {
             function.instruction(&Instruction::I64Const(0));
         }
+        true
+    }
+
+    /// Push the kali bounds-trap message handle (the `msg` operand of the
+    /// growable bounds guards).
+    fn emit_growable_bounds_message(&mut self, function: &mut Function) {
         let (offset, len) = self
             .strings
             .intern(kali_common::runtime_array_index_out_of_bounds_message());
         function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
-        function.instruction(&Instruction::Call(self.growable_elem_addr_fn_index()));
-        function.instruction(&Instruction::I32WrapI64);
     }
 
-    /// `base[index] = value` on a growable binding (spec §3.5): a
-    /// bounds-checked store (`index == length` traps too — node would
-    /// append). Leaves the stored value (the assignment expression's result).
+    /// Growable-runtime-arrays spec §3.5: push the i32 address of element
+    /// `index` of the growable value `handle`, bounds-checked by
+    /// `__growable_elem_addr` (`index < 0` or `index >= length` traps with the
+    /// kali bounds message). Load at `offset` 0. READS only: a write must not
+    /// hold a slot address across its right-hand side (which may grow the
+    /// array and move the data block) — see `emit_growable_index_write`.
+    /// Returns `false` after a float-index refusal.
+    pub(crate) fn emit_growable_element_address(
+        &mut self,
+        function: &mut Function,
+        handle: LirNodeId,
+        index: LirNodeId,
+    ) -> bool {
+        if !self.emit_growable_handle_and_index(function, handle, index) {
+            return false;
+        }
+        self.emit_growable_bounds_message(function);
+        function.instruction(&Instruction::Call(self.growable_elem_addr_fn_index()));
+        function.instruction(&Instruction::I32WrapI64);
+        true
+    }
+
+    /// `base[index] = value` on a growable binding (spec §3.5). The handle,
+    /// the index and the value are evaluated first, in JS order; the bounds
+    /// check, the data pointer and the store then happen together in
+    /// `__growable_store`, so a right-hand side that grows the array stores
+    /// into the live data block and is checked against the live length.
+    /// `index == length` traps too (node would append). Leaves the stored
+    /// value (the assignment expression's result).
     pub(crate) fn emit_growable_index_write(
         &mut self,
         function: &mut Function,
@@ -565,20 +604,16 @@ impl<'a> FunctionEmitter<'a> {
         let elem = self
             .growable_value_elem(base)
             .unwrap_or(kali_common::Repr::I64);
-        let scratch = self.locals.len() as u32;
-        self.emit_growable_element_address(function, base, index);
+        if !self.emit_growable_handle_and_index(function, base, index) {
+            return;
+        }
         let rhs = self.emit_node(function, value, true);
         if !rhs.produced {
             function.instruction(&Instruction::I64Const(0));
         }
         self.emit_growable_slot_encode(function, elem, value, rhs.produced);
-        function.instruction(&Instruction::LocalTee(scratch));
-        function.instruction(&Instruction::I64Store(MemArg {
-            offset: 0,
-            align: 3,
-            memory_index: 0,
-        }));
-        function.instruction(&Instruction::LocalGet(scratch));
+        self.emit_growable_bounds_message(function);
+        function.instruction(&Instruction::Call(self.growable_store_fn_index()));
         if elem == kali_common::Repr::F64 {
             function.instruction(&Instruction::F64ReinterpretI64);
         }
@@ -587,35 +622,25 @@ impl<'a> FunctionEmitter<'a> {
     /// `x[i]` read over a growable handle expression (spec §3.5): the element
     /// address comes from the bounds guard `__growable_elem_addr`, so an
     /// index outside `0 <= i < length` traps with the kali bounds message
-    /// (node yields `undefined`). An f64 element is reinterpreted back from
-    /// its slot bits.
+    /// (node yields `undefined`), and a float index is refused (E5506). An
+    /// f64 element is reinterpreted back from its slot bits.
     pub(crate) fn emit_growable_index_read(
         &mut self,
         function: &mut Function,
         handle: LirNodeId,
         index: LirNodeId,
     ) -> EmittedValue {
-        // Fail-closed: a float-valued index would put an f64 under the
-        // `I32WrapI64` below (type-invalid wasm). The plain-array lane shares
-        // this shape gap; reject with a diagnostic here rather than emitting
-        // a module that fails validation.
-        if self.is_float_valued(index) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "indexing a growable array with a floating-point value is unavailable in the current phase".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        }
         // Field receivers are i64 (the object-field lane); named and call
         // receivers carry their element repr.
         let elem = self
             .growable_value_elem(handle)
             .unwrap_or(kali_common::Repr::I64);
-        self.emit_growable_element_address(function, handle, index);
+        if !self.emit_growable_element_address(function, handle, index) {
+            return EmittedValue {
+                produced: false,
+                shape: ValueShape::Unknown,
+            };
+        }
         function.instruction(&Instruction::I64Load(MemArg {
             offset: 0,
             align: 3,

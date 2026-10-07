@@ -75,3 +75,43 @@ fn an_f64_growable_join_is_refused_until_a_float_join_body_exists() {
         result.diagnostics
     );
 }
+
+#[test]
+fn a_float_index_on_a_growable_write_is_refused_not_lowered_to_invalid_wasm() {
+    // Task 9 fix round 1, I1: the float-index refusal covers writes as well
+    // as reads (it lived only on the read lane; a write emitted an f64 under
+    // the index slot, and the module failed to load).
+    let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::I64);
+    // Inference would make `f` an f64 scalar; set by hand (no inference here).
+    ctx.repr_table.set_scalar("main", "f", kali_common::Repr::F64);
+    let program = parse_and_lower_lir(
+        "function main() { const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length); } main();",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(
+        result.diagnostics.iter().any(|d| d.code == Some(5506)
+            && d.message
+                .contains("indexing a growable array with a floating-point value")),
+        "{:?}",
+        result.diagnostics
+    );
+}
+
+#[test]
+fn a_growable_index_write_stores_through_the_store_time_bounds_guard() {
+    // Task 9 fix round 1, C1: the value is evaluated BEFORE the bounds check
+    // and the slot address (a right-hand side that grows the array moves the
+    // data block), so the write calls `__growable_store`, never
+    // `__growable_elem_addr`.
+    let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::I64);
+    let program = parse_and_lower_lir(
+        "function main() { const a = []; a.push(1); let i = 0; a[i] = 7; console.log(a.length); } main();",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    let names = exported_function_names(&result.wasm_bytes);
+    assert!(names.iter().any(|n| n == "__growable_store"), "{names:?}");
+}

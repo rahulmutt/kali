@@ -71,6 +71,7 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__usp_tostring",
     "__array_elem_addr",
     "__growable_elem_addr",
+    "__growable_store",
 ];
 
 /// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
@@ -909,6 +910,26 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Growable-runtime-arrays spec §3.5: the growable index WRITE
+    // `(arr: i64, idx: i64, val: i64, msg: i64) -> i64`. The caller evaluates
+    // the handle, the index and the (slot-encoded) value first, as JS does, so
+    // the bounds check and the data pointer are read at store time — a
+    // right-hand side that grows the array (moving its data block) stores into
+    // the live block. Returns `val`. Body: `emit_growable_store_body`.
+    all_functions.push(FunctionPlan {
+        name: "__growable_store".to_string(),
+        params: vec![
+            "arr".to_string(),
+            "idx".to_string(),
+            "val".to_string(),
+            "msg".to_string(),
+        ],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
     // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
     // appended AFTER the fixed synthetics and BEFORE any source-defined function
     // so, like the fixed synthetics, they shift every later function's index by
@@ -1293,6 +1314,11 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 vec![ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
+        } else if function.name == "__growable_store" {
+            (
+                vec![ValType::I64, ValType::I64, ValType::I64, ValType::I64],
+                vec![ValType::I64],
+            )
         } else if function.name == "__arena_reset" {
             (Vec::new(), Vec::new())
         } else {
@@ -1650,6 +1676,9 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         } else if function.name == "__growable_elem_addr" {
             // `emit_growable_elem_addr_body`: 1 i64 — `hdr` (local 3).
             local_decls.push((1, ValType::I64));
+        } else if function.name == "__growable_store" {
+            // `emit_growable_store_body`: 1 i64 — `hdr` (local 4).
+            local_decls.push((1, ValType::I64));
         } else if function.name.starts_with("__clone_shape_") {
             // Hand-emitted deep-clone synthetic (Stage P2 Lane 2): its i64
             // locals (1=dst, 2=srch, 3=new_hdr, 4=new_data, 5=len, 6=cap; local
@@ -1788,6 +1817,7 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 "__streq" => emit_streq_body(&mut body),
                 "__array_elem_addr" => emit_array_elem_addr_body(&mut body),
                 "__growable_elem_addr" => emit_growable_elem_addr_body(&mut body),
+                "__growable_store" => emit_growable_store_body(&mut body),
                 // URLSearchParams scan/mutation helpers (Stage P4 Task 4). The
                 // `__streq` index is threaded for key comparison; getall/set also
                 // take `__alloc_global` (fresh result / grown block must outlive
@@ -8043,6 +8073,50 @@ fn emit_growable_elem_addr_body(func: &mut Function) {
     func.instruction(&Instruction::I64Const(8));
     func.instruction(&Instruction::I64Mul);
     func.instruction(&Instruction::I64Add);
+    // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
+/// `__growable_store(arr, idx, val, msg) -> i64` (growable-runtime-arrays
+/// spec §3.5): the growable index write. Locals: 0 = arr (tagged handle),
+/// 1 = idx, 2 = val (the slot's i64 bits), 3 = msg, 4 = hdr. `idx >=u len` —
+/// a negative `idx` and `idx == len` included — hands `msg` to
+/// `console.error` and traps; otherwise stores `val` at `data_ptr + idx * 8`
+/// and returns it. `len` and `data_ptr` are read here, after the caller has
+/// evaluated the value. No `i64.eqz` (see `emit_streq_body`).
+fn emit_growable_store_body(func: &mut Function) {
+    let mem = |offset| MemArg {
+        offset,
+        align: 3,
+        memory_index: 0,
+    };
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(mem(0)));
+    func.instruction(&Instruction::I64GeU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    // *(data_ptr + idx * 8) = val
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(mem(16)));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(mem(0)));
+    func.instruction(&Instruction::LocalGet(2));
     // NO trailing End — the dispatch loop appends it (same as every synthetic).
 }
 

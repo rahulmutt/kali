@@ -70,6 +70,22 @@ function main() { const mk = () => { const o = []; o.push(1); o.push(2); return 
 main();
 """
 
+"grow_rhs_module.js" = """
+function grow(a) { for (let i = 0; i < 20; i++) a.push(i); return 99; }
+const a = []; a.push(1); a[0] = grow(a); console.log(a[0], a.length);
+"""
+"grow_rhs_function.js" = """
+function grow(a) { for (let i = 0; i < 20; i++) a.push(i); return 99; }
+function main() { const a = []; a.push(1); a[0] = grow(a); console.log(a[0], a.length); }
+main();
+"""
+"float_index_write_module.js" = """
+const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length);
+"""
+"float_index_write.js" = """
+function main() { const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length); }
+main();
+"""
 [[case]]
 name = "alias_push_is_seen_through_the_original_module_scope"
 rationale = "Review Focus 2: `b` aliases `a`'s header, so `b.push` grows `a` (spec §3.1 alias edge, A-16 global allocation)."
@@ -159,3 +175,35 @@ name = "length_of_a_call_through_a_const_arrow_alias"
 args = ["run", "arrow_alias_function.js"]
 exit = "success"
 stdout = "2\n"
+
+[[case]]
+name = "an_index_write_whose_value_grows_the_array_stores_into_the_live_block_module_scope"
+rationale = "Task 9 fix round 1 (C1): the value is evaluated before the bounds check and the data pointer are read (`__growable_store`), so a right-hand side that grows the array (moving its data block) stores into the live block. Before the fix kali printed `1 21`."
+args = ["run", "grow_rhs_module.js"]
+exit = "success"
+stdout = "99 21\n"
+
+[[case]]
+name = "an_index_write_whose_value_grows_the_array_stores_into_the_live_block"
+args = ["run", "grow_rhs_function.js"]
+exit = "success"
+stdout = "99 21\n"
+
+[[case]]
+name = "a_float_index_write_is_refused_under_run_module_scope"
+rationale = "Task 9 fix round 1 (I1): a float index on a growable write is refused (E5506) instead of lowering to wasm that fails to load (E4201). node v26.10.0 prints `1` (it sets a `0.5` property). Codegen-only for now: `check` accepts the program (pinned below)."
+args = ["run", "float_index_write_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value"]
+
+[[case]]
+name = "a_float_index_write_is_refused_under_run"
+args = ["run", "float_index_write.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value"]
+
+[[case]]
+name = "check_accepts_the_float_index_write_codegen_refusal_only"
+rationale = "Interim check/run disagreement: inference does not yet refuse a float index on a growable write; codegen does. Re-pin when an inference refusal lands."
+args = ["check", "float_index_write_module.js", "float_index_write.js"]
+exit = "success"
