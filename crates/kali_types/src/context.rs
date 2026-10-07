@@ -274,6 +274,7 @@ impl TypeContext {
     pub fn clear_diagnostics(&mut self) {
         self.diagnostics.clear();
         self.deferred_read_mirror_diagnostics.clear();
+        self.read_mirror_skipped_members.clear();
         self.has_generator_function = false;
         self.has_async_generator_function = false;
         self.has_generator_yield_delegation = false;

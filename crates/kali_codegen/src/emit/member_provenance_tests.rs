@@ -255,6 +255,14 @@ fn a_comma_expression_is_not_gated() {
 }
 
 #[test]
+fn an_empty_string_index_read_is_not_taken_for_a_comma() {
+    // `mk()[""]` has LIR text `""` but one operand, so it is not a sequence;
+    // it takes another lane (prints `2`, residue in the followups file §1.1).
+    let source = "function mk(){ return {a:2}; } console.log(mk()[\"\"]);";
+    assert_eq!(read_refusals(source), 0, "{:?}", diagnostics_for(source));
+}
+
+#[test]
 fn a_numeric_index_read_keeps_the_array_backstop_message() {
     // The numeric-index arm owns `o[0]` and ends in its own floor; the
     // generic read gate never sees it (precedence, Task 7 ruling 2).
@@ -312,15 +320,12 @@ fn a_this_root_in_a_plain_class_refuses() {
 fn a_resolved_read_is_not_refused() {
     assert_eq!(read_refusals("const o={a:1}; console.log(o.a);"), 0);
     // Closure reads resolve only through the env plans the real driver derives.
-    for source in [
-        "function outer(){ const obj={n:4}; function rd(){ return obj.n; } return rd(); } console.log(outer());",
-    ] {
-        let diagnostics = diagnostics_with_host_classes(source, &[]);
-        assert!(
-            !diagnostics.iter().any(|d| d.message.contains(UNRES_READ)),
-            "{source}: {diagnostics:?}"
-        );
-    }
+    let source = "function outer(){ const obj={n:4}; function rd(){ return obj.n; } return rd(); } console.log(outer());";
+    let diagnostics = diagnostics_with_host_classes(source, &[]);
+    assert!(
+        !diagnostics.iter().any(|d| d.message.contains(UNRES_READ)),
+        "{source}: {diagnostics:?}"
+    );
 }
 
 const UNRES_STORE: &str = "no lowering for that store";
