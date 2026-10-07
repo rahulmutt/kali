@@ -1584,13 +1584,13 @@ impl ReprInfer {
     /// F-AB-2 lockstep tripwire (see
     /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2 and
     /// `nested_fns_registered`). Enforce the SAFE-direction invariant
-    /// `seeded ⊆ registered`: every `__kali_fn_N` id Phase B's own walk-4
+    /// `seeded ⊆ registered`: every `__kali_fn_N` id Phase B's own walk-3
     /// fn-expr/arrow arms seed must also have been registered by the shared
     /// Phase-A descent (walks 1-2). This holds by construction today —
     /// `descend_expr_fns` reaches a strict SUPERSET of the positions
     /// `visit_expr` seeds — and would fire if a future edit taught Phase B to
     /// seed a fn-expr position the shared Phase-A descent does not cover
-    /// (whose params/locals/growable-candidates would then be unregistered:
+    /// (whose params/locals would then be unregistered:
     /// mis-scoped seeds). The REVERSE gap `registered − seeded` is the known
     /// set of exotic UNSEEDED positions; because it is legitimately non-empty
     /// for any program using those shapes, it is pinned by the
@@ -1601,7 +1601,7 @@ impl ReprInfer {
                 .is_subset(&self.nested_fns_registered),
             "F-AB-2 lockstep violation: Phase-B (walk 3) seeded __kali_fn ids \
              the shared Phase-A descent (walks 1-2) never registered: {:?}. A \
-             new walk-4 fn-expr/arrow seeding position must also be reached by \
+             new walk-3 fn-expr/arrow seeding position must also be reached by \
              `descend_expr_fns`. See \
              docs/superpowers/followups/stageAB-followups.md §F-AB-2.",
             self.nested_fns_seeded
@@ -5711,14 +5711,8 @@ impl ReprInfer {
             }
         }
         self.array_return_facts.called = called;
-        self.array_return_facts.growable_returning = self
-            .growable
-            .growable_members()
-            .filter_map(|node| match node {
-                crate::growable::flow::GrowNode::Return(f) => Some(f.clone()),
-                _ => None,
-            })
-            .collect();
+        self.array_return_facts.growable_returning =
+            self.growable.growable_returning().cloned().collect();
         let solution = crate::array_return::solve(
             &self.array_return_facts,
             &feeds,
@@ -6951,14 +6945,7 @@ impl ReprInfer {
                 }
             }
         }
-        let growable_returning: Vec<String> = self
-            .growable
-            .growable_members()
-            .filter_map(|node| match node {
-                crate::growable::flow::GrowNode::Return(f) => Some(f.clone()),
-                _ => None,
-            })
-            .collect();
+        let growable_returning: Vec<String> = self.growable.growable_returning().cloned().collect();
         for f in growable_returning {
             for scope in scopes.iter().map(|s| s.as_str()).chain([TOP_LEVEL]) {
                 if self.callee_is_shadowed(scope, &f) {
@@ -6980,8 +6967,13 @@ impl ReprInfer {
         // (the return) with an element-style shape conflict. Monotone: only a
         // return whose element node SOLVES `Repr::String` (string-reachable,
         // no mixed/float store) conflicts — int/float array returns are
-        // untouched.
+        // untouched. A growable return is exempt: it returns a growable
+        // handle whose element repr the caller reads from `growable_return`
+        // (growable-runtime-arrays spec §3.1, §3.4).
         for (func, name) in &self.array_binding_returns {
+            if self.growable.is_growable_binding(func, name) {
+                continue;
+            }
             if let Some(&node) = self.array_elem_node.get(&(func.clone(), name.clone())) {
                 let rep = self.uf.find(node);
                 if !string[rep] {
@@ -7483,7 +7475,7 @@ impl ReprInfer {
         table
     }
 
-    /// True when identifier `name`, pushed into a growable candidate inside
+    /// True when identifier `name`, pushed into a growable array inside
     /// `func`, provably holds a plain scalar: it must be a DECLARED binding
     /// (an undeclared name — `undefined`, `NaN`, … — has no i64 value), and
     /// must not name a function reference, an array binding, an

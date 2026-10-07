@@ -2300,6 +2300,8 @@ fn string_pushes_give_string_elements_across_the_return() {
     assert_eq!(t.array_element("build", "out"), Repr::String);
     assert_eq!(t.array_element("_start", "ws"), Repr::String);
     assert_eq!(t.growable_return("build"), Some(Repr::String));
+    // The I2 string-array-return refusal does not apply to a growable return.
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
 }
 
 #[test]

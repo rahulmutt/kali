@@ -182,6 +182,14 @@ impl GrowSolution {
             .flat_map(|&component| self.members[component].iter())
     }
 
+    /// Every function whose return value is in a growable component.
+    pub(crate) fn growable_returning(&self) -> impl Iterator<Item = &String> {
+        self.growable_members().filter_map(|node| match node {
+            GrowNode::Return(func) => Some(func),
+            _ => None,
+        })
+    }
+
     /// The nodes of `node`'s component, or nothing for an unknown node.
     pub(crate) fn members_of(&self, node: &GrowNode) -> &[GrowNode] {
         self.component_of(node)
