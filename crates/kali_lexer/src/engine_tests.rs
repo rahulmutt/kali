@@ -310,7 +310,7 @@ fn test_lexer_prefixed_and_separated_numbers_are_one_token() {
 fn test_lexer_malformed_number_is_one_token_and_refused() {
     for source in [
         "0x", "0xg", "0b2", "0o8", "0x_1", "0x1_", "1_", "1__0", "0_1", "1_e1", "042_1", "07.5",
-        "042n", "0xffg",
+        "042n", "0xffg", "0x1.5", "0b1.1", "0o1.1", "0x10.5", "0x1.5_5",
     ] {
         let lexer = Lexer::new(FileId::new(0), source.to_string());
         let result = lexer.lex_all();
@@ -336,6 +336,17 @@ fn test_lexer_legacy_octal_leaves_a_member_dot() {
     let lexer = Lexer::new(FileId::new(0), "07.toString".to_string());
     let result = lexer.lex_all();
     assert_eq!(result.tokens[0].value, "07");
+    assert_eq!(result.tokens[1].kind, TokenType::Dot);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+}
+
+#[test]
+fn test_lexer_prefixed_integer_leaves_a_member_dot() {
+    // `0x10.toString()` is a member call; only a digit after the dot makes
+    // a (refused) fraction.
+    let lexer = Lexer::new(FileId::new(0), "0x10.toString".to_string());
+    let result = lexer.lex_all();
+    assert_eq!(result.tokens[0].value, "0x10");
     assert_eq!(result.tokens[1].kind, TokenType::Dot);
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
 }

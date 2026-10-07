@@ -64,6 +64,30 @@ scope. They are listed here so they are not lost; neither has a register entry.
   the result is a silent `0`. `eval("" + k)` (the constant folder's
   supported shape) is correct on the branch.
 
+## §3a. Duplicate numeric keys are newly reachable through hex and legacy-octal spellings
+
+The underlying defect is older: a duplicate property key is not collapsed,
+so the object keeps both entries and reads the first. On `main` it already
+reproduces with identifiers (`{a: 1, a: 2}`). This project made it reachable
+from numeric spellings that now share one canonical key. Measured 2026-10-07,
+node v26.10.0 against this branch's `kali run`, all exit 0:
+
+| program | node | kali |
+|---|---|---|
+| `const o = {16: 1, 0x10: 2}; console.log(Object.keys(o).join(","), o[16]);` | `16 2` | `16,16 1` |
+| `const o = {34: 1, 042: 2}; console.log(Object.keys(o).join(","), o[34]);` | `34 2` | `34,34 1` |
+| `const o = {a: 1, a: 2}; console.log(Object.keys(o).join(","), o.a);` (control, `main` prints the same) | `a 2` | `a,a 1` |
+
+Not in the register, not fixed here: the fix is duplicate-key collapse in
+object-literal lowering, independent of the numeric grammar.
+
+## §3b. `1e5n` is not a lexical error
+
+The lexer ends the token at `1e5` and leaves `n` to the identifier lexer, so
+the failure is E3100 `undefined identifier 'n'`, not E1100. Both engines refuse
+the program (node: SyntaxError); only the code differs. The stale comment in
+`number.rs` that said "the parser rejects it" now says this.
+
 ## §4. String-to-number conversion is a different path
 
 `Number("0x10")` is not reachable (E3100 on `Number`, both binaries).

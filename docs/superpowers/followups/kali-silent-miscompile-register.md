@@ -3563,6 +3563,7 @@ tier, ordering is by blast radius.
   Measured in **both** scopes — module, and inside `function main() { … }` with a
   trailing `main();` — **byte-identical in both**, for every line of every
   program below.
+- **Status 2026-10-07 (numeric-literal-grammar project): SILENT lane FIXED, entry NOT RETIRED.** Every numeric-token reader now goes through `kali_common::numeric_literal::parse_js_numeric_literal`, so `{042: 1}` and `console.log(042)` print node's `34` in both scopes (the two `r58a` cases assert `fixed`, measured against `node v26.10.0`). The entry stays open for its ACCEPTS_INVALID strict-mode face (`"use strict"; {042: 1}` is a SyntaxError in node and exits 0 in kali), recorded in `numeric-literal-grammar-discovered-defects.md` §1. The entry's own row in the §0.2 table carries the re-derivation. Two newly reachable cousins are filed there as §3a (duplicate keys through `0x10`/`042` spellings, an older defect) and §3b.
 - **Root-cause group**: **unclustered**, and the interesting part is which group
   it declines. It has **G3**'s shape exactly — *"a guard keyed on one syntactic
   form, with a sibling form slipping past into precisely the miscompile the
