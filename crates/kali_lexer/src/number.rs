@@ -1,17 +1,38 @@
 use crate::token::{Token, TokenType};
 use crate::Lexer;
+use kali_common::numeric_literal::parse_js_numeric_literal;
+use kali_error::_error_codes::e1;
 
 impl Lexer {
+    /// Lexes one numeric literal and reports `E1100` when JavaScript would
+    /// refuse its spelling.
+    ///
+    /// The token keeps the literal's raw text, so `kali_fmt` re-emits it
+    /// verbatim. Its value is read by
+    /// `kali_common::numeric_literal::parse_js_numeric_literal`, the same
+    /// function this lexer validates with, so a token that lexes clean always
+    /// has a value.
     pub(crate) fn lex_number(&mut self) -> Token {
-        let _start = self.position;
-        while let Some(&c) = self.source.get(self.position) {
-            if c.is_ascii_digit() {
+        let start = self.position;
+        if self.at_radix_prefix() {
+            // `0x`/`0b`/`0o`: take every identifier character, so `0xfg` and
+            // `0b12` are one malformed token rather than a number followed by
+            // an identifier.
+            self.position += 2;
+            while self
+                .source
+                .get(self.position)
+                .is_some_and(|c| c.is_ascii_alphanumeric() || *c == '_')
+            {
                 self.position += 1;
-            } else {
-                break;
             }
+            return self.finish_number(start);
         }
 
+        self.skip_digits_and_separators();
+
+        // A fraction needs a digit after the dot, so `07.toString()` and
+        // `1.toFixed` keep their member dot.
         if self.source.get(self.position) == Some(&'.')
             && self
                 .source
@@ -19,13 +40,7 @@ impl Lexer {
                 .is_some_and(|c| c.is_ascii_digit())
         {
             self.position += 1;
-            while let Some(&c) = self.source.get(self.position) {
-                if c.is_ascii_digit() {
-                    self.position += 1;
-                } else {
-                    break;
-                }
-            }
+            self.skip_digits_and_separators();
         }
 
         // Scientific-notation exponent: `e`/`E`, optional sign, then at least
@@ -40,21 +55,42 @@ impl Lexer {
             }
             if self.source.get(probe).is_some_and(|c| c.is_ascii_digit()) {
                 self.position = probe;
-                while let Some(&c) = self.source.get(self.position) {
-                    if c.is_ascii_digit() {
-                        self.position += 1;
-                    } else {
-                        break;
-                    }
-                }
-                return Token::new(TokenType::NumericLiteral, self.slice(_start), self.span());
+                self.skip_digits_and_separators();
+                return self.finish_number(start);
             }
         }
 
+        // `042n` is still one token, so the refusal names it whole.
         if self.source.get(self.position) == Some(&'n') {
             self.position += 1;
         }
 
-        Token::new(TokenType::NumericLiteral, self.slice(_start), self.span())
+        self.finish_number(start)
+    }
+
+    fn at_radix_prefix(&self) -> bool {
+        self.source.get(self.position) == Some(&'0')
+            && matches!(
+                self.source.get(self.position + 1),
+                Some('x' | 'X' | 'b' | 'B' | 'o' | 'O')
+            )
+    }
+
+    fn skip_digits_and_separators(&mut self) {
+        while self
+            .source
+            .get(self.position)
+            .is_some_and(|c| c.is_ascii_digit() || *c == '_')
+        {
+            self.position += 1;
+        }
+    }
+
+    fn finish_number(&mut self, start: usize) -> Token {
+        let text = self.slice(start);
+        if parse_js_numeric_literal(&text).is_none() {
+            self.emit_error(e1::INVALID_NUMBER, "invalid numeric literal");
+        }
+        Token::new(TokenType::NumericLiteral, text, self.span())
     }
 }
