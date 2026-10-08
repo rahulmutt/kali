@@ -3842,22 +3842,25 @@ pub(crate) fn collect_function_locals(
         locals.push(growable_scratch_local_name());
     }
 
-    // Reserve a real i64 loop-variable local for every runtime `for..of` over a
-    // growable array (throw-fallout Stage 4 Task 4), plus the shared
-    // index/length counter pair — but only when at least one such loop exists,
-    // so functions without one stay byte-identical. The static-unroll lane
-    // binds its loop var to a compile-time node; the runtime counted loop needs
-    // a wasm LOCAL so the body's reads of the loop var resolve to it.
-    let for_of_growable_vars =
-        for_of_growable_loop_var_names(nodes, body_id, repr_table, function_name);
-    if !for_of_growable_vars.is_empty() {
+    // Reserve a real loop-variable local for every runtime `for..of` over a
+    // growable value, plus one index/length/handle scratch triple per nesting
+    // depth (growable-runtime-arrays spec §3.5, A-10) — but only when at least
+    // one such loop exists, so functions without one stay byte-identical. The
+    // static-unroll lane binds its loop var to a compile-time node; the
+    // runtime counted loop needs a wasm LOCAL so the body's reads resolve to it.
+    let (for_of_growable_vars, growable_depth) =
+        for_of_growable_loops(nodes, body_id, repr_table, function_name);
+    if growable_depth > 0 {
         for var in for_of_growable_vars {
             if !locals.contains(&var) {
                 locals.push(var);
             }
         }
-        locals.push(growable_foreach_index_local_name());
-        locals.push(growable_foreach_len_local_name());
+        for depth in 0..growable_depth {
+            locals.push(growable_foreach_index_local_name(depth));
+            locals.push(growable_foreach_len_local_name(depth));
+            locals.push(growable_foreach_handle_local_name(depth));
+        }
     }
 
     // Array-return lane: reserve the materialization scratch only in a function
@@ -3887,38 +3890,63 @@ pub(crate) fn array_return_scratch_local_name() -> String {
     "__array_return_scratch".to_string()
 }
 
-/// Name of the shared i64 loop-index counter local for the runtime `for..of`
-/// over a growable array (throw-fallout Stage 4 Task 4). ONE shared slot per
-/// function suffices: the counted-loop lane fails closed on a growable
-/// `for..of` lexically NESTED inside another (see the emit guard), so two
-/// growable `for..of` loops in the same function never overlap in time and can
-/// reuse the same counter/length scratch. Reserved by `collect_function_locals`
-/// and resolved by `emit_for_of_array_iteration`'s runtime branch.
-pub(crate) fn growable_foreach_index_local_name() -> String {
-    "__growable_foreach_index".to_string()
+/// Names of the per-nesting-depth i64 scratch locals of the runtime `for..of`
+/// over a growable value (growable-runtime-arrays spec §3.5, A-10): loop
+/// index, snapshotted length, and the iterable's handle (evaluated once).
+/// Depth 0 is the outermost growable loop of the function.
+pub(crate) fn growable_foreach_index_local_name(depth: usize) -> String {
+    format!("__growable_foreach_index{depth}")
 }
 
-/// Name of the shared i64 snapshot-length local for the runtime `for..of` over
-/// a growable array (throw-fallout Stage 4 Task 4). The iteration count is
-/// snapshotted ONCE before the loop (per the design), so a body that pushes to
-/// a DIFFERENT array is unaffected; see `growable_foreach_index_local_name` for
-/// why one shared slot per function is sound.
-pub(crate) fn growable_foreach_len_local_name() -> String {
-    "__growable_foreach_len".to_string()
+pub(crate) fn growable_foreach_len_local_name(depth: usize) -> String {
+    format!("__growable_foreach_len{depth}")
 }
 
-/// Loop-variable names of every `for..of` (`for-await-of` excluded — it fails
-/// closed) whose iterable is a bare-identifier GROWABLE array binding of
-/// `function_name`, reachable from `body_id` without descending into nested
-/// function bodies (throw-fallout Stage 4 Task 4). Each such loop var must get
-/// a real wasm LOCAL so the body's reads resolve to it (the static-unroll lane
-/// binds the loop var to a compile-time node instead). Structural twin of the
-/// emit-side runtime-lane guard in `emit_for_of_array_iteration`: both key on
-/// "bare identifier iterable + `is_growable_array_binding`", so the reservation
-/// exists exactly where the runtime branch resolves a slot. Element repr is NOT
-/// consulted here — a String-element growable `for..of` never reaches codegen
-/// (the resolve gate aborts the compile), and an over-reserved unused local is
-/// harmless.
+pub(crate) fn growable_foreach_handle_local_name(depth: usize) -> String {
+    format!("__growable_foreach_handle{depth}")
+}
+
+/// True iff `id` is a growable value as codegen's `growable_value_elem`
+/// recognizes it (binding, call to a growable-returning function, `slice` of
+/// either). Over-approximates the shadow check (a same-named local is not
+/// visible here); an over-reserved local is harmless. A callee is accepted
+/// both by its own name and through `ReprTable::array_return_callee_key`
+/// (the key `growable_value_elem` uses), so a `const` alias of a
+/// growable-returning function is never under-reserved.
+fn node_is_growable_value(
+    nodes: &[LirNode],
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    id: LirNodeId,
+) -> bool {
+    let id = unwrap_transparent_value_node_raw(nodes, id);
+    if let Some(name) = bare_identifier_name_of(nodes, id) {
+        return repr_table.is_growable_array_binding(function_name, &name);
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Call {
+        return false;
+    }
+    let Some(&callee) = node.children.first() else {
+        return false;
+    };
+    if let Some(name) = bare_identifier_name_of(nodes, callee) {
+        return repr_table.growable_return(&name).is_some()
+            || repr_table
+                .array_return_callee_key(function_name, &name)
+                .and_then(|key| repr_table.growable_return(key))
+                .is_some();
+    }
+    let callee = unwrap_transparent_value_node_raw(nodes, callee);
+    nodes.get(callee.0 as usize).is_some_and(|member| {
+        member.text.as_deref() == Some("slice")
+            && member.children.len() == 1
+            && node_is_growable_value(nodes, repr_table, function_name, member.children[0])
+    })
+}
+
 /// True iff `id` is a dot member `base.field` (1-child `Value`, `base` a bare
 /// identifier) whose `base` has an `Object(shape)` repr with a
 /// `GrowableArrayI64` field named `field` (Stage P2 Lane 1). The
@@ -3959,15 +3987,80 @@ fn node_is_growable_i64_field(
     }
 }
 
-fn for_of_growable_loop_var_names(
+/// Loop-variable names of every runtime `for..of` (`for-await-of` excluded —
+/// it fails closed) over a growable value of `function_name` — a growable
+/// binding, a call to a growable-returning function, a `slice` of either, or a
+/// `GrowableArrayI64` object field — reachable from `body_id` without
+/// descending into nested function bodies, and the maximum lexical nesting
+/// depth of such loops (growable-runtime-arrays spec §3.5, A-10). Structural
+/// twin of the emit-side lane in `emit_for_of_array_iteration`
+/// (`growable_value_elem` / `object_field_is_growable_array`): each loop
+/// variable gets a real wasm local and each depth its scratch triple. Element
+/// repr is not consulted: the local's type comes from the repr table.
+fn for_of_growable_loops(
     nodes: &[LirNode],
     body_id: LirNodeId,
     repr_table: &kali_common::ReprTable,
     function_name: &str,
-) -> Vec<String> {
+) -> (Vec<String>, usize) {
+    fn walk(
+        nodes: &[LirNode],
+        id: LirNodeId,
+        repr_table: &kali_common::ReprTable,
+        function_name: &str,
+        depth: usize,
+        names: &mut Vec<String>,
+        max_depth: &mut usize,
+    ) {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return;
+        };
+        let mut inner = depth;
+        if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
+            let growable = node.children.get(1).is_some_and(|&iterable| {
+                node_is_growable_value(nodes, repr_table, function_name, iterable)
+                    || node_is_growable_i64_field(nodes, repr_table, function_name, iterable)
+            });
+            if growable {
+                if let Some(var) = node
+                    .children
+                    .first()
+                    .and_then(|&left| for_of_loop_var_name_of(nodes, left))
+                {
+                    if !names.contains(&var) {
+                        names.push(var);
+                    }
+                }
+                inner = depth + 1;
+                *max_depth = (*max_depth).max(inner);
+            }
+        }
+        for child in &node.children {
+            if !is_function_like(nodes, *child) {
+                walk(
+                    nodes,
+                    *child,
+                    repr_table,
+                    function_name,
+                    inner,
+                    names,
+                    max_depth,
+                );
+            }
+        }
+    }
     let mut names = Vec::new();
-    for_of_growable_loop_var_names_walk(nodes, body_id, repr_table, function_name, &mut names);
-    names
+    let mut max_depth = 0;
+    walk(
+        nodes,
+        body_id,
+        repr_table,
+        function_name,
+        0,
+        &mut names,
+        &mut max_depth,
+    );
+    (names, max_depth)
 }
 
 /// Raw-node twin of `FunctionEmitter::for_of_binding_name_from_node`: the
@@ -3994,45 +4087,6 @@ fn for_of_loop_var_name_of(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
         return for_of_loop_var_name_of(nodes, node.children[0]);
     }
     None
-}
-
-fn for_of_growable_loop_var_names_walk(
-    nodes: &[LirNode],
-    id: LirNodeId,
-    repr_table: &kali_common::ReprTable,
-    function_name: &str,
-    names: &mut Vec<String>,
-) {
-    let Some(node) = nodes.get(id.0 as usize) else {
-        return;
-    };
-    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
-        let iterable_is_growable = node.children.get(1).is_some_and(|&iterable| {
-            bare_identifier_name_of(nodes, iterable)
-                .is_some_and(|name| repr_table.is_growable_array_binding(function_name, &name))
-                // Stage P2 Lane 1 Task 5: a `for (const x of o.values)` over a
-                // `GrowableArrayI64` object field also runs the counted growable
-                // loop, so its loop var needs a real wasm local reserved here.
-                || node_is_growable_i64_field(nodes, repr_table, function_name, iterable)
-        });
-        if iterable_is_growable {
-            if let Some(var) = node
-                .children
-                .first()
-                .and_then(|&left| for_of_loop_var_name_of(nodes, left))
-            {
-                if !names.contains(&var) {
-                    names.push(var);
-                }
-            }
-        }
-    }
-    for child in &node.children {
-        if is_function_like(nodes, *child) {
-            continue;
-        }
-        for_of_growable_loop_var_names_walk(nodes, *child, repr_table, function_name, names);
-    }
 }
 
 /// True iff any bare identifier reachable from `init` (not descending into

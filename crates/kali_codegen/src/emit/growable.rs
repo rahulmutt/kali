@@ -113,6 +113,22 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
+    /// Growable-runtime-arrays spec §3.4: turn an element slot's i64 bit
+    /// pattern (just loaded) into the value of an array of element repr
+    /// `elem` — the inverse of `emit_growable_slot_encode`. An f64 element is
+    /// reinterpreted back from its bits; i64 and string elements are the slot
+    /// itself. The one load-side decoder every growable slot read (index
+    /// read, index write's result, pop, for-of) shares.
+    pub(crate) fn emit_growable_slot_decode(
+        &self,
+        function: &mut Function,
+        elem: kali_common::Repr,
+    ) {
+        if elem == kali_common::Repr::F64 {
+            function.instruction(&Instruction::F64ReinterpretI64);
+        }
+    }
+
     /// Index of the dedicated i64 growable scratch local reserved by
     /// `collect_function_locals` for any function with a growable binding.
     /// Panics if missing — reservation and emission share the single
@@ -614,9 +630,7 @@ impl<'a> FunctionEmitter<'a> {
         self.emit_growable_slot_encode(function, elem, value, rhs.produced);
         self.emit_growable_bounds_message(function);
         function.instruction(&Instruction::Call(self.growable_store_fn_index()));
-        if elem == kali_common::Repr::F64 {
-            function.instruction(&Instruction::F64ReinterpretI64);
-        }
+        self.emit_growable_slot_decode(function, elem);
     }
 
     /// `x[i]` read over a growable handle expression (spec §3.5): the element
@@ -646,33 +660,31 @@ impl<'a> FunctionEmitter<'a> {
             align: 3,
             memory_index: 0,
         }));
-        if elem == kali_common::Repr::F64 {
-            function.instruction(&Instruction::F64ReinterpretI64);
-        }
+        self.emit_growable_slot_decode(function, elem);
         EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
         }
     }
 
-    /// Runtime `for..of` element load `data[index]` where `index` is a wasm
-    /// i64 LOCAL (not a LIR node) — the counted-loop lane (throw-fallout Stage 4
-    /// Task 4). Decodes `handle` (the bare-identifier growable iterable, which
-    /// resolves to the binding's handle local) to `hdr_ptr`, loads `data_ptr`
-    /// (`hdr+16`), and loads the i64 element at `data_ptr + index*8`. Leaves the
-    /// element on the stack. Sibling of `emit_growable_index_read`, which takes
-    /// the index as a LIR node; the loop index has no LIR node, so this variant
-    /// reads it straight from a local.
-    pub(crate) fn emit_growable_index_read_at_local(
-        &mut self,
+    /// Runtime `for..of` element load `data[index]` (growable-runtime-arrays
+    /// spec §3.5): `handle_local` holds the iterable's tagged handle
+    /// (evaluated once at loop entry) and `index_local` the loop index, both
+    /// wasm i64 locals. Decodes the handle to `hdr_ptr`, reloads `data_ptr`
+    /// (`hdr+16`) — so an index write in the body is seen by later
+    /// iterations — and loads the raw i64 slot at `data_ptr + index*8`,
+    /// leaving it UNDECODED on the stack (the caller decodes per its target:
+    /// a typed local or an untyped per-iteration record cell). Unchecked: the
+    /// loop guards `index < length`, and inference refuses a push/pop on the
+    /// iterated component inside the body (spec A-8), so the length the loop
+    /// snapshotted is the live one.
+    pub(crate) fn emit_growable_slot_at_locals(
+        &self,
         function: &mut Function,
-        handle: LirNodeId,
+        handle_local: u32,
         index_local: u32,
-    ) -> EmittedValue {
-        let base = self.emit_growable_receiver_handle(function, handle);
-        if !base.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
+    ) {
+        function.instruction(&Instruction::LocalGet(handle_local));
         function.instruction(&Instruction::I64Const(GROWABLE_HANDLE_MASK));
         function.instruction(&Instruction::I64And);
         function.instruction(&Instruction::I32WrapI64);
@@ -692,10 +704,6 @@ impl<'a> FunctionEmitter<'a> {
             align: 3,
             memory_index: 0,
         }));
-        EmittedValue {
-            produced: true,
-            shape: ValueShape::Scalar,
-        }
     }
 
     /// `(base_name, args)` iff `node` is a `<growable>.push(…)` member call
@@ -781,7 +789,11 @@ impl<'a> FunctionEmitter<'a> {
                 // might miss can slip past. Pushes onto a DIFFERENT binding (the
                 // target fixture's `out.push(v)` inside `for (const v of o)`)
                 // are unaffected.
-                if self.growable_for_of_active.as_deref() == Some(base_name.as_str()) {
+                if self
+                    .growable_for_of_active
+                    .iter()
+                    .any(|key| key.as_str() == base_name.as_str())
+                {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
@@ -841,7 +853,11 @@ impl<'a> FunctionEmitter<'a> {
                 // this push's field key matches. Resolve rejects it first; this
                 // is the by-construction codegen mirror.
                 if let Some(field_key) = self.growable_field_receiver_key(receiver_id) {
-                    if self.growable_for_of_active.as_deref() == Some(field_key.as_str()) {
+                    if self
+                        .growable_for_of_active
+                        .iter()
+                        .any(|key| key.as_str() == field_key.as_str())
+                    {
                         self.diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
                             format!(
@@ -1035,7 +1051,11 @@ impl<'a> FunctionEmitter<'a> {
             .unwrap_or(kali_common::Repr::I64);
         // Belt for inference's snapshot refusal (spec A-8).
         if let Some(name) = self.bare_identifier_name(receiver) {
-            if self.growable_for_of_active.as_deref() == Some(name.as_str()) {
+            if self
+                .growable_for_of_active
+                .iter()
+                .any(|key| key.as_str() == name.as_str())
+            {
                 let message = kali_common::growable_for_of_mutation_message(
                     &kali_common::growable_binding_subject(&name, &self.function_name),
                 );
@@ -1051,9 +1071,7 @@ impl<'a> FunctionEmitter<'a> {
             .intern(kali_common::growable_pop_empty_message());
         function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
         function.instruction(&Instruction::Call(self.growable_pop_fn_index()));
-        if elem == kali_common::Repr::F64 {
-            function.instruction(&Instruction::F64ReinterpretI64);
-        }
+        self.emit_growable_slot_decode(function, elem);
         EmittedValue {
             produced: true,
             shape: if elem == kali_common::Repr::String {

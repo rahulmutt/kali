@@ -1142,12 +1142,16 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// Runtime counted `for..of` over a growable (push-accumulated) array
-    /// (throw-fallout Stage 4 Task 4): `i = 0; n = len(handle); loop { if i >= n
-    /// break; v = data[i]; i += 1; body }`. `i` and `n` are shared per-function
-    /// i64 scratch locals; the loop var `v` is a real wasm local so the body's
-    /// reads resolve to it (via `emit_value`'s `locals` lookup) — unlike the
-    /// static-unroll lane, which substitutes a compile-time node per iteration.
+    /// Runtime counted `for..of` over a growable value (growable-runtime-arrays
+    /// spec §3.5, A-10): `h = iterable; i = 0; n = len(h); loop { if i >= n
+    /// break; v = decode(data(h)[i]); i += 1; body }`. `h`, `i` and `n` are the
+    /// i64 scratch triple of this loop's nesting depth (the length of
+    /// `growable_for_of_active`), so nested growable loops never share a
+    /// counter. The iterable — a binding, a call, a `slice`, or a growable
+    /// field — is evaluated ONCE into `h`. The loop var `v` is a real wasm
+    /// local (typed by its repr: i64, f64 or a string handle) so the body's
+    /// reads resolve to it, unlike the static-unroll lane, which substitutes a
+    /// compile-time node per iteration.
     ///
     /// The increment is emitted BEFORE the body (not after), so an unlabeled
     /// `continue` — which `emit_break_or_continue` lowers to a `Br` back to the
@@ -1155,53 +1159,15 @@ impl<'a> FunctionEmitter<'a> {
     /// the index and therefore visits the NEXT element, not the same one. `break`
     /// exits the enclosing `Block`. Both reuse the standard control-frame /
     /// `LoopFrame` scaffolding, so they resolve identically to every other loop.
-    #[allow(clippy::too_many_arguments)]
     fn emit_for_of_growable_runtime_loop(
         &mut self,
         function: &mut Function,
         node: &LirNode,
         iterable_id: LirNodeId,
-        handle_name: String,
-        field_receiver: bool,
+        key: String,
+        elem: kali_common::Repr,
         owner: Option<String>,
     ) -> EmittedValue {
-        // Fail closed: a growable `for..of` lexically NESTED inside another
-        // would share the single index/length scratch pair, clobbering the
-        // outer loop's counter — a silent miscompile. (Codegen-side guard; the
-        // resolve gate admits the shape, so this is a fail-CLOSED both-sides
-        // asymmetry, listed in the report — never a fail-open.)
-        if self.growable_for_of_active.is_some() {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "a for-of over a growable array nested inside another for-of over a growable array is unavailable in the current phase; use an index loop over `.length` or the later compatibility path".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        }
-
-        // Defensive both-sides mirror of the resolve i64-element gate: a
-        // String-element growable `for..of` never reaches codegen (the resolve
-        // gate aborts the compile), but never emit a loop that would store a raw
-        // string handle into an i64-printed loop var if that gate ever regresses.
-        // A FIELD receiver (`handle_name` is a `base.field` key, not a binding)
-        // is provably `GrowableArrayI64` — i64 elements only (Task 3 conflicts
-        // string array fields to E5506) — so the name-keyed elem lookup does not
-        // apply; skip it (the field key is not an array binding name).
-        if !field_receiver && self.array_elem_repr(&handle_name) != kali_common::Repr::I64 {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "for-of over a growable array of non-integer elements is unavailable in the current phase".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
-        }
-
         let Some(loop_name) = self.for_of_binding_name(node) else {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
@@ -1235,38 +1201,59 @@ impl<'a> FunctionEmitter<'a> {
                 shape: ValueShape::Unknown,
             };
         };
-        // Reserved by `collect_function_locals`' `for_of_growable_loop_var_names`
-        // walk (the structural twin of this lane's guard). A miss is a
-        // reserve/resolve twin desync — fail closed (E5506), never panic.
-        let (Some(index_local), Some(len_local)) = (
+        // Reserved per depth by `collect_function_locals`'
+        // `for_of_growable_loops` walk (the structural twin of this lane). A
+        // miss is a reserve/resolve twin desync — fail closed (E5506), never
+        // panic.
+        let depth = self.growable_for_of_active.len();
+        let (Some(index_local), Some(len_local), Some(handle_local)) = (
             self.locals
-                .get(&crate::lower::growable_foreach_index_local_name())
+                .get(&crate::lower::growable_foreach_index_local_name(depth))
                 .copied(),
             self.locals
-                .get(&crate::lower::growable_foreach_len_local_name())
+                .get(&crate::lower::growable_foreach_len_local_name(depth))
+                .copied(),
+            self.locals
+                .get(&crate::lower::growable_foreach_handle_local_name(depth))
                 .copied(),
         ) else {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "growable for-of index/length scratch locals were not reserved; iteration lowering is unavailable".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
+            return self.deny_e5506(
+                function,
+                "growable for-of scratch locals were not reserved; iteration lowering is unavailable",
+            );
         };
+        let var_is_float = self.scalar_repr(&loop_name) == kali_common::Repr::F64;
+        let elem_is_float = elem == kali_common::Repr::F64;
+        if elem_is_float && !var_is_float {
+            return self.deny_e5506(
+                function,
+                "a for-of variable over a growable array of floats must be a float in the current phase",
+            );
+        }
         let body = node.children.get(2).copied();
 
-        // i = 0
+        // The iterable is evaluated ONCE (a call or `slice` must not re-run
+        // per iteration), then its length snapshotted (spec §3.5: a push/pop
+        // on it inside the body is refused, so the snapshot is node's length).
+        let handle = self.emit_growable_receiver_handle(function, iterable_id);
+        if !handle.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        function.instruction(&Instruction::LocalSet(handle_local));
         function.instruction(&Instruction::I64Const(0));
         function.instruction(&Instruction::LocalSet(index_local));
-        // n = len(handle)  — snapshotted ONCE (a body that pushes to a
-        // different array is unaffected; pushing to the array being iterated
-        // does not extend this loop, matching the design's fixed count).
-        self.emit_growable_length(function, iterable_id);
+        function.instruction(&Instruction::LocalGet(handle_local));
+        function.instruction(&Instruction::I64Const(
+            crate::emit::growable::GROWABLE_HANDLE_MASK,
+        ));
+        function.instruction(&Instruction::I64And);
+        function.instruction(&Instruction::I32WrapI64);
+        function.instruction(&Instruction::I64Load(MemArg {
+            offset: 0,
+            align: 3,
+            memory_index: 0,
+        }));
         function.instruction(&Instruction::LocalSet(len_local));
-        // The iterable is evaluated once, above, with the enclosing `g8`.
         if let Some(label) = &owner {
             self.enter_iteration(function, label);
         }
@@ -1293,14 +1280,25 @@ impl<'a> FunctionEmitter<'a> {
         let break_depth = self.control_frame_depth(break_index);
         function.instruction(&Instruction::BrIf(break_depth));
 
-        // v = data[i]
-        self.emit_growable_index_read_at_local(function, iterable_id, index_local);
+        // v = data[i] (the data pointer is reloaded: an index write in the
+        // body is seen by later iterations)
+        self.emit_growable_slot_at_locals(function, handle_local, index_local);
         match loop_slot {
             Ok(loop_local) => {
+                self.emit_growable_slot_decode(function, elem);
+                if var_is_float && !elem_is_float {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
                 function.instruction(&Instruction::LocalSet(loop_local));
             }
             Err(offset) => {
-                // The loop is the innermost active iteration: depth 0.
+                // A per-iteration record cell (block-scoping §3.3) is an
+                // untyped 8-byte slot: `crate::closure::emit_cell_store`
+                // stashes an i64, and an f64 cell holds the double's bits,
+                // which is exactly the raw element slot. Iteration records
+                // refuse an F64 variable on their own (`Widening::Baseline`),
+                // so the raw slot is stored undecoded. The loop is the
+                // innermost active iteration: depth 0.
                 let scratch = self.locals.len() as u32;
                 crate::closure::emit_cell_store(
                     function,
@@ -1318,14 +1316,13 @@ impl<'a> FunctionEmitter<'a> {
         function.instruction(&Instruction::I64Add);
         function.instruction(&Instruction::LocalSet(index_local));
 
-        // body — with the iterated binding name active, so the nesting guard
-        // above and `emit_growable_push_call`'s same-binding self-push guard
-        // both see it.
-        let previous_active = self.growable_for_of_active.replace(handle_name.clone());
+        // body — with the iterated key active, so a nested growable loop picks
+        // the next depth's scratch triple and the push/pop belts see it.
+        self.growable_for_of_active.push(key);
         if let Some(body) = body {
             let _ = self.emit_node(function, body, false);
         }
-        self.growable_for_of_active = previous_active;
+        self.growable_for_of_active.pop();
 
         // back-edge to the loop top
         let continue_depth = self.control_frame_depth(continue_index);
@@ -1371,26 +1368,21 @@ impl<'a> FunctionEmitter<'a> {
             };
         };
 
-        // Runtime growable lane (throw-fallout Stage 4 Task 4): a bare-identifier
-        // iterable that names a GROWABLE array binding runs a REAL wasm counted
-        // loop over the live handle, NOT the compile-time static unroll below
-        // (which would fold the stale declarator literal). Keyed on the SAME
-        // predicate the types-side resolve gate admits (bare identifier +
-        // growable binding), so the two never desync. Every other iterable —
-        // literal arrays, map/filter/Array.from/spread/flatMap over literals,
-        // Object.keys/values/entries, string iterables — keeps the static lane
-        // byte-identically.
-        if let Some(handle_name) = self.bare_identifier_name(array_id) {
-            if self.is_growable_array(&handle_name) {
-                return self.emit_for_of_growable_runtime_loop(
-                    function,
-                    node,
-                    array_id,
-                    handle_name,
-                    false,
-                    owner,
-                );
-            }
+        // Runtime growable lane (growable-runtime-arrays spec §3.5): a
+        // growable binding, a call to a growable-returning function, or a
+        // `slice` of either runs a REAL wasm counted loop over the live handle,
+        // NOT the compile-time static unroll below (which would fold a stale
+        // declarator literal). Recognized by `growable_value_elem` — the same
+        // repr-table facts (growable bindings, `array_return_callee_key`,
+        // growable returns) inference decided the iterable with, so `check`
+        // and `run` agree on which loops are runtime loops. Every other
+        // iterable — literal arrays, map/filter/Array.from/spread/flatMap over
+        // literals, Object.keys/values/entries, string iterables — keeps the
+        // static lane byte-identically.
+        if let Some(elem) = self.growable_value_elem(array_id) {
+            let key = self.bare_identifier_name(array_id).unwrap_or_default();
+            return self
+                .emit_for_of_growable_runtime_loop(function, node, array_id, key, elem, owner);
         }
 
         // Growable-array FIELD iterable `for (const x of o.values)` (Stage P2
@@ -1399,13 +1391,20 @@ impl<'a> FunctionEmitter<'a> {
         // the handle materialized from the field read (`array_id` is the
         // `o.values` node). Admitted only through the positive
         // `object_field_is_growable_array` proof; the loop identity is the
-        // `base.field` key so the self-push guard can key on it.
+        // `base.field` key so the self-push guard can key on it. The field lane
+        // is `GrowableArrayI64`: i64 elements.
         if self.object_field_is_growable_array(array_id) {
             let key = self
                 .growable_field_receiver_key(array_id)
                 .unwrap_or_default();
-            return self
-                .emit_for_of_growable_runtime_loop(function, node, array_id, key, true, owner);
+            return self.emit_for_of_growable_runtime_loop(
+                function,
+                node,
+                array_id,
+                key,
+                kali_common::Repr::I64,
+                owner,
+            );
         }
 
         if let Some(label) = &label {

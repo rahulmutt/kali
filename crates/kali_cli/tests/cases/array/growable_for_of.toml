@@ -1,0 +1,282 @@
+# Growable runtime arrays: for-of over bindings, calls and slices, nested,
+# with i64, f64 and string elements; multi-argument console output
+# (spec §3.5, A-9, A-10). Every expected stdout is node v26.10.0's for the
+# same file, measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`.
+
+[source]
+"nested_module.js" = """
+const a = [];
+a.push(1); a.push(2);
+const b = [];
+b.push(10); b.push(20);
+let s = 0;
+for (const x of a) { for (const y of b) { s += x * y; } }
+let t = 0;
+for (const x of a) { for (const y of a) { t += x * y; } }
+console.log(s, t);
+"""
+"nested_function.js" = """
+function main() {
+  const a = []; a.push(1); a.push(2);
+  const b = []; b.push(10); b.push(20);
+  let s = 0;
+  for (const x of a) { for (const y of b) { s += x * y; } }
+  let t = 0;
+  for (const x of a) { for (const y of a) { t += x * y; } }
+  console.log(s, t);
+}
+main();
+"""
+"p2_module.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+const ws = build(3);
+for (const w of ws) console.log(w);
+console.log(ws.length, ws.join(" "));
+"""
+"p2_function.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+function main() {
+  const ws = build(3);
+  for (const w of ws) console.log(w);
+  console.log(ws.length, ws.join(" "));
+}
+main();
+"""
+"p3_module.js" = """
+const out = [];
+for (let i = 0; i < 4; i++) out.push(i);
+let s = 0;
+for (const x of out) s += x;
+console.log(s, out.length, out.join("|"));
+"""
+"p3_function.js" = """
+function main() { const out = []; for (let i = 0; i < 4; i++) out.push(i); let s = 0; for (const x of out) s += x; console.log(s, out.length, out.join("|")); }
+main();
+"""
+"float_loop.js" = """
+const data = [];
+for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+let t = 0;
+for (const v of data) t += v;
+console.log(t);
+"""
+"float_loop_function.js" = """
+function main() { const data = []; for (let i = 1; i <= 5; i++) data.push(i * 1.5); let t = 0; for (const v of data) t += v; console.log(t); }
+main();
+"""
+"slice_loop.js" = """
+function main() { const a = []; for (let i = 0; i < 4; i++) a.push(i); let s = ""; for (const x of a.slice(1, 3)) s = s + x; console.log(s); }
+main();
+"""
+"slice_loop_module.js" = """
+const a = [];
+for (let i = 0; i < 4; i++) a.push(i);
+let s = "";
+for (const x of a.slice(1, 3)) s = s + x;
+console.log(s);
+"""
+"write_in_loop.js" = """
+function main() { const a = []; a.push(1); a.push(2); a.push(3); for (const x of a) a[0] = x; console.log(a.join(",")); }
+main();
+"""
+"write_in_loop_module.js" = """
+const a = [];
+a.push(1); a.push(2); a.push(3);
+for (const x of a) a[0] = x;
+console.log(a.join(","));
+"""
+"break_continue.js" = """
+function main() { const a = []; for (let i = 0; i < 6; i++) a.push(i); let s = 0; for (const x of a) { if (x === 1) continue; if (x === 4) break; s += x; } console.log(s); }
+main();
+"""
+"break_continue_module.js" = """
+const a = [];
+for (let i = 0; i < 6; i++) a.push(i);
+let s = 0;
+for (const x of a) { if (x === 1) continue; if (x === 4) break; s += x; }
+console.log(s);
+"""
+"wrap_module.js" = """
+function wrap(words) { const lines = []; for (const w of words) { if (w.length > 1) lines.push(w); } return lines; }
+const ws = [];
+ws.push("a"); ws.push("bb"); ws.push("ccc");
+for (const line of wrap(ws)) console.log(line);
+"""
+"wrap_function.js" = """
+function wrap(words) { const lines = []; for (const w of words) { if (w.length > 1) lines.push(w); } return lines; }
+function main() {
+  const ws = [];
+  ws.push("a"); ws.push("bb"); ws.push("ccc");
+  for (const line of wrap(ws)) console.log(line);
+}
+main();
+"""
+"mixed_module.js" = """
+const ws = [];
+ws.push("x"); ws.push("yz");
+const fs = [];
+fs.push(0.5); fs.push(2.25);
+const ns = [];
+ns.push(3); ns.push(4);
+for (const w of ws) { for (const f of fs) { for (const n of ns) { console.log(w, f * n); } } }
+let line = "";
+for (const w of ws.slice(1)) { for (const n of ns) line = line + " " + w + n; }
+console.log(line);
+"""
+"mixed_function.js" = """
+function main() {
+  const ws = []; ws.push("x"); ws.push("yz");
+  const fs = []; fs.push(0.5); fs.push(2.25);
+  const ns = []; ns.push(3); ns.push(4);
+  for (const w of ws) { for (const f of fs) { for (const n of ns) { console.log(w, f * n); } } }
+  let line = "";
+  for (const w of ws.slice(1)) { for (const n of ns) line = line + " " + w + n; }
+  console.log(line);
+}
+main();
+"""
+"call_once_module.js" = """
+let calls = 0;
+function build(n) { calls += 1; const out = []; for (let i = 0; i < n; i++) out.push(i * 2); return out; }
+let s = 0;
+for (const x of build(3)) { for (const y of build(2)) s += x + y; }
+console.log(s, calls);
+"""
+"call_once_function.js" = """
+let calls = 0;
+function build(n) { calls += 1; const out = []; for (let i = 0; i < n; i++) out.push(i * 2); return out; }
+function main() {
+  let s = 0;
+  for (const x of build(3)) { for (const y of build(2)) s += x + y; }
+  console.log(s, calls);
+}
+main();
+"""
+
+[[case]]
+name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice_module_scope"
+rationale = "Spec §3.5, A-10: per-depth index, length and handle locals. At the baseline `run` refused the nesting and `check` accepted it."
+args = ["run", "nested_module.js"]
+exit = "success"
+stdout = "90 9\n"
+
+[[case]]
+name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice"
+args = ["run", "nested_function.js"]
+exit = "success"
+stdout = "90 9\n"
+
+[[case]]
+name = "string_elements_iterate_and_join_module_scope"
+rationale = "Spec §2.1 p2. At the baseline: E5506 at `push`, `for-of`, `join`."
+args = ["run", "p2_module.js"]
+exit = "success"
+stdout = "a\nab\nabb\n3 a ab abb\n"
+
+[[case]]
+name = "string_elements_iterate_and_join"
+args = ["run", "p2_function.js"]
+exit = "success"
+stdout = "a\nab\nabb\n3 a ab abb\n"
+
+[[case]]
+name = "multi_argument_console_reads_a_growable_array_module_scope"
+rationale = "Spec §2.1 p3, A-9. At the baseline: \"console output of multiple arguments where one reads a growable array is unavailable\"."
+args = ["run", "p3_module.js"]
+exit = "success"
+stdout = "6 4 0|1|2|3\n"
+
+[[case]]
+name = "multi_argument_console_reads_a_growable_array"
+args = ["run", "p3_function.js"]
+exit = "success"
+stdout = "6 4 0|1|2|3\n"
+
+[[case]]
+name = "f64_elements_iterate"
+args = ["run", "float_loop.js"]
+exit = "success"
+stdout = "22.5\n"
+
+[[case]]
+name = "f64_elements_iterate_in_a_function"
+rationale = "W6 twin of `f64_elements_iterate` (module scope). At the baseline: \"for-of over a growable array of non-integer elements\" (codegen only; `check` accepted it)."
+args = ["run", "float_loop_function.js"]
+exit = "success"
+stdout = "22.5\n"
+
+[[case]]
+name = "for_of_over_a_slice_iterates_the_temporary"
+args = ["run", "slice_loop.js"]
+exit = "success"
+stdout = "12\n"
+
+[[case]]
+name = "for_of_over_a_slice_iterates_the_temporary_module_scope"
+args = ["run", "slice_loop_module.js"]
+exit = "success"
+stdout = "12\n"
+
+[[case]]
+name = "an_index_write_inside_the_loop_is_seen_by_later_iterations"
+rationale = "An index write keeps the length (so it is admitted, spec A-8) and each iteration reloads the element: node's `3,2,3`."
+args = ["run", "write_in_loop.js"]
+exit = "success"
+stdout = "3,2,3\n"
+
+[[case]]
+name = "an_index_write_inside_the_loop_is_seen_by_later_iterations_module_scope"
+args = ["run", "write_in_loop_module.js"]
+exit = "success"
+stdout = "3,2,3\n"
+
+[[case]]
+name = "break_and_continue_in_a_growable_for_of"
+args = ["run", "break_continue.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "break_and_continue_in_a_growable_for_of_module_scope"
+args = ["run", "break_continue_module.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "for_of_over_a_call_returning_a_filtered_string_array_module_scope"
+rationale = "Corpus shape: a function builds a growable string array inside a for-of over its parameter and the caller iterates the call result directly (spec §3.5, A-6)."
+args = ["run", "wrap_module.js"]
+exit = "success"
+stdout = "bb\nccc\n"
+
+[[case]]
+name = "for_of_over_a_call_returning_a_filtered_string_array"
+args = ["run", "wrap_function.js"]
+exit = "success"
+stdout = "bb\nccc\n"
+
+[[case]]
+name = "three_deep_nesting_over_string_f64_and_i64_elements_and_a_slice_module_scope"
+rationale = "Spec A-10: each depth has its own scratch locals, and each loop variable carries its own element repr."
+args = ["run", "mixed_module.js"]
+exit = "success"
+stdout = "x 1.5\nx 2\nx 6.75\nx 9\nyz 1.5\nyz 2\nyz 6.75\nyz 9\n yz3 yz4\n"
+
+[[case]]
+name = "three_deep_nesting_over_string_f64_and_i64_elements_and_a_slice"
+args = ["run", "mixed_function.js"]
+exit = "success"
+stdout = "x 1.5\nx 2\nx 6.75\nx 9\nyz 1.5\nyz 2\nyz 6.75\nyz 9\n yz3 yz4\n"
+
+[[case]]
+name = "a_call_iterable_is_evaluated_once_per_loop_entry_module_scope"
+rationale = "Spec §3.5: the iterable is evaluated once into the depth's handle local; the inner call runs once per outer iteration, as in node."
+args = ["run", "call_once_module.js"]
+exit = "success"
+stdout = "18 4\n"
+
+[[case]]
+name = "a_call_iterable_is_evaluated_once_per_loop_entry"
+args = ["run", "call_once_function.js"]
+exit = "success"
+stdout = "18 4\n"

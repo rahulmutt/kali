@@ -388,19 +388,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// DISJOINT from `array_bindings` (a separate tagged-header layout; the
     /// two lanes must never conflate).
     pub(crate) growable_array_bindings: HashSet<String>,
-    /// `Some(<iterated binding name>)` while emitting the body of a runtime
-    /// `for..of` over a growable array (throw-fallout Stage 4 Task 4). Two
-    /// fail-closed guards key on it: (1) a growable `for..of` lexically NESTED
-    /// inside another rejects E5506 — the shared index/length scratch pair
-    /// (`growable_foreach_index_local_name`) would otherwise be clobbered by
-    /// the inner loop and silently miscompile the outer counter; (2) a `.push`
-    /// on the SAME binding being iterated rejects E5506 in
-    /// `emit_growable_push_call` — the by-construction mirror of the
-    /// resolve-time self-push reject (node grows the iteration; the counted
-    /// loop's once-snapshotted length does not). Per-function scoped (fresh
-    /// emitter per function), so a growable `for..of` in a nested FUNCTION is
-    /// a separate emitter and never blocked.
-    pub(crate) growable_for_of_active: Option<String>,
+    /// The iterated keys of the runtime growable `for..of` loops currently
+    /// being emitted, outermost first (growable-runtime-arrays spec §3.5,
+    /// A-10): a binding name, a `base.field` key for a growable field, or an
+    /// empty key for a call or `slice` iterable. Its length is the nesting
+    /// depth that picks the scratch locals
+    /// (`growable_foreach_index_local_name(depth)` and its twins); the
+    /// push/pop guards in `emit/growable.rs` are a belt behind inference's
+    /// snapshot refusal (spec A-8). Per-function scoped (fresh emitter per
+    /// function).
+    pub(crate) growable_for_of_active: Vec<String>,
     /// Stage P2 review C-2: `true` only while a growable-aware recognizer
     /// (push/join/length/index/for-of receiver, or the Lane-3 `===` field pair)
     /// is deliberately reading a `GrowableArrayI64` FIELD receiver's tagged
@@ -758,7 +755,7 @@ impl<'a> FunctionEmitter<'a> {
             program_stores_function_in_aggregate_cache: std::cell::OnceCell::new(),
             array_bindings,
             growable_array_bindings,
-            growable_for_of_active: None,
+            growable_for_of_active: Vec::new(),
             admit_growable_field_read: false,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
