@@ -175,8 +175,8 @@ const ys = [3.5, 4.5]; const zs = ys; for (const x of zs) { console.log(Math.flo
 """
 "runtime_lane_module.js" = """
 const out = [];
-out.push(7);
 for (let x of [1.5, 2.5, 0.25]) {
+  out.push(x);
   console.log(Math.floor(x), Math.ceil(x), Math.trunc(x), Math.round(x), Math.abs(x), Math.min(x, 2), Math.max(x, 2));
 }
 console.log(out.length, out[0]);
@@ -184,8 +184,8 @@ console.log(out.length, out[0]);
 "runtime_lane_function.js" = """
 function main() {
   const out = [];
-  out.push(7);
   for (let x of [1.5, 2.5, 0.25]) {
+    out.push(x);
     console.log(Math.floor(x), Math.ceil(x), Math.trunc(x), Math.round(x), Math.abs(x), Math.min(x, 2), Math.max(x, 2));
   }
   console.log(out.length, out[0]);
@@ -335,16 +335,16 @@ exit = "success"
 
 [[case]]
 name = "an_unpublished_float_loop_item_takes_the_runtime_f64_lane_module_scope"
-rationale = "Residual round 4 (spec A-45): with a growable array in the program, a `let` loop item over float literals carries the f64 item repr but is not a published compile-time number (`let`), so inference gives the rounding call a float edge and codegen lowers it on the runtime f64 lane (the item's value as an f64) instead of refusing it as a non-integer literal at `run` after `check` passed."
+rationale = "Residual round 4 (spec A-45): a `let` loop item over float literals that is pushed onto a growable array carries the f64 item repr (RE-PINNED 2026-10-08, round 5: the item is now pushed, since the item flow runs only for a loop that feeds a growable element; node's stdout re-measured) but is not a published compile-time number (`let`), so inference gives the rounding call a float edge and codegen lowers it on the runtime f64 lane (the item's value as an f64) instead of refusing it as a non-integer literal at `run` after `check` passed."
 args = ["run", "runtime_lane_module.js"]
 exit = "success"
-stdout = "1 2 1 2 1.5 1.5 2\n2 3 2 3 2.5 2 2.5\n0 1 0 0 0.25 0.25 2\n1 7\n"
+stdout = "1 2 1 2 1.5 1.5 2\n2 3 2 3 2.5 2 2.5\n0 1 0 0 0.25 0.25 2\n3 1.5\n"
 
 [[case]]
 name = "an_unpublished_float_loop_item_takes_the_runtime_f64_lane"
 args = ["run", "runtime_lane_function.js"]
 exit = "success"
-stdout = "1 2 1 2 1.5 1.5 2\n2 3 2 3 2.5 2 2.5\n0 1 0 0 0.25 0.25 2\n1 7\n"
+stdout = "1 2 1 2 1.5 1.5 2\n2 3 2 3 2.5 2 2.5\n0 1 0 0 0.25 0.25 2\n3 1.5\n"
 
 [[case]]
 name = "check_accepts_the_runtime_f64_lane_programs"

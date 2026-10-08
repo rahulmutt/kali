@@ -344,6 +344,9 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    /// Residual round 5: loop variables of a static (unrolled) `for-of`
+    /// whose body is being emitted; a read resolves to the bound item.
+    pub(crate) unrolled_loop_items: BTreeSet<String>,
     /// `const` names promoted to a local slot by the stability allowlist — the
     /// ones that get a `bindings` denotation entry DESPITE having a slot. A
     /// handle-promoted `const` (`ConstPromotion::Handle`) is deliberately
@@ -746,6 +749,7 @@ impl<'a> FunctionEmitter<'a> {
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
+            unrolled_loop_items: BTreeSet::new(),
             allowlist_promoted_consts,
             fn_valued_locals: BTreeMap::new(),
             unstable_provenance_names,

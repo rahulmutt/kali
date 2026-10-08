@@ -1458,6 +1458,58 @@ impl<'a> FunctionEmitter<'a> {
         };
 
         let body = node.children.get(2).copied();
+        // Residual round 5: the static lanes below bind the loop variable to
+        // each item (`self.bindings`) and never write a `let` variable's
+        // declared local or module global, so a read that resolved to that
+        // slot printed or pushed its initial `0` (`for (let x of [1, 2])
+        // out.push(x)` stored `0, 0`). While the body is emitted, a read of
+        // the variable resolves to the item (`resolve_identifier_kind`),
+        // unless the body assigns the variable, which keeps the slot lane.
+        let shadow = !self.unrolled_loop_items.contains(&loop_name)
+            && body.is_none_or(|body| !self.subtree_assigns_name(body, &loop_name));
+        if shadow {
+            self.unrolled_loop_items.insert(loop_name.clone());
+        }
+        let emitted = self.emit_for_of_static_items(function, array, &loop_name, body);
+        if shadow {
+            self.unrolled_loop_items.remove(&loop_name);
+        }
+        emitted
+    }
+
+    /// True when the LIR subtree at `id` (nested functions included) assigns
+    /// or updates the bare name `name`.
+    pub(crate) fn subtree_assigns_name(&self, id: LirNodeId, name: &str) -> bool {
+        let node = self.node(id);
+        if node
+            .text
+            .as_deref()
+            .is_some_and(crate::lower::is_mutating_operator_text)
+        {
+            if let Some(&target) = node.children.first() {
+                let target = self.node(self.unwrap_transparent(target));
+                if target.kind == LirNodeKind::Value
+                    && target.children.is_empty()
+                    && target.text.as_deref() == Some(name)
+                {
+                    return true;
+                }
+            }
+        }
+        node.children
+            .clone()
+            .into_iter()
+            .any(|child| self.subtree_assigns_name(child, name))
+    }
+
+    fn emit_for_of_static_items(
+        &mut self,
+        function: &mut Function,
+        array: LirNode,
+        loop_name: &str,
+        body: Option<LirNodeId>,
+    ) -> EmittedValue {
+        let loop_name = loop_name.to_string();
         if let Some(string_text) = self.render_static_string_value(&array) {
             let break_index = self.push_control_frame(ControlFlowLabelKind::LoopBreak);
             function.instruction(&Instruction::Block(BlockType::Empty));

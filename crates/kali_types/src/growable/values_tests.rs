@@ -303,18 +303,41 @@ fn a_plain_for_of_without_a_growable_array_carries_no_item_repr() {
 }
 
 #[test]
-fn a_plain_for_of_in_a_program_with_a_growable_array_keeps_its_item_repr() {
-    // The flow still runs where it matters: a mixed literal item pushed onto
-    // a growable array is the both-axes refusal, and a float `let` item
-    // floats the rounding call (the runtime f64 lane).
-    let t =
-        table("const xs = []; for (const x of [3, \"a\"]) { xs.push(x); } console.log(xs.length);");
-    assert!(!t.shape_conflicts().is_empty());
-    let t = table("const ys = []; ys.push(1); for (let x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k); }");
+fn a_plain_for_of_feeding_a_growable_element_keeps_its_item_repr() {
+    // Round 5: the flow runs per loop, where the variable (or a value derived
+    // from it) reaches a growable element: a mixed literal item pushed
+    // directly, through a binding or through a parameter is the both-axes
+    // refusal, and a float `let` item that is pushed floats the rounding call
+    // (the runtime f64 lane).
+    for src in [
+        "const xs = []; for (const x of [3, \"a\"]) { xs.push(x); } console.log(xs.length);",
+        "function main() { const xs = []; for (const x of [3, \"a\"]) { const y = x; xs.push(y); } console.log(xs.length); } main();",
+        "function add(xs, v) { xs.push(v); } function main() { const xs = []; for (const x of [3, \"a\"]) add(xs, x); console.log(xs.length); } main();",
+    ] {
+        assert!(!table(src).shape_conflicts().is_empty(), "{src}");
+    }
+    let t = table("const ys = []; for (let x of [1.5, 2.5]) { ys.push(x); const k = Math.floor(x); console.log(k); }");
     assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
     assert_eq!(t.scalar("_start", "x"), kali_common::Repr::F64);
     assert!(!t.binding_is_static_numeric("_start", "x"));
     assert_eq!(t.scalar("_start", "k"), kali_common::Repr::F64);
+}
+
+#[test]
+fn a_plain_for_of_beside_a_growable_array_that_it_does_not_feed_carries_no_item_repr() {
+    // Round 5 (rr/p28, p29): a growable array elsewhere in the program (a
+    // function-local one, or one in a helper) does not turn the flow on.
+    for src in [
+        "function main() { const out = []; out.push(1); for (const x of [3, \"a\"]) console.log(x); console.log(out.length); } main();",
+        "function helper() { const xs = []; xs.push(4); return xs.length; } for (const x of [3, \"a\"]) console.log(x); console.log(helper());",
+    ] {
+        let t = table(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}: {:?}", t.shape_conflicts());
+    }
+    let t = table("function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) { const k = Math.floor(y); console.log(k % 2); } console.log(out.length); } main();");
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert_ne!(t.scalar("main", "y"), kali_common::Repr::F64);
+    assert_eq!(t.scalar("main", "k"), kali_common::Repr::I64);
 }
 
 #[test]

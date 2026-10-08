@@ -165,6 +165,91 @@ function main() {
 }
 main();
 """
+"r5_feed_d02.js" = """
+function main() { const out = []; out.push(1); for (const x of [3, "a"]) console.log(x); console.log(out.length); }
+main();
+"""
+"r5_feed_d02_module.js" = """
+const out = []; out.push(1); for (const x of [3, "a"]) console.log(x); console.log(out.length);
+"""
+"r5_feed_d03.js" = """
+function main() { const out = []; out.push(1); console.log(out.length); }
+main();
+for (const x of [3, "a"]) console.log(x);
+"""
+"r5_feed_d08.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2); console.log(out.length); }
+main();
+"""
+"r5_feed_d08_module.js" = """
+const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2); console.log(out.length);
+"""
+"r5_feed_e01.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) { const k = Math.floor(y); console.log(k % 2, k); } console.log(out.length); }
+main();
+"""
+"r5_feed_e01_module.js" = """
+const out = []; out.push(1); for (let y of [1.5, 2.5]) { const k = Math.floor(y); console.log(k % 2, k); } console.log(out.length);
+"""
+"r5_feed_e02.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) | 0); console.log(out.length); }
+main();
+"""
+"r5_feed_e06.js" = """
+function main() { const out = []; out.push(1); for (const x of [1, "b", 2]) console.log(x); console.log(out.length); }
+main();
+"""
+"r5_feed_e08.js" = """
+function main() { const out = []; out.push(1); for (const x of [3, "a"]) console.log(typeof x); console.log(out.length); }
+main();
+"""
+"r5_feed_e09.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2 === 0); console.log(out.length); }
+main();
+"""
+"r5_feed_e13.js" = """
+function main() { const out = []; out.push(1); for (const s of ["a", 1]) console.log(s); console.log(out.length); }
+main();
+"""
+"r5_feed_e14.js" = """
+function helper() { const xs = []; xs.push(4); return xs.length; }
+for (const x of [3, "a"]) console.log(x);
+console.log(helper());
+"""
+"r5_feed_e15.js" = """
+function helper() { const xs = []; xs.push(4); return xs.length; }
+for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2);
+console.log(helper());
+"""
+"r5_mixed_push_function.js" = """
+function main() { const out = []; for (const x of [3, "a"]) { const y = x; out.push(y); } console.log(out.length); }
+main();
+"""
+"r5_mixed_push_module.js" = """
+const out = []; for (const x of [3, "a"]) out.push(x); console.log(out.length);
+"""
+"r5_mixed_push_param.js" = """
+function add(out, v) { out.push(v); }
+function main() { const out = []; for (const x of [3, "a"]) add(out, x); console.log(out.length); }
+main();
+"""
+"let_item_function.js" = """
+function main() {
+  const out = [];
+  for (let x of [1, 2]) out.push(x);
+  for (let y of [1.5, 2.5]) out.push(y);
+  for (let z of [3, 4]) console.log(z + 1, Math.abs(z));
+  console.log(out[0], out[1], out[2], out[3]);
+}
+main();
+"""
+"let_item_module.js" = """
+const out = [];
+for (let x of [1, 2]) out.push(x);
+for (let y of [1.5, 2.5]) out.push(y);
+for (let z of [3, 4]) console.log(z + 1, Math.abs(z));
+console.log(out[0], out[1], out[2], out[3]);
+"""
 
 [[case]]
 name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice_module_scope"
@@ -311,3 +396,143 @@ stdout = "3\na\n1.5\n2.5\n1\n0\n"
 name = "check_accepts_a_plain_for_of_over_a_mixed_literal_array"
 args = ["check", "mixed_loops.js", "mixed_loops_main.js"]
 exit = "success"
+
+[[case]]
+name = "a_mixed_literal_loop_beside_a_function_local_growable_array_prints_its_items"
+rationale = "Residual round 5 (rr/p28, p29): the plain for-of item flow runs only for a loop whose variable feeds a growable array element, so a loop that does not feed one behaves as on `main` even when the program (or another function) has a growable array. Round 4 gated on the whole program and refused or failed these at load."
+args = ["run", "r5_feed_d02.js"]
+exit = "success"
+stdout = "3\na\n1\n"
+
+[[case]]
+name = "a_mixed_literal_loop_beside_a_function_local_growable_array_prints_its_items_module_scope"
+args = ["run", "r5_feed_d02_module.js"]
+exit = "success"
+stdout = "3\na\n1\n"
+
+[[case]]
+name = "a_module_mixed_literal_loop_beside_a_function_local_growable_array_prints_its_items"
+args = ["run", "r5_feed_d03.js"]
+exit = "success"
+stdout = "1\n3\na\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_remainder"
+args = ["run", "r5_feed_d08.js"]
+exit = "success"
+stdout = "1\n0\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_remainder_module_scope"
+args = ["run", "r5_feed_d08_module.js"]
+exit = "success"
+stdout = "1\n0\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_into_a_const"
+args = ["run", "r5_feed_e01.js"]
+exit = "success"
+stdout = "1 1\n0 2\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_into_a_const_module_scope"
+args = ["run", "r5_feed_e01_module.js"]
+exit = "success"
+stdout = "1 1\n0 2\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_bitwise_or"
+args = ["run", "r5_feed_e02.js"]
+exit = "success"
+stdout = "1\n2\n1\n"
+
+[[case]]
+name = "a_three_item_mixed_literal_loop_beside_a_growable_array_prints_its_items"
+args = ["run", "r5_feed_e06.js"]
+exit = "success"
+stdout = "1\nb\n2\n1\n"
+
+[[case]]
+name = "typeof_of_a_mixed_literal_loop_item_beside_a_growable_array"
+args = ["run", "r5_feed_e08.js"]
+exit = "success"
+stdout = "number\nstring\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_a_comparison"
+args = ["run", "r5_feed_e09.js"]
+exit = "success"
+stdout = "false\ntrue\n1\n"
+
+[[case]]
+name = "a_string_first_mixed_literal_loop_beside_a_growable_array_prints_its_items"
+args = ["run", "r5_feed_e13.js"]
+exit = "success"
+stdout = "a\n1\n1\n"
+
+[[case]]
+name = "a_module_mixed_literal_loop_beside_a_growable_array_in_a_helper_prints_its_items"
+args = ["run", "r5_feed_e14.js"]
+exit = "success"
+stdout = "3\na\n1\n"
+
+[[case]]
+name = "a_module_rounded_float_let_loop_item_beside_a_growable_array_in_a_helper_folds"
+args = ["run", "r5_feed_e15.js"]
+exit = "success"
+stdout = "1\n0\n1\n"
+
+[[case]]
+name = "check_accepts_loops_that_do_not_feed_a_growable_array"
+args = ["check", "r5_feed_d02.js", "r5_feed_d02_module.js", "r5_feed_d03.js", "r5_feed_d08.js", "r5_feed_d08_module.js", "r5_feed_e01.js", "r5_feed_e01_module.js", "r5_feed_e02.js", "r5_feed_e06.js", "r5_feed_e08.js", "r5_feed_e09.js", "r5_feed_e13.js", "r5_feed_e14.js", "r5_feed_e15.js"]
+exit = "success"
+
+[[case]]
+name = "check_refuses_a_mixed_literal_loop_feeding_a_growable_push_through_a_binding"
+args = ["check", "r5_mixed_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_mixed_literal_loop_feeding_a_growable_push_through_a_binding_is_refused_under_run"
+rationale = "Residual round 5: a loop whose variable feeds a growable push (directly, through a binding, or through a parameter) keeps Task 7's item flow, so a mixed literal array is the both-axes refusal under `check` and `run` (node prints `2`)."
+args = ["run", "r5_mixed_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "check_refuses_a_mixed_literal_loop_feeding_a_growable_push_module_scope"
+args = ["check", "r5_mixed_push_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_mixed_literal_loop_feeding_a_growable_push_is_refused_module_scope_under_run"
+args = ["run", "r5_mixed_push_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "check_refuses_a_mixed_literal_loop_feeding_a_growable_push_through_a_parameter"
+args = ["check", "r5_mixed_push_param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_mixed_literal_loop_feeding_a_growable_push_through_a_parameter_is_refused_under_run"
+args = ["run", "r5_mixed_push_param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_let_loop_item_over_a_literal_array_is_read_as_the_item"
+rationale = "Residual round 5: the static (unrolled) for-of lanes bind the item but never write a `let` variable's local, so a read through it gave `0`: `out.push(x)` stored `0, 0` (silent) and `console.log(z + 1, Math.abs(z))` printed the stale value (on `main` too). While the body is emitted a read of the variable resolves to the item, unless the body assigns it."
+args = ["run", "let_item_function.js"]
+exit = "success"
+stdout = "4 3\n5 4\n1 2 1.5 2.5\n"
+
+[[case]]
+name = "a_let_loop_item_over_a_literal_array_is_read_as_the_item_module_scope"
+args = ["run", "let_item_module.js"]
+exit = "success"
+stdout = "4 3\n5 4\n1 2 1.5 2.5\n"

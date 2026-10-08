@@ -2244,6 +2244,13 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
         }
+        // Residual round 5: a static `for-of`'s loop variable reads the item
+        // the unroll lane bound, not its never-written local or global.
+        if self.unrolled_loop_items.contains(text) {
+            if let Some(bound) = self.bindings.get(text).copied() {
+                return IdentifierResolution::Binding(bound);
+            }
+        }
         // Module-scope mutable scalar promoted to a persistent WASM global.
         // Gated on NOT being a local first — a shadowing local/param wins.
         if !self.locals.contains_key(text) {

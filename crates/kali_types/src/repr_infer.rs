@@ -1386,6 +1386,10 @@ struct ReprInfer {
     /// Keys declared more than once in one scope (sibling blocks or loops):
     /// never a compile-time number, since one key would stand for two values.
     static_numeric_conflicts: BTreeSet<(String, String)>,
+    /// Residual round 5: the bindings that feed a growable element (from the
+    /// probe walk; `None` during the probe walk itself, which runs no plain
+    /// `for-of` item flow).
+    plain_for_of_feeding: Option<BTreeSet<(String, String)>>,
     /// The default-deny half of `numeric_binding_candidates`: any write this
     /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
     /// the C-6 leak), a declarator with NO initializer (`let x;` is
@@ -2023,6 +2027,26 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // Array-return lane (fix round 1): a class body is never walked, so its
     // writes are invisible to `array_return_written_names`.
     infer.array_return_unwalked_code = program_contains_class(statements);
+
+    // Residual round 5: which bindings feed a growable element. The M2 write,
+    // return and argument proofs are syntactic but recorded by the Phase B
+    // walk, and the plain `for-of` item flow must be decided as each loop is
+    // walked (later arms read the loop variable's seeds), so a probe walk of
+    // a fresh inference collects them first. A program without a growable
+    // array feeds none and needs no probe.
+    infer.plain_for_of_feeding = Some(if infer.growable.growable_members().next().is_some() {
+        let mut probe = ReprInfer::default();
+        probe.collect_functions(statements);
+        probe.collect_local_names(TOP_LEVEL, statements);
+        probe.solve_growable(statements);
+        probe.array_return_unwalked_code = infer.array_return_unwalked_code;
+        for stmt in statements {
+            probe.visit_stmt(TOP_LEVEL, stmt);
+        }
+        probe.growable_feeding_bindings()
+    } else {
+        BTreeSet::new()
+    });
 
     // P3 Task 2: `abort_controller_shadowed` and `abort_bindings` are both
     // populated DURING Phase B below (inline in `visit_stmt`/
@@ -4629,8 +4653,11 @@ impl ReprInfer {
                         let node = self.scalar_node_for(func, &var);
                         self.add_edge(elem, node);
                     }
-                } else {
-                    self.flow_plain_for_of_items(func, stmt);
+                } else if let Some(var) = for_of_loop_var(stmt) {
+                    // Residual round 5: per loop (`plain_for_of_flows`).
+                    if self.plain_for_of_flows(func, &var) {
+                        self.flow_plain_for_of_items(func, &var, &stmt.right);
+                    }
                 }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
@@ -5937,11 +5964,111 @@ impl ReprInfer {
         rn
     }
 
-    /// Residual round 4: the program has a growable array (a binding, field
-    /// or return the growable solve admitted).
-    fn program_has_growable(&self) -> bool {
-        self.growable.growable_members().next().is_some()
-            || self.growable.growable_returning().next().is_some()
+    /// Residual round 5: whether Task 7's plain `for-of` item flow runs for
+    /// this loop variable. It does exactly when the variable feeds a growable
+    /// array element (`growable_feeding_bindings`, computed by a probe walk
+    /// before Phase B: a pushed or stored value, an index, a `slice` bound or
+    /// a search value, directly or through bindings, parameters and returns).
+    /// The one other case is a loop variable inference proves a compile-time
+    /// number (`is_static_numeric`): its items only float it, so a local it
+    /// is copied into (`const y = x`) gets the f64 slot its value needs,
+    /// while the rounding calls over it stay on the fold (no float edge from
+    /// a compile-time number). The probe walk itself runs no flow.
+    fn plain_for_of_flows(&self, func: &str, var: &str) -> bool {
+        let Some(feeding) = &self.plain_for_of_feeding else {
+            return false;
+        };
+        let key = (self.binding_scope(func, var), var.to_string());
+        feeding.contains(&key)
+            || self.is_static_numeric(func, &Expression::Identifier(var.to_string()), 0)
+    }
+
+    /// Residual round 5: every binding (`(scope, name)`, a parameter keyed by
+    /// its function) whose value can reach a growable array element or
+    /// operand. The roots are the M2 proofs of every value stored into a
+    /// growable array and of every index, `slice` bound and search value
+    /// applied to one; a binding a proof reads feeds, and so does everything
+    /// its writes read, the arguments passed for it when it is a parameter,
+    /// the returns of a function whose call a proof reads, and the literal
+    /// elements of an array whose elements a proof reads.
+    fn growable_feeding_bindings(&self) -> BTreeSet<(String, String)> {
+        use crate::growable::elem_proof::ElemProof;
+        let facts = &self.growable_facts;
+        let mut work: Vec<&ElemProof> = Vec::new();
+        for (node, proof) in &facts.element_values {
+            if self.growable.is_growable(node) {
+                work.push(proof);
+            }
+        }
+        for (node, _, proof) in &facts.operands {
+            if self.growable.is_growable(node) {
+                work.push(proof);
+            }
+        }
+        let mut bindings: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut callees: BTreeSet<String> = BTreeSet::new();
+        while let Some(proof) = work.pop() {
+            match proof {
+                ElemProof::All(parts) => work.extend(parts.iter()),
+                ElemProof::Call { callee, .. } => {
+                    if callees.insert(callee.clone()) {
+                        if let Some(returns) = self.return_elem_proofs.get(callee) {
+                            work.extend(returns.iter());
+                        }
+                    }
+                }
+                ElemProof::Binding { func, name }
+                | ElemProof::Elements { func, name }
+                | ElemProof::StringElements { func, name }
+                | ElemProof::StringBinding { func, name }
+                | ElemProof::ArrayOrString { func, name } => {
+                    let param = self
+                        .functions
+                        .get(func)
+                        .and_then(|params| params.iter().position(|p| p == name));
+                    let scope = if param.is_some() {
+                        func.clone()
+                    } else {
+                        self.binding_scope(func, name)
+                    };
+                    let key = (scope.clone(), name.clone());
+                    if !bindings.insert(key.clone()) {
+                        continue;
+                    }
+                    if let Some(writes) = self.binding_elem_proofs.get(&key) {
+                        work.extend(writes.iter());
+                    }
+                    if let Some(index) = param {
+                        for edge in &self.calls {
+                            let reaches = edge.callee == *func
+                                || self
+                                    .array_return_callee(&edge.caller, &edge.callee)
+                                    .as_deref()
+                                    == Some(func.as_str());
+                            if reaches {
+                                if let Some(arg) = edge.arg_elem_proofs.get(index) {
+                                    work.push(arg);
+                                }
+                            }
+                        }
+                    }
+                    let array = crate::growable::flow::GrowNode::Binding(scope, name.clone());
+                    if let Some(component) = self.growable.component_of(&array) {
+                        for (node, value) in &facts.element_values {
+                            if self.growable.component_of(node) == Some(component) {
+                                work.push(value);
+                            }
+                        }
+                    }
+                }
+                ElemProof::Yes
+                | ElemProof::Str
+                | ElemProof::No
+                | ElemProof::GrowElements(_)
+                | ElemProof::Global { .. } => {}
+            }
+        }
+        bindings
     }
 
     /// Non-inserting lookup twin of [`Self::array_elem_node_for`]: true when
@@ -5964,35 +6091,16 @@ impl ReprInfer {
     /// Any other iterable leaves the loop variable plain; the M2 proof then
     /// refuses a string item it cannot see (`ElemProof::Str`).
     ///
-    /// Residual round 4: the flow exists to feed a growable element, so in
-    /// full it runs only in a program that has a growable array. Without one
-    /// the loop variable stays as on `main` (codegen unrolls the loop to
-    /// per-item bindings): `for (const x of [3, "a"])` prints its items
+    /// Residual rounds 4-5: the flow exists to feed a growable element, so it
+    /// runs only for a loop whose variable does (`plain_for_of_flows`).
+    /// Every other loop variable stays as on `main` (codegen unrolls the loop
+    /// to per-item bindings): `for (const x of [3, "a"])` prints its items
     /// instead of the both-axes refusal, and a rounding call over a float
     /// item keeps the integer fold (the variable has no float repr, so the
     /// call gets no float edge; codegen's `math_float_lane` mirrors that).
-    /// The one exception is a loop variable inference proves a compile-time
-    /// number (`is_static_numeric`): its items still float it, so a local it
-    /// is copied into (`const y = x`) gets the f64 slot its value needs,
-    /// while the rounding calls over it stay on the fold (no float edge from
-    /// a compile-time number).
-    fn flow_plain_for_of_items(&mut self, func: &str, stmt: &kali_ast::ForOfStatement) {
-        let loop_var = match &stmt.left {
-            kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
-                decl.declarations.first().map(|d| d.id.clone())
-            }
-            kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
-            kali_ast::ForOfLefthand::Expression(_) => None,
-        };
-        let Some(var) = loop_var else {
-            return;
-        };
-        if !self.program_has_growable()
-            && !self.is_static_numeric(func, &Expression::Identifier(var.clone()), 0)
-        {
-            return;
-        }
-        match crate::array_return::unparen(&stmt.right) {
+    fn flow_plain_for_of_items(&mut self, func: &str, var: &str, right: &Expression) {
+        let var = var.to_string();
+        match crate::array_return::unparen(right) {
             Expression::Identifier(name) => {
                 let scope = self.binding_scope(func, name);
                 let key = (scope.clone(), name.clone());
@@ -8982,6 +9090,17 @@ fn collect_destructuring_target_names(pattern: &Expression, names: &mut Vec<Stri
 }
 
 /// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
+/// The single loop variable of a `for-of` (a declaration or a bare name).
+fn for_of_loop_var(stmt: &kali_ast::ForOfStatement) -> Option<String> {
+    match &stmt.left {
+        kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+            decl.declarations.first().map(|d| d.id.clone())
+        }
+        kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
+        kali_ast::ForOfLefthand::Expression(_) => None,
+    }
+}
+
 /// Residual round 4: parentheses and the type-only `as`/`satisfies`
 /// wrappers, which HIR lowering drops (`kali_hir` `lower_expression`), so
 /// codegen sees `const t = 1.5 as number` as `const t = 1.5`. The
