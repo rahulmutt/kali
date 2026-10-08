@@ -86,6 +86,19 @@ const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length);
 function main() { const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length); }
 main();
 """
+"negz_module.js" = """
+const a = []; a.push(-0); a.push(1.5); a.push(-0.0); a.push(-(0)); a.push(-(-0)); a[1] = -0;
+const b = [-0, 2.5]; b.push(+(-0));
+console.log(1 / a[0], 1 / a[1], 1 / a[2], 1 / a[3], 1 / a[4], 1 / b[0], 1 / b[2], a.length);
+"""
+"negz.js" = """
+function main() {
+  const a = []; a.push(-0); a.push(1.5); a.push(-0.0); a.push(-(0)); a.push(-(-0)); a[1] = -0;
+  const b = [-0, 2.5]; b.push(+(-0));
+  console.log(1 / a[0], 1 / a[1], 1 / a[2], 1 / a[3], 1 / a[4], 1 / b[0], 1 / b[2], a.length);
+}
+main();
+"""
 [[case]]
 name = "alias_push_is_seen_through_the_original_module_scope"
 rationale = "Review Focus 2: `b` aliases `a`'s header, so `b.push` grows `a` (spec §3.1 alias edge, A-16 global allocation)."
@@ -207,3 +220,16 @@ name = "check_accepts_the_float_index_write_codegen_refusal_only"
 rationale = "Interim check/run disagreement: inference does not yet refuse a float index on a growable write; codegen does. Re-pin when an inference refusal lands."
 args = ["check", "float_index_write_module.js", "float_index_write.js"]
 exit = "success"
+
+[[case]]
+name = "a_negated_zero_stays_negative_zero_in_an_f64_array_module_scope"
+args = ["run", "negz_module.js"]
+exit = "success"
+stdout = "-Infinity -Infinity -Infinity -Infinity Infinity -Infinity -Infinity 5\n"
+
+[[case]]
+name = "a_negated_zero_stays_negative_zero_in_an_f64_array"
+rationale = "Task 11 review: `-0` pushed, written or seeded into an f64 growable array was converted from the integer 0 and stored +0. `1 / x` shows the sign, since `console.log(-0)` printing `0` is a separate defect."
+args = ["run", "negz.js"]
+exit = "success"
+stdout = "-Infinity -Infinity -Infinity -Infinity Infinity -Infinity -Infinity 5\n"

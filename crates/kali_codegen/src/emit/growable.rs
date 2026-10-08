@@ -108,8 +108,33 @@ impl<'a> FunctionEmitter<'a> {
         if elem == kali_common::Repr::F64 {
             if !produced || !self.is_float_valued(value) {
                 function.instruction(&Instruction::F64ConvertI64S);
+                // Task 11 review: `-0` is the integer 0 on the i64 lane, which
+                // converts to +0; node stores -0.
+                if produced && self.static_zero_is_negative(value) == Some(true) {
+                    function.instruction(&Instruction::F64Neg);
+                }
             }
             function.instruction(&Instruction::I64ReinterpretF64);
+        }
+    }
+
+    /// The sign of `id` when it is a literal zero under any number of unary
+    /// `-`/`+` (`-0`, `-(0)`, `-0.0`, `+(-0)`): `Some(true)` for -0,
+    /// `Some(false)` for +0, `None` for anything else.
+    fn static_zero_is_negative(&self, id: LirNodeId) -> Option<bool> {
+        let id = self.resolve_bound_node(self.unwrap_transparent(id));
+        let node = self.node(id);
+        let text = node.text.as_deref()?;
+        match node.kind {
+            LirNodeKind::Literal => crate::intrinsics::parse_numeric_literal_value(text)
+                .filter(|v| *v == 0.0 && !text.ends_with('n'))
+                .map(f64::is_sign_negative),
+            LirNodeKind::Value if node.children.len() == 1 => match text {
+                "-" => self.static_zero_is_negative(node.children[0]).map(|n| !n),
+                "+" => self.static_zero_is_negative(node.children[0]),
+                _ => None,
+            },
+            _ => None,
         }
     }
 

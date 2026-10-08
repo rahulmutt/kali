@@ -449,6 +449,10 @@ fn growable_runtime_array_messages_name_the_array_and_say_why() {
         "`push` or `pop` on the growable array `a` in `main`, directly, through an alias or through a function it is passed to, inside a `for-of` loop over that same array is unavailable in the current phase: kali fixes the iteration count when the loop starts"
     );
     assert_eq!(
+        growable_loop_capture_message("x"),
+        "the closure or nested function at module scope captures `x`, which a `for-of` loop over a growable array declares; capturing a loop binding at module scope is unavailable in the current phase"
+    );
+    assert_eq!(
         growable_from_index_message("indexOf"),
         "`indexOf` with a `fromIndex` argument on a growable array is unavailable in the current phase"
     );

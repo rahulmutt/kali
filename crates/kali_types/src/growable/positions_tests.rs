@@ -201,3 +201,68 @@ fn slice_with_two_arguments_and_pop_without_one_stay_quiet() {
         Vec::<String>::new()
     );
 }
+
+// Task 11b: a module-scope closure that captures a binding a growable
+// `for-of` declares read `0` at run time while `check` passed.
+const LOOP_CAPTURE: &str = "at module scope captures";
+
+#[test]
+fn a_module_closure_capturing_the_growable_loop_variable_is_refused() {
+    assert_one(
+        "const a = []; a.push(1.5); a.push(4); for (const x of a) { const g = () => x; console.log(g()); }",
+        "the closure or nested function at module scope captures `x`, which a `for-of` loop over a growable array declares",
+    );
+    assert_one(
+        "function build() { const o = []; o.push(7); return o; } for (const x of build()) { const g = function () { return x; }; console.log(g()); }",
+        "captures `x`",
+    );
+}
+
+#[test]
+fn a_module_closure_capturing_a_body_local_of_a_growable_loop_is_refused() {
+    assert_one(
+        "const a = []; a.push(1); for (const x of a) { if (x > 0) { const y = x; const g = () => y; console.log(g()); } }",
+        "captures `y`",
+    );
+}
+
+#[test]
+fn a_module_closure_capturing_a_nested_loop_variable_is_refused() {
+    let src = "const a = []; a.push(1); a.push(2); for (const x of a) { for (let i = 0; i < 1; i++) { for (const y of [5]) { const g = () => i + y; console.log(g()); } } }";
+    assert_one(src, "captures `i`");
+    assert_one(src, "captures `y`");
+    assert_one(
+        "const a = []; a.push(1); a.push(2); for (const x of a) { for (const y of a) { const g = () => x * 10 + y; console.log(g()); } }",
+        "captures `x`",
+    );
+}
+
+#[test]
+fn a_function_declared_in_a_growable_module_loop_capturing_its_variable_is_refused() {
+    assert_one(
+        "const a = []; a.push(3); function show(v) { console.log(v); } for (const x of a) { function h() { return x + 1; } show(h()); }",
+        "captures `x`",
+    );
+}
+
+#[test]
+fn module_closures_that_capture_nothing_the_loop_declares_are_admitted() {
+    let quiet = [
+        // Captures only a module binding declared outside the loop.
+        "const k = 2; const a = []; a.push(1); for (const x of a) { const g = () => k; console.log(g() + x); }",
+        // A closure outside any loop.
+        "let n = 3; const g = () => n; const a = []; a.push(1); for (const x of a) { console.log(x + g()); }",
+        // A closure's own parameter shadows nothing captured.
+        "const a = []; a.push(1); for (const x of a) { const g = (v) => v + 1; console.log(g(x)); }",
+        // Literal and plain loops keep their behaviour (followups).
+        "for (const x of [1, 2]) { const g = () => x; console.log(g()); }",
+        "for (let i = 0; i < 2; i++) { const g = () => i; console.log(g()); }",
+    ];
+    for src in quiet {
+        let messages = refusals(src);
+        assert!(
+            messages.iter().all(|m| !m.contains(LOOP_CAPTURE)),
+            "{src}\nexpected no loop-capture refusal, got {messages:?}"
+        );
+    }
+}

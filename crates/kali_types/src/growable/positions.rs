@@ -109,6 +109,15 @@ pub(crate) fn growable_refusals(
             )));
         }
     }
+    // Task 11b: kali reads a module-scope loop binding captured by a closure
+    // or nested function as `0`; node reads the iteration's value.
+    for frame in &facts.loops {
+        if frame.site == super::flow::TOP_LEVEL && solution.is_growable(&frame.iterable) {
+            for name in frame.captured.intersection(&frame.declared) {
+                messages.push(kali_common::growable_loop_capture_message(name));
+            }
+        }
+    }
     let mut seen = BTreeSet::new();
     messages.retain(|message| seen.insert(message.clone()));
     messages

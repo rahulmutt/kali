@@ -1,0 +1,96 @@
+# Growable runtime arrays: shapes refused with E5506 in repr inference, so
+# `check` and `run` agree (spec §1, §3.6). Task 11b: a closure or nested
+# function at module scope that captures a binding a `for-of` over a growable
+# array declares read `0` at run time while `check` exited 0. Each program is
+# a module-scope repro; the function-scope form is already refused by `run`.
+
+[constants]
+CAPTURE = "the closure or nested function at module scope captures `x`, which a `for-of` loop over a growable array declares"
+
+[source]
+"capture_f64_m.js" = """
+const a = []; a.push(1.5); a.push(4);
+for (const x of a) { const g = () => x; console.log(g()); }
+"""
+"capture_str_m.js" = """
+const a = []; a.push("a"); a.push("b");
+for (const x of a) { const g = () => x; console.log(g()); }
+"""
+"capture_nested_m.js" = """
+const a = []; a.push(1); a.push(2);
+for (const x of a) { for (const y of a) { const g = () => x * 10 + y; console.log(g()); } }
+"""
+"capture_call_m.js" = """
+function build() { const o = []; o.push(7); o.push(8); return o; }
+for (const x of build()) { const g = () => x; console.log(g()); }
+"""
+"capture_fn_decl_m.js" = """
+const a = []; a.push(3); a.push(4);
+function show(v) { console.log(v); }
+for (const x of a) { function h() { return x + 1; } show(h()); }
+"""
+
+[[case]]
+name = "check_refuses_a_module_closure_capturing_an_f64_loop_variable"
+args = ["check", "capture_f64_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "run_refuses_a_module_closure_capturing_an_f64_loop_variable"
+rationale = "node prints `1.5` and `4`; kali read `0` for each at 2dbe32931 while `check` exited 0."
+args = ["run", "capture_f64_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "check_refuses_a_module_closure_capturing_a_string_loop_variable"
+args = ["check", "capture_str_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "run_refuses_a_module_closure_capturing_a_string_loop_variable"
+rationale = "node prints `a` and `b`; kali read `0` for each."
+args = ["run", "capture_str_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "check_refuses_a_module_closure_capturing_an_outer_nested_loop_variable"
+args = ["check", "capture_nested_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "run_refuses_a_module_closure_capturing_an_outer_nested_loop_variable"
+rationale = "node prints `11|12|21|22`; kali read `0` for each."
+args = ["run", "capture_nested_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "check_refuses_a_module_closure_capturing_a_loop_variable_over_a_call_result"
+args = ["check", "capture_call_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "run_refuses_a_module_closure_capturing_a_loop_variable_over_a_call_result"
+rationale = "node prints `7` and `8`; kali read `0` for each."
+args = ["run", "capture_call_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "check_refuses_a_module_closure_capturing_a_loop_variable_in_a_function_declared_in_the_loop"
+args = ["check", "capture_fn_decl_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]
+
+[[case]]
+name = "run_refuses_a_module_closure_capturing_a_loop_variable_in_a_function_declared_in_the_loop"
+rationale = "node prints `4` and `5`; kali printed `1` twice."
+args = ["run", "capture_fn_decl_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${CAPTURE}"]

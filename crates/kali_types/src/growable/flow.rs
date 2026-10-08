@@ -104,6 +104,13 @@ pub(crate) struct LoopFacts {
     pub(crate) mutations: Vec<GrowNode>,
     /// Every declared-function call argument in the body.
     pub(crate) calls: Vec<CallFact>,
+    /// Module-scope loops only (Task 11b): the names the loop declares, its
+    /// variables and every binding in its body (nested blocks and loops
+    /// included).
+    pub(crate) declared: BTreeSet<String>,
+    /// Module-scope loops only (Task 11b): every module binding a closure
+    /// or nested function inside the body names, by name.
+    pub(crate) captured: BTreeSet<String>,
 }
 
 #[derive(Debug, Default)]

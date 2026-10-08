@@ -600,6 +600,16 @@ pub fn growable_for_of_mutation_message(subject: &str) -> String {
     )
 }
 
+/// Growable-runtime-arrays spec §1, §3.6 (Task 11b): a closure or nested
+/// function at module scope reads a binding a `for-of` over a growable array
+/// declares (its variable or a binding in its body), which kali would read
+/// as `0`.
+pub fn growable_loop_capture_message(name: &str) -> String {
+    format!(
+        "the closure or nested function at module scope captures `{name}`, which a `for-of` loop over a growable array declares; capturing a loop binding at module scope is unavailable in the current phase"
+    )
+}
+
 /// Growable-runtime-arrays spec §3.5 (M6).
 pub fn growable_from_index_message(method: &str) -> String {
     format!(

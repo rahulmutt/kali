@@ -6,7 +6,7 @@
 //! value in a position (uses), every `for-of` frame and every stored element
 //! value. It decides nothing: `flow::solve` and `positions` do.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use kali_ast::{
     ArrayExpression, AssignmentExpression, AssignmentOperator, BlockStatement, CallExpression,
@@ -35,6 +35,7 @@ pub(crate) fn collect_facts(statements: &[Statement], ctx: &WalkContext<'_>) -> 
         facts: GrowFacts::default(),
         frames: vec![TOP_LEVEL.to_string()],
         loops: Vec::new(),
+        module_loops: Vec::new(),
         anonymous: 0,
     };
     walker.statements(statements);
@@ -58,6 +59,10 @@ struct Walker<'w, 'c> {
     /// Indices into `facts.loops` of the active `for-of` frames of the
     /// CURRENT function (saved and cleared on entering a nested function).
     loops: Vec<usize>,
+    /// Indices into `facts.loops` of the active `for-of` frames of module
+    /// scope, kept across nested functions (Task 11b): a closure inside one
+    /// that names a binding the loop declares is refused.
+    module_loops: Vec<usize>,
     anonymous: usize,
 }
 
@@ -140,6 +145,9 @@ impl Walker<'_, '_> {
                 None
             }
             Resolved::Module(node) => {
+                for &frame in &self.module_loops {
+                    self.facts.loops[frame].captured.insert(name.to_string());
+                }
                 self.record(&node, UseKind::ModuleRead);
                 None
             }
@@ -151,6 +159,16 @@ impl Walker<'_, '_> {
         let node = self.name_node(name)?;
         self.record(&node, kind);
         Some(node)
+    }
+
+    /// A binding `name` declared in the current function: a module-scope
+    /// declaration inside an active module loop belongs to that loop.
+    fn declare(&mut self, name: &str) {
+        if self.site() == TOP_LEVEL {
+            for &frame in &self.module_loops {
+                self.facts.loops[frame].declared.insert(name.to_string());
+            }
+        }
     }
 
     fn opaque(&mut self) {
@@ -212,6 +230,7 @@ impl Walker<'_, '_> {
             Statement::TryStatement(s) => {
                 self.block(&s.block);
                 if let Some(handler) = &s.handler {
+                    self.declare(&handler.param);
                     self.block(&handler.body);
                 }
                 if let Some(finalizer) = &s.finalizer {
@@ -266,6 +285,7 @@ impl Walker<'_, '_> {
     }
 
     fn declarator(&mut self, id: &str, init: Option<&Expression>) {
+        self.declare(id);
         let node = self.binding(id);
         let Some(init) = init else {
             self.facts.non_array_writes.insert(node);
@@ -321,6 +341,7 @@ impl Walker<'_, '_> {
     /// A loop variable holds elements or keys, never an array.
     fn loop_variables(&mut self, d: &VariableDeclaration) {
         for declarator in &d.declarations {
+            self.declare(&declarator.id);
             let node = self.binding(&declarator.id);
             self.facts.non_array_writes.insert(node);
         }
@@ -340,13 +361,27 @@ impl Walker<'_, '_> {
                 site,
                 mutations: Vec::new(),
                 calls: Vec::new(),
+                declared: BTreeSet::new(),
+                captured: BTreeSet::new(),
             });
-            self.loops.push(self.facts.loops.len() - 1);
+            let frame = self.facts.loops.len() - 1;
+            self.loops.push(frame);
+            if self.site() == TOP_LEVEL {
+                self.module_loops.push(frame);
+                if let ForOfLefthand::VariableDeclaration(d) = &s.left {
+                    self.facts.loops[frame]
+                        .declared
+                        .extend(d.declarations.iter().map(|v| v.id.clone()));
+                }
+            }
             pushed = true;
         }
         self.statement(&s.body);
         if pushed {
-            self.loops.pop();
+            let frame = self.loops.pop();
+            if frame == self.module_loops.last().copied() {
+                self.module_loops.pop();
+            }
         }
     }
 
