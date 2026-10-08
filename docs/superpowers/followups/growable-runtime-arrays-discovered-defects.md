@@ -443,8 +443,9 @@ at `check` and float `let` items under `% 2` / `| 0` failed at load (rr/p28 d02,
 p29 e01, e02, e06, e08, e09, e13, e14, e15). The flow now runs per loop: only when the loop
 variable, or a value derived from it through bindings, parameters or returns, reaches a
 growable element, index, `slice` bound or search value (or is a compile-time number). A
-mixed literal loop that feeds a growable push stays refused. Also resolved: a `let` loop
-variable of a static (unrolled) `for-of` read as its never-written slot (`0`), which made
+mixed literal loop that feeds a growable push stays refused. Also resolved, **for reads
+lexically inside the loop body only** (qualified by the last targeted fix, below): a `let`
+loop variable of a static (unrolled) `for-of` read as its never-written slot (`0`), which made
 `for (let x of [1, 2]) out.push(x)` store `0, 0` silently in the growable lane (and
 `console.log(z + 1)` print `1` on `main`).
 
@@ -452,7 +453,8 @@ variable of a static (unrolled) `for-of` read as its never-written slot (`0`), w
 
 - **A `let` loop variable the body assigns** still reads its never-written slot (pre-existing,
   silent, on `main` too): `for (let x of [1, 2]) { x = x + 10; console.log(x); }` prints `1 2`
-  (node `11 12`). The slot lane is kept when the body assigns the variable.
+  (node `11 12`). The slot lane is kept when the body assigns the variable. *(Last targeted
+  fix: where such a variable feeds a growable array it is now refused; see below.)*
 - **`Math.min`/`Math.max` over a float literal-valued binding inference gives no float repr**
   (a `let` loop item that feeds no growable element, a float `const`): refused by `run` only
   ("non-integer numeric literals"), as on `main` (`const t = 1.5; Math.min(t, 2)`; rr/p29
@@ -460,3 +462,44 @@ variable of a static (unrolled) `for-of` read as its never-written slot (`0`), w
   array, because the item then floated.
 - **The feeding set comes from a probe walk**: a program with a growable array runs inference's
   Phase B twice (once to collect the M2 write, return and argument proofs, once for real).
+
+## Last targeted fix (2026-10-08)
+
+**Resolved (A-45 (6)):** a `let`/`var` (or bare-name) `for-of` loop variable over an unrolled
+iterable that the loop body assigns, and that (directly or through a derived value) reaches a
+growable array element, index, `slice` bound or search value, is refused in inference with
+`E5506` under `check` and `run`. This lane had started admitting such loops, and the stored
+value was silently wrong: `for (let x of [1, 2]) { if (x > 5) x = 0; xs.push(x) }` stored `0,0`
+(rr/p33 c19; node `1,2`; `main` refused), `xs.push(x); x = 9` stored `0,9` (p32 b18; node
+`1 2`), `x = x + 10; xs.push(x)` stored `10,20` (p32 b19; node `11 12`). Loops that do not
+assign the variable, loops over a growable array, and loops whose assigned variable feeds no
+growable array are unaffected.
+
+**Corrected: R-53 is narrowed, not fixed.** Round 5 re-pinned register R-53 FIXED and removed it
+from the SILENT cluster. Its fix covers only reads lexically inside the unrolled body; the slot
+is still never written. Still silent, as on `main`: a closure capturing the loop variable
+(rr/p31 a05, a25), a `var` read after the loop (a03, a04), a bare-identifier target read after
+the loop (a14, a15), a helper function or IIFE reading a `var` loop variable (a44-a47),
+`xs.push(x)` after a `var` loop (p32 b20: kali `1,2,0`, node `1,2,2`), and a body that assigns
+the variable where it feeds no growable array. R-53's §0.2 row is `SILENT / FIXED` again with
+new `r53a_*` oracle cases (a `var` read after the loop, both scopes, SILENT), its G4 cluster
+assignment is restored in `clusters.json`, and the ranking is regenerated (§6, sixteenth
+regeneration; no band moved).
+
+**Left:**
+
+- **A float `let` loop item accumulated or copied into an integer binding fails at load.**
+  `let total = 0; for (let x of [1.5, 2.5]) { total += x; }` and `let m = 0; for (let x of
+  [1.5, 2.5]) { m = x; }` pass `check` and fail `run` with `E4201` (wasm validation), in a
+  function or at module scope (rr/p31 a22, p33 c04, c06; node `4` and `2.5`). `main` printed
+  `0` (silent). Loud now, but an internal error, not an honest `E5506`: the round 5 read
+  resolves the item to its `f64` value, and the binding it flows into was typed `i64`.
+- **Round 5 regression, spec-ruled and parked:** a function-local mixed literal `for-of` whose
+  items are pushed onto a growable array is the both-axes refusal (`E5506`), where `main`
+  printed the length and elements (rr/p32 b23, p33 c10, c11; also `cases/array/growable_for_of.toml`'s
+  `r5_mixed_push_function.js`). The spec requires a growable array's elements to be all numbers
+  or all strings, so this stays refused.
+- **A statement-leading destructuring assignment is dropped by the parser** (pre-existing, silent,
+  on `main` too): `let x = 1; [x] = [5]; console.log(x);` prints `1` (node `5`); the statement
+  does not parse as an assignment, so the write is lost. Parenthesized, `([x] = [5]);`, it parses as an
+  assignment. Not fixed here (parser, outside this lane).

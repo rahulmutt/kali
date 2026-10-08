@@ -304,7 +304,16 @@
     "resolves to the bound item while the body is emitted. A body that assigns the loop",
     "variable keeps the slot lane and is still silent, but no oracle case pins that shape. G4's",
     "cluster DEFINITION stays: two other members are still SILENT, so this is the R-13",
-    "precedent (a member leaves a cluster that survives)."
+    "precedent (a member leaves a cluster that survives).",
+    "",
+    "REVERSED 2026-10-08 by the same project's last targeted fix: R-53 is back in G4. The",
+    "REMOVED note above overclaimed: round 5 fixed only reads lexically inside the unrolled",
+    "body. The slot is still never written, so a closure capturing the loop variable, a `var`",
+    "read after the loop, a bare-identifier target read after the loop, a helper or IIFE",
+    "reading a `var` loop variable, and a body that assigns the loop variable still bind `0`,",
+    "as on main. The new `r53a_*` cases (a `var` read after the loop, both scopes) assert",
+    "SILENT, so R-53 has a SILENT lane again and re-enters the SILENT filter with its original",
+    "assignment."
   ],
   "clusters": [
     {
@@ -535,6 +544,13 @@
       "registerSource": "unclustered (an isolated lowering/emit contract mismatch), but it is a textbook instance of the pattern §3's G-clusters keep circling.",
       "alternate": null,
       "alternateCluster": null
+    },
+    {
+      "id": "R-53",
+      "cluster": "G4 — there is no value distinct from the scalar `0`",
+      "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
+      "alternate": "G7, named and declined by the register.",
+      "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
     },
     {
       "id": "R-57",
