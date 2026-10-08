@@ -75,6 +75,10 @@ inside `for (const byte of bytes)` (`base64_encode.js:56`), `"  ".repeat(…)` i
 `for (const sample of SAMPLES)` (`crc32_checksum.js:75`). No program gained a refusal
 for a construct it did not already contain.
 
+**Re-measured 2026-10-08 after the final review's fix wave** (A-36..A-38), with the
+same command and a binary built after the last code change: every number above is
+unchanged (302 lines; the family diff against `417b58fb8` is empty; 34 programs).
+
 ## §3. Accept set
 
 Unchanged: `accepts.mjs` against the branch binary reads anchor **125/137** and
@@ -167,6 +171,20 @@ their generators have no re-pin channel.
 - **The snapshot rule (A-8) treats two arrays as one when they share a component**
   because both reach the same parameter: `fill(a); fill(b); for (const x of a) b.push(x);`
   is refused, though node would agree with the snapshot (node `2`).
+- **A `slice` copy shares the original's component**, so the snapshot rule (A-8)
+  refuses pushing into the copy while iterating the original (final review minor 10):
+  `function main() { const a = []; a.push(1); a.push(2); const b = a.slice(); for (const x of a) b.push(x); console.log(b.join()); } main();`
+  — `check` and `run` refuse ("`push` or `pop` on the growable array `a` in `main` …
+  inside a `for-of` loop over that same array"); node `1,2,1,2`. The `slice` edge
+  (spec §3.1) joins the result to its receiver's component because both share one
+  element repr; the snapshot rule would need a finer relation (same array, not same
+  component) to admit it.
+- **An unproven index, bound or search value (A-36) is refused, never coerced.**
+  `a["1"]` (node: index 1) and `a.slice("1")` are refused; so is a `NaN` or
+  `Infinity` identifier as an index or search value (`f.indexOf(NaN)`, node `-1`),
+  with the operand message, which wrongly says the value is not proven a number. An
+  identifier index is also refused in a program where the element proof's
+  program-wide `unwalked` flag is set (the callback-in-a-spread item above).
 - **Every growable array that leaves its function is allocated globally and never
   reclaimed**, even when the callee does not keep it. Strings pushed into an escaping
   array survive the creating call (`cases/array/growable_layout.toml` `two_builds`).
@@ -180,8 +198,16 @@ their generators have no re-pin channel.
 - **The module-read message names a synthetic function**: `const out = []; out.push(1); const f = () => out.length;`
   refuses with "function `__kali_fn_0` uses the module-level growable array `out`"
   (Task 12 C2; the refusal case's needle omits the function name).
-- **`a["1"] = 6` on a growable array** is refused by `run` only, with the misleading
-  "rendering a String() result bound to a variable…" message (`check` exits 0; node `6`).
+- **`a["1"] = 6` on a growable array** was refused by `run` only, with a misleading
+  message; since A-36 `check` and `run` both refuse it with the operand message (node `6`).
+- **`f.push(1e20)` onto an integer array** (an integer-valued literal outside the
+  i64 range): `check` exits 0, `run` refuses ("pushing a floating-point value onto a
+  growable array of integers or strings"); node `2` for `f.push(1); f.push(1e20);
+  console.log(f.length)`. A check/run disagreement against spec §3.6.
+- **A large literal in an f64 array fails to load**: `f.push(1.5); f.push(1e20);
+  f.push(1e21)` → `error[E4201]: failed to load WASM module` (node
+  `1.5,100000000000000000000,1e+21`); `check` exits 0. The same E4201 as §1's large
+  float literal in a runtime expression (A-11); loud, not silent.
 - **Any runtime string written to an element of a growable string array is refused**
   under `check` and `run` ("storing a runtime string value into this element … unless
   the target is an array whose elements are all proven strings"); only a string
@@ -196,9 +222,10 @@ their generators have no re-pin channel.
   rendering; `join` printing `0` is correct (A-12). Silent.
 - **A `NaN` or `Infinity` identifier in a runtime f64 expression fails to load**
   (`error[E4201]: failed to load WASM module`), pre-existing at the baseline
-  (`let x = 1.5; console.log(x === NaN)`); this lane now exposes it through
-  `a.indexOf(NaN)`, `a.includes(NaN)` and `a.indexOf(Infinity)` on f64 arrays
-  (`check` exits 0). A computed NaN (`0 / 0`) works. Loud, not silent.
+  (`let x = 1.5; console.log(x === NaN)`). Through `a.indexOf(NaN)`,
+  `a.includes(NaN)` and `a.indexOf(Infinity)` on f64 arrays it used to reach this
+  failure with `check` exiting 0; since A-36 those are refused by `check` too (above).
+  A computed NaN (`0 / 0`) works. Loud, not silent.
 - **Closures over loop bindings outside the growable lane.**
   - Module scope, any non-growable loop: `for (let i = 0; i < 3; i++) { const g = () => i; console.log(g()); }`
     prints `0 0 0` (node `0 1 2`), and the same with `for (const x of [5, 6])`
