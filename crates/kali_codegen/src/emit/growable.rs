@@ -1,9 +1,10 @@
-//! Growable runtime-array emission (throw-fallout Stage 4).
+//! Growable runtime-array emission (growable-runtime-arrays spec, docs/
+//! superpowers/specs/2026-10-07-growable-runtime-arrays-design.md).
 //!
-//! Lowers the bindings the types-side promotion
-//! (`kali_types`' growable safe-position allowlist + i64 repr gate, carried
-//! on `ReprTable::is_growable_array_binding`) marked growable. Layout (the
-//! authoritative Stage 4 memory layout, Step-5 encoding as ruled):
+//! Lowers the arrays the types-side solve (`kali_types::growable`, carried on
+//! `ReprTable::is_growable_array_binding` and its return/field twins) marked
+//! growable. Refusals are raised in inference (spec §3.6), apart from the
+//! few run-only ones the maturity row lists (a float index, A-24). Layout:
 //!
 //! ```text
 //! handle : i64 = zero_extend(hdr_ptr) | ARRAY_HANDLE_TAG          ; bit 62
@@ -11,13 +12,14 @@
 //! data   @ data_ptr : [ v0:i64 @+0 ][ v1:i64 @+8 ] … [ v(cap-1) ]
 //! ```
 //!
-//! Element slots are i64 values (Task 2: numbers; Task 3 adds tagged string
-//! handles). `push` grows geometrically (`cap * 2`) through a fresh
-//! `__alloc`/`__alloc_global` (`alloc_callee_index` — the existing arena
-//! lane; GC-less: a dropped data block is reclaimed by arena reset/release,
-//! never traced). Realloc rewrites `data_ptr`/`cap` INSIDE the header, so
-//! the tagged handle — and the binding local holding it — is stable across
-//! growth (no binding-local update on realloc, by construction).
+//! Element slots are i64 values: an integer, the bits of an f64, or a tagged
+//! string handle, by the array's solved element repr. `push` grows
+//! geometrically (`cap * 2`) through a fresh `__alloc`/`__alloc_global`
+//! (`alloc_callee_index` — the existing arena lane; GC-less: a dropped data
+//! block is reclaimed by arena reset/release, never traced). Realloc rewrites
+//! `data_ptr`/`cap` INSIDE the header, so the tagged handle — and the binding
+//! local holding it — is stable across growth (no binding-local update on
+//! realloc, by construction).
 //!
 //! This is a SEPARATE lane from the plain inline `[len][elem…]` arrays
 //! (`emit_array_allocation_with_len`): the two layouts must never conflate,

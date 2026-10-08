@@ -486,6 +486,18 @@ fn growable_runtime_array_messages_name_the_array_and_say_why() {
         "an array literal written directly as a call argument or `return` value in `f` would be a growable array; bind it to a `const` first in the current phase"
     );
     assert_eq!(
+        growable_literal_assignment_message("main"),
+        "assigning an array literal to a binding that holds a growable array in `main` is unavailable in the current phase; declare a new `const` for the new array instead"
+    );
+    assert_eq!(
+        growable_unproven_operand_message("index", "`a` in `main`", false),
+        "the index of the growable array `a` in `main` is not proven to be a number; a growable array's index and `slice` bounds must be numbers, and its search value a number or a string, in the current phase"
+    );
+    assert_eq!(
+        growable_unproven_operand_message("search value", "`a` at module scope", true),
+        "the search value of the growable array `a` at module scope is not proven to be a number or a string; a growable array's index and `slice` bounds must be numbers, and its search value a number or a string, in the current phase"
+    );
+    assert_eq!(
         growable_temporary_use_message("the array `make(…)` returns"),
         "indexing, `push` or `pop` directly on the array `make(…)` returns is unavailable in the current phase; bind it to a `const` first"
     );

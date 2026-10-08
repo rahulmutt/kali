@@ -653,6 +653,30 @@ pub fn growable_literal_expression_message(func: &str) -> String {
     )
 }
 
+/// Growable-runtime-arrays final review minor 6: a binding that holds a
+/// growable array reassigned from an array literal (`a = []`).
+pub fn growable_literal_assignment_message(func: &str) -> String {
+    format!(
+        "assigning an array literal to a binding that holds a growable array {} is unavailable in the current phase; declare a new `const` for the new array instead",
+        growable_scope_phrase(func)
+    )
+}
+
+/// Growable-runtime-arrays spec A-36 (final review C1): an index, a `slice`
+/// bound or (`search`) an `indexOf`/`includes` search value of a growable
+/// array that inference cannot prove is a number (or, for a search value, a
+/// number or a string).
+pub fn growable_unproven_operand_message(position: &str, subject: &str, search: bool) -> String {
+    let kind = if search {
+        "a number or a string"
+    } else {
+        "a number"
+    };
+    format!(
+        "the {position} of the growable array {subject} is not proven to be {kind}; a growable array's index and `slice` bounds must be numbers, and its search value a number or a string, in the current phase"
+    )
+}
+
 /// Growable-runtime-arrays spec A-6 (M12).
 pub fn growable_temporary_use_message(source: &str) -> String {
     format!(

@@ -15,7 +15,10 @@ use kali_ast::{
 };
 
 use super::elem_proof::{elem_proof, ElemProof};
-use super::flow::{CallFact, GrowFacts, GrowNode, LoopFacts, TempKind, Use, UseKind, TOP_LEVEL};
+use super::flow::{
+    CallFact, GrowFacts, GrowNode, LoopFacts, OperandPosition, TempKind, Use, UseKind, TOP_LEVEL,
+};
+use super::unwrap;
 
 /// What the walk needs from repr inference's Phase A and A2.
 pub(crate) struct WalkContext<'a> {
@@ -64,15 +67,6 @@ struct Walker<'w, 'c> {
     /// that names a binding the loop declares is refused.
     module_loops: Vec<usize>,
     anonymous: usize,
-}
-
-fn unwrap(expr: &Expression) -> &Expression {
-    match expr {
-        Expression::ParenthesizedExpression(inner) => unwrap(&inner.expression),
-        Expression::TypeAssertion(inner) => unwrap(&inner.expression),
-        Expression::SatisfiesExpression(inner) => unwrap(&inner.expression),
-        other => other,
-    }
 }
 
 fn is_allocation(expr: &Expression) -> bool {
@@ -174,6 +168,15 @@ impl Walker<'_, '_> {
     fn opaque(&mut self) {
         let stack = self.frames.clone();
         self.facts.opaque_sites.push(stack);
+    }
+
+    /// Final review C1: an index, bound or search value applied to
+    /// `receiver`, proven in repr inference.
+    fn operand(&mut self, receiver: &GrowNode, position: OperandPosition, operand: &Expression) {
+        let proof = elem_proof(self.site(), operand);
+        self.facts
+            .operands
+            .push((receiver.clone(), position, proof));
     }
 
     fn mutation(&mut self, receiver: &GrowNode) {
@@ -556,6 +559,9 @@ impl Walker<'_, '_> {
                 _ => UseKind::IndexRead,
             };
             if let Some(node) = self.receiver(&member.object) {
+                if kind == UseKind::IndexRead {
+                    self.operand(&node, OperandPosition::Index, index);
+                }
                 self.record(&node, kind);
             }
             self.expr(index);
@@ -778,6 +784,12 @@ impl Walker<'_, '_> {
                         UseKind::Method("`.slice()` with more than two arguments".to_string()),
                     );
                 }
+                for (arg, position) in args
+                    .iter()
+                    .zip([OperandPosition::SliceStart, OperandPosition::SliceEnd])
+                {
+                    self.operand(&receiver, position, arg);
+                }
                 self.plain_args(args);
                 let t = self.temp(TempKind::Slice);
                 self.edge(t.clone(), receiver);
@@ -791,6 +803,9 @@ impl Walker<'_, '_> {
                         from_index: args.len() > 1,
                     },
                 );
+                if let Some(needle) = args.first() {
+                    self.operand(&receiver, OperandPosition::SearchValue, needle);
+                }
                 self.plain_args(args);
                 None
             }
@@ -811,7 +826,15 @@ impl Walker<'_, '_> {
                     self.expr(&a.right);
                     return None;
                 }
-                let value = self.value(&a.right);
+                // Minor 6: a literal assigned to a binding is reported as
+                // such, not as a literal argument or `return` value.
+                let value = match unwrap(&a.right) {
+                    Expression::ArrayExpression(array) => {
+                        self.elements(array);
+                        Some(self.temp(TempKind::LiteralAssignment))
+                    }
+                    _ => self.value(&a.right),
+                };
                 let target = self.name_node(name)?;
                 match value {
                     Some(n) => self.edge(target.clone(), n),
@@ -829,6 +852,7 @@ impl Walker<'_, '_> {
                         .is_some_and(|t| t.parse::<i64>().is_err());
                     if let Some(receiver) = self.receiver(&m.object) {
                         if plain && !string_key {
+                            self.operand(&receiver, OperandPosition::Index, index);
                             self.record(&receiver, UseKind::IndexWrite);
                             // An index write keeps the length: not a loop mutation.
                             self.facts.demands.insert(receiver.clone());

@@ -459,7 +459,9 @@ enum ArrayOrigin {
     /// An allocation (length and fill proof).
     Allocation(crate::array_return::NumProof),
     /// A bare-identifier call; an array only when Phase C0 call-binds it.
-    Call,
+    /// The callee's key ([`ReprInfer::array_return_callee`]); `None` when the
+    /// name is shadowed (a parameter or local callee).
+    Call(Option<String>),
 }
 
 /// Ruling R15: a fact the element-number proof assumes until refuted
@@ -695,7 +697,7 @@ impl NumProofCheck<'_> {
             ArrayOrigin::Allocation(proof) => {
                 kind != "var" && stable && self.proof_holds(proof, deps)
             }
-            ArrayOrigin::Call => self.solution.call_bound.contains(&key),
+            ArrayOrigin::Call(_) => self.solution.call_bound.contains(&key),
         }
     }
 
@@ -848,7 +850,11 @@ impl ElemProofCheck<'_> {
         infer.growable.is_growable_binding(scope, name)
             || infer.growable_facts.literal_origins.contains(&node)
             || infer.growable_facts.plain_origins.contains(&node)
-            || infer.array_origins.contains_key(&key)
+            || infer.array_origins.get(&key).is_some_and(|origins| {
+                origins
+                    .iter()
+                    .any(|(_, origin)| self.origin_is_array(origin))
+            })
             || infer.const_literal_array_bindings.contains(&key)
             || infer.const_bad_literal_array_bindings.contains(&key)
             || infer.const_computed_literal_array_bindings.contains(&key)
@@ -856,6 +862,24 @@ impl ElemProofCheck<'_> {
             || self.table.is_non_scalar_param(scope, name)
             || self.solution.array_fed_params.contains(&key)
             || self.solution.call_bound.contains(&key)
+    }
+
+    /// Final review I2: a literal or an allocation is an array; a call is one
+    /// only when its callee returns an array (the array-return lane) or a
+    /// growable array. A shadowed callee (a parameter or local) is unknown:
+    /// counted an array, fail-closed. A callee that returns no array leaves
+    /// the binding to the scalar proof, which refuses an unknown callee.
+    fn origin_is_array(&self, origin: &ArrayOrigin) -> bool {
+        match origin {
+            ArrayOrigin::Literal(_) | ArrayOrigin::Allocation(_) | ArrayOrigin::Call(None) => true,
+            ArrayOrigin::Call(Some(callee)) => {
+                self.solution.array_returning.contains(callee)
+                    || self
+                        .infer
+                        .growable
+                        .is_growable(&crate::growable::flow::GrowNode::Return(callee.clone()))
+            }
+        }
     }
 
     fn param_index(&self, func: &str, name: &str) -> Option<usize> {
@@ -4547,10 +4571,11 @@ impl ReprInfer {
                 }
             }
             crate::array_return::InitKind::Call(callee) => {
+                let key = self.array_return_callee(func, &callee);
                 self.array_origins
                     .entry((func.to_string(), id.to_string()))
                     .or_default()
-                    .push((kind.to_string(), ArrayOrigin::Call));
+                    .push((kind.to_string(), ArrayOrigin::Call(key)));
                 if kind != "var" {
                     if let Some(callee) = self.array_return_callee(func, &callee) {
                         if kind == "let" {
@@ -7530,6 +7555,26 @@ impl ReprInfer {
             .collect()
     }
 
+    /// The nodes a growable refusal on `node` names. A `Temp` receiver
+    /// (`(c ? a : b).push(v)`) has no name to report: every binding and
+    /// return of its component is named instead. A growable component always
+    /// holds a binding (its literal origin).
+    fn growable_named_members(
+        &self,
+        node: &crate::growable::flow::GrowNode,
+    ) -> Vec<crate::growable::flow::GrowNode> {
+        use crate::growable::flow::GrowNode;
+        if !matches!(node, GrowNode::Temp(_)) {
+            return vec![node.clone()];
+        }
+        self.growable
+            .members_of(node)
+            .iter()
+            .filter(|member| !matches!(member, GrowNode::Temp(_)))
+            .cloned()
+            .collect()
+    }
+
     fn emit_table(mut self) -> ReprTable {
         let n = self.node_count;
         let float_seeds = std::mem::take(&mut self.seeds);
@@ -8433,6 +8478,15 @@ impl ReprInfer {
                 string_components,
                 refuted: BTreeSet::new(),
             };
+            // Final review C1 (A-36): the facts every index, `slice` bound
+            // and search value of a growable array leans on are goals too —
+            // a fact outside the refuted universe would read as proven.
+            let mut goals = goals;
+            for (node, position, proof) in &infer.growable_facts.operands {
+                if infer.growable.is_growable(node) {
+                    check.proof_holds(proof, position.admits_strings(), &mut goals);
+                }
+            }
             // Pass 1 discovers the plain integer element classes the proof
             // leans on; the number proof settles them; pass 2 is the real one.
             check.refute(goals.clone());
@@ -8447,6 +8501,17 @@ impl ReprInfer {
             );
             check.refuted.clear();
             check.refute(goals);
+            let mut unproven_operands: BTreeSet<(
+                GrowNode,
+                crate::growable::flow::OperandPosition,
+            )> = BTreeSet::new();
+            for (node, position, proof) in &infer.growable_facts.operands {
+                if infer.growable.is_growable(node)
+                    && !check.proof_holds(proof, position.admits_strings(), &mut Vec::new())
+                {
+                    unproven_operands.insert((node.clone(), *position));
+                }
+            }
             let mut unsupported: BTreeSet<GrowNode> = BTreeSet::new();
             for (node, proof) in &infer.growable_facts.element_values {
                 if !infer.growable.is_growable(node) {
@@ -8467,39 +8532,35 @@ impl ReprInfer {
                     }
                 }
             }
-            // A `Temp` receiver (`(c ? a : b).push(v)`) has no name to report:
-            // report every binding and return of its component instead. A
-            // component of temps only is a call or `slice` result used without
-            // a binding, which the position refusals (A-6) already refuse.
-            let mut named: BTreeSet<GrowNode> = BTreeSet::new();
-            for node in unsupported {
-                if matches!(node, GrowNode::Temp(_)) {
-                    named.extend(
-                        infer
-                            .growable
-                            .members_of(&node)
-                            .iter()
-                            .filter(|member| !matches!(member, GrowNode::Temp(_)))
-                            .cloned(),
-                    );
-                } else {
-                    named.insert(node);
-                }
-            }
-            named
+            let named = |node: &GrowNode| infer.growable_named_members(node);
+            let elements: BTreeSet<GrowNode> = unsupported.iter().flat_map(named).collect();
+            let operands: BTreeSet<(GrowNode, crate::growable::flow::OperandPosition)> =
+                unproven_operands
+                    .into_iter()
+                    .flat_map(|(node, position)| {
+                        named(&node)
+                            .into_iter()
+                            .map(move |member| (member, position))
+                    })
+                    .collect();
+            (elements, operands)
         };
+        let (unsupported, unproven_operands) = unsupported;
         for node in unsupported {
-            let subject = match &node {
-                crate::growable::flow::GrowNode::Binding(func, name) => {
-                    kali_common::growable_binding_subject(name, func)
-                }
-                crate::growable::flow::GrowNode::Return(func) => {
-                    kali_common::growable_return_subject(func)
-                }
-                // Never reached: temps were mapped to their named members above.
-                crate::growable::flow::GrowNode::Temp(_) => continue,
-            };
-            table.add_shape_conflict(kali_common::growable_unsupported_element_message(&subject));
+            if let Some(subject) = growable_node_subject(&node) {
+                table.add_shape_conflict(kali_common::growable_unsupported_element_message(
+                    &subject,
+                ));
+            }
+        }
+        for (node, position) in unproven_operands {
+            if let Some(subject) = growable_node_subject(&node) {
+                table.add_shape_conflict(kali_common::growable_unproven_operand_message(
+                    position.text(),
+                    &subject,
+                    position.admits_strings(),
+                ));
+            }
         }
 
         // Stage P5 T-new-E: finalize the whole-program String()-result deny
@@ -8507,6 +8568,20 @@ impl ReprInfer {
         self.resolve_string_result_taint(&mut table);
 
         table
+    }
+}
+
+/// What a growable refusal calls a named growable node (`None` for a
+/// temporary, which [`ReprInfer::growable_named_members`] maps away).
+fn growable_node_subject(node: &crate::growable::flow::GrowNode) -> Option<String> {
+    match node {
+        crate::growable::flow::GrowNode::Binding(func, name) => {
+            Some(kali_common::growable_binding_subject(name, func))
+        }
+        crate::growable::flow::GrowNode::Return(func) => {
+            Some(kali_common::growable_return_subject(func))
+        }
+        crate::growable::flow::GrowNode::Temp(_) => None,
     }
 }
 

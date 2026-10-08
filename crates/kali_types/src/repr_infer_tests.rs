@@ -2621,3 +2621,144 @@ fn a_string_value_the_element_repr_cannot_see_is_refused() {
         assert!(ok, "{src}\n{:?} {:?}", t.array_element("main", "out"), t.shape_conflicts());
     }
 }
+
+// Final review C1 (A-36): an index, a `slice` bound and a search value of a
+// growable array are proven before codegen sees them. Each operand below is
+// refused in module scope and in `main()`.
+const UNPROVEN_OPERAND: &str = "is not proven to be";
+
+fn in_both_scopes(body: &str) -> [String; 2] {
+    [
+        format!("const a = [1, 2]; a.push(3);\n{body}\n"),
+        format!("function main() {{ const a = [1, 2]; a.push(3);\n{body}\n}}\nmain();\n"),
+    ]
+}
+
+#[test]
+fn unproven_index_bound_and_search_operands_are_refused() {
+    for body in [
+        // Index read and write.
+        "console.log(a[true]);",
+        "console.log(a[null]);",
+        "console.log(a[undefined]);",
+        "const k = \"1\"; console.log(a[k]);",
+        "console.log(a[\"1\"]);",
+        "const j = [1]; console.log(a[j]);",
+        "let i; a[i] = 7; console.log(a.join());",
+        "a[false] = 7; console.log(a.join());",
+        "a[\"1\"] = 7; console.log(a.join());",
+        // Both `slice` bounds.
+        "console.log(a.slice(true).join());",
+        "console.log(a.slice(null).join());",
+        "console.log(a.slice(\"1\").join());",
+        "console.log(a.slice(1, undefined).join());",
+        "let e; console.log(a.slice(0, e).join());",
+        "console.log(a.slice(0, [1]).join());",
+        "console.log(a.slice(0, a.length > 0).join());",
+        // The search value of `indexOf` and `includes`.
+        "console.log(a.includes(true));",
+        "console.log(a.indexOf(false));",
+        "console.log(a.includes(null));",
+        "console.log(a.indexOf(undefined));",
+        "console.log(a.indexOf(a.length > 0));",
+        "const j = [1]; console.log(a.includes(j));",
+    ] {
+        for src in in_both_scopes(body) {
+            let t = reprs(&src);
+            assert!(
+                t.shape_conflicts()
+                    .iter()
+                    .any(|m| m.contains(UNPROVEN_OPERAND)),
+                "{src}\n{:?}",
+                t.shape_conflicts()
+            );
+        }
+    }
+}
+
+#[test]
+fn a_string_search_value_of_a_string_array_null_is_refused() {
+    let t = reprs(
+        "function main() { const w = []; w.push(\"x\"); console.log(w.indexOf(null), w.includes(true)); }\nmain();\n",
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains(UNPROVEN_OPERAND)),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn proven_index_bound_and_search_operands_stay_admitted() {
+    for body in [
+        "for (let i = 0; i < a.length; i++) console.log(a[i]);",
+        "console.log(a[a.length - 1]);",
+        // A float index is proven a number; codegen refuses it (A-24).
+        "const h = 1.5; console.log(a[0], a[h]);",
+        "a[0] = 5; let k = 1; a[k] = a[k] + 1; console.log(a.join());",
+        "console.log(a.slice(1, 3).join(), a.slice(-2).join(), a.slice(0.5).join());",
+        "const x = 2; console.log(a.includes(x), a.indexOf(x), a.includes(2.5));",
+        "const xs = []; xs.push(\"p\"); const w = \"p\"; console.log(xs.indexOf(w), xs.includes(\"q\"));",
+        "const n = Math.floor(a.length / 2); console.log(a[n], a.slice(n).join());",
+    ] {
+        for src in in_both_scopes(body) {
+            let t = reprs(&src);
+            assert!(t.shape_conflicts().is_empty(), "{src}\n{:?}", t.shape_conflicts());
+        }
+    }
+}
+
+#[test]
+fn a_parameter_index_is_proven_through_its_call_sites() {
+    let ok = reprs(
+        "function at(xs, i) { return xs[i]; }\nfunction main() { const a = []; a.push(4); console.log(at(a, 0)); }\nmain();\n",
+    );
+    assert!(
+        ok.shape_conflicts().is_empty(),
+        "{:?}",
+        ok.shape_conflicts()
+    );
+    let bad = reprs(
+        "function at(xs, i) { return xs[i]; }\nfunction main() { const a = []; a.push(4); console.log(at(a, true)); }\nmain();\n",
+    );
+    assert!(
+        bad.shape_conflicts()
+            .iter()
+            .any(|m| m.contains(UNPROVEN_OPERAND)),
+        "{:?}",
+        bad.shape_conflicts()
+    );
+}
+
+// Final review I2: a `const` bound to a call is an array only when its callee
+// returns one.
+#[test]
+fn a_const_bound_to_a_number_returning_call_is_a_number_element() {
+    for src in [
+        "function sq(n) { return n * n; }\nconst out = []; for (let i = 0; i < 4; i++) { const v = sq(i); out.push(v); } console.log(out.join(\" \"));\n",
+        "function sq(n) { return n * n; }\nfunction main() { const out = []; for (let i = 0; i < 4; i++) { const v = sq(i); out.push(v); } console.log(out.join(\" \")); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}\n{:?}", t.shape_conflicts());
+    }
+}
+
+#[test]
+fn a_const_bound_to_an_array_returning_call_stays_refused_as_an_element() {
+    for src in [
+        "function mk(n) { return [n, n]; }\nfunction main() { const out = []; for (let i = 0; i < 4; i++) { const v = mk(i); out.push(v); } console.log(out.length); }\nmain();\n",
+        "function mk(n) { const r = []; r.push(n); return r; }\nfunction main() { const out = []; for (let i = 0; i < 4; i++) { const v = mk(i); out.push(v); } console.log(out.length); }\nmain();\n",
+        "function main() { const out = []; const v = unknownFn(1); out.push(v); console.log(out.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}

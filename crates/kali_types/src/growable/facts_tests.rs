@@ -198,3 +198,46 @@ fn a_class_inside_a_function_is_an_opaque_site_carrying_the_frame_stack() {
         vec![vec!["_start".to_string(), "m".to_string()]]
     );
 }
+
+// Final review C1: every index, `slice` bound and search value is recorded
+// against its receiver with its proof.
+#[test]
+fn indices_bounds_and_search_values_are_recorded_as_operands() {
+    use super::super::flow::OperandPosition;
+    let f = facts(
+        "const a = []; a.push(1); let i = 0; a[i] = a[true]; a.slice(1, null); a.indexOf(undefined); a.includes(2); a.indexOf();",
+    );
+    let got: Vec<(OperandPosition, ElemProof)> = f
+        .operands
+        .iter()
+        .filter(|(node, _, _)| *node == b("_start", "a"))
+        .map(|(_, position, proof)| (*position, proof.clone()))
+        .collect();
+    let binding = |name: &str| ElemProof::Binding {
+        func: "_start".to_string(),
+        name: name.to_string(),
+    };
+    assert_eq!(
+        got,
+        vec![
+            (OperandPosition::Index, binding("i")),
+            (OperandPosition::Index, ElemProof::No),
+            (OperandPosition::SliceStart, ElemProof::Yes),
+            (OperandPosition::SliceEnd, ElemProof::No),
+            (OperandPosition::SearchValue, binding("undefined")),
+            (OperandPosition::SearchValue, ElemProof::Yes),
+        ]
+    );
+}
+
+#[test]
+fn a_literal_assigned_to_a_binding_is_a_literal_assignment_temporary() {
+    let f = facts("let a = []; a.push(1); a = [];");
+    let literal = f
+        .temp_kinds
+        .iter()
+        .find(|(_, (kind, _))| *kind == TempKind::LiteralAssignment)
+        .map(|(n, _)| GrowNode::Temp(*n))
+        .expect("a literal-assignment temporary");
+    assert!(has_edge(&f, &b("_start", "a"), &literal));
+}

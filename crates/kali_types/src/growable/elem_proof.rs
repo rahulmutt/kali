@@ -9,6 +9,7 @@
 use kali_ast::{AssignmentOperator, Expression, LiteralValue, LogicalOperator};
 
 use super::flow::GrowNode;
+use super::unwrap;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum ElemProof {
@@ -99,15 +100,6 @@ impl ElemProof {
             ElemProof::All(parts) => parts.iter().any(|p| p.mentions_binding(name)),
             _ => false,
         }
-    }
-}
-
-fn unwrap(expr: &Expression) -> &Expression {
-    match expr {
-        Expression::ParenthesizedExpression(inner) => unwrap(&inner.expression),
-        Expression::TypeAssertion(inner) => unwrap(&inner.expression),
-        Expression::SatisfiesExpression(inner) => unwrap(&inner.expression),
-        other => other,
     }
 }
 
@@ -212,11 +204,13 @@ pub(crate) fn elem_proof(func: &str, expr: &Expression) -> ElemProof {
             .expressions
             .last()
             .map_or(ElemProof::No, |last| elem_proof(func, last)),
-        // `x = v` yields `v`; a compound arithmetic assignment a number or a
-        // string; a logical assignment `x` or `v`.
+        // `x = v` yields `v`; `x += v` is `x + v` (a string when either is,
+        // final review C1); any other compound arithmetic assignment a number
+        // (or a BigInt); a logical assignment `x` or `v`.
         Expression::AssignmentExpression(a) => match a.operator {
             AssignmentOperator::Assign => elem_proof(func, &a.right),
-            AssignmentOperator::NullishAssign
+            AssignmentOperator::AddAssign
+            | AssignmentOperator::NullishAssign
             | AssignmentOperator::AndAssign
             | AssignmentOperator::OrAssign => {
                 ElemProof::all(vec![elem_proof(func, &a.left), elem_proof(func, &a.right)])
@@ -342,3 +336,7 @@ fn call_proof(func: &str, call: &kali_ast::CallExpression) -> ElemProof {
 pub(crate) fn is_scalar_global_function(callee: &str) -> bool {
     SCALAR_GLOBAL_FUNCTIONS.contains(&callee)
 }
+
+#[cfg(test)]
+#[path = "elem_proof_tests.rs"]
+mod elem_proof_tests;

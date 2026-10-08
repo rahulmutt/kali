@@ -196,6 +196,204 @@ function main() { console.log(make().pop()); }
 main();
 """
 
+"op_index_boolean_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a[true]);
+"""
+"op_index_boolean.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a[true]);
+}
+main();
+"""
+"op_index_null_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a[null]);
+"""
+"op_index_null.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a[null]);
+}
+main();
+"""
+"op_index_undefined_m.js" = """
+const a = [1, 2]; a.push(3);
+let i; a[i] = 7; console.log(a.join(), a[i]);
+"""
+"op_index_undefined.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  let i; a[i] = 7; console.log(a.join(), a[i]);
+}
+main();
+"""
+"op_index_string_m.js" = """
+const a = [1, 2]; a.push(3);
+const k = "1"; console.log(a[k]);
+"""
+"op_index_string.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  const k = "1"; console.log(a[k]);
+}
+main();
+"""
+"op_index_array_m.js" = """
+const a = [1, 2]; a.push(3);
+const j = [1]; console.log(a[j]);
+"""
+"op_index_array.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  const j = [1]; console.log(a[j]);
+}
+main();
+"""
+"op_bound_boolean_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.slice(true).join());
+"""
+"op_bound_boolean.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.slice(true).join());
+}
+main();
+"""
+"op_bound_null_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.slice(0, null).join());
+"""
+"op_bound_null.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.slice(0, null).join());
+}
+main();
+"""
+"op_bound_undefined_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.slice(1, undefined).join());
+"""
+"op_bound_undefined.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.slice(1, undefined).join());
+}
+main();
+"""
+"op_bound_string_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.slice("1").join());
+"""
+"op_bound_string.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.slice("1").join());
+}
+main();
+"""
+"op_bound_array_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.slice(0, [1]).join());
+"""
+"op_bound_array.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.slice(0, [1]).join());
+}
+main();
+"""
+"op_needle_boolean_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.includes(true), a.indexOf(a.length > 0));
+"""
+"op_needle_boolean.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.includes(true), a.indexOf(a.length > 0));
+}
+main();
+"""
+"op_needle_null_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.indexOf(null));
+"""
+"op_needle_null.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.indexOf(null));
+}
+main();
+"""
+"op_needle_undefined_m.js" = """
+const a = [1, 2]; a.push(3);
+let u; console.log(a.includes(u));
+"""
+"op_needle_undefined.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  let u; console.log(a.includes(u));
+}
+main();
+"""
+"op_needle_string_m.js" = """
+const a = [1, 2]; a.push(3);
+console.log(a.includes("2"));
+"""
+"op_needle_string.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  console.log(a.includes("2"));
+}
+main();
+"""
+"op_needle_array_m.js" = """
+const a = [1, 2]; a.push(3);
+const j = [2]; console.log(a.includes(j));
+"""
+"op_needle_array.js" = """
+function main() {
+  const a = [1, 2]; a.push(3);
+  const j = [2]; console.log(a.includes(j));
+}
+main();
+"""
+"literal_assignment_m.js" = """
+let a = [];
+a.push(1);
+a = [];
+a.push(2);
+console.log(a.length, a[0]);
+"""
+"literal_assignment.js" = """
+function main() {
+  let a = [];
+  a.push(1);
+  a = [];
+  a.push(2);
+  console.log(a.length, a[0]);
+}
+main();
+"""
+"call_const_array_m.js" = """
+function mk(n) { const r = []; r.push(n); return r; }
+const out = [];
+for (let i = 0; i < 2; i++) { const v = mk(i); out.push(v); }
+console.log(out.length);
+"""
+"call_const_array.js" = """
+function mk(n) { const r = []; r.push(n); return r; }
+function main() {
+  const out = [];
+  for (let i = 0; i < 2; i++) { const v = mk(i); out.push(v); }
+  console.log(out.length);
+}
+main();
+"""
+
 [[case]]
 name = "check_refuses_a_module_closure_capturing_an_f64_loop_variable"
 args = ["check", "capture_f64_m.js"]
@@ -808,3 +1006,487 @@ rationale = "Spec A-6. node prints ``."
 args = ["run", "temporary_f.js"]
 exit = "failure"
 stderr_contains = ["E5506", "indexing, `push` or `pop` directly on the array `make(…)` returns"]
+
+# Final review C1 (spec A-36): an index, a `slice` bound or a search value
+# not proven a number (a search value: a number or a string) is refused in
+# inference, under `check` and `run` alike. One program per position and
+# operand kind, each in module scope and in `main()`. A string search value
+# on a number array stays the mixed-element refusal (A-14). Then minor 6 (a
+# growable binding reassigned from a literal) and the I2 negative (a `const`
+# bound to a call that returns a growable array, pushed as an element).
+
+[[case]]
+name = "check_refuses_a_boolean_as_index_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_boolean_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_boolean_as_index_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `undefined`."
+args = ["run", "op_index_boolean_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_boolean_as_index"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_boolean.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_boolean_as_index"
+rationale = "Spec A-36 (final review C1). node prints `undefined`."
+args = ["run", "op_index_boolean.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_null_as_index_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_null_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_null_as_index_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `undefined`."
+args = ["run", "op_index_null_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_null_as_index"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_null.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_null_as_index"
+rationale = "Spec A-36 (final review C1). node prints `undefined`."
+args = ["run", "op_index_null.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_undefined_as_index_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_undefined_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_undefined_as_index_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `1,2,3 7`."
+args = ["run", "op_index_undefined_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_undefined_as_index"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_undefined_as_index"
+rationale = "Spec A-36 (final review C1). node prints `1,2,3 7`."
+args = ["run", "op_index_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_string_as_index_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_string_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_string_as_index_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `2`."
+args = ["run", "op_index_string_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_string_as_index"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_string_as_index"
+rationale = "Spec A-36 (final review C1). node prints `2`."
+args = ["run", "op_index_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_array_as_index_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_array_as_index_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `2`."
+args = ["run", "op_index_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_array_as_index"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_index_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_array_as_index"
+rationale = "Spec A-36 (final review C1). node prints `2`."
+args = ["run", "op_index_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the index of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_boolean_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_boolean_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_boolean_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `2,3`."
+args = ["run", "op_bound_boolean_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_boolean_as_slice_bound"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_boolean.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_boolean_as_slice_bound"
+rationale = "Spec A-36 (final review C1). node prints `2,3`."
+args = ["run", "op_bound_boolean.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_null_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_null_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_null_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1). node prints ``."
+args = ["run", "op_bound_null_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_null_as_slice_bound"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_null.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_null_as_slice_bound"
+rationale = "Spec A-36 (final review C1). node prints ``."
+args = ["run", "op_bound_null.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_undefined_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_undefined_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_undefined_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `2,3`."
+args = ["run", "op_bound_undefined_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_undefined_as_slice_bound"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_undefined_as_slice_bound"
+rationale = "Spec A-36 (final review C1). node prints `2,3`."
+args = ["run", "op_bound_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_string_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_string_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_string_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `2,3`."
+args = ["run", "op_bound_string_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_string_as_slice_bound"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_string_as_slice_bound"
+rationale = "Spec A-36 (final review C1). node prints `2,3`."
+args = ["run", "op_bound_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` start of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_array_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_array_as_slice_bound_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `1`."
+args = ["run", "op_bound_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` at module scope is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_array_as_slice_bound"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_bound_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "run_refuses_a_array_as_slice_bound"
+rationale = "Spec A-36 (final review C1). node prints `1`."
+args = ["run", "op_bound_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the `slice` end of the growable array `a` in `main` is not proven to be a number"]
+
+[[case]]
+name = "check_refuses_a_boolean_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_boolean_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_boolean_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `false -1`."
+args = ["run", "op_needle_boolean_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_boolean_as_search_value"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_boolean.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_boolean_as_search_value"
+rationale = "Spec A-36 (final review C1). node prints `false -1`."
+args = ["run", "op_needle_boolean.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_null_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_null_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_null_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `-1`."
+args = ["run", "op_needle_null_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_null_as_search_value"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_null.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_null_as_search_value"
+rationale = "Spec A-36 (final review C1). node prints `-1`."
+args = ["run", "op_needle_null.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_undefined_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_undefined_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_undefined_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `false`."
+args = ["run", "op_needle_undefined_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_undefined_as_search_value"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_undefined_as_search_value"
+rationale = "Spec A-36 (final review C1). node prints `false`."
+args = ["run", "op_needle_undefined.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_string_as_search_value_module_scope"
+rationale = "Spec A-14: a string search value of a number array is a mixed-element store."
+args = ["check", "op_needle_string_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "elements of `a` at module scope are used as both strings and numbers"]
+
+[[case]]
+name = "run_refuses_a_string_as_search_value_module_scope"
+rationale = "Spec A-14: a string search value of a number array is a mixed-element store. node prints `false`."
+args = ["run", "op_needle_string_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "elements of `a` at module scope are used as both strings and numbers"]
+
+[[case]]
+name = "check_refuses_a_string_as_search_value"
+rationale = "Spec A-14: a string search value of a number array is a mixed-element store."
+args = ["check", "op_needle_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "elements of `a` in `main` are used as both strings and numbers"]
+
+[[case]]
+name = "run_refuses_a_string_as_search_value"
+rationale = "Spec A-14: a string search value of a number array is a mixed-element store. node prints `false`."
+args = ["run", "op_needle_string.js"]
+exit = "failure"
+stderr_contains = ["E5506", "elements of `a` in `main` are used as both strings and numbers"]
+
+[[case]]
+name = "check_refuses_a_array_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_array_as_search_value_module_scope"
+rationale = "Spec A-36 (final review C1). node prints `false`."
+args = ["run", "op_needle_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` at module scope is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_a_array_as_search_value"
+rationale = "Spec A-36 (final review C1)."
+args = ["check", "op_needle_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "run_refuses_a_array_as_search_value"
+rationale = "Spec A-36 (final review C1). node prints `false`."
+args = ["run", "op_needle_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "the search value of the growable array `a` in `main` is not proven to be a number or a string"]
+
+[[case]]
+name = "check_refuses_reassigning_a_growable_binding_from_a_literal_module_scope"
+rationale = "Final review minor 6: a growable binding reassigned from a literal."
+args = ["check", "literal_assignment_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "assigning an array literal to a binding that holds a growable array at module scope"]
+
+[[case]]
+name = "run_refuses_reassigning_a_growable_binding_from_a_literal_module_scope"
+rationale = "Final review minor 6: a growable binding reassigned from a literal. node prints `1 2`."
+args = ["run", "literal_assignment_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "assigning an array literal to a binding that holds a growable array at module scope"]
+
+[[case]]
+name = "check_refuses_reassigning_a_growable_binding_from_a_literal"
+rationale = "Final review minor 6: a growable binding reassigned from a literal."
+args = ["check", "literal_assignment.js"]
+exit = "failure"
+stderr_contains = ["E5506", "assigning an array literal to a binding that holds a growable array in `main`"]
+
+[[case]]
+name = "run_refuses_reassigning_a_growable_binding_from_a_literal"
+rationale = "Final review minor 6: a growable binding reassigned from a literal. node prints `1 2`."
+args = ["run", "literal_assignment.js"]
+exit = "failure"
+stderr_contains = ["E5506", "assigning an array literal to a binding that holds a growable array in `main`"]
+
+[[case]]
+name = "check_refuses_pushing_a_const_bound_to_an_array_returning_call_module_scope"
+rationale = "Final review I2: a `const` bound to a call whose callee returns a growable array is an array element, still refused."
+args = ["check", "call_const_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "`out` at module scope is a growable array with an element that is"]
+
+[[case]]
+name = "run_refuses_pushing_a_const_bound_to_an_array_returning_call_module_scope"
+rationale = "Final review I2: a `const` bound to a call whose callee returns a growable array is an array element, still refused. node prints `2`."
+args = ["run", "call_const_array_m.js"]
+exit = "failure"
+stderr_contains = ["E5506", "`out` at module scope is a growable array with an element that is"]
+
+[[case]]
+name = "check_refuses_pushing_a_const_bound_to_an_array_returning_call"
+rationale = "Final review I2: a `const` bound to a call whose callee returns a growable array is an array element, still refused."
+args = ["check", "call_const_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "`out` in `main` is a growable array with an element that is"]
+
+[[case]]
+name = "run_refuses_pushing_a_const_bound_to_an_array_returning_call"
+rationale = "Final review I2: a `const` bound to a call whose callee returns a growable array is an array element, still refused. node prints `2`."
+args = ["run", "call_const_array.js"]
+exit = "failure"
+stderr_contains = ["E5506", "`out` in `main` is a growable array with an element that is"]

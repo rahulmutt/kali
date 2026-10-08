@@ -41,6 +41,8 @@ pub(crate) enum TempKind {
     Slice,
     Merge,
     LiteralExpression,
+    /// An array literal assigned to a binding (`a = []`, minor 6).
+    LiteralAssignment,
     Allocation,
 }
 
@@ -113,6 +115,39 @@ pub(crate) struct LoopFacts {
     pub(crate) captured: BTreeSet<String>,
 }
 
+/// Final review C1 (spec A-36): where an operand of a growable-array
+/// operation that is not a stored element sits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum OperandPosition {
+    /// `a[i]`, read or written.
+    Index,
+    /// The first argument of `a.slice(…)`.
+    SliceStart,
+    /// The second argument of `a.slice(…)`.
+    SliceEnd,
+    /// The first argument of `a.indexOf(…)` or `a.includes(…)` (spec A-14).
+    SearchValue,
+}
+
+impl OperandPosition {
+    /// What the refusal calls the operand.
+    pub(crate) fn text(self) -> &'static str {
+        match self {
+            OperandPosition::Index => "index",
+            OperandPosition::SliceStart => "`slice` start",
+            OperandPosition::SliceEnd => "`slice` end",
+            OperandPosition::SearchValue => "search value",
+        }
+    }
+
+    /// A search value may be a string (on a string array: a number or string
+    /// of the wrong kind is the element solve's mixed-elements conflict); an
+    /// index or a bound must be a number.
+    pub(crate) fn admits_strings(self) -> bool {
+        self == OperandPosition::SearchValue
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct GrowFacts {
     pub(crate) edges: Vec<(GrowNode, GrowNode)>,
@@ -131,6 +166,10 @@ pub(crate) struct GrowFacts {
     /// Every value stored into an array (a `push` argument, an index
     /// write, a literal seed), with its number-or-string proof (M2).
     pub(crate) element_values: Vec<(GrowNode, super::elem_proof::ElemProof)>,
+    /// Every index, `slice` bound and search value applied to an array, with
+    /// its proof (final review C1, spec A-36): a number, or for a search
+    /// value a number or a string.
+    pub(crate) operands: Vec<(GrowNode, OperandPosition, super::elem_proof::ElemProof)>,
     /// The function-key stack (outermost first) at every class, JSX, `with`,
     /// enum or module-syntax site the walk cannot see through.
     pub(crate) opaque_sites: Vec<Vec<String>>,
@@ -146,6 +185,8 @@ pub(crate) enum GrowConflict {
     NonArrayWrite(GrowNode),
     /// The function whose body holds the literal expression.
     LiteralExpression(String),
+    /// The function whose body assigns an array literal to a binding.
+    LiteralAssignment(String),
 }
 
 #[derive(Debug, Default)]
@@ -294,8 +335,14 @@ pub(crate) fn solve(facts: &GrowFacts) -> GrowSolution {
         }
         for node in group {
             if let GrowNode::Temp(n) = node {
-                if let Some((TempKind::LiteralExpression, site)) = facts.temp_kinds.get(n) {
-                    conflicts.push(GrowConflict::LiteralExpression(site.clone()));
+                match facts.temp_kinds.get(n) {
+                    Some((TempKind::LiteralExpression, site)) => {
+                        conflicts.push(GrowConflict::LiteralExpression(site.clone()));
+                    }
+                    Some((TempKind::LiteralAssignment, site)) => {
+                        conflicts.push(GrowConflict::LiteralAssignment(site.clone()));
+                    }
+                    _ => {}
                 }
             }
         }

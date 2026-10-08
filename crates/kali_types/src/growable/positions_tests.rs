@@ -121,6 +121,11 @@ fn a_mixed_layout_a_literal_expression_and_a_non_array_write_are_rendered() {
         "function f(c) { if (c) return []; const o = []; o.push(1); return o; } const r = f(false); console.log(r.length);",
         "an array literal written directly as a call argument or `return` value in `f`",
     );
+    // Minor 6: a growable binding reassigned from a literal has its own text.
+    assert_one(
+        "let a = []; a.push(1); a = []; a.push(2); console.log(a.length);",
+        "assigning an array literal to a binding that holds a growable array at module scope",
+    );
     assert_one(
         "function f(a) { a.push(1); return a.length; } const xs = [0]; f(xs); f(5);",
         "`a` in `f` holds a growable array and is also given a value that is not an array",

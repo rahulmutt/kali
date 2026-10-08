@@ -24,6 +24,9 @@ pub(crate) fn growable_refusals(
             GrowConflict::LiteralExpression(site) => {
                 kali_common::growable_literal_expression_message(site)
             }
+            GrowConflict::LiteralAssignment(site) => {
+                kali_common::growable_literal_assignment_message(site)
+            }
         });
     }
     for occurrence in &facts.uses {

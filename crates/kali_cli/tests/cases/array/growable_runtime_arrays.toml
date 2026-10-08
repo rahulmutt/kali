@@ -132,6 +132,22 @@ function main() {
 main();
 """
 
+"call_const_m.js" = """
+function sq(n) { return n * n; }
+const out = [];
+for (let i = 0; i < 4; i++) { const v = sq(i); out.push(v); }
+console.log(out.join(" "));
+"""
+"call_const.js" = """
+function sq(n) { return n * n; }
+function main() {
+  const out = [];
+  for (let i = 0; i < 4; i++) { const v = sq(i); out.push(v); }
+  console.log(out.join(" "));
+}
+main();
+"""
+
 [[case]]
 name = "p1_build_return_measure_index_iterate_join_slice_module_scope"
 rationale = "Spec §2.1 p1. At the baseline: E5506 at `push` (literal array), `for-of`, `join`, `slice`."
@@ -206,3 +222,30 @@ name = "for_of_and_join_over_an_arrow_bound_to_a_const"
 args = ["run", "arrow_function.js"]
 exit = "success"
 stdout = "1\n2\n1-2\n"
+
+# Final review I2: `const v = sq(i); out.push(v)`, where `sq` returns a
+# number. node v26.10.0's stdout, measured 2026-10-08.
+
+[[case]]
+name = "a_const_bound_to_a_number_returning_call_is_pushed_module_scope"
+rationale = "Final review I2: `is_array` counts a call-bound `const` as an array only when its callee returns one. Before the fix: E5506 (an element that is an object, an array, …)."
+args = ["run", "call_const_m.js"]
+exit = "success"
+stdout = "0 1 4 9\n"
+
+[[case]]
+name = "check_accepts_a_const_bound_to_a_number_returning_call_module_scope"
+args = ["check", "call_const_m.js"]
+exit = "success"
+
+[[case]]
+name = "a_const_bound_to_a_number_returning_call_is_pushed"
+rationale = "Final review I2: `is_array` counts a call-bound `const` as an array only when its callee returns one. Before the fix: E5506 (an element that is an object, an array, …)."
+args = ["run", "call_const.js"]
+exit = "success"
+stdout = "0 1 4 9\n"
+
+[[case]]
+name = "check_accepts_a_const_bound_to_a_number_returning_call"
+args = ["check", "call_const.js"]
+exit = "success"
