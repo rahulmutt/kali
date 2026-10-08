@@ -180,3 +180,42 @@ fn a_remainder_index_over_a_float_is_refused() {
     let int = "function main() { const xs = []; xs.push(1); for (let i = 0; i < 3; i++) console.log(xs[i % 1]); } main();";
     assert!(!refused(int, FRACTIONAL), "{:?}", conflicts(int));
 }
+
+// ---- residual round 2 ---------------------------------------------------
+
+#[test]
+fn a_rounding_of_a_module_const_chain_read_from_a_function_is_not_f64() {
+    // N1b: inference and codegen follow the same chains.
+    for src in [
+        "const t = 7.9; const u = t; function f() { const k = Math.floor(u); return k % 3; } console.log(f());",
+        "const a = 7.9; const b = -a; function f() { const k = Math.floor(b); return k % 3; } console.log(f());",
+        "const t = 7.9; function f() { const t2 = t; const k = Math.floor(t2); return k | 1; } console.log(f());",
+    ] {
+        assert_eq!(table(src).scalar("f", "k"), kali_common::Repr::I64, "{src}");
+    }
+}
+
+#[test]
+fn a_negated_logical_over_includes_results_is_a_boolean_binding() {
+    // N2b: `!` over `||`, `&&`, `??`, `?:` and `,` holding search values.
+    let src = "function none(ys, v) { return !(ys.includes(v) || ys.includes(v + 1)); } \
+               function main() { const xs = []; xs.push(2); const a = xs.includes(2); \
+               const r1 = !(xs.includes(2) || xs.includes(4)); const r2 = !(xs.includes(2) && xs.includes(4)); \
+               const r3 = !(xs.includes(2) ? xs.includes(3) : false); const r4 = !(xs.includes(2) ?? false); \
+               const r5 = !(xs.includes(2), xs.includes(9)); const r6 = !(a || xs.includes(4)); \
+               let r7 = !(xs.includes(2) || 0); r7 = !r7; \
+               console.log(r1, r2, r3, r4, r5, r6, r7, none(xs, 7)); } main();";
+    let t = table(src);
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    for name in ["r1", "r2", "r3", "r4", "r5", "r6", "r7"] {
+        assert!(t.binding_is_search_boolean("main", name), "{name}");
+    }
+    assert!(t.return_is_search_boolean("none"));
+}
+
+#[test]
+fn a_comparison_over_a_logical_of_includes_results_is_refused() {
+    let src = "function main() { const xs = []; xs.push(3); \
+               const r = (xs.includes(5) || xs.includes(3)) === true; console.log(r); } main();";
+    assert!(refused(src, SEARCH), "{:?}", conflicts(src));
+}

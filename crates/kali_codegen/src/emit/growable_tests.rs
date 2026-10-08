@@ -240,3 +240,20 @@ fn an_extra_pop_or_slice_argument_is_refused_not_dropped() {
         );
     }
 }
+
+#[test]
+fn a_rounding_of_a_module_const_chain_in_a_function_folds_to_an_integer() {
+    // Residual round 2 (N1b): codegen follows module- and local-`const`
+    // alias chains (`static_numeric_chain`) as far as inference does, so
+    // `Math.floor(u)` with `const u = t; const t = 7.9` folds to an i64 and
+    // `% 3` / `| 1` lower (round 1 followed one hop: E4201).
+    let mut ctx = ctx_with_growable("main", "unused", kali_common::Repr::I64);
+    let program = parse_and_lower_lir(
+        "const t = 7.9; const u = t; const a = 7.9; const b = -a; function f() { const t2 = t; return Math.floor(u) % 3 + (Math.floor(b) % 3) + (Math.floor(t2) | 1); } console.log(f());",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}

@@ -306,10 +306,10 @@ impl<'a> FunctionEmitter<'a> {
         // Residual round 1: a module `const` of a literal read from a
         // function folds too (inference treats it as a compile-time number,
         // `is_static_numeric`; it used to reach the integer lane as an f64).
-        let rendered = self
-            .render_static_value(arg)
-            .or_else(|| self.module_const_static_render(arg))?;
-        let value = parse_numeric_literal_value(&rendered)?;
+        let value = match self.render_static_value(arg) {
+            Some(rendered) => parse_numeric_literal_value(&rendered)?,
+            None => self.static_numeric_chain(arg)?,
+        };
         let folded = match method {
             "round" => {
                 if value.fract() == 0.0 {
@@ -362,22 +362,72 @@ impl<'a> FunctionEmitter<'a> {
         Some(folded)
     }
 
-    /// The static rendering of a module `const` read by name from a function.
-    fn module_const_static_render(&self, id: LirNodeId) -> Option<String> {
-        let node = self.node(self.unwrap_transparent(id));
-        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+    /// Residual rounds 1-2 (spec A-41): the value of a compile-time number
+    /// — a numeric literal, a unary sign, `Object.freeze(…)` or a transparent
+    /// wrapper of one, or an identifier bound to one through a chain of local
+    /// `const` fold aliases (`self.bindings`) and, from a function, module
+    /// `const`s (`module_const_inits`, whose own identifiers resolve at
+    /// module scope only). Cycle-safe by depth. The codegen half of
+    /// `repr_infer::is_static_numeric`, which follows the same chains over
+    /// the AST, so a rounding call over it takes the i64 fold on both sides.
+    pub(crate) fn static_numeric_chain(&self, id: LirNodeId) -> Option<f64> {
+        self.static_numeric_chain_at(id, false, 0)
+    }
+
+    fn static_numeric_chain_at(
+        &self,
+        id: LirNodeId,
+        module_only: bool,
+        depth: usize,
+    ) -> Option<f64> {
+        if depth > 32 {
             return None;
         }
-        let name = node.text.as_deref()?;
-        if self.locals.contains_key(name) || self.function_name == "_start" {
-            return None;
+        let node = self.node(id);
+        if self.is_object_freeze_call(node) {
+            let arg = *node.children.get(1)?;
+            return self.static_numeric_chain_at(arg, module_only, depth + 1);
         }
-        let init = *self.module_const_inits.get(name)?;
-        self.render_static_value(init)
+        match node.kind {
+            LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
+            LirNodeKind::Value if node.children.is_empty() => {
+                let name = node.text.as_deref()?;
+                if !module_only {
+                    if let Some(&bound) = self.bindings.get(name) {
+                        return self.static_numeric_chain_at(bound, false, depth + 1);
+                    }
+                }
+                let module_scope = module_only
+                    || (!self.locals.contains_key(name) && self.function_name != "_start");
+                if module_scope {
+                    if let Some(&init) = self.module_const_inits.get(name) {
+                        return self.static_numeric_chain_at(init, true, depth + 1);
+                    }
+                }
+                parse_numeric_literal_value(name)
+            }
+            LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                None | Some("") | Some("await") | Some("+") => {
+                    self.static_numeric_chain_at(node.children[0], module_only, depth + 1)
+                }
+                Some("-") => self
+                    .static_numeric_chain_at(node.children[0], module_only, depth + 1)
+                    .map(|v| -v),
+                _ => None,
+            },
+            _ => None,
+        }
     }
 
     pub(crate) fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
-        let rendered = self.render_static_value(arg)?;
+        let Some(rendered) = self.render_static_value(arg) else {
+            // Residual round 2: a module `const` chain read from a function.
+            let value = self.static_numeric_chain(arg)?;
+            if value.fract() != 0.0 || !value.is_finite() || value.abs() > i64::MAX as f64 {
+                return None;
+            }
+            return (value as i64).checked_abs();
+        };
         parse_number_literal(&rendered)?.checked_abs()
     }
 
@@ -507,20 +557,7 @@ impl<'a> FunctionEmitter<'a> {
     /// module `const` whose initializer is one. Mirrors `repr_infer`'s
     /// `is_static_numeric`.
     fn is_static_numeric_arg(&self, id: LirNodeId) -> bool {
-        if self.resolve_static_numeric_value(id).is_some() {
-            return true;
-        }
-        let node = self.node(self.unwrap_transparent(id));
-        if node.kind == LirNodeKind::Value && node.children.is_empty() {
-            if let Some(name) = node.text.as_deref() {
-                if !self.locals.contains_key(name) && self.function_name != "_start" {
-                    if let Some(&init) = self.module_const_inits.get(name) {
-                        return self.resolve_static_numeric_value(init).is_some();
-                    }
-                }
-            }
-        }
-        false
+        self.static_numeric_chain(id).is_some()
     }
 
     /// Spec A-39: lower a `math_float_lane` call. Every argument is

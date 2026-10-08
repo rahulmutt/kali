@@ -600,15 +600,48 @@ impl Walker<'_, '_> {
     /// A boolean computed from `operands` (`!x`, a comparison): `Over` the
     /// operands that may be search values, or `Syntactic` when none may be.
     fn over(&self, operands: &[&Expression]) -> BoolValue {
-        let inner: Vec<BoolValue> = operands
-            .iter()
-            .map(|o| self.classify(o))
-            .filter(is_search_candidate)
-            .collect();
+        let mut inner = Vec::new();
+        for operand in operands {
+            self.candidates_in(operand, &mut inner);
+        }
         if inner.is_empty() {
             BoolValue::Syntactic
         } else {
             BoolValue::Over(inner)
+        }
+    }
+
+    /// The possible search values `expr` may evaluate to, looking through
+    /// `||`, `&&`, `??`, `?:` (every part) and `,` (residual round 2): `!` or
+    /// a comparison over any of these is a search boolean when one is.
+    fn candidates_in(&self, expr: &Expression, out: &mut Vec<BoolValue>) {
+        let value = self.classify(expr);
+        if is_search_candidate(&value) {
+            out.push(value);
+            return;
+        }
+        match unwrap(expr) {
+            Expression::LogicalExpression(l) => {
+                self.candidates_in(&l.left, out);
+                self.candidates_in(&l.right, out);
+            }
+            Expression::BinaryExpression(b)
+                if matches!(b.operator.as_str(), "&&" | "||" | "??") =>
+            {
+                self.candidates_in(&b.left, out);
+                self.candidates_in(&b.right, out);
+            }
+            Expression::ConditionalExpression(c) => {
+                self.candidates_in(&c.test, out);
+                self.candidates_in(&c.consequent, out);
+                self.candidates_in(&c.alternate, out);
+            }
+            Expression::SequenceExpression(seq) => {
+                for e in &seq.expressions {
+                    self.candidates_in(e, out);
+                }
+            }
+            _ => {}
         }
     }
 

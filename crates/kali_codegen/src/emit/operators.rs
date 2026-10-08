@@ -1067,6 +1067,19 @@ impl<'a> FunctionEmitter<'a> {
         if node.text.as_deref() == Some("void") && node.children.len() == 1 {
             return Some("undefined");
         }
+        // Residual round 2: `!x` and a comparison are always booleans (the
+        // same classes `static_equality_class` gives them); `typeof` of one
+        // fell to the unproven placeholder `0`.
+        if node.kind == LirNodeKind::Value
+            && ((node.children.len() == 1 && node.text.as_deref() == Some("!"))
+                || (node.children.len() == 2
+                    && matches!(
+                        node.text.as_deref(),
+                        Some("<" | "<=" | ">" | ">=" | "==" | "!=" | "===" | "!==")
+                    )))
+        {
+            return Some("boolean");
+        }
         // Bare `undefined` / `NaN` / `Infinity` lower as identifiers (a
         // childless Value), not literals; classify the exact global names.
         if node.kind == LirNodeKind::Value && node.children.is_empty() {
