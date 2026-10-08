@@ -549,15 +549,15 @@ exit = "failure"
 stderr_contains = ["E5506", "${STRING}"]
 
 [[case]]
-name = "check_refuses_an_array_literal_element_store"
-rationale = "Spec section 2.3: `a[1] = 9` on an array literal vanished (kali 6, node 9). There is no store lane for an array literal; the checker's literal-array mutation gate now refuses unconditionally. Measured at `3ef65ef785`: exit 1 with `error[E5506]: mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: `check` now ACCEPTS (exit 0) and the `run` twin prints node's `9`. An index write makes the literal a growable array (spec §3.1), so the store has a lane: the bounds-checked growable store (spec §3.5). Previously pinned as a refusal."
+name = "check_accepts_an_array_literal_element_store"
+rationale = "Spec section 2.3: `a[1] = 9` on an array literal vanished (kali 6, node 9). There is no store lane for an array literal; the checker's literal-array mutation gate now refuses unconditionally. Measured at `3ef65ef785`: exit 1 with `error[E5506]: mutating a literal array is unavailable in the current direct-runtime path; use new Array(n) for runtime mutation`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: `check` now ACCEPTS (exit 0) and the `run` twin prints node's `9`. An index write makes the literal a growable array (spec §3.1), so the store has a lane: the bounds-checked growable store (spec §3.5). Previously pinned as a refusal. Renamed 2026-10-08 (final review) from `check_refuses_an_array_literal_element_store`, which named the refusal it no longer asserts."
 args = ["check", "array_literal_store.js"]
 exit = "success"
 stdout = "Checked 1 file(s)\n"
 
 [[case]]
-name = "run_refuses_an_array_literal_element_store"
-rationale = "Twin of the check case; `run` runs the checker first, so the same message appears. Measured at `3ef65ef785`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `9` (exit 0). An index write makes the literal a growable array (spec §3.1), so the store has a lane: the bounds-checked growable store (spec §3.5). Previously pinned as a refusal; no longer refused."
+name = "run_matches_node_on_an_array_literal_element_store"
+rationale = "Twin of the check case; `run` runs the checker first, so the same message appears. Measured at `3ef65ef785`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `9` (exit 0). An index write makes the literal a growable array (spec §3.1), so the store has a lane: the bounds-checked growable store (spec §3.5). Previously pinned as a refusal; no longer refused. Renamed 2026-10-08 (final review) from `run_refuses_an_array_literal_element_store`, which named the refusal it no longer asserts."
 args = ["run", "array_literal_store.js"]
 exit = "success"
 stdout = "9\n"

@@ -96,23 +96,23 @@ class S { push(v){ return v+1; } } const s=new S(); console.log(s.push(1));
 '''
 
 [[case]]
-name = "a_top_level_literal_push_refuses_under_check"
-rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `4`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: `check` now ACCEPTS (exit 0) and the `run` twin prints node's `4`. The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). Previously pinned as a refusal."""
+name = "a_top_level_literal_push_passes_check"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `4`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: `check` now ACCEPTS (exit 0) and the `run` twin prints node's `4`. The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). Previously pinned as a refusal. Renamed 2026-10-08 (final review) from `a_top_level_literal_push_refuses_under_check`, which named the refusal it no longer asserts."""
 args = ["check", "t_push.js"]
 exit = "success"
 stdout = "Checked 1 file(s)\n"
 
 [[case]]
-name = "a_top_level_literal_push_refuses_under_run"
-rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `4`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `4` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). Previously pinned as a refusal; no longer refused."""
+name = "a_top_level_literal_push_matches_node_under_run"
+rationale = """At `9dc751cf8` kali printed `3` at exit 0 where node v26.10.0 prints `4`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `4` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). Previously pinned as a refusal; no longer refused. Renamed 2026-10-08 (final review) from `a_top_level_literal_push_refuses_under_run`, which named the refusal it no longer asserts."""
 args = ["run", "t_push.js"]
 exit = "success"
 stdout = "4\n"
 
 [[case]]
-name = "a_top_level_literal_pop_refuses_under_run"
+name = "a_top_level_literal_pop_matches_node_under_run"
 rationale = """At `9dc751cf8` kali printed `3` then `0` at exit 0 where node v26.10.0 prints `2` then `3`. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `2
-3` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). Previously pinned as a refusal; no longer refused."""
+3` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). Previously pinned as a refusal; no longer refused. Renamed 2026-10-08 (final review) from `a_top_level_literal_pop_refuses_under_run`, which named the refusal it no longer asserts."""
 args = ["run", "t_pop.js"]
 exit = "success"
 stdout = "2\n3\n"
@@ -257,8 +257,8 @@ args = ["check", "alias.js"]
 exit = "success"
 
 [[case]]
-name = "a_mutator_through_an_alias_refuses_under_run"
-rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. Refused with the literal wording, not the backstop's: codegen traces `b` back to the literal `a`, so the literal gate (spec §3.3) fires before the backstop (spec §3.4). The call is refused either way. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `1` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). The alias joins the component (spec §3.1 edges). Previously pinned as a refusal; no longer refused."""
+name = "a_mutator_through_an_alias_matches_node_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. Refused with the literal wording, not the backstop's: codegen traces `b` back to the literal `a`, so the literal gate (spec §3.3) fires before the backstop (spec §3.4). The call is refused either way. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `1` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). The alias joins the component (spec §3.1 edges). Previously pinned as a refusal; no longer refused. Renamed 2026-10-08 (final review) from `a_mutator_through_an_alias_refuses_under_run`, which named the refusal it no longer asserts."""
 args = ["run", "alias.js"]
 exit = "success"
 stdout = "1\n"
@@ -270,8 +270,8 @@ args = ["check", "param.js"]
 exit = "success"
 
 [[case]]
-name = "a_mutator_through_a_parameter_refuses_under_run"
-rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. The backstop refuses (spec §3.4). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `1` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). The argument edge carries growability into the parameter (spec §3.1). Previously pinned as a refusal; no longer refused."""
+name = "a_mutator_through_a_parameter_matches_node_under_run"
+rationale = """At `9dc751cf8` kali printed `1` at exit 0 with the pop dropped. The backstop refuses (spec §3.4). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `1` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). The argument edge carries growability into the parameter (spec §3.1). Previously pinned as a refusal; no longer refused. Renamed 2026-10-08 (final review) from `a_mutator_through_a_parameter_refuses_under_run`, which named the refusal it no longer asserts."""
 args = ["run", "param.js"]
 exit = "success"
 stdout = "1\n"
