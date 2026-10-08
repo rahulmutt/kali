@@ -28,7 +28,7 @@ baseline.
 | `let z = Math.pow(10, 21); console.log("c" + z);` (also `10 ** 21`) | `c1e+21` | prints `c3875820019684212736`, exit 0 | unchanged |
 | `function main() { let line = "> "; for (let i = 0; i < 3; i++) { if (line.length > 3) { line = "> "; } else { line = line + "ab"; } } console.log(line); } main();` | `> ab` | E5506 "reassigning an array binding to a non-array value…" (`.length` on a string registers it as an array; 7 corpus lines) | unchanged (still 7 corpus lines) |
 | `function j(a) { return a.join("-"); } const a = [4, 5]; console.log(j(a));` | `4-5` | E5506 "elements of `a` … are used as both strings and numbers" | unchanged |
-| `function main() { const a = []; a.push(1); let i = 1.5; console.log(a[i]); } main();` (float index) | `undefined` | codegen-only E5506 (Stage 4): `check` exits 0 | unchanged: `run` E5506 "indexing a growable array with a floating-point value…", `check` exits 0. The same holds for a float index on a write (A-24) |
+| `function main() { const a = []; a.push(1); let i = 1.5; console.log(a[i]); } main();` (float index) | `undefined` | codegen-only E5506 (Stage 4): `check` exits 0 | **RESOLVED 2026-10-08 (residual R2, A-39):** `check` and `run` both refuse ("indexing a growable array with a floating-point value that is not proven to be a whole number…"), reads and writes. A `Math.floor`/`ceil`/`trunc`/`round` index now runs |
 
 ## §2. Corpus
 
@@ -188,8 +188,10 @@ their generators have no re-pin channel.
 - **Every growable array that leaves its function is allocated globally and never
   reclaimed**, even when the callee does not keep it. Strings pushed into an escaping
   array survive the creating call (`cases/array/growable_layout.toml` `two_builds`).
-- **A floating-point index is refused only by `run`** (reads and writes; A-24):
-  `check` accepts. A check/run disagreement against spec §3.6.
+- ~~**A floating-point index is refused only by `run`** (reads and writes; A-24).~~
+  **RESOLVED 2026-10-08 (residual R2, A-39):** inference refuses a float index it
+  cannot prove whole, so `check` agrees. A float index on a growable object field is
+  still refused by codegen only (`check` exits 0).
 - **A growable array returned by a module-level arrow and used from another function
   is refused** with legacy messages: `const mk = () => { const o = []; o.push(1); o.push(2); return o; }; function main() { for (const x of mk()) console.log(x); } main();`
   — node `1 2`; `check` and `run` refuse with "for-of array iteration lowering is
@@ -286,3 +288,55 @@ their generators have no re-pin channel.
   does not exclude computed members (harmless over-reservation).
 - `cases/array/growable_runtime_arrays_refused.toml`: the object and boolean element
   rows share one needle; some `check_*` rows lack a rationale.
+
+## Residual fixes R1 and R2 (2026-10-08)
+
+Measured with the branch binary after the residual-fix commits, node v26.10.0.
+
+**Resolved.**
+
+- **R1 (A-40):** a growable `includes` result stored in a `const`/`let`, returned
+  from a declared function, used with `typeof`, concatenation, a template, `if`, `!`,
+  `?:` or `===` prints node's output (was `1`/`0`, `typeof` `0`). Positions kali cannot
+  keep it as a boolean are refused by `check` and `run`
+  (`cases/array/growable_methods.toml`).
+- **R2 (A-39):** `xs[Math.floor(x / 2)]`, `xs[Math.floor(xs.length / 2)]` and
+  `const m = Math.floor(xs.length / 2); xs[m]` (and the `ceil`/`trunc`/`round`,
+  `Math.min`/`Math.max` and `slice`-bound forms) run and match node; they failed at
+  load with E4201 under `run` while `check` passed (`growable_layout.toml`,
+  `growable_methods.toml`, `cases/math/float_operands.toml`).
+
+**Left, found while fixing (pre-existing at `edb3a77df` unless marked).**
+
+- **A boolean stored outside the `includes` lane prints `1`/`0`.** kali has no
+  boolean repr; only a direct comparison `const` keeps its shape (the read re-emits
+  the comparison). `function main(){ let n = 0; let c = n < 2; console.log(c, "x" + c); } main();`
+  prints `1 x1` (node `true xtrue`); `function cmp(a, b) { return a < b; } console.log(cmp(1, 2));`
+  prints `1`; `const s = "hello"; const d = s.includes("ell"); console.log(d);` prints
+  `1` (node `true`). Silent. A general fix is a boolean axis in repr inference; A-40's
+  search-boolean sets are its narrow, growable-only form.
+- **`typeof` of an unproven runtime value prints `0`** with an E8001 warning (not an
+  error): `const c = 1 < 2; console.log(typeof c)` prints `0` (node `boolean`), as does
+  `typeof` of a runtime integer such as a growable `indexOf` stored in a binding.
+  Silent apart from the warning.
+- **A boolean in a `&&`/`||` value loses its shape**: `const d = 0 > 2; console.log(d && 5, (1 < 2) || 0)`
+  prints `0 1` (node `false true`). A-40 refuses the growable-`includes` form.
+- **`Math.sign`, `Math.imul`, `Math.clz32`, `Math.pow`, `**` and `%` with a
+  floating-point operand fail at load** (`error[E4201]`; `check` exits 0):
+  `let x = 9; x = x / 2; console.log(Math.sign(x), x % 2)`. Loud. A-39 gave only
+  `floor`/`ceil`/`trunc`/`round`/`abs`/`min`/`max` an f64 lane. Likewise a frozen or
+  `globalThis.Math` alias of a rounding call with a float operand.
+- **`Math.sqrt` of a perfect-square literal stored in a binding fails at load:**
+  `const r = Math.sqrt(16); console.log(r)` gives E4201 (node `4`): inference seeds
+  the result f64, codegen folds it to an i64. Loud.
+- **A NaN or infinite rounded index traps** with the wasm conversion trap (`E4000
+  … invalid conversion to integer`) where node reads `undefined`
+  (`xs[Math.floor(0 / 0)]`); new with A-39, loud, like every out-of-range index.
+- **A float index on a growable object field** (`o.v[x / 2]`) is still refused by
+  `run` only.
+- **A module-scope `includes`-result binding read from a function** is refused by
+  `run` only, with the pre-existing "reading module binding … from a function" message
+  (`const r = xs.includes(1); function f() { return r; }`; node `true`).
+- **A growable `includes` behind an arrow alias** (`const has = (v) => xs.includes(v)`
+  inside `main`) is refused by `check` and `run` with the pre-existing "array search
+  method 'includes' is unavailable…" message (node `true`).
