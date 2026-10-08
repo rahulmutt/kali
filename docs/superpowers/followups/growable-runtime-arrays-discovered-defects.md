@@ -127,7 +127,7 @@ each with a dated `RE-PINNED 2026-10-08` note in its rationale).**
 | `browser/for_await_object_string_enumeration_browser_smoke` (`app` check/build) | 16 | **refused (capability loss)** | `[key, value]` arrays pushed as elements (§5) |
 | `array/callback_identity_browser_harness` | 16 | **refused (over-refusal)** | node prints `some:true`, `every:false`, `1 2` ×5; passed at the baseline (§5) |
 | `misc/for_of_object_keys_iteration` (`test_supports_object_values_*`) | 8 | **refused (over-refusal)** | node passes the bodies; passed at the baseline (§5) |
-| `misc/set_iteration_runtime::run_supports_set_constructor_iteration_*` | 4 | **runs a program node rejects** (known-wrong tripwire) | node: `SyntaxError` (§6) |
+| `misc/set_iteration_runtime::run_supports_set_constructor_iteration_*` | 4 | runs; fixture corrected (fix round 1) | node: `SyntaxError` at the baseline fixture (§5, "The parser accepts a malformed string literal") |
 | `oracle/tier2::r12_alias_defeats_array_store_guard_*` | 2 | `fail_closed` → `fixed` | kali and node both print `b0=7`; register §0.2 R-12 row re-derived FIXED |
 
 The six generated case files touched (`misc/{growable_array_core,set_iteration_runtime,
@@ -182,9 +182,12 @@ their generators have no re-pin channel.
   (Task 12 C2; the refusal case's needle omits the function name).
 - **`a["1"] = 6` on a growable array** is refused by `run` only, with the misleading
   "rendering a String() result bound to a variable…" message (`check` exits 0; node `6`).
-- **`s[0] = s[1] + "d"` on a growable string array** is refused ("storing a runtime
-  string value into this element … unless the target is an array whose elements are
-  all proven strings"); node `bd`.
+- **Any runtime string written to an element of a growable string array is refused**
+  under `check` and `run` ("storing a runtime string value into this element … unless
+  the target is an array whose elements are all proven strings"); only a string
+  literal is stored. `let w = "q"; s[0] = w;` (node `q q-b-c`), `s[0] = s[1];` (node
+  `zz`), `s[0] = s[1] + "d"` (node `bd`), `s[0] = "x" + s.length` (node `x1`).
+  Fail-closed; the maturity row states it.
 - **`-z` with an i64 runtime zero pushed into an f64 array stores `+0`**:
   `let z = 0; a.push(0.5); a.push(-z); 1 / a[1]` prints `Infinity` (node `-Infinity`).
   A-28 fixed the literal and float-zero cases only. Silent, edge-case.
@@ -223,8 +226,10 @@ their generators have no re-pin channel.
 - **The parser accepts a malformed string literal.** `console.log('a['Set'] b');`
   prints `a[` at exit 0 at the baseline and on the branch; node:
   `SyntaxError: missing ) after argument list`. ACCEPTS_INVALID. Four
-  `misc/set_iteration_runtime` fixtures contain this shape; they are pinned as a
-  known-wrong tripwire (A-34) so a parser fix turns them red.
+  `misc/set_iteration_runtime` fixtures contained this shape (migrated that way) and
+  were hiding it behind a refusal; fix round 1 escaped their inner quotes, so those
+  cases now pin node's output, and nothing in the suite pins the leniency. A parser
+  fix (refuse the unterminated call with a syntax error) has no case yet.
 - **`for await` is accepted inside a non-async function.**
   `function f() { for await (const x of "ab") { console.log(x); } } f();` prints `a`,
   `b` at exit 0; node: `SyntaxError: Unexpected reserved word`. The
