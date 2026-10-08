@@ -152,6 +152,19 @@ function main() {
 }
 main();
 """
+"mixed_loops.js" = """
+for (const x of [3, "a"]) { console.log(x); }
+for (const x of [1.5, 2.5]) { console.log(x); }
+for (const x of [1.5, 2.5]) { console.log(Math.floor(x) % 2); }
+"""
+"mixed_loops_main.js" = """
+function main() {
+  for (const x of [3, "a"]) { console.log(x); }
+  for (const x of [1.5, 2.5]) { console.log(x); }
+  for (const x of [1.5, 2.5]) { console.log(Math.floor(x) % 2); }
+}
+main();
+"""
 
 [[case]]
 name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice_module_scope"
@@ -280,3 +293,21 @@ name = "a_call_iterable_is_evaluated_once_per_loop_entry"
 args = ["run", "call_once_function.js"]
 exit = "success"
 stdout = "18 4\n"
+
+[[case]]
+name = "a_plain_for_of_over_a_mixed_literal_array_prints_its_items_module_scope"
+rationale = "Residual round 4 (item 4): with no growable array in the program, a plain for-of loop variable carries no item repr (Task 7's item flow only feeds a growable element), so `[3, \"a\"]` and a reused `x` over floats print node's output as on `main` instead of the both-axes refusal."
+args = ["run", "mixed_loops.js"]
+exit = "success"
+stdout = "3\na\n1.5\n2.5\n1\n0\n"
+
+[[case]]
+name = "a_plain_for_of_over_a_mixed_literal_array_prints_its_items"
+args = ["run", "mixed_loops_main.js"]
+exit = "success"
+stdout = "3\na\n1.5\n2.5\n1\n0\n"
+
+[[case]]
+name = "check_accepts_a_plain_for_of_over_a_mixed_literal_array"
+args = ["check", "mixed_loops.js", "mixed_loops_main.js"]
+exit = "success"

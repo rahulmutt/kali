@@ -367,7 +367,7 @@ impl<'a> FunctionEmitter<'a> {
     /// wrapper of one, or an identifier bound to one through a chain of local
     /// `const` fold aliases (`self.bindings`) and, from a function, module
     /// `const`s (`module_const_inits`, whose own identifiers resolve at
-    /// module scope only). Cycle-safe by depth. The codegen half of
+    /// module scope only). Cycle-safe by a hop bound. The codegen half of
     /// `repr_infer::is_static_numeric`, which follows the same chains over
     /// the AST, so a rounding call over it takes the i64 fold on both sides.
     pub(crate) fn static_numeric_chain(&self, id: LirNodeId) -> Option<f64> {
@@ -378,15 +378,19 @@ impl<'a> FunctionEmitter<'a> {
         &self,
         id: LirNodeId,
         module_only: bool,
-        depth: usize,
+        hops: usize,
     ) -> Option<f64> {
-        if depth > kali_common::STATIC_NUMERIC_CHAIN_DEPTH {
+        // Residual round 4: `hops` counts name hops only, and each one goes
+        // through a binding inference published, so a chain longer than the
+        // published set revisits one (a cycle); an acyclic chain of any
+        // length is followed, as inference follows it.
+        if hops > self.repr_table.static_numeric_binding_count() + 1 {
             return None;
         }
         let node = self.node(id);
         if self.is_object_freeze_call(node) {
             let arg = *node.children.get(1)?;
-            return self.static_numeric_chain_at(arg, module_only, depth + 1);
+            return self.static_numeric_chain_at(arg, module_only, hops);
         }
         match node.kind {
             LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
@@ -404,7 +408,7 @@ impl<'a> FunctionEmitter<'a> {
                         {
                             return None;
                         }
-                        return self.static_numeric_chain_at(bound, false, depth + 1);
+                        return self.static_numeric_chain_at(bound, false, hops + 1);
                     }
                 }
                 let module_scope = module_only
@@ -414,17 +418,17 @@ impl<'a> FunctionEmitter<'a> {
                         if !self.repr_table.binding_is_static_numeric("_start", name) {
                             return None;
                         }
-                        return self.static_numeric_chain_at(init, true, depth + 1);
+                        return self.static_numeric_chain_at(init, true, hops + 1);
                     }
                 }
                 parse_numeric_literal_value(name)
             }
             LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
                 None | Some("") | Some("await") | Some("+") => {
-                    self.static_numeric_chain_at(node.children[0], module_only, depth + 1)
+                    self.static_numeric_chain_at(node.children[0], module_only, hops)
                 }
                 Some("-") => self
-                    .static_numeric_chain_at(node.children[0], module_only, depth + 1)
+                    .static_numeric_chain_at(node.children[0], module_only, hops)
                     .map(|v| -v),
                 _ => None,
             },
@@ -552,17 +556,60 @@ impl<'a> FunctionEmitter<'a> {
         let method = MathFloatMethod::from_name(callee_node.text.as_deref()?)?;
         let args = &node.children[1..];
         let float = if method.is_extremum() {
-            args.iter().any(|&arg| self.is_float_valued(arg))
+            args.iter()
+                .any(|&arg| self.is_float_valued(arg) && !self.is_unfloated_fold_alias(arg))
         } else {
             args.first().is_some_and(|&arg| {
                 // Residual round 1: a compile-time number (a literal, or a
                 // `const` alias chain of one) keeps the i64 fold lane, as on
                 // `main`; `repr_infer` gives it no float edge either
                 // (`is_static_numeric`).
-                self.is_float_valued(arg) && !self.is_static_numeric_arg(arg)
+                self.is_float_valued(arg)
+                    && !self.is_static_numeric_arg(arg)
+                    && !self.is_unfloated_fold_alias(arg)
             })
         };
         float.then_some(method)
+    }
+
+    /// Residual round 4: `id` is an identifier codegen resolves to a
+    /// compile-time number through a local fold binding (`self.bindings`: a
+    /// `const`, or an unrolled loop item) to which inference gave no float
+    /// repr. That is a binding in a scope inference does not walk (a class
+    /// body), or a loop variable it leaves plain (no growable array in the
+    /// program, or an iterable whose items it does not model, such as
+    /// `new Set([...])`). Inference's float edge for the rounding call comes
+    /// from the binding's own node, so the call has none, and the call must
+    /// not be f64 here either: it folds to an integer, as on `main`.
+    ///
+    /// A fold binding inference did float, and did not publish as a
+    /// compile-time number, takes the runtime f64 lane instead
+    /// (`emit_math_float_lane`), which is what inference's float edge
+    /// expects. So publication only upgrades a call to the i64 fold, and
+    /// either way both sides agree on the result's repr.
+    /// Residual round 4: the compile-time value of an identifier bound
+    /// through a local fold binding (`self.bindings`).
+    fn fold_binding_numeric_value(&self, id: LirNodeId) -> Option<f64> {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return None;
+        }
+        self.bindings.get(node.text.as_deref()?)?;
+        self.resolve_static_numeric_value(id)
+    }
+
+    fn is_unfloated_fold_alias(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return false;
+        }
+        let Some(name) = node.text.as_deref() else {
+            return false;
+        };
+        self.repr_table.scalar(&self.function_name, name) != kali_common::Repr::F64
+            && self.fold_binding_numeric_value(id).is_some()
     }
 
     /// A compile-time number: a literal, a unary sign or `Object.freeze` of
@@ -574,8 +621,8 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Spec A-39: lower a `math_float_lane` call. Every argument is
-    /// evaluated left to right through `emit_integer_math_arg` (which keeps
-    /// its string and non-integer-literal refusals), an integer one promoted
+    /// evaluated left to right through `emit_math_arg` (which keeps its
+    /// string refusal; a non-integer literal is an f64 here), an integer one promoted
     /// to f64; `min`/`max` fold with `f64.min`/`f64.max` (NaN-propagating,
     /// `-0 < +0`, as JS), the others apply to the first argument and evaluate
     /// and drop the rest. `round` is JS's: `floor(x)`, plus one when
@@ -589,19 +636,31 @@ impl<'a> FunctionEmitter<'a> {
     ) -> EmittedValue {
         let args: Vec<LirNodeId> = node.children[1..].to_vec();
         for (position, &arg) in args.iter().enumerate() {
-            let is_float = self.is_float_valued(arg);
-            if !self.emit_integer_math_arg(function, arg, method.name()) {
-                return EmittedValue {
-                    produced: false,
-                    shape: ValueShape::Unknown,
-                };
+            // Residual round 4 (spec A-45): a fold binding inference floated
+            // but did not publish as a compile-time number (a floated `let`
+            // loop item, a `const` it could not prove) is lowered as the f64
+            // it is, not refused as a non-integer literal: inference gave the
+            // call a float edge, so this is the lane `check` promised. The
+            // value is the binding's own (the unrolled item), as the integer
+            // fold reads it; a read through `emit_node` could reach a stale
+            // `let` local or global the unroll lane never writes.
+            if let Some(value) = self.fold_binding_numeric_value(arg) {
+                function.instruction(&Instruction::F64Const(value.into()));
+            } else {
+                let is_float = self.is_float_valued(arg);
+                if !self.emit_math_arg(function, arg, method.name(), false) {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                if !is_float && (position == 0 || method.is_extremum()) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
             }
             if position > 0 && !method.is_extremum() {
                 function.instruction(&Instruction::Drop);
                 continue;
-            }
-            if !is_float {
-                function.instruction(&Instruction::F64ConvertI64S);
             }
             match method {
                 MathFloatMethod::Min if position > 0 => {

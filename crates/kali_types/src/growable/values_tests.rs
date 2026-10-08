@@ -263,3 +263,82 @@ fn a_unary_sign_of_an_includes_result_is_refused() {
         assert!(refused(&src, SEARCH), "{src}\n{:?}", conflicts(&src));
     }
 }
+
+// ---- residual round 4 ---------------------------------------------------
+
+#[test]
+fn a_ts_wrapped_const_is_a_compile_time_number() {
+    // HIR drops `as`/`satisfies`, so codegen folds these as literals;
+    // inference must publish them too (u02, u07, u10).
+    for (src, func) in [
+        ("const t = 1.5 as number; const s = (2.5 satisfies number); const u = t as number; const k = Math.floor(u); console.log(k % 2, Math.floor(s) % 2);", "_start"),
+        ("function f() { const t = 1.5 as number; const s = (2.5 satisfies number); const u = t as number; const k = Math.floor(u); console.log(k % 2, Math.floor(s) % 2); } f();", "f"),
+    ] {
+        let t = table(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}: {:?}", t.shape_conflicts());
+        for name in ["t", "s", "u"] {
+            assert!(t.binding_is_static_numeric(func, name), "{src}: {name}");
+        }
+        assert_eq!(t.scalar(func, "k"), kali_common::Repr::I64, "{src}");
+    }
+}
+
+#[test]
+fn a_plain_for_of_without_a_growable_array_carries_no_item_repr() {
+    // Item 4 (t01, s07, r23): Task 7's item flow feeds only a growable
+    // element, so without a growable array the loop variable stays as on
+    // `main` (codegen unrolls it): no both-axes refusal, no float item.
+    for src in [
+        "for (const x of [3, \"a\"]) { console.log(x); }",
+        "for (const x of [1.5, 2.5]) { console.log(x); } for (const x of [3, \"a\"]) { console.log(x); }",
+        "function main() { for (const x of [3, \"a\"]) { console.log(x); } } main();",
+    ] {
+        let t = table(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}: {:?}", t.shape_conflicts());
+    }
+    let t = table("for (let x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k % 2); }");
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert_ne!(t.scalar("_start", "x"), kali_common::Repr::F64);
+    assert_eq!(t.scalar("_start", "k"), kali_common::Repr::I64);
+}
+
+#[test]
+fn a_plain_for_of_in_a_program_with_a_growable_array_keeps_its_item_repr() {
+    // The flow still runs where it matters: a mixed literal item pushed onto
+    // a growable array is the both-axes refusal, and a float `let` item
+    // floats the rounding call (the runtime f64 lane).
+    let t =
+        table("const xs = []; for (const x of [3, \"a\"]) { xs.push(x); } console.log(xs.length);");
+    assert!(!t.shape_conflicts().is_empty());
+    let t = table("const ys = []; ys.push(1); for (let x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k); }");
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert_eq!(t.scalar("_start", "x"), kali_common::Repr::F64);
+    assert!(!t.binding_is_static_numeric("_start", "x"));
+    assert_eq!(t.scalar("_start", "k"), kali_common::Repr::F64);
+}
+
+#[test]
+fn a_const_chain_of_any_length_is_a_compile_time_number() {
+    // Round 3 cut chains at 1024 hops; `main` folds any length, so a longer
+    // chain reached the runtime f64 lane and `% 2` failed at load. The bound
+    // is now the number of bindings (a cycle is the only way past it).
+    let mut src = String::from("const c0 = 1.5;\n");
+    for i in 1..1500 {
+        src.push_str(&format!("const c{i} = c{};\n", i - 1));
+    }
+    src.push_str("const k = Math.floor(c1499); console.log(k % 2);\n");
+    let t = table(&src);
+    assert!(t.binding_is_static_numeric("_start", "c1499"));
+    assert_eq!(t.scalar("_start", "k"), kali_common::Repr::I64);
+}
+
+#[test]
+fn a_compile_time_loop_variable_still_floats_a_local_it_is_copied_into() {
+    // c21, r29: `const y = x` needs an f64 slot; the rounding call over `y`
+    // stays on the fold because `y` is a compile-time number too.
+    let t = table("for (const x of [1.5, 2.5]) { const y = x; const z = y; const k = Math.floor(z); console.log(k % 2); }");
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert_eq!(t.scalar("_start", "y"), kali_common::Repr::F64);
+    assert!(t.binding_is_static_numeric("_start", "z"));
+    assert_eq!(t.scalar("_start", "k"), kali_common::Repr::I64);
+}

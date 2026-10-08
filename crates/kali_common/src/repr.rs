@@ -1023,6 +1023,13 @@ impl ReprTable {
         self.static_numeric_bindings = bindings;
     }
 
+    /// How many bindings inference proved compile-time numbers (residual
+    /// round 4: codegen's chain bound, so a published chain of any length is
+    /// followed and a cycle is not).
+    pub fn static_numeric_binding_count(&self) -> usize {
+        self.static_numeric_bindings.len()
+    }
+
     /// Whether inference proved `scope`.`binding` a compile-time number.
     pub fn binding_is_static_numeric(&self, scope: &str, binding: &str) -> bool {
         self.static_numeric_bindings

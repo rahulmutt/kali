@@ -439,7 +439,20 @@ impl<'a> FunctionEmitter<'a> {
         arg: LirNodeId,
         method: &str,
     ) -> bool {
-        if self.contains_non_integer_numeric_literal(arg) {
+        self.emit_math_arg(function, arg, method, true)
+    }
+
+    /// `emit_integer_math_arg`, or (with `refuse_fractional_literal` false)
+    /// the f64 lane's twin, which emits a non-integer literal as the f64 it
+    /// is (residual round 4, spec A-45).
+    pub(crate) fn emit_math_arg(
+        &mut self,
+        function: &mut Function,
+        arg: LirNodeId,
+        method: &str,
+        refuse_fractional_literal: bool,
+    ) -> bool {
+        if refuse_fractional_literal && self.contains_non_integer_numeric_literal(arg) {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
                 format!(

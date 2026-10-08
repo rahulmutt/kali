@@ -49,10 +49,3 @@ mod late;
 pub use late::*;
 mod intl;
 pub use intl::*;
-
-/// Growable-runtime-arrays residual round 3 (spec A-44): how many alias
-/// hops inference (`repr_infer::is_static_numeric`) and codegen
-/// (`static_numeric_chain`) follow when deciding that a value is a
-/// compile-time number. One value, so the two cannot disagree on a long
-/// chain.
-pub const STATIC_NUMERIC_CHAIN_DEPTH: usize = 1024;

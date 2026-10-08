@@ -3613,14 +3613,19 @@ impl ReprInfer {
     /// one, or a `const` alias chain ending in one). Mirrors codegen's
     /// `is_static_numeric_arg`, so a rounding call over it stays on the i64
     /// fold lane on both sides.
-    fn is_static_numeric(&self, func: &str, expr: &Expression, depth: usize) -> bool {
-        if depth > kali_common::STATIC_NUMERIC_CHAIN_DEPTH {
+    ///
+    /// `hops` counts binding hops only (residual round 4): a chain that
+    /// visits more bindings than the program declares revisits one, which is
+    /// a cycle, so the bound is exact and a long acyclic chain (main folds
+    /// any length) is never cut short. Syntactic nesting is a finite tree.
+    fn is_static_numeric(&self, func: &str, expr: &Expression, hops: usize) -> bool {
+        if hops > self.static_numeric_hop_bound() {
             return false;
         }
-        match strip_parenthesized(expr) {
+        match strip_static_wrappers(expr) {
             Expression::Literal(LiteralValue::Number(_)) => true,
             Expression::UnaryExpression(u) if matches!(u.operator.as_str(), "-" | "+") => {
-                self.is_static_numeric(func, &u.argument, depth + 1)
+                self.is_static_numeric(func, &u.argument, hops)
             }
             Expression::Identifier(name) => {
                 let scope = self.binding_scope(func, name);
@@ -3629,7 +3634,7 @@ impl ReprInfer {
                     return false;
                 }
                 if let Some(init) = self.static_numeric_const_inits.get(&key) {
-                    return self.is_static_numeric(&scope, init, depth + 1);
+                    return self.is_static_numeric(&scope, init, hops + 1);
                 }
                 // Residual round 3: a `const` loop variable of a `for-of`
                 // over a literal array (or a non-growable `const` binding of
@@ -3637,29 +3642,29 @@ impl ReprInfer {
                 self.static_numeric_loop_vars
                     .get(&key)
                     .is_some_and(|iterable| {
-                        self.is_static_numeric_array(&scope, iterable, depth + 1)
+                        self.is_static_numeric_array(&scope, iterable, hops + 1)
                     })
             }
             Expression::CallExpression(call) if is_object_freeze_call(call) => call
                 .args
                 .first()
-                .is_some_and(|arg| self.is_static_numeric(func, arg, depth + 1)),
+                .is_some_and(|arg| self.is_static_numeric(func, arg, hops)),
             _ => false,
         }
     }
 
     /// A literal array (or a non-growable `const` binding of one) whose every
     /// element is a compile-time number (residual round 3).
-    fn is_static_numeric_array(&self, func: &str, expr: &Expression, depth: usize) -> bool {
-        if depth > kali_common::STATIC_NUMERIC_CHAIN_DEPTH {
+    fn is_static_numeric_array(&self, func: &str, expr: &Expression, hops: usize) -> bool {
+        if hops > self.static_numeric_hop_bound() {
             return false;
         }
-        match strip_parenthesized(expr) {
+        match strip_static_wrappers(expr) {
             Expression::ArrayExpression(array) => {
                 !array.elements.is_empty()
                     && array.elements.iter().all(|element| match element {
                         Some(ExpressionOrSpread::Expression(e)) => {
-                            self.is_static_numeric(func, e, depth + 1)
+                            self.is_static_numeric(func, e, hops)
                         }
                         _ => false,
                     })
@@ -3670,10 +3675,19 @@ impl ReprInfer {
                     && self
                         .const_array_inits
                         .get(&(scope.clone(), name.clone()))
-                        .is_some_and(|init| self.is_static_numeric_array(&scope, init, depth + 1))
+                        .is_some_and(|init| self.is_static_numeric_array(&scope, init, hops + 1))
             }
             _ => false,
         }
+    }
+
+    /// Residual round 4: one more than the bindings a compile-time-number
+    /// chain can pass through without revisiting one.
+    fn static_numeric_hop_bound(&self) -> usize {
+        self.static_numeric_const_inits.len()
+            + self.static_numeric_loop_vars.len()
+            + self.const_array_inits.len()
+            + 1
     }
 
     /// Residual round 3 (spec A-44): every binding `is_static_numeric`
@@ -4075,7 +4089,7 @@ impl ReprInfer {
                             self.static_numeric_const_inits.insert(key, init.clone());
                         }
                         if let Some(init @ Expression::ArrayExpression(_)) =
-                            d.init.as_ref().map(strip_parenthesized)
+                            d.init.as_ref().map(strip_static_wrappers)
                         {
                             self.const_array_inits
                                 .insert((func.to_string(), d.id.clone()), init.clone());
@@ -5923,6 +5937,13 @@ impl ReprInfer {
         rn
     }
 
+    /// Residual round 4: the program has a growable array (a binding, field
+    /// or return the growable solve admitted).
+    fn program_has_growable(&self) -> bool {
+        self.growable.growable_members().next().is_some()
+            || self.growable.growable_returning().next().is_some()
+    }
+
     /// Non-inserting lookup twin of [`Self::array_elem_node_for`]: true when
     /// `(func, name)` already has an element node, without allocating one.
     fn binding_has_element_node(&self, func: &str, name: &str) -> bool {
@@ -5942,6 +5963,19 @@ impl ReprInfer {
     ///
     /// Any other iterable leaves the loop variable plain; the M2 proof then
     /// refuses a string item it cannot see (`ElemProof::Str`).
+    ///
+    /// Residual round 4: the flow exists to feed a growable element, so in
+    /// full it runs only in a program that has a growable array. Without one
+    /// the loop variable stays as on `main` (codegen unrolls the loop to
+    /// per-item bindings): `for (const x of [3, "a"])` prints its items
+    /// instead of the both-axes refusal, and a rounding call over a float
+    /// item keeps the integer fold (the variable has no float repr, so the
+    /// call gets no float edge; codegen's `math_float_lane` mirrors that).
+    /// The one exception is a loop variable inference proves a compile-time
+    /// number (`is_static_numeric`): its items still float it, so a local it
+    /// is copied into (`const y = x`) gets the f64 slot its value needs,
+    /// while the rounding calls over it stay on the fold (no float edge from
+    /// a compile-time number).
     fn flow_plain_for_of_items(&mut self, func: &str, stmt: &kali_ast::ForOfStatement) {
         let loop_var = match &stmt.left {
             kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
@@ -5953,6 +5987,11 @@ impl ReprInfer {
         let Some(var) = loop_var else {
             return;
         };
+        if !self.program_has_growable()
+            && !self.is_static_numeric(func, &Expression::Identifier(var.clone()), 0)
+        {
+            return;
+        }
         match crate::array_return::unparen(&stmt.right) {
             Expression::Identifier(name) => {
                 let scope = self.binding_scope(func, name);
@@ -8887,7 +8926,7 @@ fn is_float_literal(n: f64) -> bool {
 /// A `const` initializer that could be a compile-time number (residual
 /// round 1): see `ReprInfer::static_numeric_const_inits`.
 fn may_be_static_numeric(expr: &Expression) -> bool {
-    match strip_parenthesized(expr) {
+    match strip_static_wrappers(expr) {
         Expression::Literal(LiteralValue::Number(_)) | Expression::Identifier(_) => true,
         Expression::UnaryExpression(u) => matches!(u.operator.as_str(), "-" | "+"),
         Expression::CallExpression(call) => is_object_freeze_call(call),
@@ -8943,6 +8982,22 @@ fn collect_destructuring_target_names(pattern: &Expression, names: &mut Vec<Stri
 }
 
 /// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
+/// Residual round 4: parentheses and the type-only `as`/`satisfies`
+/// wrappers, which HIR lowering drops (`kali_hir` `lower_expression`), so
+/// codegen sees `const t = 1.5 as number` as `const t = 1.5`. The
+/// compile-time-number proof looks through them to agree with it.
+fn strip_static_wrappers(expr: &Expression) -> &Expression {
+    let mut current = expr;
+    loop {
+        current = match current {
+            Expression::ParenthesizedExpression(inner) => &inner.expression,
+            Expression::TypeAssertion(inner) => &inner.expression,
+            Expression::SatisfiesExpression(inner) => &inner.expression,
+            _ => return current,
+        };
+    }
+}
+
 fn strip_parenthesized(expr: &Expression) -> &Expression {
     let mut current = expr;
     while let Expression::ParenthesizedExpression(inner) = current {
