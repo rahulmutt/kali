@@ -340,3 +340,27 @@ Measured with the branch binary after the residual-fix commits, node v26.10.0.
 - **A growable `includes` behind an arrow alias** (`const has = (v) => xs.includes(v)`
   inside `main`) is refused by `check` and `run` with the pre-existing "array search
   method 'includes' is unavailable…" message (node `true`).
+
+## Residual round 1 (2026-10-08)
+
+**Resolved:** a rounding call over a `const` alias of a literal folds to an integer
+again (A-41; round 0 regressed it); `!` and comparisons over a growable `includes`
+result stored or returned print `true`/`false` (A-42); `xs[i % 2]` with a float `i`
+is refused by `check` and `run` (it failed to load under `run`); a module `const` of
+a literal rounded inside a function now folds (failed to load at the baseline).
+
+**Left (pre-existing, now reachable or measured):**
+
+- **An array literal of float values prints its length**: `const h = 3 / 2; console.log([h, h + 1]);`
+  prints `2` (node `[ 1.5, 2.5 ]`); with `const h = Math.floor(7 / 2)` it was a load
+  failure before A-39 and is now reachable the same way. Silent.
+- **`!` or a comparison over a non-growable `includes`** stored in a binding prints
+  `0`/`1`: `const r = ![1, 2].includes(2); console.log(r);` and
+  `const r = !"abc".includes("b")` print `0` (node `false`). Silent; the general
+  boolean-repr gap above.
+- **The rounding constant fold is not JS's**: `const y = 0.49999999999999994; console.log(Math.round(y))`
+  prints `1` (node `0`), and `const z = -0.4; console.log(1 / Math.round(z))` prints
+  `Infinity` (node `-Infinity`). The runtime f64 lane (A-39) is correct; the i64 fold
+  (A-41, as on `main`) is not. Silent.
+- **A closure capturing a float `const`** is refused by `check` and `run` ("a closure
+  `g` that captures `t` …"; node runs).
