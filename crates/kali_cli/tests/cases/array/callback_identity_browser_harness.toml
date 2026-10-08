@@ -106,36 +106,34 @@ browserArrayCallbackIdentitySlices();
 
 [[case]]
 name = "run_plain"
-rationale = "`run --api browser` with a configured browser harness command supports the array-callback-identity fixture across every supported source class; a clean exit itself proves the identity-semantics assertion the fixture makes internally (it throws otherwise)."
+rationale = "`run --api browser` with a configured browser harness command supports the array-callback-identity fixture across every supported source class; a clean exit itself proves the identity-semantics assertion the fixture makes internally (it throws otherwise). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: CAPABILITY LOSS, fail-closed by the controller's M2 ruling (ledger, Task 7 I3). At `edb3a77df` this ran and passed; it is now REFUSED (E5506): `observed`, which is pushed the loop variable of `for-of` loops over `[1, 2].map(cb)`, `.filter(cb)`, `Array.from(…)`, `[...xs.filter(cb)]` and `.flatMap(cb)`, is a growable array whose elements the element proof cannot show to be numbers or strings. Cause (ledger, Task 7 minor): the program-wide `unwalked` flag in repr inference disables binding-element admission when any nested function is unseeded, and the callback inside the spread operand is one. node v26.10.0 prints `some:true`, `every:false`, then `1` `2` five times, and the self-check passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${extension}"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
-exit = "success"
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "test_plain"
-rationale = "Same fixture wrapped in `Kali.test`, run via `test --api browser` with a configured browser harness command."
+rationale = "Same fixture wrapped in `Kali.test`, run via `test --api browser` with a configured browser harness command. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: CAPABILITY LOSS, fail-closed by the controller's M2 ruling (ledger, Task 7 I3). At `edb3a77df` this ran and passed; it is now REFUSED (E5506): `observed`, which is pushed the loop variable of `for-of` loops over `[1, 2].map(cb)`, `.filter(cb)`, `Array.from(…)`, `[...xs.filter(cb)]` and `.flatMap(cb)`, is a growable array whose elements the element proof cannot show to be numbers or strings. Cause (ledger, Task 7 minor): the program-wide `unwalked` flag in repr inference disables binding-element admission when any nested function is unseeded, and the callback inside the spread operand is one. node v26.10.0 prints `some:true`, `every:false`, then `1` `2` five times, and the self-check passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${extension}"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
-exit = "success"
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "json_run"
-rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope (schemaVersion, command, success, exitCode)."
+rationale = "Same `run --api browser` fixture through `--output json`, asserting the JSON output envelope (schemaVersion, command, success, exitCode). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: CAPABILITY LOSS, fail-closed by the controller's M2 ruling (ledger, Task 7 I3). At `edb3a77df` this ran and passed; it is now REFUSED (E5506): `observed`, which is pushed the loop variable of `for-of` loops over `[1, 2].map(cb)`, `.filter(cb)`, `Array.from(…)`, `[...xs.filter(cb)]` and `.flatMap(cb)`, is a growable array whose elements the element proof cannot show to be numbers or strings. Cause (ledger, Task 7 minor): the program-wide `unwalked` flag in repr inference disables binding-element admission when any nested function is unseeded, and the callback inside the spread operand is one. node v26.10.0 prints `some:true`, `every:false`, then `1` `2` five times, and the self-check passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.${extension}"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
-exit = "success"
-json.schemaVersion = 1
-json.command = "run"
-json.success = true
-json.exitCode = 0
+exit = "failure"
+json = { schemaVersion = 1, command = "run", success = false, exitCode = 1 }
+stdout_contains = ["is a growable array with an element that is an object"]
 
 [[case]]
 name = "json_test"
-rationale = "Same `test --api browser` fixture through `--output json`, asserting the JSON output envelope (schemaVersion, command, success, exitCode)."
+rationale = "Same `test --api browser` fixture through `--output json`, asserting the JSON output envelope (schemaVersion, command, success, exitCode). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: CAPABILITY LOSS, fail-closed by the controller's M2 ruling (ledger, Task 7 I3). At `edb3a77df` this ran and passed; it is now REFUSED (E5506): `observed`, which is pushed the loop variable of `for-of` loops over `[1, 2].map(cb)`, `.filter(cb)`, `Array.from(…)`, `[...xs.filter(cb)]` and `.flatMap(cb)`, is a growable array whose elements the element proof cannot show to be numbers or strings. Cause (ledger, Task 7 minor): the program-wide `unwalked` flag in repr inference disables binding-element admission when any nested function is unseeded, and the callback inside the spread operand is one. node v26.10.0 prints `some:true`, `every:false`, then `1` `2` five times, and the self-check passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.${extension}"]
 env.KALI_BROWSER_BUNDLE_HARNESS_COMMAND = "node"
-exit = "success"
-json.schemaVersion = 1
-json.command = "test"
-json.success = true
-json.exitCode = 0
+exit = "failure"
+json = { schemaVersion = 1, command = "test", success = false, exitCode = 1 }
+stdout_contains = ["is a growable array with an element that is an object"]

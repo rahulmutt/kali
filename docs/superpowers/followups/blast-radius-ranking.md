@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `027409c91f` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `417b58fb8b` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -351,7 +351,7 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 | R-04 | 1 | 112 | 0 | FIXED |
 | R-05 | 1 | 6 | 0 | FAIL_CLOSED |
 | R-11 | 2 | 10 | 0 | FIXED |
-| R-12 | 2 | 3 | 0 | FAIL_CLOSED |
+| R-12 | 2 | 3 | 0 | FIXED |
 | R-19 | 2 | 27 | 0 | FIXED / FAIL_CLOSED |
 | R-20 | 2 | 4 | 0 | FAIL_CLOSED |
 | R-25 | 2 | 1 | 0 | FAIL_CLOSED |
@@ -1385,6 +1385,23 @@ project, `docs/superpowers/followups/default-parameters-discovered-defects.md`).
   `hooks = {}` object default, which stays refused). `accepts.json` and
   `counts.json` are unchanged apart from the binary path, which was not
   committed.
+
+**AMENDMENT 2026-10-08 — a FOURTEENTH regeneration: R-12 moves FAIL_CLOSED →
+FIXED (growable-runtime-arrays project,
+`docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md`).**
+
+- **What moved: R-12.** The two `r12` oracle cases now assert FIXED, measured at
+  `417b58fb8` against node v26.10.0: `const a=[1,2]; const b=a; b[0]=7;` prints
+  `b0=7` at exit 0 in both scopes, as node does. The project did not target
+  R-12; an index write now makes an array-literal binding a growable runtime
+  array and the alias joins its component, so the store has a lane.
+- **What changed in §2–§5:** only §3's R-12 verdict cell. R-12 was already not
+  damage (it left the SILENT filter and `clusters.json` on 2026-09-09), so no
+  band moves.
+- **No band moved on either axis, and the accept set did not move.**
+  `accepts.mjs`, re-run against this branch's binary, still reads anchor
+  125/137 and extension 0/40. `accepts.json` and `counts.json` are unchanged
+  apart from the binary path, which was not committed.
 
 ### 6.1 The most important thing here is not a rank
 

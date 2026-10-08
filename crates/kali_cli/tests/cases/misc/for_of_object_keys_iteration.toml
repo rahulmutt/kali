@@ -2,6 +2,15 @@
 # Edit the generator and re-run it with --write; its default mode re-renders every
 # file it owns and fails on any byte difference.
 #
+# HAND-EDITED 2026-10-08 AT `417b58fb8`, DELIBERATELY, AND THE GENERATOR CHECK
+# ABOVE IS THEREFORE RED for this file. The growable-runtime-arrays project
+# (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13)
+# re-pinned the cases whose outcome it moved; each re-pinned case's rationale
+# carries a dated `RE-PINNED 2026-10-08` note with node v26.10.0's reading.
+# `gen_task19_batch4.py` has no re-pin channel, so `--write` WOULD SILENTLY REVERT the
+# re-pins -- see cases/runtime/join.toml's header for what a regenerating fix
+# would need.
+#
 # Migrated from tests/for_of_object_keys_iteration.rs.
 #   SOURCE REF: 7f57e0ed87ac9eaa0d05de88816f1fb1fdf6ef15
 #
@@ -1538,15 +1547,17 @@ Kali.test('object values iteration', () => {
 
 [[case]]
 name = "run_supports_object_keys_iteration_in_js_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_iteration_in_js_input.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_iteration_in_ts_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_ts_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_ts_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_iteration_in_ts_input.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_keys_iteration_in_js_input"
@@ -1564,15 +1575,17 @@ stdout_contains = ["ok 1"]
 
 [[case]]
 name = "run_supports_object_keys_iteration_with_direct_literal_object_in_js_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_with_direct_literal_object_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_with_direct_literal_object_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_iteration_with_direct_literal_object_in_js_input.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_iteration_with_direct_literal_object_in_ts_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_with_direct_literal_object_in_ts_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_with_direct_literal_object_in_ts_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_iteration_with_direct_literal_object_in_ts_input.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_keys_iteration_with_direct_literal_object_in_js_input"
@@ -1590,27 +1603,31 @@ stdout_contains = ["ok 1"]
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_in_js_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_global_object_keys_iteration_in_js_input.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input__main_ts"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input__main_ts.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_global_object_keys_iteration_in_ts_jsx_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_global_object_keys_iteration_in_js_input"
@@ -1654,29 +1671,31 @@ exit = "failure"
 
 [[case]]
 name = "test_supports_object_values_iteration_in_js_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_js_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_js_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_iteration_in_js_input.test.js"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "test_supports_object_values_iteration_in_ts_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_ts_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_ts_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_iteration_in_ts_input.test.ts"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "run_supports_object_keys_from_entries_iteration_in_js_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_js_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_from_entries_iteration_in_js_input.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_from_entries_iteration_in_ts_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_ts_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_ts_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_from_entries_iteration_in_ts_input.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_keys_from_entries_iteration_in_js_input"
@@ -1706,17 +1725,17 @@ exit = "failure"
 
 [[case]]
 name = "test_supports_object_values_from_entries_iteration_in_js_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_js_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_js_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_from_entries_iteration_in_js_input.test.js"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "test_supports_object_values_from_entries_iteration_in_ts_input"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_ts_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_ts_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_from_entries_iteration_in_ts_input.test.ts"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "run_supports_object_entries_from_entries_iteration_in_js_input"
@@ -1744,15 +1763,17 @@ exit = "failure"
 
 [[case]]
 name = "run_supports_object_keys_iteration_in_jsx_and_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_iteration_in_jsx_and_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_iteration_in_jsx_and_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_iteration_in_jsx_and_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_keys_iteration_in_jsx_and_tsx_input__smoke_test_jsx"
@@ -1770,15 +1791,17 @@ stdout_contains = ["ok 1"]
 
 [[case]]
 name = "run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_direct_object_keys_iteration_in_jsx_and_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_direct_object_keys_iteration_in_jsx_and_tsx_input__smoke_test_jsx"
@@ -1796,15 +1819,17 @@ stdout_contains = ["ok 1"]
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_in_jsx_and_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_global_object_keys_iteration_in_jsx_and_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_in_jsx_and_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_global_object_keys_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_global_object_keys_iteration_in_jsx_and_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_global_object_keys_iteration_in_jsx_and_tsx_input__smoke_test_jsx"
@@ -1834,29 +1859,31 @@ exit = "failure"
 
 [[case]]
 name = "test_supports_object_values_iteration_in_jsx_and_tsx_input__smoke_test_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_iteration_in_jsx_and_tsx_input__smoke_test_jsx.test.jsx"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "test_supports_object_values_iteration_in_jsx_and_tsx_input__smoke_test_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_iteration_in_jsx_and_tsx_input__smoke_test_tsx.test.tsx"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_keys_from_entries_iteration_in_jsx_and_tsx_input__smoke_test_jsx"
@@ -1886,17 +1913,17 @@ exit = "failure"
 
 [[case]]
 name = "test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input__smoke_test_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input__smoke_test_jsx.test.jsx"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input__smoke_test_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3)."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input`. The source asserts the command succeeds. It asserts that stdout CONTAINS the pinned needle; the source's claim is a plain `.contains` against a field that has a substring form, so it stays a `*_contains` and is NOT strengthened to an exact pin (ruling 3, clause 3). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: OVER-REFUSAL, fail-closed by the controller's M2 ruling (ledger, Task 7 minor). At `edb3a77df` this test passed (`ok 1`); it is now REFUSED (E5506): `seen.push(value)` over `Object.values(alias)` of an object binding is not proven a number or a string by the element proof, so `seen` is refused as a growable array with an unsupported element. node v26.10.0 runs the same `Kali.test` body (under a one-line shim) and it passes. Recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md."
 args = ["test", "test_supports_object_values_from_entries_iteration_in_jsx_and_tsx_input__smoke_test_tsx.test.tsx"]
-exit = "success"
-stdout_contains = ["ok 1"]
+exit = "failure"
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "run_supports_object_entries_from_entries_iteration_in_jsx_and_tsx_input__main_jsx"
@@ -1972,27 +1999,31 @@ exit = "failure"
 
 [[case]]
 name = "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_js"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_js.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_ts"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_ts.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_frozen_object_enumeration_iteration_in_js_ts_jsx_tsx_input__smoke_test_js"
@@ -2024,27 +2055,31 @@ stdout_contains = ["ok 1"]
 
 [[case]]
 name = "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_js"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_js.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_ts"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_ts.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_frozen_object_values_iteration_in_js_ts_jsx_tsx_input__smoke_test_js"
@@ -2076,27 +2111,31 @@ stdout_contains = ["ok 1"]
 
 [[case]]
 name = "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_js"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_js.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_ts"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_ts.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_string_enumeration_iteration_in_js_ts_jsx_tsx_input__smoke_test_js"
@@ -2176,27 +2215,31 @@ exit = "failure"
 
 [[case]]
 name = "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_js"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_js.js"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_ts"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_ts.ts"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_jsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_jsx.jsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_tsx"
-rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched."
+rationale = "Migrated 1:1 from `for_of_object_keys_iteration.rs`'s `#[test] fn run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input`. The source asserts the command fails closed. It makes NO claim about either stream, so none is written: rule 2 forbids adding an assertion the source did not make merely because it is true. Honest re-pin (PR #16 rev2): kali fails closed/loud here; see docs/superpowers/followups/pr16-honest-repin-inventory.md. Not routed through assert_object_keys_iteration: that helper also serves out-of-batch `test_*` callers that are still green, so it is left untouched. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS to exit 0 with empty stdout, as node does: the fixture prints nothing and throws on any wrong result, so exit 0 is its self-check passing. Pushing the keys/values of `Object.keys`/`Object.values`/`Object.entries` loops into an array literal now makes a growable array (spec §3.1, §3.4) instead of the refused literal `.push()`."
 args = ["run", "run_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__main_tsx.tsx"]
-exit = "failure"
+exit = "success"
+stdout = ""
 
 [[case]]
 name = "test_supports_object_keys_break_continue_iteration_in_js_ts_jsx_tsx_input__smoke_test_js"

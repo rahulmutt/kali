@@ -272,10 +272,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.default.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout = "browser object keys iteration ok\n"
 
 [[case]]
 name = "json_run_supports_object_keys_iteration_when_browser_harness_is_configured"
@@ -283,10 +284,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.default.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, stdout = "browser object keys iteration ok\n" }
 
 [[case]]
 name = "test_supports_object_keys_iteration_when_browser_harness_is_configured"
@@ -294,10 +296,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.default.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout_contains = ["browser object keys iteration ok", "ok 1"]
 
 [[case]]
 name = "json_test_supports_object_keys_iteration_when_browser_harness_is_configured"
@@ -305,10 +308,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.default.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, payload = { passed = 1, failed = 0 } }
 
 [[case]]
 name = "run_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
@@ -316,10 +320,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.const_bound.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout = "browser object keys iteration ok\n"
 
 [[case]]
 name = "json_run_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
@@ -327,10 +332,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.const_bound.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, stdout = "browser object keys iteration ok\n" }
 
 [[case]]
 name = "test_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
@@ -338,10 +344,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.const_bound.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout_contains = ["browser object keys iteration ok", "ok 1"]
 
 [[case]]
 name = "json_test_supports_const_bound_object_keys_iteration_when_browser_harness_is_configured"
@@ -349,10 +356,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.const_bound.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, payload = { passed = 1, failed = 0 } }
 
 [[case]]
 name = "run_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
@@ -360,10 +368,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.direct.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout = "browser object keys iteration ok\n"
 
 [[case]]
 name = "json_run_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
@@ -371,10 +380,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.direct.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, stdout = "browser object keys iteration ok\n" }
 
 [[case]]
 name = "test_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
@@ -382,10 +392,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.direct.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout_contains = ["browser object keys iteration ok", "ok 1"]
 
 [[case]]
 name = "json_test_supports_direct_object_keys_iteration_when_browser_harness_is_configured"
@@ -393,10 +404,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.direct.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, payload = { passed = 1, failed = 0 } }
 
 [[case]]
 name = "run_supports_global_object_keys_iteration_when_browser_harness_is_configured"
@@ -404,10 +416,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.global.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout = "browser object keys iteration ok\n"
 
 [[case]]
 name = "json_run_supports_global_object_keys_iteration_when_browser_harness_is_configured"
@@ -415,10 +428,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same fixture and prints `browser object keys iteration ok`; kali prints the same line through the harness."""
 args = ["--output", "json", "run", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "main.global.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, stdout = "browser object keys iteration ok\n" }
 
 [[case]]
 name = "test_supports_global_object_keys_iteration_when_browser_harness_is_configured"
@@ -426,10 +440,11 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.global.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+stdout_contains = ["browser object keys iteration ok", "ok 1"]
 
 [[case]]
 name = "json_test_supports_global_object_keys_iteration_when_browser_harness_is_configured"
@@ -437,7 +452,8 @@ rationale = """Migrated from browser_object_keys_harness.rs. Every one of this f
 
 Honest re-pin (PR #16 rev2, family `object-enum`): kali fails closed/loud here (12 of this file's 41 worklist members were tagged class B by the automated classifier, but direct verification shows every one of them panics on this exact assertion too — a loud E5506/runtime-trap failure, not a silent wrong value; re-pinned as class A for all 41 members — see docs/superpowers/followups/pr16-honest-repin-inventory.md).
 
-The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries."""
+The `ext` axis (js/ts/jsx/tsx) is genuinely uniform across every case in this file (verified: every one of the 4 distinct fixture bodies was directly re-run against the real kali binary, in both output modes, and fails closed) -- hoisted to a file-level [matrix] axis rather than 4x as many named [[case]] entries. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS under the configured browser harness and its own self-check passes (it throws on any wrong result), so the case is re-pinned from fail-closed to success. `keys.push(key)` inside `for (const key of Object.keys(…))` makes `keys` a growable string array (spec §3.1, §3.4), which the Stage 4 lane refused. node runs the same `Kali.test` body (under a one-line `Kali.test` shim) and it passes, printing `browser object keys iteration ok`; kali reports the test passed."""
 args = ["--output", "json", "test", "--api", "browser", "--max-threads", "0", "--max-spawned-processes", "0", "smoke.test.global.${ext}"]
 env = { "KALI_BROWSER_BUNDLE_HARNESS_COMMAND" = "node" }
-exit = "failure"
+exit = "success"
+json = { success = true, exitCode = 0, payload = { passed = 1, failed = 0 } }

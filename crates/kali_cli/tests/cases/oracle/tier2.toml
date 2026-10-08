@@ -1437,7 +1437,7 @@ name = "r12_alias_defeats_array_store_guard_module_scope"
 kind = "oracle"
 register_entry = "R-12"
 program = "r12_module.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-12, module scope. §2's `Repro` (`scratchpad/consolidate/al.js`) with its `function f(){ … } f();` wrapper removed and nothing else changed -- the mirror image of the wrapping used elsewhere in this file, because the register states this repro in-function. The alias `const b=a` is the whole point of the entry: it is the single interposed binding that turns a refused store into a silent one.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2's `Correction 2026-07-25` records the aliased form as "silent in **both** scopes (module `1`, in-function `1`; node `7`)", and §0.2's row reads "R-12 alias defeats array-store guard | **SILENT** | both scopes". SILENT.
@@ -1457,6 +1457,8 @@ MOVED BY A PROJECT THAT DOES NOT NAME R-12. The computed-member-static-name proj
 FAIL_CLOSED IS A REAL IMPROVEMENT HERE AND ALSO LEAVES THE ENTRY OPEN. node's `b0=7` is still not produced; what changed is that kali no longer produces a plausible wrong number at exit 0. Whoever re-derives section 0.2's R-12 row must record FAIL_CLOSED rather than reading this as closed.
 
 A TWIN DISAGREEMENT SITS ON THIS PROGRAM AND IS NOT MEASURED BY THIS CASE. `kali check` on the same program exits 0 (`Checked 1 file(s)`) at `3ef65ef785` while `kali run` refuses. The oracle harness observes `run` only, so this case cannot see it; it is recorded in object/computed_member_static_name.toml and reported to the controller as a spec section 8 defect.
+
+RE-MEASURED 2026-10-08 at `417b58fb8` against node v26.10.0: FIXED (was FAIL_CLOSED). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13). kali prints `b0=7` at exit 0 with empty stderr, as node does (module scope). What moved: the index write `b[0]=7` makes the array literal a growable array, and the alias `const b=a` is a growable edge (spec §3.1: sources and the alias edge), so `a` and `b` are one growable component sharing one header, and the store lands in it through the bounds-checked growable store (spec §3.5). The twin disagreement recorded above is gone too: `kali check` exits 0 and `kali run` prints node's answer. Section 0.2's R-12 row is re-derived to FIXED in the same commit.
 """
 
 [[case]]
@@ -1464,7 +1466,7 @@ name = "r12_alias_defeats_array_store_guard_in_function"
 kind = "oracle"
 register_entry = "R-12"
 program = "r12_function.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-12, in-function scope. §2's `Repro` (`scratchpad/consolidate/al.js`) verbatim, wrapper and all -- the scope the register states it in, and the scope its `CONFIRMED-BY-CONTROLLER` verification covers.
 
 Expected verdict set from the register's recorded status: SILENT -- §2 records node `b0=7` against kali `b0=1` at exit 0.
@@ -1474,6 +1476,8 @@ RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -
 This is the scope where the entry's headline claim is measurable, because as of `61c2d48ea9` the register records the un-aliased in-function control failing CLOSED with `error[E5506]: mutating a literal array is unavailable …` for `const`, `let` and `var` alike. That control is a DIFFERENT program and is not measured by this case; what this case establishes is that the aliased form is silent, which is the half of the comparison that belongs in a silent-miscompile ranking.
 
 RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and the shared computed-member E5506 on stderr; node prints `b0=7` at exit 0 -- byte-identical to the module scope. Moved by the computed-member-static-name project's bracket-store choke point, for the reason set out on the module-scope case above; the same twin disagreement (`kali check` clean, `kali run` refusing) applies here and is likewise not observable through the oracle harness. The verdict was flipped only after this reading.
+
+RE-MEASURED 2026-10-08 at `417b58fb8` against node v26.10.0: FIXED (was FAIL_CLOSED). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13). kali prints `b0=7` at exit 0 with empty stderr, as node does (in-function). What moved: the index write `b[0]=7` makes the array literal a growable array, and the alias `const b=a` is a growable edge (spec §3.1: sources and the alias edge), so `a` and `b` are one growable component sharing one header, and the store lands in it through the bounds-checked growable store (spec §3.5). The twin disagreement recorded above is gone too: `kali check` exits 0 and `kali run` prints node's answer. Section 0.2's R-12 row is re-derived to FIXED in the same commit.
 """
 
 [[case]]
