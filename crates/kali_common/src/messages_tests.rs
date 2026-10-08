@@ -424,9 +424,18 @@ fn growable_runtime_array_messages_name_the_array_and_say_why() {
     assert_eq!(growable_scope_phrase("_start"), "at module scope");
     assert_eq!(growable_scope_phrase("main"), "in `main`");
     assert_eq!(growable_binding_subject("xs", "main"), "`xs` in `main`");
-    assert_eq!(growable_binding_subject("xs", "_start"), "`xs` at module scope");
-    assert_eq!(growable_return_subject("build"), "the array `build` returns");
-    assert_eq!(growable_call_result_source("build"), "the array `build(…)` returns");
+    assert_eq!(
+        growable_binding_subject("xs", "_start"),
+        "`xs` at module scope"
+    );
+    assert_eq!(
+        growable_return_subject("build"),
+        "the array `build` returns"
+    );
+    assert_eq!(
+        growable_call_result_source("build"),
+        "the array `build(…)` returns"
+    );
     assert_eq!(growable_slice_result_source(), "a `slice()` result");
     assert_eq!(
         growable_mixed_layout_message("`a` in `total`"),
