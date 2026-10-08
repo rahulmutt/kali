@@ -364,3 +364,22 @@ a literal rounded inside a function now folds (failed to load at the baseline).
   (A-41, as on `main`) is not. Silent.
 - **A closure capturing a float `const`** is refused by `check` and `run` ("a closure
   `g` that captures `t` …"; node runs).
+
+## Residual round 2 (2026-10-08)
+
+**Resolved:** module-`const` alias chains rounded inside a function fold to integers
+(A-43; round 1 failed at load); `!` over `||`/`&&`/`??`/`?:`/`,` holding growable
+`includes` results prints `true`/`false` when stored or returned; `typeof !x` and
+`typeof (a === b)` print `boolean` (were `0`, also outside the lane).
+
+**Left:**
+
+- **A float `%` in a `slice` bound fails at load**: `let q = 7; q = q / 2; const i = Math.floor(q); console.log(xs.slice(i % 2).length);`
+  passes `check`, `run` gives E4201 (node `2`). Float `%` has no lowering anywhere
+  (§ above); A-41 refuses it only as an index.
+- **A comparison stored in a binding outside the `includes` lane** prints `1`/`0`:
+  `const r = xs.pop() === 3`, `const r = xs.indexOf(2) === -1`, `const r = !(a === 2 || a === 5)`
+  (node `true`/`false`). The general boolean-repr gap of round 0.
+- **A loop-unrolled `for-of` binding over float literals** is a compile-time number to
+  codegen's fold (`self.bindings`) but not to inference; a rounding of it stored in a
+  binding could disagree (not observed in a probe).
