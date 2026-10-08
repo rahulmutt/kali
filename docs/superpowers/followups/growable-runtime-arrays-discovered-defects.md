@@ -380,6 +380,22 @@ a literal rounded inside a function now folds (failed to load at the baseline).
 - **A comparison stored in a binding outside the `includes` lane** prints `1`/`0`:
   `const r = xs.pop() === 3`, `const r = xs.indexOf(2) === -1`, `const r = !(a === 2 || a === 5)`
   (node `true`/`false`). The general boolean-repr gap of round 0.
-- **A loop-unrolled `for-of` binding over float literals** is a compile-time number to
-  codegen's fold (`self.bindings`) but not to inference; a rounding of it stored in a
-  binding could disagree (not observed in a probe).
+- ~~A loop-unrolled `for-of` binding over float literals … (not observed in a probe).~~
+  It was observed (`for (const x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k); }`,
+  E4201); **RESOLVED in round 3 (A-44).**
+
+## Residual round 3 (2026-10-08)
+
+**Resolved:** unrolled `for-of` variables under rounding calls (A-44); a chain of 16
+to 31 `const` hops (one shared depth, 1024); `!(xs.includes(1), 5)` printing `true`
+(now refused); `+r` / `-xs.includes(2)` printing a boolean (now refused).
+
+**Left:**
+
+- **kali's comma operator value is wrong** (pre-existing): `console.log((1, 5))` prints
+  `2`, `!(0, 5)` prints `true`, `let a = 0; const r = (a = 3, a + 1)` gives `0` (node
+  `5`, `false`, `4`). Silent outside the growable lane; A-44 refuses only commas
+  holding a growable `includes` result.
+- **A `const` chain longer than 1024 hops** is not a compile-time number on either
+  side, so `Math.floor` of a fractional one is refused by `run` only ("non-integer
+  numeric literals"); `main` folds it.
