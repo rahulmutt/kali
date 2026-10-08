@@ -1,0 +1,365 @@
+# Residual round 1 of the growable-runtime-arrays lane (spec A-39, N1): a
+# rounding call over a `const` alias of a numeric literal keeps the i64
+# constant-fold lane it had on `main`, so `%`, bitwise operators, `**`,
+# `new Array(n)` and a loop bound work on its result. Round 0 gave it an f64
+# result and these failed to load (E4201) or were refused (E5506) while `check`
+# exited 0. Expected stdout is node v26.10.0's (`env -u FORCE_COLOR node`).
+
+[source]
+"alias_module.js" = """
+const t = 7.9;
+const u = 2.6;
+const c = 3.2;
+console.log(Math.floor(t) % 3, Math.floor(t) | 0, Math.floor(u) << 1, Math.trunc(u) ** 2);
+const k = Math.floor(t);
+console.log(k % 3, k & 1, k ^ 2);
+const a = new Array(Math.floor(u)).fill(1);
+console.log(a.length);
+const n = Math.ceil(c);
+let s = "";
+for (let i = 0; i < n; i++) s += "x";
+console.log(s, n % 2 === 0);
+function f(m) { return m % 2; }
+console.log(f(Math.round(u)));
+"""
+"alias_function.js" = """
+function main() {
+  const t = 7.9;
+  const u = 2.6;
+  const c = 3.2;
+  console.log(Math.floor(t) % 3, Math.floor(t) | 0, Math.floor(u) << 1, Math.trunc(u) ** 2);
+  const k = Math.floor(t);
+  console.log(k % 3, k & 1, k ^ 2);
+  const a = new Array(Math.floor(u)).fill(1);
+  console.log(a.length);
+  const n = Math.ceil(c);
+  let s = "";
+  for (let i = 0; i < n; i++) s += "x";
+  console.log(s, n % 2 === 0);
+  function f(m) { return m % 2; }
+  console.log(f(Math.round(u)));
+}
+main();
+"""
+"module_const_from_function.js" = """
+const t = 7.9; function first(){ const k = Math.floor(t); console.log(k % 3, k & 1); } first();
+function second() { console.log(Math.floor(t), Math.trunc(t) % 4); } second();
+"""
+"chain_module.js" = """
+const t = 7.9;
+const u = t;
+const a = 7.9;
+const b = -a;
+function f() { return Math.floor(u) % 3; }
+function g() { return Math.floor(b) % 3; }
+function h() { const t2 = t; return Math.floor(t2) | 1; }
+function k() { const m = Math.floor(u); return m | 1; }
+console.log(f(), g(), h(), k(), Math.floor(u) % 3, Math.ceil(b) | 0);
+"""
+"chain_function.js" = """
+function main() {
+  const t = 7.9;
+  const u = t;
+  const a = 7.9;
+  const b = -a;
+  const t2 = u;
+  const m = Math.floor(u);
+  console.log(Math.floor(u) % 3, Math.floor(b) % 3, Math.floor(t2) | 1, m | 1, Math.ceil(b) | 0);
+}
+main();
+"""
+"loop_module.js" = """
+for (const x of [1.5, 2.5]) {
+  const k = Math.floor(x);
+  console.log(k, k % 2, k / 2, Math.round(x) * 1.5);
+}
+const ys = [3.5, 4.25];
+for (const y of ys) {
+  const k = Math.ceil(y);
+  console.log(k | 1, k % 3);
+}
+"""
+"loop_function.js" = """
+function main() {
+  for (const x of [1.5, 2.5]) {
+    const k = Math.floor(x);
+    console.log(k, k % 2, k / 2, Math.round(x) * 1.5);
+  }
+  const ys = [3.5, 4.25];
+  for (const y of ys) {
+    const k = Math.ceil(y);
+    console.log(k | 1, k % 3);
+  }
+}
+main();
+"""
+"class_module.js" = """
+class C {
+  static f() { const t = 1.5; console.log(Math.floor(t), Math.floor(t) % 2); }
+  static g() { const t = 2.5; return Math.floor(t) % 2; }
+  static h() { for (const x of [1.5, 2.5]) { console.log(Math.floor(x) % 2); } }
+  static r() { for (const x of [1.5]) { return Math.floor(x) % 2; } return 9; }
+}
+C.f();
+console.log(C.g());
+C.h();
+console.log(C.r());
+"""
+"class_function.js" = """
+function main() {
+  class C {
+    static f() { const t = 1.5; console.log(Math.floor(t), Math.floor(t) % 2); }
+    static g() { const t = 2.5; return Math.floor(t) % 2; }
+    static h() { for (const x of [1.5, 2.5]) { console.log(Math.floor(x) % 2); } }
+    static r() { for (const x of [1.5]) { return Math.floor(x) % 2; } return 9; }
+  }
+  C.f();
+  console.log(C.g());
+  C.h();
+  console.log(C.r());
+}
+main();
+"""
+"class_expression.js" = """
+const D = class { static f() { const t = 1.5; console.log(Math.floor(t) % 2); } };
+D.f();
+"""
+"class_extends.js" = """
+class A { static f() { return 1; } }
+class B extends A { static g() { const t = 2.5; return Math.floor(t) % 2; } }
+console.log(B.g());
+"""
+"default_export.ts" = """
+export default function () { const t = 1.5; console.log(Math.floor(t) % 2); }
+console.log("ok");
+"""
+"ts_wrapped.ts" = """
+const t = 1.5 as number;
+const s = 2.5 satisfies number;
+const u = t as number;
+console.log(Math.floor(t) % 2, Math.floor(s) % 2, Math.floor(u) % 2, Math.ceil(u) % 2);
+"""
+"ts_wrapped_main.ts" = """
+function main() {
+  const t = 1.5 as number;
+  const s = 2.5 satisfies number;
+  const u = t as number;
+  console.log(Math.floor(t) % 2, Math.floor(s) % 2, Math.floor(u) % 2, Math.ceil(u) % 2);
+}
+main();
+"""
+"loop_shapes.js" = """
+for (let x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k % 2); }
+const ys = [1.5, 2.5]; const zs = ys; for (const x of zs) { console.log(Math.floor(x) % 2); }
+const fr = Object.freeze([3.5, 4.5]); for (const x of fr) { console.log(Math.floor(x) % 2); }
+for (const x of new Set([1.5, 2.5])) { console.log(Math.floor(x) % 2); }
+for (const x of Object.values({a: 1.5, b: 2.5})) { console.log(Math.floor(x) % 2); }
+for (const x of [1.5, 2.5].map(v => v)) { console.log(Math.floor(x) % 2); }
+for (let x of [5.5, 6.5]) { console.log(Math.floor(x)); }
+"""
+"loop_shapes_main.js" = """
+function main() {
+  for (let x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k % 2); }
+  const ys = [1.5, 2.5]; const zs = ys; for (const x of zs) { console.log(Math.floor(x) % 2); }
+  const fr = Object.freeze([3.5, 4.5]); for (const x of fr) { console.log(Math.floor(x) % 2); }
+  for (const x of new Set([1.5, 2.5])) { console.log(Math.floor(x) % 2); }
+  for (const x of Object.values({a: 1.5, b: 2.5})) { console.log(Math.floor(x) % 2); }
+  for (const x of [1.5, 2.5].map(v => v)) { console.log(Math.floor(x) % 2); }
+  for (let x of [5.5, 6.5]) { console.log(Math.floor(x)); }
+}
+main();
+"""
+"float_print.js" = """
+for (const x of new Set([1.5, 2.5])) { console.log(Math.floor(x)); }
+const ys = [3.5, 4.5]; const zs = ys; for (const x of zs) { console.log(Math.floor(x), Math.round(x)); }
+"""
+"runtime_lane_module.js" = """
+const out = [];
+for (let x of [1.5, 2.5, 0.25]) {
+  out.push(x);
+  console.log(Math.floor(x), Math.ceil(x), Math.trunc(x), Math.round(x), Math.abs(x), Math.min(x, 2), Math.max(x, 2));
+}
+console.log(out.length, out[0]);
+"""
+"runtime_lane_function.js" = """
+function main() {
+  const out = [];
+  for (let x of [1.5, 2.5, 0.25]) {
+    out.push(x);
+    console.log(Math.floor(x), Math.ceil(x), Math.trunc(x), Math.round(x), Math.abs(x), Math.min(x, 2), Math.max(x, 2));
+  }
+  console.log(out.length, out[0]);
+}
+main();
+"""
+"loop_copy_module.js" = """
+for (const x of [1.5, 2.5, 3.7]) { const y = x; console.log(Math.floor(y) % 2, Math.round(y) | 0, y); }
+for (const x of [1.5, 2.5]) { const y = x; const z = y; console.log(Math.floor(z) % 2); }
+"""
+"loop_copy_function.js" = """
+function main() {
+  for (const x of [1.5, 2.5, 3.7]) { const y = x; console.log(Math.floor(y) % 2, Math.round(y) | 0, y); }
+  for (const x of [1.5, 2.5]) { const y = x; const z = y; console.log(Math.floor(z) % 2); }
+}
+main();
+"""
+
+[[case]]
+name = "a_rounded_const_alias_folds_to_an_integer_module_scope"
+rationale = "Residual round 1 (N1): `const t = 7.9; Math.floor(t) % 3`, `| 0`, `<< 1`, `Math.trunc(u) ** 2`, a `const k = Math.floor(t)` under `%`/`&`/`^`, `new Array(Math.floor(u))`, a `Math.ceil` loop bound with `n % 2`, and `Math.round(u)` passed to a `%` function print node's values."
+args = ["run", "alias_module.js"]
+exit = "success"
+stdout = "1 7 4 4\n1 1 5\n2\nxxxx true\n1\n"
+
+[[case]]
+name = "a_rounded_const_alias_folds_to_an_integer"
+args = ["run", "alias_function.js"]
+exit = "success"
+stdout = "1 7 4 4\n1 1 5\n2\nxxxx true\n1\n"
+
+[[case]]
+name = "a_rounded_module_const_read_from_a_function_folds_to_an_integer"
+rationale = "Residual round 1 (N1): a module `const t = 7.9` rounded inside a function folds too (it failed to load at the baseline as well: the function read the module const as an f64 under the integer lane)."
+args = ["run", "module_const_from_function.js"]
+exit = "success"
+stdout = "1 1\n7 3\n"
+
+[[case]]
+name = "check_accepts_the_const_alias_programs"
+args = ["check", "alias_module.js", "alias_function.js", "module_const_from_function.js"]
+exit = "success"
+
+[[case]]
+name = "a_rounded_module_const_chain_read_from_a_function_folds_to_an_integer"
+rationale = "Residual round 2 (N1b, spec A-41): `const u = t` / `const b = -a` module chains and a local `const t2 = t` rounded inside functions fold to integers, so `%` and `|` print node's values (round 1: `check` passed, `run` E4201 or E5506)."
+args = ["run", "chain_module.js"]
+exit = "success"
+stdout = "1 -2 7 7 1 -7\n"
+
+[[case]]
+name = "a_rounded_const_chain_folds_to_an_integer_in_main"
+args = ["run", "chain_function.js"]
+exit = "success"
+stdout = "1 -2 7 7 -7\n"
+
+[[case]]
+name = "check_accepts_the_const_chain_programs"
+args = ["check", "chain_module.js", "chain_function.js"]
+exit = "success"
+
+[[case]]
+name = "a_rounded_unrolled_loop_variable_folds_to_an_integer_module_scope"
+rationale = "Residual round 3 (N1c, spec A-44): a `const` loop variable of a `for-of` over a literal array of floats (inline, or a non-growable `const` binding) is a compile-time number on both sides, so `Math.floor`/`Math.ceil` of it folds to an integer and `%`, `|`, `/` and `* 1.5` print node's values (round 2: `check` passed, `run` E4201)."
+args = ["run", "loop_module.js"]
+exit = "success"
+stdout = "1 1 0.5 3\n2 0 1 4.5\n5 1\n5 2\n"
+
+[[case]]
+name = "a_rounded_unrolled_loop_variable_folds_to_an_integer"
+args = ["run", "loop_function.js"]
+exit = "success"
+stdout = "1 1 0.5 3\n2 0 1 4.5\n5 1\n5 2\n"
+
+[[case]]
+name = "check_accepts_the_unrolled_loop_programs"
+args = ["check", "loop_module.js", "loop_function.js"]
+exit = "success"
+
+[[case]]
+name = "a_rounded_const_in_a_class_method_folds_to_an_integer_module_scope"
+rationale = "Residual round 4: a `const` or `for-of` literal binding inside a class method is a binding inference never walks (it does not model class bodies), so it gave the rounding call no float edge; codegen must fold it to an integer as `main` does instead of refusing it as a non-integer literal at `run` after `check` passed."
+args = ["run", "class_module.js"]
+exit = "success"
+stdout = "1 1\n0\n1\n0\n1\n"
+
+[[case]]
+name = "a_rounded_const_in_a_class_method_folds_to_an_integer"
+args = ["run", "class_function.js"]
+exit = "success"
+stdout = "1 1\n0\n1\n0\n1\n"
+
+[[case]]
+name = "a_rounded_const_in_a_class_expression_method_folds_to_an_integer"
+args = ["run", "class_expression.js"]
+exit = "success"
+stdout = "1\n"
+
+[[case]]
+name = "a_rounded_const_in_a_derived_class_method_folds_to_an_integer"
+args = ["run", "class_extends.js"]
+exit = "success"
+stdout = "0\n"
+
+[[case]]
+name = "a_rounded_const_in_an_anonymous_default_export_folds_to_an_integer"
+args = ["run", "default_export.ts"]
+exit = "success"
+stdout = "ok\n"
+
+[[case]]
+name = "a_rounded_ts_wrapped_const_folds_to_an_integer_module_scope"
+rationale = "Residual round 4: `as number` and `satisfies number` initializers (and a `const` alias through `as`) are compile-time numbers on both sides, so `% 2` over the rounded value prints node's output as on `main`."
+args = ["run", "ts_wrapped.ts"]
+exit = "success"
+stdout = "1 0 1 0\n"
+
+[[case]]
+name = "a_rounded_ts_wrapped_const_folds_to_an_integer"
+args = ["run", "ts_wrapped_main.ts"]
+exit = "success"
+stdout = "1 0 1 0\n"
+
+[[case]]
+name = "a_rounded_loop_variable_over_any_unrolled_iterable_folds_module_scope"
+rationale = "Residual round 4: a `let` loop variable, an alias of a `const` array, `Object.freeze([...])`, `new Set([...])`, `Object.values({...})` and `.map(v => v)`: codegen unrolls each to literal bindings that inference gives no float repr (a program with no growable array keeps main's plain for-of), so the rounding call folds to an integer as on `main`."
+args = ["run", "loop_shapes.js"]
+exit = "success"
+stdout = "1\n0\n1\n0\n1\n0\n1\n0\n1\n0\n1\n0\n5\n6\n"
+
+[[case]]
+name = "a_rounded_loop_variable_over_any_unrolled_iterable_folds"
+args = ["run", "loop_shapes_main.js"]
+exit = "success"
+stdout = "1\n0\n1\n0\n1\n0\n1\n0\n1\n0\n1\n0\n5\n6\n"
+
+[[case]]
+name = "a_rounded_unrolled_float_prints_its_integer"
+args = ["run", "float_print.js"]
+exit = "success"
+stdout = "1\n2\n3 4\n4 5\n"
+
+[[case]]
+name = "check_accepts_the_round_4_fold_programs"
+args = ["check", "class_module.js", "class_function.js", "class_expression.js", "class_extends.js", "default_export.ts", "ts_wrapped.ts", "ts_wrapped_main.ts", "loop_shapes.js", "loop_shapes_main.js", "float_print.js"]
+exit = "success"
+
+[[case]]
+name = "an_unpublished_float_loop_item_takes_the_runtime_f64_lane_module_scope"
+rationale = "Residual round 4 (spec A-45): a `let` loop item over float literals that is pushed onto a growable array carries the f64 item repr (RE-PINNED 2026-10-08, round 5: the item is now pushed, since the item flow runs only for a loop that feeds a growable element; node's stdout re-measured) but is not a published compile-time number (`let`), so inference gives the rounding call a float edge and codegen lowers it on the runtime f64 lane (the item's value as an f64) instead of refusing it as a non-integer literal at `run` after `check` passed."
+args = ["run", "runtime_lane_module.js"]
+exit = "success"
+stdout = "1 2 1 2 1.5 1.5 2\n2 3 2 3 2.5 2 2.5\n0 1 0 0 0.25 0.25 2\n3 1.5\n"
+
+[[case]]
+name = "an_unpublished_float_loop_item_takes_the_runtime_f64_lane"
+args = ["run", "runtime_lane_function.js"]
+exit = "success"
+stdout = "1 2 1 2 1.5 1.5 2\n2 3 2 3 2.5 2 2.5\n0 1 0 0 0.25 0.25 2\n3 1.5\n"
+
+[[case]]
+name = "check_accepts_the_runtime_f64_lane_programs"
+args = ["check", "runtime_lane_module.js", "runtime_lane_function.js", "loop_copy_module.js", "loop_copy_function.js"]
+exit = "success"
+
+[[case]]
+name = "a_compile_time_loop_item_copied_into_a_local_keeps_the_fold_module_scope"
+rationale = "Residual round 4: without a growable array a plain for-of item carries its repr only when the loop variable is a compile-time number, so `const y = x` still gets the f64 slot it needs (round 3 behaviour, `main` fails to load) while `Math.floor(y) % 2` stays on the fold."
+args = ["run", "loop_copy_module.js"]
+exit = "success"
+stdout = "1 2 1.5\n0 3 2.5\n1 4 3.7\n1\n0\n"
+
+[[case]]
+name = "a_compile_time_loop_item_copied_into_a_local_keeps_the_fold"
+args = ["run", "loop_copy_function.js"]
+exit = "success"
+stdout = "1 2 1.5\n0 3 2.5\n1 4 3.7\n1\n0\n"

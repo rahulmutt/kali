@@ -80,16 +80,6 @@ pub struct Scope {
     /// structural registration keeps types in lockstep with what codegen can
     /// lower. Fail-closed: a repr-proven-but-non-structural binding rejects.
     pub runtime_array_bindings: IndexMap<String, bool>,
-    /// Names promoted to the GROWABLE runtime-array lane (throw-fallout
-    /// Stage 4) — the resolve-phase mirror of the repr-table
-    /// `growable_array_bindings` axis and codegen's emitter
-    /// `growable_array_bindings` set. Registered at the array-literal
-    /// declarator when the repr table carries the promotion; grow-only per
-    /// the `runtime_array_bindings` convention. Consulted by the `for..of`
-    /// and `.join` fail-closed gates (Tasks 4/5 lower those; until then a
-    /// growable receiver in either position must reject E5506, never fold
-    /// the stale declarator literal).
-    pub growable_array_bindings: IndexMap<String, bool>,
     pub static_objects: IndexMap<String, bool>,
     pub static_reference_values: IndexMap<String, String>,
     pub static_object_keys: IndexMap<String, bool>,
@@ -126,7 +116,6 @@ impl Scope {
             const_member_receivers: IndexMap::new(),
             class_declaration_bindings: Default::default(),
             runtime_array_bindings: IndexMap::new(),
-            growable_array_bindings: IndexMap::new(),
             static_objects: IndexMap::new(),
             static_reference_values: IndexMap::new(),
             static_object_keys: IndexMap::new(),

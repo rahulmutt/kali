@@ -1,9 +1,10 @@
-//! Growable runtime-array emission (throw-fallout Stage 4).
+//! Growable runtime-array emission (growable-runtime-arrays spec, docs/
+//! superpowers/specs/2026-10-07-growable-runtime-arrays-design.md).
 //!
-//! Lowers the bindings the types-side promotion
-//! (`kali_types`' growable safe-position allowlist + i64 repr gate, carried
-//! on `ReprTable::is_growable_array_binding`) marked growable. Layout (the
-//! authoritative Stage 4 memory layout, Step-5 encoding as ruled):
+//! Lowers the arrays the types-side solve (`kali_types::growable`, carried on
+//! `ReprTable::is_growable_array_binding` and its return/field twins) marked
+//! growable. Refusals are raised in inference (spec §3.6), apart from the
+//! few run-only ones the maturity row lists (a float index, A-24). Layout:
 //!
 //! ```text
 //! handle : i64 = zero_extend(hdr_ptr) | ARRAY_HANDLE_TAG          ; bit 62
@@ -11,13 +12,14 @@
 //! data   @ data_ptr : [ v0:i64 @+0 ][ v1:i64 @+8 ] … [ v(cap-1) ]
 //! ```
 //!
-//! Element slots are i64 values (Task 2: numbers; Task 3 adds tagged string
-//! handles). `push` grows geometrically (`cap * 2`) through a fresh
-//! `__alloc`/`__alloc_global` (`alloc_callee_index` — the existing arena
-//! lane; GC-less: a dropped data block is reclaimed by arena reset/release,
-//! never traced). Realloc rewrites `data_ptr`/`cap` INSIDE the header, so
-//! the tagged handle — and the binding local holding it — is stable across
-//! growth (no binding-local update on realloc, by construction).
+//! Element slots are i64 values: an integer, the bits of an f64, or a tagged
+//! string handle, by the array's solved element repr. `push` grows
+//! geometrically (`cap * 2`) through a fresh `__alloc`/`__alloc_global`
+//! (`alloc_callee_index` — the existing arena lane; GC-less: a dropped data
+//! block is reclaimed by arena reset/release, never traced). Realloc rewrites
+//! `data_ptr`/`cap` INSIDE the header, so the tagged handle — and the binding
+//! local holding it — is stable across growth (no binding-local update on
+//! realloc, by construction).
 //!
 //! This is a SEPARATE lane from the plain inline `[len][elem…]` arrays
 //! (`emit_array_allocation_with_len`): the two layouts must never conflate,
@@ -59,6 +61,101 @@ pub(crate) enum GrowablePushReceiver {
 }
 
 impl<'a> FunctionEmitter<'a> {
+    /// Growable-runtime-arrays spec §3.5, A-6: the element repr of a growable
+    /// value — a growable binding of this function, a direct call to a
+    /// growable-returning function, or a `.slice(…)` of either. `None`
+    /// otherwise. The codegen twin of the resolver's `growable_receiver_elem`:
+    /// a call's callee is keyed through `ReprTable::array_return_callee_key`
+    /// (inference's own `const`-alias and shadow facts), never by codegen's
+    /// own binding-following alias walk, so the two sides cannot disagree.
+    pub(crate) fn growable_value_elem(&self, id: LirNodeId) -> Option<kali_common::Repr> {
+        let id = self.unwrap_transparent(id);
+        if let Some(name) = self.bare_identifier_name(id) {
+            return self
+                .is_growable_array(&name)
+                .then(|| self.array_elem_repr(&name));
+        }
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = *node.children.first()?;
+        if let Some(name) = self.bare_identifier_name(callee) {
+            return self
+                .repr_table
+                .array_return_callee_key(&self.function_name, &name)
+                .and_then(|key| self.repr_table.growable_return(key));
+        }
+        let member = self.node(self.resolve_transparent_callable_node(callee)?);
+        if member.text.as_deref() == Some("slice") && member.children.len() == 1 {
+            return self.growable_value_elem(member.children[0]);
+        }
+        None
+    }
+
+    /// Growable-runtime-arrays spec §3.4: turn the value just emitted for an
+    /// element slot (`produced`; `value` its LIR node) into the slot's i64 bit
+    /// pattern for an array of element repr `elem`. An f64 element is stored
+    /// bit-reinterpreted; an integer value bound for an f64 array is converted
+    /// first (a missing value was padded with `i64.const 0`, an integer). i64
+    /// and string elements are stored as-is. The one store-side encoder every
+    /// growable slot write (seed, push, index write) shares.
+    pub(crate) fn emit_growable_slot_encode(
+        &self,
+        function: &mut Function,
+        elem: kali_common::Repr,
+        value: LirNodeId,
+        produced: bool,
+    ) {
+        if elem == kali_common::Repr::F64 {
+            if !produced || !self.is_float_valued(value) {
+                function.instruction(&Instruction::F64ConvertI64S);
+                // Task 11 review: `-0` is the integer 0 on the i64 lane, which
+                // converts to +0; node stores -0.
+                if produced && self.static_zero_is_negative(value) == Some(true) {
+                    function.instruction(&Instruction::F64Neg);
+                }
+            }
+            function.instruction(&Instruction::I64ReinterpretF64);
+        }
+    }
+
+    /// The sign of `id` when it is a literal zero under any number of unary
+    /// `-`/`+` (`-0`, `-(0)`, `-0.0`, `+(-0)`): `Some(true)` for -0,
+    /// `Some(false)` for +0, `None` for anything else.
+    fn static_zero_is_negative(&self, id: LirNodeId) -> Option<bool> {
+        let id = self.resolve_bound_node(self.unwrap_transparent(id));
+        let node = self.node(id);
+        let text = node.text.as_deref()?;
+        match node.kind {
+            LirNodeKind::Literal => crate::intrinsics::parse_numeric_literal_value(text)
+                .filter(|v| *v == 0.0 && !text.ends_with('n'))
+                .map(f64::is_sign_negative),
+            LirNodeKind::Value if node.children.len() == 1 => match text {
+                "-" => self.static_zero_is_negative(node.children[0]).map(|n| !n),
+                "+" => self.static_zero_is_negative(node.children[0]),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Growable-runtime-arrays spec §3.4: turn an element slot's i64 bit
+    /// pattern (just loaded) into the value of an array of element repr
+    /// `elem` — the inverse of `emit_growable_slot_encode`. An f64 element is
+    /// reinterpreted back from its bits; i64 and string elements are the slot
+    /// itself. The one load-side decoder every growable slot read (index
+    /// read, index write's result, pop, for-of) shares.
+    pub(crate) fn emit_growable_slot_decode(
+        &self,
+        function: &mut Function,
+        elem: kali_common::Repr,
+    ) {
+        if elem == kali_common::Repr::F64 {
+            function.instruction(&Instruction::F64ReinterpretI64);
+        }
+    }
+
     /// Index of the dedicated i64 growable scratch local reserved by
     /// `collect_function_locals` for any function with a growable binding.
     /// Panics if missing — reservation and emission share the single
@@ -77,7 +174,9 @@ impl<'a> FunctionEmitter<'a> {
     }
 
     /// Allocate a growable array: 24-byte header + `cap * 8`-byte data
-    /// block, `len = seed_len`, through `alloc_callee_index()` (arena lane).
+    /// block, `len = seed_len`, through `alloc_callee_index()` (arena lane)
+    /// or, when `global` (growable-runtime-arrays spec §3.3: the array leaves
+    /// its creating function), through `__alloc_global` (never reclaimed).
     /// Leaves the TAGGED i64 handle on the stack; the header pointer is also
     /// left in the dedicated growable scratch local so the declarator can
     /// store seed elements. Seed VALUES are the caller's job (they need the
@@ -87,9 +186,14 @@ impl<'a> FunctionEmitter<'a> {
         function: &mut Function,
         seed_len: usize,
         cap: usize,
+        global: bool,
     ) -> EmittedValue {
         let scratch = self.growable_scratch_local();
-        let alloc = self.alloc_callee_index();
+        let alloc = if global {
+            self.alloc_global_fn_index()
+        } else {
+            self.alloc_callee_index()
+        };
 
         // hdr = __alloc(24), zero-extended into the dedicated scratch. The
         // scratch (not a generic trailing slot) survives the caller's later
@@ -169,7 +273,7 @@ impl<'a> FunctionEmitter<'a> {
         let cap = seed_len.max(GROWABLE_INITIAL_CAP);
         // Leaves the tagged handle on the stack and the header pointer in the
         // dedicated growable scratch.
-        let allocated = self.emit_growable_alloc(function, seed_len, cap);
+        let allocated = self.emit_growable_alloc(function, seed_len, cap, false);
         if !allocated.produced {
             function.instruction(&Instruction::I64Const(0));
         }
@@ -199,26 +303,26 @@ impl<'a> FunctionEmitter<'a> {
     /// Append `value` to the growable array whose tagged handle lives in
     /// `handle_local`: grow (`cap * 2`, `memory.copy` of the live prefix)
     /// when full, store at `data_ptr + len*8`, bump `len`. Leaves the NEW
-    /// LENGTH on the stack (JS `push` returns it).
+    /// LENGTH on the stack (JS `push` returns it). `elem` is the array's
+    /// element repr (an f64 value is stored bit-reinterpreted, spec §3.4);
+    /// `global` (spec §3.3: the array leaves its creating function) makes the
+    /// grown data block come from `__alloc_global`.
     pub(crate) fn emit_growable_push(
         &mut self,
         function: &mut Function,
         handle: GrowableHandle,
         value: LirNodeId,
+        elem: kali_common::Repr,
+        global: bool,
     ) -> EmittedValue {
-        // Fail-closed: a float value has no i64 element encoding. The types
-        // promotion gate already excludes float pushes; this is the codegen
-        // mirror so a gate regression can never store a raw f64 bit pattern.
-        if self.is_float_valued(value) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "pushing a floating-point value onto a growable array is unavailable in the current phase".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
-            };
+        let value_is_float = self.is_float_valued(value);
+        // Belt: inference makes any array holding a float an f64 array, so a
+        // float value never reaches an integer or string array.
+        if value_is_float && elem != kali_common::Repr::F64 {
+            return self.deny_e5506(
+                function,
+                "pushing a floating-point value onto a growable array of integers or strings is unavailable in the current phase",
+            );
         }
 
         let scratch = self.growable_scratch_local();
@@ -236,12 +340,14 @@ impl<'a> FunctionEmitter<'a> {
         // empirically for both the object/array and string-site channels),
         // so this branch routes to `__alloc_global` only if that
         // conservatism is ever relaxed — closed BY CONSTRUCTION, not by
-        // analysis coupling. Outside any loop-arena frame the existing
-        // function-level arena lane applies (`alloc_callee_index`).
-        let alloc = if self
-            .arena_frames
-            .iter()
-            .any(|frame| frame.loop_frame_index.is_some())
+        // analysis coupling. An escaping array (`global`, spec §3.3) always
+        // grows into global memory. Otherwise the existing function-level
+        // arena lane applies (`alloc_callee_index`).
+        let alloc = if global
+            || self
+                .arena_frames
+                .iter()
+                .any(|frame| frame.loop_frame_index.is_some())
         {
             self.alloc_global_fn_index()
         } else {
@@ -254,6 +360,7 @@ impl<'a> FunctionEmitter<'a> {
         if !produced.produced {
             function.instruction(&Instruction::I64Const(0));
         }
+        self.emit_growable_slot_encode(function, elem, value, produced.produced);
         function.instruction(&Instruction::LocalSet(value_scratch));
 
         // hdr (i64, zero-extended) into the dedicated scratch. A named receiver
@@ -459,89 +566,165 @@ impl<'a> FunctionEmitter<'a> {
         }
     }
 
-    /// `x[i]` read over a growable handle expression:
-    /// `*( *(hdr+16) + i*8 )`. Stack-only — the index expression is emitted
-    /// with the data pointer already on the stack (wasm is a stack machine;
-    /// any internal scratch use by the index emission is balanced before the
-    /// final add/load). In-range reads only this stage: an out-of-bounds
-    /// `i >= len` read yields whatever the slot holds instead of JS
-    /// `undefined` (recorded Stage 4 follow-up; no target fixture indexes
-    /// out of bounds).
+    /// Push the growable value `handle`'s tagged handle, then `index` as an
+    /// i64 — the operand prefix every growable element read and write shares,
+    /// evaluated in JS order. A float-valued index is refused here (E5506) for
+    /// both lanes: it would put an f64 under the i64 index operand
+    /// (type-invalid wasm). Returns `false` after a refusal (the stack is
+    /// then polymorphic: `deny_e5506` emits `unreachable`).
+    fn emit_growable_handle_and_index(
+        &mut self,
+        function: &mut Function,
+        handle: LirNodeId,
+        index: LirNodeId,
+    ) -> bool {
+        // Spec A-39 (residual R2): inference refuses a float index on a
+        // growable BINDING unless it proves the index a whole number, so
+        // such an index is truncated here; `i64.trunc_f64_s` traps on NaN and
+        // on an infinity. Any other receiver (a growable field) keeps the
+        // codegen refusal.
+        let float_index = self.is_float_valued(index);
+        let receiver = self.node(self.unwrap_transparent(handle));
+        let named = receiver.kind == LirNodeKind::Value && receiver.children.is_empty();
+        if float_index && !named {
+            let _ = self.deny_e5506(
+                function,
+                "indexing a growable array with a floating-point value is unavailable in the current phase",
+            );
+            return false;
+        }
+        let base = self.emit_growable_receiver_handle(function, handle);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        if float_index {
+            let _ = self.emit_node(function, index, true);
+            function.instruction(&Instruction::I64TruncF64S);
+            return true;
+        }
+        // Stage P5 T-new-E: a `String()`-result index on a growable array is a
+        // numeric-consumption sink; route through the numeric-materialization
+        // choke so it fails closed instead of reading a garbage element.
+        let index_value = self.emit_numeric_operand(function, index);
+        if !index_value.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        true
+    }
+
+    /// Push the kali bounds-trap message handle (the `msg` operand of the
+    /// growable bounds guards).
+    fn emit_growable_bounds_message(&mut self, function: &mut Function) {
+        let (offset, len) = self
+            .strings
+            .intern(kali_common::runtime_array_index_out_of_bounds_message());
+        function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+    }
+
+    /// Growable-runtime-arrays spec §3.5: push the i32 address of element
+    /// `index` of the growable value `handle`, bounds-checked by
+    /// `__growable_elem_addr` (`index < 0` or `index >= length` traps with the
+    /// kali bounds message). Load at `offset` 0. READS only: a write must not
+    /// hold a slot address across its right-hand side (which may grow the
+    /// array and move the data block) — see `emit_growable_index_write`.
+    /// Returns `false` after a float-index refusal.
+    pub(crate) fn emit_growable_element_address(
+        &mut self,
+        function: &mut Function,
+        handle: LirNodeId,
+        index: LirNodeId,
+    ) -> bool {
+        if !self.emit_growable_handle_and_index(function, handle, index) {
+            return false;
+        }
+        self.emit_growable_bounds_message(function);
+        function.instruction(&Instruction::Call(self.growable_elem_addr_fn_index()));
+        function.instruction(&Instruction::I32WrapI64);
+        true
+    }
+
+    /// `base[index] = value` on a growable binding (spec §3.5). The handle,
+    /// the index and the value are evaluated first, in JS order; the bounds
+    /// check, the data pointer and the store then happen together in
+    /// `__growable_store`, so a right-hand side that grows the array stores
+    /// into the live data block and is checked against the live length.
+    /// `index == length` traps too (node would append). Leaves the stored
+    /// value (the assignment expression's result).
+    pub(crate) fn emit_growable_index_write(
+        &mut self,
+        function: &mut Function,
+        base: LirNodeId,
+        index: LirNodeId,
+        value: LirNodeId,
+    ) {
+        let elem = self
+            .growable_value_elem(base)
+            .unwrap_or(kali_common::Repr::I64);
+        if !self.emit_growable_handle_and_index(function, base, index) {
+            return;
+        }
+        let rhs = self.emit_node(function, value, true);
+        if !rhs.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        self.emit_growable_slot_encode(function, elem, value, rhs.produced);
+        self.emit_growable_bounds_message(function);
+        function.instruction(&Instruction::Call(self.growable_store_fn_index()));
+        self.emit_growable_slot_decode(function, elem);
+    }
+
+    /// `x[i]` read over a growable handle expression (spec §3.5): the element
+    /// address comes from the bounds guard `__growable_elem_addr`, so an
+    /// index outside `0 <= i < length` traps with the kali bounds message
+    /// (node yields `undefined`), and a float index is refused (E5506). An
+    /// f64 element is reinterpreted back from its slot bits.
     pub(crate) fn emit_growable_index_read(
         &mut self,
         function: &mut Function,
         handle: LirNodeId,
         index: LirNodeId,
     ) -> EmittedValue {
-        // Fail-closed: a float-valued index would put an f64 under the
-        // `I32WrapI64` below (type-invalid wasm). The plain-array lane shares
-        // this shape gap; reject with a diagnostic here rather than emitting
-        // a module that fails validation.
-        if self.is_float_valued(index) {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "indexing a growable array with a floating-point value is unavailable in the current phase".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
+        // Field receivers are i64 (the object-field lane); named and call
+        // receivers carry their element repr.
+        let elem = self
+            .growable_value_elem(handle)
+            .unwrap_or(kali_common::Repr::I64);
+        if !self.emit_growable_element_address(function, handle, index) {
             return EmittedValue {
                 produced: false,
                 shape: ValueShape::Unknown,
             };
         }
-        let base = self.emit_growable_receiver_handle(function, handle);
-        if !base.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
-        function.instruction(&Instruction::I64Const(GROWABLE_HANDLE_MASK));
-        function.instruction(&Instruction::I64And);
-        function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::I64Load(MemArg {
-            offset: 16,
-            align: 3,
-            memory_index: 0,
-        }));
-        function.instruction(&Instruction::I32WrapI64);
-        // Stage P5 T-new-E: a `String()`-result index on a growable array is a
-        // numeric-consumption sink (the handle bits would be `i32.wrap_i64`'d
-        // into an offset); route through the numeric-materialization choke so it
-        // fails closed instead of reading a garbage element.
-        let index_value = self.emit_numeric_operand(function, index);
-        if !index_value.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
-        function.instruction(&Instruction::I32WrapI64);
-        function.instruction(&Instruction::I32Const(8));
-        function.instruction(&Instruction::I32Mul);
-        function.instruction(&Instruction::I32Add);
         function.instruction(&Instruction::I64Load(MemArg {
             offset: 0,
             align: 3,
             memory_index: 0,
         }));
+        self.emit_growable_slot_decode(function, elem);
         EmittedValue {
             produced: true,
             shape: ValueShape::Scalar,
         }
     }
 
-    /// Runtime `for..of` element load `data[index]` where `index` is a wasm
-    /// i64 LOCAL (not a LIR node) — the counted-loop lane (throw-fallout Stage 4
-    /// Task 4). Decodes `handle` (the bare-identifier growable iterable, which
-    /// resolves to the binding's handle local) to `hdr_ptr`, loads `data_ptr`
-    /// (`hdr+16`), and loads the i64 element at `data_ptr + index*8`. Leaves the
-    /// element on the stack. Sibling of `emit_growable_index_read`, which takes
-    /// the index as a LIR node; the loop index has no LIR node, so this variant
-    /// reads it straight from a local.
-    pub(crate) fn emit_growable_index_read_at_local(
-        &mut self,
+    /// Runtime `for..of` element load `data[index]` (growable-runtime-arrays
+    /// spec §3.5): `handle_local` holds the iterable's tagged handle
+    /// (evaluated once at loop entry) and `index_local` the loop index, both
+    /// wasm i64 locals. Decodes the handle to `hdr_ptr`, reloads `data_ptr`
+    /// (`hdr+16`) — so an index write in the body is seen by later
+    /// iterations — and loads the raw i64 slot at `data_ptr + index*8`,
+    /// leaving it UNDECODED on the stack (the caller decodes per its target:
+    /// a typed local or an untyped per-iteration record cell). Unchecked: the
+    /// loop guards `index < length`, and inference refuses a push/pop on the
+    /// iterated component inside the body (spec A-8), so the length the loop
+    /// snapshotted is the live one.
+    pub(crate) fn emit_growable_slot_at_locals(
+        &self,
         function: &mut Function,
-        handle: LirNodeId,
+        handle_local: u32,
         index_local: u32,
-    ) -> EmittedValue {
-        let base = self.emit_growable_receiver_handle(function, handle);
-        if !base.produced {
-            function.instruction(&Instruction::I64Const(0));
-        }
+    ) {
+        function.instruction(&Instruction::LocalGet(handle_local));
         function.instruction(&Instruction::I64Const(GROWABLE_HANDLE_MASK));
         function.instruction(&Instruction::I64And);
         function.instruction(&Instruction::I32WrapI64);
@@ -561,10 +744,6 @@ impl<'a> FunctionEmitter<'a> {
             align: 3,
             memory_index: 0,
         }));
-        EmittedValue {
-            produced: true,
-            shape: ValueShape::Scalar,
-        }
     }
 
     /// `(base_name, args)` iff `node` is a `<growable>.push(…)` member call
@@ -609,33 +788,33 @@ impl<'a> FunctionEmitter<'a> {
         None
     }
 
-    /// Emit a recognized growable `.push` call. One argument appends;
-    /// anything else (0 or 2+ — shapes the types promotion never admits)
-    /// rejects fail-closed.
+    /// Emit a recognized growable `.push` call (growable-runtime-arrays spec
+    /// §3.5): each argument is appended in order and the call's value is the
+    /// last new length; `push()` with no arguments stores nothing and yields
+    /// the length.
     pub(crate) fn emit_growable_push_call(
         &mut self,
         function: &mut Function,
         receiver: GrowablePushReceiver,
         args: &[LirNodeId],
     ) -> EmittedValue {
-        // Arity is receiver-independent: one argument appends; anything else
-        // (0 or 2+ — shapes the types promotion never admits) rejects closed.
-        if args.len() != 1 {
-            self.diagnostics.push(Diagnostic::error(
-                e5::FEATURE_UNAVAILABLE as u32,
-                "Array.prototype.push on a growable array requires exactly one argument in the current phase".to_string(),
-            ));
-            function.instruction(&Instruction::Unreachable);
-            return EmittedValue {
-                produced: false,
-                shape: ValueShape::Unknown,
+        if args.is_empty() {
+            let handle = match &receiver {
+                GrowablePushReceiver::Named(name) => {
+                    self.alloc_scratch_node(LirNodeKind::Value, Some(name.clone()), vec![])
+                }
+                GrowablePushReceiver::Field(id) => *id,
             };
+            return self.emit_growable_length(function, handle);
         }
         // Stage P5 T-new-A (review finding I-3): `g.push(fb)` is the growable
         // twin of the aggregate store — the handle lands in a slot whose later
         // read has no binding name (`g[0].length` printed the growable's
         // length, `2`, where node reads `4`). Same lane, same close.
-        if self.is_crypto_random_result_value(args[0]) {
+        if args
+            .iter()
+            .any(|arg| self.is_crypto_random_result_value(*arg))
+        {
             return self.deny_e5506(function, Self::CRYPTO_RANDOM_RESULT_STORE_DENY);
         }
         match receiver {
@@ -650,7 +829,11 @@ impl<'a> FunctionEmitter<'a> {
                 // might miss can slip past. Pushes onto a DIFFERENT binding (the
                 // target fixture's `out.push(v)` inside `for (const v of o)`)
                 // are unaffected.
-                if self.growable_for_of_active.as_deref() == Some(base_name.as_str()) {
+                if self
+                    .growable_for_of_active
+                    .iter()
+                    .any(|key| key.as_str() == base_name.as_str())
+                {
                     self.diagnostics.push(Diagnostic::error(
                         e5::FEATURE_UNAVAILABLE as u32,
                         format!(
@@ -678,7 +861,27 @@ impl<'a> FunctionEmitter<'a> {
                         shape: ValueShape::Unknown,
                     };
                 };
-                self.emit_growable_push(function, GrowableHandle::Local(handle_local), args[0])
+                let elem = self.array_elem_repr(&base_name);
+                let global = !self
+                    .repr_table
+                    .is_growable_local_only(&self.function_name, &base_name);
+                let mut last = EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+                for (i, arg) in args.iter().copied().enumerate() {
+                    if i > 0 {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    last = self.emit_growable_push(
+                        function,
+                        GrowableHandle::Local(handle_local),
+                        arg,
+                        elem,
+                        global,
+                    );
+                }
+                last
             }
             GrowablePushReceiver::Field(receiver_id) => {
                 // Field-receiver self-push mirror (Task 5): a push onto the SAME
@@ -690,7 +893,11 @@ impl<'a> FunctionEmitter<'a> {
                 // this push's field key matches. Resolve rejects it first; this
                 // is the by-construction codegen mirror.
                 if let Some(field_key) = self.growable_field_receiver_key(receiver_id) {
-                    if self.growable_for_of_active.as_deref() == Some(field_key.as_str()) {
+                    if self
+                        .growable_for_of_active
+                        .iter()
+                        .any(|key| key.as_str() == field_key.as_str())
+                    {
                         self.diagnostics.push(Diagnostic::error(
                             e5::FEATURE_UNAVAILABLE as u32,
                             format!(
@@ -704,7 +911,24 @@ impl<'a> FunctionEmitter<'a> {
                         };
                     }
                 }
-                self.emit_growable_push(function, GrowableHandle::Field(receiver_id), args[0])
+                // The object-field lane stays i64 and arena-allocated.
+                let mut last = EmittedValue {
+                    produced: false,
+                    shape: ValueShape::Unknown,
+                };
+                for (i, arg) in args.iter().copied().enumerate() {
+                    if i > 0 {
+                        function.instruction(&Instruction::Drop);
+                    }
+                    last = self.emit_growable_push(
+                        function,
+                        GrowableHandle::Field(receiver_id),
+                        arg,
+                        kali_common::Repr::I64,
+                        false,
+                    );
+                }
+                last
             }
         }
     }
@@ -714,6 +938,28 @@ impl<'a> FunctionEmitter<'a> {
     /// computed 2-child form) whose base is a growable binding. Same shape
     /// guards as the plain-lane recognizer (`.length` excluded — the length
     /// lane wins first; binary operators and static index folds excluded).
+    /// Growable-runtime-arrays spec §3.5: the element repr of a growable
+    /// index write `a[i] = v` used as a value (`f[1] = (f[0] = 0.25)`,
+    /// `const r = (f[0] = …)`). The write leaves the stored value in the
+    /// element's own repr (`emit_growable_index_write`), so the value oracles
+    /// (`is_float_valued`, `is_string_valued`) classify the assignment by it.
+    /// Same target recognizer as the read lane (`growable_array_read_base`)
+    /// over the same store-target view `emit_assignment` takes.
+    pub(crate) fn growable_index_write_elem(&self, node: &LirNode) -> Option<kali_common::Repr> {
+        if node.kind != LirNodeKind::Value
+            || node.children.len() != 2
+            || node.text.as_deref() != Some("=")
+        {
+            return None;
+        }
+        let target = self.store_target_node(node.children[0]);
+        if target.kind != LirNodeKind::Value {
+            return None;
+        }
+        let base = self.growable_array_read_base(&target)?;
+        Some(self.array_elem_repr(&base))
+    }
+
     pub(crate) fn growable_array_read_base(&self, node: &LirNode) -> Option<String> {
         match node.children.len() {
             1 => {
@@ -780,34 +1026,246 @@ impl<'a> FunctionEmitter<'a> {
         Some(format!("{base}.{field}"))
     }
 
-    /// True when any node in `id`'s subtree names a growable binding of this
-    /// function (Task 6 re-review fix): the multi-argument console lowering
-    /// fail-closes when an argument reads a growable array, because the
-    /// dynamic console lane prints only the first argument and silently drops
-    /// the rest (pre-existing lane limitation; the growable lane is new this
-    /// stage, so it must not ship into it). Identifier texts in LIR are bare
-    /// names; string literals keep their quotes, so a same-spelled string
-    /// literal never false-positives.
-    pub(crate) fn subtree_mentions_growable(&self, id: LirNodeId) -> bool {
+    /// True when any node in `id`'s subtree reads a growable object FIELD
+    /// (`o.values`, Stage P2 Lane 1: a member access whose field is a
+    /// `GrowableArrayI64` slot). The multi-argument console lowering keeps its
+    /// pre-existing refusal for such reads (`soundness/structured_clone.toml`
+    /// pins it); named growable arrays print through the multi-argument lane
+    /// (growable-runtime-arrays spec A-9).
+    pub(crate) fn subtree_mentions_growable_field(&self, id: LirNodeId) -> bool {
         let node = self.node(id);
-        if node
-            .text
-            .as_deref()
-            .is_some_and(|text| self.is_growable_array(text))
-        {
-            return true;
-        }
-        // Growable-array FIELD read (`o.values`, Stage P2 Lane 1): a member
-        // access whose field is a `GrowableArrayI64` slot also reads a growable
-        // array, so a multi-argument `console.log` containing one must fail
-        // closed too — the field twin of the named-binding detection above.
-        // Without this a `console.log(o.count, o.values.length)` would silently
-        // drop the growable read (the exact hole the named guard closes).
         if node.children.len() == 1 && self.object_field_is_growable_array(node.children[0]) {
             return true;
         }
         node.children
             .iter()
-            .any(|child| self.subtree_mentions_growable(*child))
+            .any(|child| self.subtree_mentions_growable_field(*child))
     }
 }
+
+/// A growable method this lane lowers (growable-runtime-arrays spec §3.5);
+/// `push` and `join` have their own recognizers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GrowableMethod {
+    Pop,
+    IndexOf,
+    Includes,
+    Slice,
+}
+
+impl<'a> FunctionEmitter<'a> {
+    /// `(method, receiver, args)` iff `node` is `<growable value>.<method>(…)`.
+    pub(crate) fn growable_method_call_parts(
+        &self,
+        node: &LirNode,
+    ) -> Option<(GrowableMethod, LirNodeId, Vec<LirNodeId>)> {
+        if node.kind != LirNodeKind::Call || node.children.is_empty() {
+            return None;
+        }
+        let callee = self.resolve_transparent_callable_node(node.children[0])?;
+        let callee_node = self.node(callee);
+        if callee_node.children.len() != 1 {
+            return None;
+        }
+        let method = match callee_node.text.as_deref()? {
+            "pop" => GrowableMethod::Pop,
+            "indexOf" => GrowableMethod::IndexOf,
+            "includes" => GrowableMethod::Includes,
+            "slice" => GrowableMethod::Slice,
+            _ => return None,
+        };
+        let receiver = callee_node.children[0];
+        self.growable_value_elem(receiver)?;
+        Some((method, receiver, node.children[1..].to_vec()))
+    }
+
+    /// Spec A-40 (residual R1): `typeof` of a growable search value —
+    /// `"boolean"` for an `includes` result (a direct call, a read of a
+    /// binding or a call of a function inference proved boolean,
+    /// `ReprTable::binding_is_search_boolean`/`return_is_search_boolean`) and
+    /// `"number"` for an `indexOf` call.
+    pub(crate) fn growable_search_value_type(&self, id: LirNodeId) -> Option<&'static str> {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Call => {
+                if let Some((method, _, _)) = self.growable_method_call_parts(node) {
+                    return match method {
+                        GrowableMethod::Includes => Some("boolean"),
+                        GrowableMethod::IndexOf => Some("number"),
+                        _ => None,
+                    };
+                }
+                let callee = self.node(self.unwrap_transparent(*node.children.first()?));
+                if callee.kind == LirNodeKind::Value && callee.children.is_empty() {
+                    let name = callee.text.as_deref()?;
+                    if self.repr_table.return_is_search_boolean(name) {
+                        return Some("boolean");
+                    }
+                }
+                None
+            }
+            LirNodeKind::Value if node.children.is_empty() => {
+                let name = node.text.as_deref()?;
+                self.identifier_is_search_boolean(name).then_some("boolean")
+            }
+            _ => None,
+        }
+    }
+
+    /// Spec A-40: a read of `name` here reads a binding inference proved
+    /// always holds a boolean (a local of this function, or a module-scope
+    /// global).
+    pub(crate) fn identifier_is_search_boolean(&self, name: &str) -> bool {
+        match self.resolve_identifier_kind(name) {
+            IdentifierResolution::Local(_) => self
+                .repr_table
+                .binding_is_search_boolean(&self.function_name, name),
+            IdentifierResolution::ModuleGlobal(..) => {
+                self.repr_table.binding_is_search_boolean("_start", name)
+            }
+            _ => false,
+        }
+    }
+
+    /// `a.pop()`: the last element, removed; an empty array traps with the
+    /// kali pop message.
+    pub(crate) fn emit_growable_pop(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+    ) -> EmittedValue {
+        let elem = self
+            .growable_value_elem(receiver)
+            .unwrap_or(kali_common::Repr::I64);
+        // Belt for inference's snapshot refusal (spec A-8).
+        if let Some(name) = self.bare_identifier_name(receiver) {
+            if self
+                .growable_for_of_active
+                .iter()
+                .any(|key| key.as_str() == name.as_str())
+            {
+                let message = kali_common::growable_for_of_mutation_message(
+                    &kali_common::growable_binding_subject(&name, &self.function_name),
+                );
+                return self.deny_e5506(function, &message);
+            }
+        }
+        let base = self.emit_growable_receiver_handle(function, receiver);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        let (offset, len) = self
+            .strings
+            .intern(kali_common::growable_pop_empty_message());
+        function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
+        function.instruction(&Instruction::Call(self.growable_pop_fn_index()));
+        self.emit_growable_slot_decode(function, elem);
+        EmittedValue {
+            produced: true,
+            shape: if elem == kali_common::Repr::String {
+                ValueShape::String
+            } else {
+                ValueShape::Scalar
+            },
+        }
+    }
+
+    /// `a.indexOf(x)` (strict) / `a.includes(x)` (SameValueZero).
+    pub(crate) fn emit_growable_search(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        needle: Option<LirNodeId>,
+        includes: bool,
+    ) -> EmittedValue {
+        let elem = self
+            .growable_value_elem(receiver)
+            .unwrap_or(kali_common::Repr::I64);
+        let base = self.emit_growable_receiver_handle(function, receiver);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        let Some(needle) = needle else {
+            // `indexOf()` searches for `undefined`, which a number or string
+            // array never holds.
+            function.instruction(&Instruction::Drop);
+            function.instruction(&Instruction::I64Const(if includes { 0 } else { -1 }));
+            return EmittedValue {
+                produced: true,
+                shape: if includes {
+                    ValueShape::Boolean
+                } else {
+                    ValueShape::Scalar
+                },
+            };
+        };
+        let value = self.emit_node(function, needle, true);
+        if !value.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        // The needle is encoded exactly as a stored slot (spec A-14: the
+        // search value is an element store), so `__growable_find` compares
+        // slot bits.
+        self.emit_growable_slot_encode(function, elem, needle, value.produced);
+        let mode = match elem {
+            kali_common::Repr::F64 if includes => 2,
+            kali_common::Repr::F64 => 1,
+            kali_common::Repr::String => 3,
+            _ => 0,
+        };
+        function.instruction(&Instruction::I64Const(mode));
+        function.instruction(&Instruction::Call(self.growable_find_fn_index()));
+        if includes {
+            function.instruction(&Instruction::I64Const(0));
+            function.instruction(&Instruction::I64GeS);
+            function.instruction(&Instruction::I64ExtendI32U);
+            return EmittedValue {
+                produced: true,
+                shape: ValueShape::Boolean,
+            };
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+
+    /// `a.slice(s?, e?)`: a new growable array (spec §3.5). A float bound is
+    /// truncated with `i64.trunc_sat_f64_s` (ToIntegerOrInfinity, A-13).
+    pub(crate) fn emit_growable_slice(
+        &mut self,
+        function: &mut Function,
+        receiver: LirNodeId,
+        args: &[LirNodeId],
+    ) -> EmittedValue {
+        let base = self.emit_growable_receiver_handle(function, receiver);
+        if !base.produced {
+            function.instruction(&Instruction::I64Const(0));
+        }
+        for (position, default) in [(0usize, 0i64), (1, i64::MAX)] {
+            match args.get(position).copied() {
+                None => {
+                    function.instruction(&Instruction::I64Const(default));
+                }
+                Some(bound) => {
+                    let value = self.emit_node(function, bound, true);
+                    if !value.produced {
+                        function.instruction(&Instruction::I64Const(default));
+                    } else if self.is_float_valued(bound) {
+                        function.instruction(&Instruction::I64TruncSatF64S);
+                    }
+                }
+            }
+        }
+        function.instruction(&Instruction::Call(self.growable_slice_fn_index()));
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Scalar,
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "growable_tests.rs"]
+mod growable_tests;

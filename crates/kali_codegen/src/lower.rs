@@ -70,6 +70,12 @@ pub const SYNTHETIC_FUNCTIONS: &[&str] = &[
     "__percent_encode",
     "__usp_tostring",
     "__array_elem_addr",
+    "__growable_elem_addr",
+    "__growable_store",
+    "__growable_pop",
+    "__growable_find",
+    "__growable_slice",
+    "__join_growable_f64",
 ];
 
 /// A synthetic function name is either an exact entry in `SYNTHETIC_FUNCTIONS`
@@ -895,6 +901,58 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
         is_entry: false,
         flavor: None,
     });
+    // Growable-runtime-arrays spec §3.5: the growable twin of
+    // `__array_elem_addr` — `(arr: i64, idx: i64, msg: i64) -> i64` over the
+    // header layout. Present in every module; body hand-emitted by
+    // `emit_growable_elem_addr_body`.
+    all_functions.push(FunctionPlan {
+        name: "__growable_elem_addr".to_string(),
+        params: vec!["arr".to_string(), "idx".to_string(), "msg".to_string()],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // Growable-runtime-arrays spec §3.5: the growable index WRITE
+    // `(arr: i64, idx: i64, val: i64, msg: i64) -> i64`. The caller evaluates
+    // the handle, the index and the (slot-encoded) value first, as JS does, so
+    // the bounds check and the data pointer are read at store time — a
+    // right-hand side that grows the array (moving its data block) stores into
+    // the live block. Returns `val`. Body: `emit_growable_store_body`.
+    all_functions.push(FunctionPlan {
+        name: "__growable_store".to_string(),
+        params: vec![
+            "arr".to_string(),
+            "idx".to_string(),
+            "val".to_string(),
+            "msg".to_string(),
+        ],
+        locals: Vec::new(),
+        body: lir.root,
+        result: true,
+        is_entry: false,
+        flavor: None,
+    });
+    // Growable-runtime-arrays spec §3.5: `pop`, `indexOf`/`includes`,
+    // `slice` and f64 `join` over the header layout. Present in every
+    // module; bodies hand-emitted below.
+    for (name, params) in [
+        ("__growable_pop", &["arr", "msg"][..]),
+        ("__growable_find", &["arr", "needle", "mode"][..]),
+        ("__growable_slice", &["arr", "start", "end"][..]),
+        ("__join_growable_f64", &["arr", "sep"][..]),
+    ] {
+        all_functions.push(FunctionPlan {
+            name: name.to_string(),
+            params: params.iter().map(|p| p.to_string()).collect(),
+            locals: Vec::new(),
+            body: lir.root,
+            result: true,
+            is_entry: false,
+            flavor: None,
+        });
+    }
     // Per-shape deep-clone synthetics `__clone_shape_<n>` (Stage P2 Lane 2):
     // appended AFTER the fixed synthetics and BEFORE any source-defined function
     // so, like the fixed synthetics, they shift every later function's index by
@@ -1268,12 +1326,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             )
         } else if matches!(
             function.name.as_str(),
-            "__join" | "__join_arena" | "__join_growable_i64" | "__join_growable_str"
+            "__join"
+                | "__join_arena"
+                | "__join_growable_i64"
+                | "__join_growable_str"
+                | "__join_growable_f64"
+                | "__growable_pop"
         ) {
             (vec![ValType::I64, ValType::I64], vec![ValType::I64])
-        } else if function.name == "__array_elem_addr" {
+        } else if matches!(
+            function.name.as_str(),
+            "__array_elem_addr" | "__growable_elem_addr" | "__growable_find" | "__growable_slice"
+        ) {
             (
                 vec![ValType::I64, ValType::I64, ValType::I64],
+                vec![ValType::I64],
+            )
+        } else if function.name == "__growable_store" {
+            (
+                vec![ValType::I64, ValType::I64, ValType::I64, ValType::I64],
                 vec![ValType::I64],
             )
         } else if function.name == "__arena_reset" {
@@ -1624,11 +1695,26 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
             local_decls.push((6, ValType::I64));
         } else if matches!(
             function.name.as_str(),
-            "__join_growable_i64" | "__join_growable_str"
+            "__join_growable_i64" | "__join_growable_str" | "__join_growable_f64"
         ) {
             // `emit_join_growable_body`: 7 i64 — `n`, `i`, `total`, `out`,
             // `cur`, `h`, `data` (locals 2-8; locals 0-1 are `arr`/`sep`). One
             // more than `__join` for the cached header→`data` pointer.
+            local_decls.push((7, ValType::I64));
+        } else if function.name == "__growable_elem_addr" {
+            // `emit_growable_elem_addr_body`: 1 i64 — `hdr` (local 3).
+            local_decls.push((1, ValType::I64));
+        } else if function.name == "__growable_store" {
+            // `emit_growable_store_body`: 1 i64 — `hdr` (local 4).
+            local_decls.push((1, ValType::I64));
+        } else if function.name == "__growable_pop" {
+            // `emit_growable_pop_body`: 2 i64 — `hdr`, `len` (locals 2-3).
+            local_decls.push((2, ValType::I64));
+        } else if function.name == "__growable_find" {
+            // `emit_growable_find_body`: 4 i64 — `len`, `i`, `data`, `elem` (locals 3-6).
+            local_decls.push((4, ValType::I64));
+        } else if function.name == "__growable_slice" {
+            // `emit_growable_slice_body`: 7 i64 — `len`, `s`, `e`, `count`, `hdr`, `cap`, `data` (locals 3-9).
             local_decls.push((7, ValType::I64));
         } else if function.name.starts_with("__clone_shape_") {
             // Hand-emitted deep-clone synthetic (Stage P2 Lane 2): its i64
@@ -1760,13 +1846,25 @@ pub fn lower_lir_to_wasm(ctx: &mut CodegenCtx, lir: &LirProgram) -> CodegenResul
                 // result must not dangle across an arena reset); the `_i64`
                 // variant renders each raw slot via `int_to_string`.
                 "__join_growable_i64" => {
-                    emit_join_growable_body(&mut body, alloc_global_index, true)
+                    emit_join_growable_body(&mut body, alloc_global_index, GrowableJoinRender::Int)
                 }
                 "__join_growable_str" => {
-                    emit_join_growable_body(&mut body, alloc_global_index, false)
+                    emit_join_growable_body(&mut body, alloc_global_index, GrowableJoinRender::Raw)
                 }
+                "__join_growable_f64" => emit_join_growable_body(
+                    &mut body,
+                    alloc_global_index,
+                    GrowableJoinRender::Float,
+                ),
                 "__streq" => emit_streq_body(&mut body),
                 "__array_elem_addr" => emit_array_elem_addr_body(&mut body),
+                "__growable_elem_addr" => emit_growable_elem_addr_body(&mut body),
+                "__growable_store" => emit_growable_store_body(&mut body),
+                "__growable_pop" => emit_growable_pop_body(&mut body),
+                "__growable_find" => {
+                    emit_growable_find_body(&mut body, function_name_to_index["__streq"])
+                }
+                "__growable_slice" => emit_growable_slice_body(&mut body, alloc_global_index),
                 // URLSearchParams scan/mutation helpers (Stage P4 Task 4). The
                 // `__streq` index is threaded for key comparison; getall/set also
                 // take `__alloc_global` (fresh result / grown block must outlive
@@ -3701,8 +3799,9 @@ pub(crate) fn collect_function_locals(
     // Stage P2 Lane 1 Task 5 adds a SECOND trigger: a growable-array FIELD push
     // (`o.values.push(v)`) also flows through `emit_growable_push` and so needs
     // the same scratch — but the enclosing function has no growable BINDING to
-    // key on. Reserve on a COARSE structural superset (`body_contains_field_push`
-    // — any `.push` on a member-expression receiver), matching the
+    // key on. Reserve on a COARSE structural superset (`body_contains_push_member`
+    // — any `.push` member, which also covers a growable PARAMETER's push,
+    // growable-runtime-arrays), matching the
     // argv/unary-plus reservation philosophy: over-reserving a harmless unused
     // i64 local is always safe; under-reserving would panic in
     // `growable_scratch_local`.
@@ -3736,29 +3835,41 @@ pub(crate) fn collect_function_locals(
     if locals
         .iter()
         .any(|name| repr_table.is_growable_array_binding(function_name, name))
-        || body_contains_field_push(nodes, body_id)
+        || body_contains_push_member(nodes, body_id)
         || allocates_growable_object_field
         || constructs_url_or_usp
     {
         locals.push(growable_scratch_local_name());
     }
 
-    // Reserve a real i64 loop-variable local for every runtime `for..of` over a
-    // growable array (throw-fallout Stage 4 Task 4), plus the shared
-    // index/length counter pair — but only when at least one such loop exists,
-    // so functions without one stay byte-identical. The static-unroll lane
-    // binds its loop var to a compile-time node; the runtime counted loop needs
-    // a wasm LOCAL so the body's reads of the loop var resolve to it.
-    let for_of_growable_vars =
-        for_of_growable_loop_var_names(nodes, body_id, repr_table, function_name);
-    if !for_of_growable_vars.is_empty() {
+    // Reserve a real loop-variable local for every runtime `for..of` over a
+    // growable value, plus one index/length/handle scratch triple per nesting
+    // depth (growable-runtime-arrays spec §3.5, A-10) — but only when at least
+    // one such loop exists, so functions without one stay byte-identical. The
+    // static-unroll lane binds its loop var to a compile-time node; the
+    // runtime counted loop needs a wasm LOCAL so the body's reads resolve to it.
+    let (for_of_growable_vars, growable_depth) =
+        for_of_growable_loops(nodes, body_id, repr_table, function_name);
+    if growable_depth > 0 {
         for var in for_of_growable_vars {
             if !locals.contains(&var) {
                 locals.push(var);
             }
         }
-        locals.push(growable_foreach_index_local_name());
-        locals.push(growable_foreach_len_local_name());
+        for depth in 0..growable_depth {
+            locals.push(growable_foreach_index_local_name(depth));
+            locals.push(growable_foreach_len_local_name(depth));
+            locals.push(growable_foreach_handle_local_name(depth));
+        }
+    }
+
+    // Growable-runtime-arrays residual R2 (spec A-39): the f64 `Math.round`
+    // lane holds its operand's bits in a dedicated i64 local (the generic
+    // trailing scratch may be live across an enclosing emitter's children).
+    // Reserved on the coarse `.round` member superset; every other function
+    // stays byte-identical.
+    if body_contains_member_named(nodes, body_id, "round") {
+        locals.push(math_round_scratch_local_name());
     }
 
     // Array-return lane: reserve the materialization scratch only in a function
@@ -3780,6 +3891,12 @@ pub(crate) fn growable_scratch_local_name() -> String {
     "__growable_scratch".to_string()
 }
 
+/// Name of the dedicated i64 scratch local the f64 `Math.round` lane holds
+/// its operand's bits in (spec A-39). Default-typed i64.
+pub(crate) fn math_round_scratch_local_name() -> String {
+    "__math_round_scratch".to_string()
+}
+
 /// Name of the dedicated i64 scratch local `emit_return` materializes a
 /// returned array literal into (array-return project, spec 2026-10-02 §3.2).
 /// Dedicated because element emission may use every generic and allocation
@@ -3788,38 +3905,63 @@ pub(crate) fn array_return_scratch_local_name() -> String {
     "__array_return_scratch".to_string()
 }
 
-/// Name of the shared i64 loop-index counter local for the runtime `for..of`
-/// over a growable array (throw-fallout Stage 4 Task 4). ONE shared slot per
-/// function suffices: the counted-loop lane fails closed on a growable
-/// `for..of` lexically NESTED inside another (see the emit guard), so two
-/// growable `for..of` loops in the same function never overlap in time and can
-/// reuse the same counter/length scratch. Reserved by `collect_function_locals`
-/// and resolved by `emit_for_of_array_iteration`'s runtime branch.
-pub(crate) fn growable_foreach_index_local_name() -> String {
-    "__growable_foreach_index".to_string()
+/// Names of the per-nesting-depth i64 scratch locals of the runtime `for..of`
+/// over a growable value (growable-runtime-arrays spec §3.5, A-10): loop
+/// index, snapshotted length, and the iterable's handle (evaluated once).
+/// Depth 0 is the outermost growable loop of the function.
+pub(crate) fn growable_foreach_index_local_name(depth: usize) -> String {
+    format!("__growable_foreach_index{depth}")
 }
 
-/// Name of the shared i64 snapshot-length local for the runtime `for..of` over
-/// a growable array (throw-fallout Stage 4 Task 4). The iteration count is
-/// snapshotted ONCE before the loop (per the design), so a body that pushes to
-/// a DIFFERENT array is unaffected; see `growable_foreach_index_local_name` for
-/// why one shared slot per function is sound.
-pub(crate) fn growable_foreach_len_local_name() -> String {
-    "__growable_foreach_len".to_string()
+pub(crate) fn growable_foreach_len_local_name(depth: usize) -> String {
+    format!("__growable_foreach_len{depth}")
 }
 
-/// Loop-variable names of every `for..of` (`for-await-of` excluded — it fails
-/// closed) whose iterable is a bare-identifier GROWABLE array binding of
-/// `function_name`, reachable from `body_id` without descending into nested
-/// function bodies (throw-fallout Stage 4 Task 4). Each such loop var must get
-/// a real wasm LOCAL so the body's reads resolve to it (the static-unroll lane
-/// binds the loop var to a compile-time node instead). Structural twin of the
-/// emit-side runtime-lane guard in `emit_for_of_array_iteration`: both key on
-/// "bare identifier iterable + `is_growable_array_binding`", so the reservation
-/// exists exactly where the runtime branch resolves a slot. Element repr is NOT
-/// consulted here — a String-element growable `for..of` never reaches codegen
-/// (the resolve gate aborts the compile), and an over-reserved unused local is
-/// harmless.
+pub(crate) fn growable_foreach_handle_local_name(depth: usize) -> String {
+    format!("__growable_foreach_handle{depth}")
+}
+
+/// True iff `id` is a growable value as codegen's `growable_value_elem`
+/// recognizes it (binding, call to a growable-returning function, `slice` of
+/// either). Over-approximates the shadow check (a same-named local is not
+/// visible here); an over-reserved local is harmless. A callee is accepted
+/// both by its own name and through `ReprTable::array_return_callee_key`
+/// (the key `growable_value_elem` uses), so a `const` alias of a
+/// growable-returning function is never under-reserved.
+fn node_is_growable_value(
+    nodes: &[LirNode],
+    repr_table: &kali_common::ReprTable,
+    function_name: &str,
+    id: LirNodeId,
+) -> bool {
+    let id = unwrap_transparent_value_node_raw(nodes, id);
+    if let Some(name) = bare_identifier_name_of(nodes, id) {
+        return repr_table.is_growable_array_binding(function_name, &name);
+    }
+    let Some(node) = nodes.get(id.0 as usize) else {
+        return false;
+    };
+    if node.kind != LirNodeKind::Call {
+        return false;
+    }
+    let Some(&callee) = node.children.first() else {
+        return false;
+    };
+    if let Some(name) = bare_identifier_name_of(nodes, callee) {
+        return repr_table.growable_return(&name).is_some()
+            || repr_table
+                .array_return_callee_key(function_name, &name)
+                .and_then(|key| repr_table.growable_return(key))
+                .is_some();
+    }
+    let callee = unwrap_transparent_value_node_raw(nodes, callee);
+    nodes.get(callee.0 as usize).is_some_and(|member| {
+        member.text.as_deref() == Some("slice")
+            && member.children.len() == 1
+            && node_is_growable_value(nodes, repr_table, function_name, member.children[0])
+    })
+}
+
 /// True iff `id` is a dot member `base.field` (1-child `Value`, `base` a bare
 /// identifier) whose `base` has an `Object(shape)` repr with a
 /// `GrowableArrayI64` field named `field` (Stage P2 Lane 1). The
@@ -3860,15 +4002,80 @@ fn node_is_growable_i64_field(
     }
 }
 
-fn for_of_growable_loop_var_names(
+/// Loop-variable names of every runtime `for..of` (`for-await-of` excluded —
+/// it fails closed) over a growable value of `function_name` — a growable
+/// binding, a call to a growable-returning function, a `slice` of either, or a
+/// `GrowableArrayI64` object field — reachable from `body_id` without
+/// descending into nested function bodies, and the maximum lexical nesting
+/// depth of such loops (growable-runtime-arrays spec §3.5, A-10). Structural
+/// twin of the emit-side lane in `emit_for_of_array_iteration`
+/// (`growable_value_elem` / `object_field_is_growable_array`): each loop
+/// variable gets a real wasm local and each depth its scratch triple. Element
+/// repr is not consulted: the local's type comes from the repr table.
+fn for_of_growable_loops(
     nodes: &[LirNode],
     body_id: LirNodeId,
     repr_table: &kali_common::ReprTable,
     function_name: &str,
-) -> Vec<String> {
+) -> (Vec<String>, usize) {
+    fn walk(
+        nodes: &[LirNode],
+        id: LirNodeId,
+        repr_table: &kali_common::ReprTable,
+        function_name: &str,
+        depth: usize,
+        names: &mut Vec<String>,
+        max_depth: &mut usize,
+    ) {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return;
+        };
+        let mut inner = depth;
+        if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
+            let growable = node.children.get(1).is_some_and(|&iterable| {
+                node_is_growable_value(nodes, repr_table, function_name, iterable)
+                    || node_is_growable_i64_field(nodes, repr_table, function_name, iterable)
+            });
+            if growable {
+                if let Some(var) = node
+                    .children
+                    .first()
+                    .and_then(|&left| for_of_loop_var_name_of(nodes, left))
+                {
+                    if !names.contains(&var) {
+                        names.push(var);
+                    }
+                }
+                inner = depth + 1;
+                *max_depth = (*max_depth).max(inner);
+            }
+        }
+        for child in &node.children {
+            if !is_function_like(nodes, *child) {
+                walk(
+                    nodes,
+                    *child,
+                    repr_table,
+                    function_name,
+                    inner,
+                    names,
+                    max_depth,
+                );
+            }
+        }
+    }
     let mut names = Vec::new();
-    for_of_growable_loop_var_names_walk(nodes, body_id, repr_table, function_name, &mut names);
-    names
+    let mut max_depth = 0;
+    walk(
+        nodes,
+        body_id,
+        repr_table,
+        function_name,
+        0,
+        &mut names,
+        &mut max_depth,
+    );
+    (names, max_depth)
 }
 
 /// Raw-node twin of `FunctionEmitter::for_of_binding_name_from_node`: the
@@ -3895,45 +4102,6 @@ fn for_of_loop_var_name_of(nodes: &[LirNode], id: LirNodeId) -> Option<String> {
         return for_of_loop_var_name_of(nodes, node.children[0]);
     }
     None
-}
-
-fn for_of_growable_loop_var_names_walk(
-    nodes: &[LirNode],
-    id: LirNodeId,
-    repr_table: &kali_common::ReprTable,
-    function_name: &str,
-    names: &mut Vec<String>,
-) {
-    let Some(node) = nodes.get(id.0 as usize) else {
-        return;
-    };
-    if node.kind == LirNodeKind::Branch && node.text.as_deref() == Some("for-of") {
-        let iterable_is_growable = node.children.get(1).is_some_and(|&iterable| {
-            bare_identifier_name_of(nodes, iterable)
-                .is_some_and(|name| repr_table.is_growable_array_binding(function_name, &name))
-                // Stage P2 Lane 1 Task 5: a `for (const x of o.values)` over a
-                // `GrowableArrayI64` object field also runs the counted growable
-                // loop, so its loop var needs a real wasm local reserved here.
-                || node_is_growable_i64_field(nodes, repr_table, function_name, iterable)
-        });
-        if iterable_is_growable {
-            if let Some(var) = node
-                .children
-                .first()
-                .and_then(|&left| for_of_loop_var_name_of(nodes, left))
-            {
-                if !names.contains(&var) {
-                    names.push(var);
-                }
-            }
-        }
-    }
-    for child in &node.children {
-        if is_function_like(nodes, *child) {
-            continue;
-        }
-        for_of_growable_loop_var_names_walk(nodes, *child, repr_table, function_name, names);
-    }
 }
 
 /// True iff any bare identifier reachable from `init` (not descending into
@@ -3990,35 +4158,49 @@ fn shape_has_growable_field(
         .any(|(_, repr)| matches!(repr, kali_common::Repr::GrowableArrayI64))
 }
 
-fn body_contains_field_push(nodes: &[LirNode], body_id: LirNodeId) -> bool {
-    fn is_field_read_shape(nodes: &[LirNode], id: LirNodeId) -> bool {
-        nodes.get(id.0 as usize).is_some_and(|n| {
-            n.kind == LirNodeKind::Value
-                && n.children.len() == 1
-                && n.text.as_deref().is_some_and(|t| !t.is_empty())
-        })
-    }
+/// True iff any `.push` member (any receiver) is reachable from `body_id`
+/// without descending into nested functions. Growable-runtime-arrays: a
+/// function whose only growable array is a PARAMETER pushes through
+/// `emit_growable_push`, which needs the growable scratch, and parameters
+/// are not in the `locals` list the binding trigger scans. A superset of the
+/// former field-push trigger (`o.values.push(v)`, Stage P2 Lane 1 Task 5).
+/// Over-reserving one unused i64 local is harmless.
+fn body_contains_push_member(nodes: &[LirNode], body_id: LirNodeId) -> bool {
     fn walk(nodes: &[LirNode], id: LirNodeId) -> bool {
         let Some(node) = nodes.get(id.0 as usize) else {
             return false;
         };
-        // `.push` member callee: Value{text:"push", children:[receiver]} whose
-        // receiver is itself a member-expression (field read).
         if node.kind == LirNodeKind::Value
             && node.text.as_deref() == Some("push")
             && node.children.len() == 1
-            && is_field_read_shape(nodes, node.children[0])
         {
             return true;
         }
-        node.children.iter().any(|child| {
-            if is_function_like(nodes, *child) {
-                return false;
-            }
-            walk(nodes, *child)
-        })
+        node.children
+            .iter()
+            .any(|child| !is_function_like(nodes, *child) && walk(nodes, *child))
     }
     walk(nodes, body_id)
+}
+
+/// True when the body (nested functions excluded) reads a member `.name`
+/// (a one-child `Value` node with that text).
+fn body_contains_member_named(nodes: &[LirNode], body_id: LirNodeId, name: &str) -> bool {
+    fn walk(nodes: &[LirNode], id: LirNodeId, name: &str) -> bool {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some(name)
+            && node.children.len() == 1
+        {
+            return true;
+        }
+        node.children
+            .iter()
+            .any(|child| !is_function_like(nodes, *child) && walk(nodes, *child, name))
+    }
+    walk(nodes, body_id, name)
 }
 
 fn body_contains_unary_plus(nodes: &[LirNode], body_id: LirNodeId) -> bool {
@@ -4243,7 +4425,9 @@ pub(crate) fn collect_module_scalar_globals(
                     }
                     // Heap types stay fail-closed: never promote an array/object
                     // module binding to a mutable global root.
-                    if repr_table.is_array_binding("_start", &name) {
+                    if repr_table.is_array_binding("_start", &name)
+                        || repr_table.is_growable_array_binding("_start", &name)
+                    {
                         continue;
                     }
                     // `Object(_)` / `String` reprs are heap — leave rejected;
@@ -7987,6 +8171,91 @@ fn emit_array_elem_addr_body(func: &mut Function) {
     // NO trailing End — the dispatch loop appends it (same as every synthetic).
 }
 
+/// `__growable_elem_addr(arr, idx, msg) -> i64` (growable-runtime-arrays spec
+/// §3.5): the bounds guard for a growable array. Locals: 0 = arr (tagged
+/// handle), 1 = idx, 2 = msg, 3 = hdr. `idx >=u len` — a negative `idx`
+/// included — hands `msg` to `console.error` and traps; otherwise returns
+/// `data_ptr + idx * 8` (the caller loads/stores at `offset` 0). No
+/// `i64.eqz` (see `emit_streq_body`).
+fn emit_growable_elem_addr_body(func: &mut Function) {
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 0,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::I64GeU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(MemArg {
+        offset: 16,
+        align: 3,
+        memory_index: 0,
+    }));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
+/// `__growable_store(arr, idx, val, msg) -> i64` (growable-runtime-arrays
+/// spec §3.5): the growable index write. Locals: 0 = arr (tagged handle),
+/// 1 = idx, 2 = val (the slot's i64 bits), 3 = msg, 4 = hdr. `idx >=u len` —
+/// a negative `idx` and `idx == len` included — hands `msg` to
+/// `console.error` and traps; otherwise stores `val` at `data_ptr + idx * 8`
+/// and returns it. `len` and `data_ptr` are read here, after the caller has
+/// evaluated the value. No `i64.eqz` (see `emit_streq_body`).
+fn emit_growable_store_body(func: &mut Function) {
+    let mem = |offset| MemArg {
+        offset,
+        align: 3,
+        memory_index: 0,
+    };
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(mem(0)));
+    func.instruction(&Instruction::I64GeU);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    // *(data_ptr + idx * 8) = val
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(mem(16)));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Store(mem(0)));
+    func.instruction(&Instruction::LocalGet(2));
+    // NO trailing End — the dispatch loop appends it (same as every synthetic).
+}
+
 // === URLSearchParams scan/mutation synthetic bodies (Stage P4 Task 4) ========
 //
 // Shared store layout: `store` is the tagged growable handle
@@ -9169,7 +9438,7 @@ fn emit_join_body(func: &mut Function, alloc_index: u32) {
 ///     header pointer is `arr & !TAG` (masked), NOT `arr` directly;
 ///   * `n = *(hdr+0)`, `data = *(hdr+16)` (header indirection), and each
 ///     element handle is `*(data + i*8)` (offset 0, NOT the inline `+8`);
-///   * when `render_int` is set the raw i64 slot is a NUMBER, not a string
+///   * when `render` is `Int` the raw i64 slot is a NUMBER, not a string
 ///     handle — it is rendered to a decimal string handle by the runtime
 ///     `int_to_string` import (fixed index 17, always present) BEFORE its
 ///     bytes are measured/copied. `int_to_string` renders negatives with a
@@ -9179,14 +9448,16 @@ fn emit_join_body(func: &mut Function, alloc_index: u32) {
 ///     GC-less by design, reclaimed only by arena scope; the target fixtures
 ///     are small.)
 ///
-/// `render_int == false` is the String-element body (`__join_growable_str`):
-/// the slot already IS a string handle, copied verbatim.
+/// `render == Raw` is the String-element body (`__join_growable_str`): the
+/// slot already IS a string handle, copied verbatim. `render == Float` is
+/// `__join_growable_f64` (growable-runtime-arrays spec §3.5, A-12): the slot
+/// holds f64 bits, rendered through the `float_to_string` import.
 ///
 /// Locals: 0=arr 1=sep (params), 2=n 3=i 4=total 5=out 6=cur 7=h 8=data —
 /// one more (`data`) than `emit_join_body` for the cached header→data pointer.
 /// `alloc_index` is `__alloc_global` (a join result must not dangle across an
 /// arena reset — same rule as the global `__join`).
-fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bool) {
+fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render: GrowableJoinRender) {
     let mask = !(crate::ARRAY_HANDLE_TAG) as i64;
     // hdr = arr & !TAG (masked header pointer, reused below via I32WrapI64).
     // n = *(hdr + 0)
@@ -9229,7 +9500,7 @@ fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bo
     func.instruction(&Instruction::LocalSet(3));
     // pass 1: total += len(render(elem_i)) for each i
     func.instruction(&Instruction::Loop(BlockType::Empty));
-    emit_growable_join_element_handle(func, render_int);
+    emit_growable_join_element_handle(func, render);
     func.instruction(&Instruction::LocalSet(7));
     //   total = total + (h & 0xFFFF_FFFF)
     func.instruction(&Instruction::LocalGet(4));
@@ -9276,7 +9547,7 @@ fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bo
     func.instruction(&Instruction::LocalSet(3));
     // pass 2: copy elements, separator between them
     func.instruction(&Instruction::Loop(BlockType::Empty));
-    emit_growable_join_element_handle(func, render_int);
+    emit_growable_join_element_handle(func, render);
     func.instruction(&Instruction::LocalSet(7));
     //   memory.copy(dst=cur, src=(h>>32)&0x7FFF_FFFF, len=h&0xFFFF_FFFF)
     func.instruction(&Instruction::LocalGet(6));
@@ -9350,9 +9621,10 @@ fn emit_join_growable_body(func: &mut Function, alloc_index: u32, render_int: bo
 
 /// Push the string handle of growable element `i` onto the stack: load the raw
 /// i64 slot `*(data + i*8)` (data = local 8, i = local 3), then — for the i64
-/// body — coerce it to a decimal-string handle via `int_to_string`. The String
-/// body's slot is already a handle, so it is left as-is.
-fn emit_growable_join_element_handle(func: &mut Function, render_int: bool) {
+/// body — coerce it to a decimal-string handle via `int_to_string`, or — for
+/// the f64 body — via `float_to_string`. The String body's slot is already a
+/// handle, so it is left as-is.
+fn emit_growable_join_element_handle(func: &mut Function, render: GrowableJoinRender) {
     // raw = *(data + (i << 3))
     func.instruction(&Instruction::LocalGet(8));
     func.instruction(&Instruction::LocalGet(3));
@@ -9365,9 +9637,279 @@ fn emit_growable_join_element_handle(func: &mut Function, render_int: bool) {
         align: 3,
         memory_index: 0,
     }));
-    if render_int {
-        func.instruction(&Instruction::Call(crate::INT_TO_STRING_IMPORT_INDEX));
+    match render {
+        GrowableJoinRender::Raw => {}
+        GrowableJoinRender::Int => {
+            func.instruction(&Instruction::Call(crate::INT_TO_STRING_IMPORT_INDEX));
+        }
+        // Spec §3.5, A-12: the slot holds f64 bits; `float_to_string` is JS
+        // `String(number)` (`-0` renders `0`, as `join` does).
+        GrowableJoinRender::Float => {
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::Call(crate::FLOAT_TO_STRING_IMPORT_INDEX));
+        }
     }
+}
+
+/// How `emit_join_growable_body` renders one element slot.
+#[derive(Clone, Copy)]
+enum GrowableJoinRender {
+    /// The slot is already a string handle.
+    Raw,
+    /// The slot is an i64 number.
+    Int,
+    /// The slot holds f64 bits.
+    Float,
+}
+
+fn growable_slot(offset: u64) -> MemArg {
+    MemArg {
+        offset,
+        align: 3,
+        memory_index: 0,
+    }
+}
+
+/// `__growable_pop(arr, msg) -> i64` (growable-runtime-arrays spec §3.5):
+/// removes and returns the last element's raw slot bits; an empty array
+/// hands `msg` to `console.error` and traps. Locals: 0 arr, 1 msg, 2 hdr,
+/// 3 len.
+fn emit_growable_pop_body(func: &mut Function) {
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(
+        crate::emit::growable::GROWABLE_HANDLE_MASK,
+    ));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::LocalSet(2));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(1));
+    func.instruction(&Instruction::Call(crate::CONSOLE_ERROR_IMPORT_INDEX));
+    func.instruction(&Instruction::Unreachable);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::LocalSet(3));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Store(growable_slot(0)));
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(16)));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+}
+
+/// `__growable_find(arr, needle, mode) -> i64` (spec §3.5): the first index
+/// whose element matches `needle`, else -1. Mode 0: i64 `==`. Mode 1: f64
+/// `===` (NaN is never found, `-0 === 0`). Mode 2: f64 SameValueZero (also
+/// NaN finds NaN). Mode 3: string content equality through `__streq`.
+/// Locals: 0 arr, 1 needle, 2 mode, 3 len, 4 i, 5 data, 6 elem.
+fn emit_growable_find_body(func: &mut Function, streq_index: u32) {
+    let mask = crate::emit::growable::GROWABLE_HANDLE_MASK;
+    for (offset, local) in [(0u64, 3u32), (16, 5)] {
+        func.instruction(&Instruction::LocalGet(0));
+        func.instruction(&Instruction::I64Const(mask));
+        func.instruction(&Instruction::I64And);
+        func.instruction(&Instruction::I32WrapI64);
+        func.instruction(&Instruction::I64Load(growable_slot(offset)));
+        func.instruction(&Instruction::LocalSet(local));
+    }
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Block(BlockType::Empty));
+    func.instruction(&Instruction::Loop(BlockType::Empty));
+    // if i >= len break
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64GeS);
+    func.instruction(&Instruction::BrIf(1));
+    // elem = data[i]
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Shl);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+    func.instruction(&Instruction::LocalSet(6));
+    // match: i32
+    func.instruction(&Instruction::LocalGet(2));
+    func.instruction(&Instruction::I64Const(3));
+    func.instruction(&Instruction::I64Eq);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+    {
+        func.instruction(&Instruction::LocalGet(6));
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::Call(streq_index));
+        func.instruction(&Instruction::I64Const(0));
+        func.instruction(&Instruction::I64Ne);
+    }
+    func.instruction(&Instruction::Else);
+    {
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I64Const(0));
+        func.instruction(&Instruction::I64Eq);
+        func.instruction(&Instruction::If(BlockType::Result(ValType::I32)));
+        func.instruction(&Instruction::LocalGet(6));
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::I64Eq);
+        func.instruction(&Instruction::Else);
+        // f64 `===`
+        func.instruction(&Instruction::LocalGet(6));
+        func.instruction(&Instruction::F64ReinterpretI64);
+        func.instruction(&Instruction::LocalGet(1));
+        func.instruction(&Instruction::F64ReinterpretI64);
+        func.instruction(&Instruction::F64Eq);
+        // | (mode == 2 & elem is NaN & needle is NaN)
+        func.instruction(&Instruction::LocalGet(2));
+        func.instruction(&Instruction::I64Const(2));
+        func.instruction(&Instruction::I64Eq);
+        for local in [6u32, 1] {
+            func.instruction(&Instruction::LocalGet(local));
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::LocalGet(local));
+            func.instruction(&Instruction::F64ReinterpretI64);
+            func.instruction(&Instruction::F64Ne);
+        }
+        func.instruction(&Instruction::I32And);
+        func.instruction(&Instruction::I32And);
+        func.instruction(&Instruction::I32Or);
+        func.instruction(&Instruction::End);
+    }
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::If(BlockType::Empty));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::Return);
+    func.instruction(&Instruction::End);
+    // i += 1; continue
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(1));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalSet(4));
+    func.instruction(&Instruction::Br(0));
+    func.instruction(&Instruction::End); // loop
+    func.instruction(&Instruction::End); // block
+    func.instruction(&Instruction::I64Const(-1));
+}
+
+/// `local[out] = bound < 0 ? max(len + bound, 0) : min(bound, len)`, `len` in
+/// local 3 (JS `slice` relative-index clamping).
+fn emit_growable_slice_bound(func: &mut Function, bound: u32, out: u32) {
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::If(BlockType::Result(ValType::I64)));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::LocalTee(out));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(out));
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::Else);
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::LocalGet(bound));
+    func.instruction(&Instruction::LocalGet(3));
+    func.instruction(&Instruction::I64LtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::End);
+    func.instruction(&Instruction::LocalSet(out));
+}
+
+/// `__growable_slice(arr, start, end) -> i64` (spec §3.5): a fresh growable
+/// array on the global heap holding `arr[s..e]` with JS clamping (a negative
+/// bound counts from the end; both clamp to `[0, len]`; `e <= s` is empty).
+/// The caller passes 0 and `i64::MAX` for omitted bounds. Locals: 0 arr,
+/// 1 start, 2 end, 3 len, 4 s, 5 e, 6 count, 7 hdr, 8 cap, 9 data.
+fn emit_growable_slice_body(func: &mut Function, alloc_index: u32) {
+    let mask = crate::emit::growable::GROWABLE_HANDLE_MASK;
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(0)));
+    func.instruction(&Instruction::LocalSet(3));
+    emit_growable_slice_bound(func, 1, 4);
+    emit_growable_slice_bound(func, 2, 5);
+    // count = e > s ? e - s : 0
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Sub);
+    func.instruction(&Instruction::I64Const(0));
+    func.instruction(&Instruction::LocalGet(5));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(6));
+    // cap = max(count, GROWABLE_INITIAL_CAP)
+    let initial = crate::emit::growable::GROWABLE_INITIAL_CAP as i64;
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(initial));
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(initial));
+    func.instruction(&Instruction::I64GtS);
+    func.instruction(&Instruction::Select);
+    func.instruction(&Instruction::LocalSet(8));
+    // hdr = alloc(24); data = alloc(cap * 8)
+    func.instruction(&Instruction::I32Const(24));
+    func.instruction(&Instruction::Call(alloc_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(7));
+    func.instruction(&Instruction::LocalGet(8));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::Call(alloc_index));
+    func.instruction(&Instruction::I64ExtendI32U);
+    func.instruction(&Instruction::LocalSet(9));
+    // hdr = [count, cap, data]
+    for (offset, local) in [(0u64, 6u32), (8, 8), (16, 9)] {
+        func.instruction(&Instruction::LocalGet(7));
+        func.instruction(&Instruction::I32WrapI64);
+        func.instruction(&Instruction::LocalGet(local));
+        func.instruction(&Instruction::I64Store(growable_slot(offset)));
+    }
+    // memory.copy(data, old_data + s * 8, count * 8)
+    func.instruction(&Instruction::LocalGet(9));
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(0));
+    func.instruction(&Instruction::I64Const(mask));
+    func.instruction(&Instruction::I64And);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::I64Load(growable_slot(16)));
+    func.instruction(&Instruction::LocalGet(4));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I64Add);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::LocalGet(6));
+    func.instruction(&Instruction::I64Const(8));
+    func.instruction(&Instruction::I64Mul);
+    func.instruction(&Instruction::I32WrapI64);
+    func.instruction(&Instruction::MemoryCopy {
+        src_mem: 0,
+        dst_mem: 0,
+    });
+    // result: hdr | ARRAY_HANDLE_TAG
+    func.instruction(&Instruction::LocalGet(7));
+    func.instruction(&Instruction::I64Const(crate::ARRAY_HANDLE_TAG as i64));
+    func.instruction(&Instruction::I64Or);
 }
 
 pub(crate) fn top_level_children(lir: &LirProgram) -> Vec<LirNodeId> {

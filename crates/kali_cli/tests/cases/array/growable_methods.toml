@@ -1,0 +1,767 @@
+# Growable runtime arrays: pop, indexOf, includes, slice and float join
+# (spec §3.5, A-12..A-14). Every expected stdout is node v26.10.0's for the
+# same file, measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`.
+
+[constants]
+POP_ARG = "`.pop()` with an argument on the growable array `a`"
+SLICE_ARGS = "`.slice()` with more than two arguments on the growable array `a`"
+dollar = "$"
+
+[source]
+"pop_module.js" = """
+const a = [];
+a.push(4); a.push(5); a.push(6);
+let last = 0;
+while (a.length > 1) { last = a.pop(); }
+console.log(last, a.length, a[0]);
+const s = [];
+s.push("x"); s.push("y");
+const top = s.pop();
+console.log(top, s.length);
+a[0] = 9;
+a.push(7);
+a[a.length - 1] = 8;
+console.log(a.join(","));
+"""
+"pop_function.js" = """
+function main() {
+  const a = [];
+  a.push(4); a.push(5); a.push(6);
+  let last = 0;
+  while (a.length > 1) { last = a.pop(); }
+  console.log(last, a.length, a[0]);
+  const s = [];
+  s.push("x"); s.push("y");
+  const top = s.pop();
+  console.log(top, s.length);
+  a[0] = 9;
+  a.push(7);
+  a[a.length - 1] = 8;
+  console.log(a.join(","));
+}
+main();
+"""
+"search_module.js" = """
+const n = [];
+n.push(3); n.push(7); n.push(3);
+console.log(n.indexOf(3), n.indexOf(9), n.includes(7), n.includes(8));
+const f = [];
+let big = 0.5;
+f.push(0 / (big - 0.5)); f.push(-1 / big * 0); f.push(2.5);
+console.log(f.indexOf(0 / (big - 0.5)), f.includes(0 / (big - 0.5)), f.indexOf(0), f.includes(0), f.indexOf(2.5));
+const s = [];
+let w = "a";
+s.push(w + "b"); s.push("cd");
+console.log(s.indexOf("ab"), s.includes("cd"), s.indexOf("x"));
+"""
+"search_function.js" = """
+function main() {
+  const n = [];
+  n.push(3); n.push(7); n.push(3);
+  console.log(n.indexOf(3), n.indexOf(9), n.includes(7), n.includes(8));
+  const f = [];
+  let big = 0.5;
+  f.push(0 / (big - 0.5)); f.push(-1 / big * 0); f.push(2.5);
+  console.log(f.indexOf(0 / (big - 0.5)), f.includes(0 / (big - 0.5)), f.indexOf(0), f.includes(0), f.indexOf(2.5));
+  const s = [];
+  let w = "a";
+  s.push(w + "b"); s.push("cd");
+  console.log(s.indexOf("ab"), s.includes("cd"), s.indexOf("x"));
+}
+main();
+"""
+"slice_module.js" = """
+const a = [];
+for (let i = 0; i < 5; i++) a.push(i * 10);
+console.log(a.slice(1, 3).join(","), a.slice(-2).join(","), a.slice(3, 99).join(","), a.slice(4, 1).length, a.slice().length);
+const t = a.slice(1);
+t.push(99);
+console.log(t.length, a.length, t.join("-"));
+const u = t.slice(1, -1);
+console.log(u.join("-"), a.slice(1, 4).slice(1).join(","));
+"""
+"slice_function.js" = """
+function main() {
+  const a = [];
+  for (let i = 0; i < 5; i++) a.push(i * 10);
+  console.log(a.slice(1, 3).join(","), a.slice(-2).join(","), a.slice(3, 99).join(","), a.slice(4, 1).length, a.slice().length);
+  const t = a.slice(1);
+  t.push(99);
+  console.log(t.length, a.length, t.join("-"));
+  const u = t.slice(1, -1);
+  console.log(u.join("-"), a.slice(1, 4).slice(1).join(","));
+}
+main();
+"""
+"floats_methods.js" = """
+function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }
+function floats() { const out = []; let big = 0.5; for (let i = 0; i < 71; i++) big = big * 2; out.push(0.5); out.push(big); out.push(-1 / big * 0); out.push(1 / 3); return out; }
+function main() {
+  const data = [];
+  for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+  const avg = averages(data, 2);
+  console.log(avg.length, avg[0], avg.join(" "));
+  console.log(floats().join(","));
+}
+main();
+"""
+"floats_methods_module.js" = """
+function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }
+function floats() { const out = []; let big = 0.5; for (let i = 0; i < 71; i++) big = big * 2; out.push(0.5); out.push(big); out.push(-1 / big * 0); out.push(1 / 3); return out; }
+const data = [];
+for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+const avg = averages(data, 2);
+console.log(avg.length, avg[0], avg.join(" "));
+console.log(floats().join(","));
+"""
+"pop_value_module.js" = """
+const s = [];
+let w = "a";
+s.push(w + "b"); s.push("cd");
+console.log(s.pop() + "!", s.pop().length, s.length);
+const f = [];
+f.push(0.5); f.push(2.25);
+const g = f.pop() * 2;
+console.log(g, f.pop() + 1, f.length);
+const n = [];
+n.push(3); n.push(4);
+console.log(n.pop() + n.pop(), n.length);
+"""
+"pop_value_function.js" = """
+function main() {
+  const s = [];
+  let w = "a";
+  s.push(w + "b"); s.push("cd");
+  console.log(s.pop() + "!", s.pop().length, s.length);
+  const f = [];
+  f.push(0.5); f.push(2.25);
+  const g = f.pop() * 2;
+  console.log(g, f.pop() + 1, f.length);
+  const n = [];
+  n.push(3); n.push(4);
+  console.log(n.pop() + n.pop(), n.length);
+}
+main();
+"""
+"slice_float_module.js" = """
+const a = [];
+for (let i = 0; i < 5; i++) a.push(i);
+let h = 1.5;
+let z = 0;
+console.log(a.slice(h).join(","), a.slice(-h).join(","), a.slice(0, h * 3).join(","), a.slice(0 / z).join(","), a.slice(1 / z).length, a.slice(-1 / z).length);
+"""
+"slice_float_function.js" = """
+function main() {
+  const a = [];
+  for (let i = 0; i < 5; i++) a.push(i);
+  let h = 1.5;
+  let z = 0;
+  console.log(a.slice(h).join(","), a.slice(-h).join(","), a.slice(0, h * 3).join(","), a.slice(0 / z).join(","), a.slice(1 / z).length, a.slice(-1 / z).length);
+}
+main();
+"""
+"write_value_module.js" = """
+const f = [];
+f.push(0.5); f.push(1.5);
+const r = (f[0] = f[1] * 2);
+f[1] = (f[0] = 0.25);
+console.log(r, f[0], f[1], f.join(","));
+const s = [];
+let w = "a";
+s.push(w + "b"); s.push("c");
+const q = (s[0] = w + "d");
+s[1] = (s[0] = "e");
+console.log(q, s[0], s[1], s.join("-"), "x" + (s[0] = "g"));
+"""
+"write_value_function.js" = """
+function main() {
+  const f = [];
+  f.push(0.5); f.push(1.5);
+  const r = (f[0] = f[1] * 2);
+  f[1] = (f[0] = 0.25);
+  console.log(r, f[0], f[1], f.join(","));
+  const s = [];
+  let w = "a";
+  s.push(w + "b"); s.push("c");
+  const q = (s[0] = w + "d");
+  s[1] = (s[0] = "e");
+  console.log(q, s[0], s[1], s.join("-"), "x" + (s[0] = "g"));
+}
+main();
+"""
+"extra_args_pop_module.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+const a = []; a.push(1); a.push(2); a.push(3); a.pop(bump()); console.log(c, a.length);
+"""
+"extra_args_pop_function.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+function main() { const a = []; a.push(1); a.push(2); a.push(3); a.pop(bump()); console.log(c, a.length); }
+main();
+"""
+"extra_args_slice_module.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+const a = []; a.push(1); a.push(2); a.push(3); const t = a.slice(0, 1, bump()); console.log(c, t.length);
+"""
+"extra_args_slice_function.js" = """
+let c = 0; function bump() { c = c + 1; return c; }
+function main() { const a = []; a.push(1); a.push(2); a.push(3); const t = a.slice(0, 1, bump()); console.log(c, t.length); }
+main();
+"""
+"rounded_slice_bounds_module.js" = """
+const xs = [];
+for (let i = 0; i < 6; i++) xs.push(i * 10);
+const x = 7;
+console.log(xs.slice(Math.floor(x / 2)).join(","), xs.slice(0, Math.ceil(x / 3)).join(","), xs.slice(Math.trunc(-x / 3)).join(","));
+const h = Math.floor(xs.length / 2);
+console.log(h, xs.slice(h).join(","), xs.slice(Math.round(x / 4), Math.min(h + 1, Math.max(x / 2, 2))).join(","));
+"""
+"rounded_slice_bounds.js" = """
+function main() {
+  const xs = [];
+  for (let i = 0; i < 6; i++) xs.push(i * 10);
+  const x = 7;
+  console.log(xs.slice(Math.floor(x / 2)).join(","), xs.slice(0, Math.ceil(x / 3)).join(","), xs.slice(Math.trunc(-x / 3)).join(","));
+  const h = Math.floor(xs.length / 2);
+  console.log(h, xs.slice(h).join(","), xs.slice(Math.round(x / 4), Math.min(h + 1, Math.max(x / 2, 2))).join(","));
+}
+main();
+"""
+"search_result_values_module.js" = """
+const xs = [];
+xs.push(3); xs.push(5);
+const r = xs.includes(3);
+const q = xs.includes(4);
+console.log(r, q, typeof r, typeof q, "x" + r, `${dollar}{q}!`);
+if (r) console.log("has 3");
+if (!q) console.log("no 4");
+console.log(r ? "yes" : "no", !r, r === true, q === false, r === 1, r == 1, r + 1);
+function has(a, v) { return a.includes(v); }
+const b = has(xs, 5);
+console.log(b, has(xs, 6), typeof has(xs, 5), "has=" + has(xs, 5), b === true, b === 1);
+let found = false;
+for (const v of xs) { if (v > 4) found = xs.includes(v); }
+console.log(found, typeof found);
+const fs = [];
+fs.push(0.5); fs.push(2.5);
+const fr = fs.includes(2.5);
+console.log(fr, typeof fr, fs.includes(1), "f" + fs.includes(0.5));
+const ss = [];
+ss.push("a"); ss.push("b");
+const sr = ss.includes("b");
+console.log(sr, "s:" + sr, ss.includes("z") ? 1 : 2, typeof ss.includes("a"));
+const sl = xs.slice(1).includes(5);
+console.log(sl, xs.slice(1).includes(3), typeof sl);
+console.log(xs.indexOf(5), typeof xs.indexOf(5));
+"""
+"search_result_values.js" = """
+function main() {
+  const xs = [];
+  xs.push(3); xs.push(5);
+  const r = xs.includes(3);
+  const q = xs.includes(4);
+  console.log(r, q, typeof r, typeof q, "x" + r, `${dollar}{q}!`);
+  if (r) console.log("has 3");
+  if (!q) console.log("no 4");
+  console.log(r ? "yes" : "no", !r, r === true, q === false, r === 1, r == 1, r + 1);
+  function has(a, v) { return a.includes(v); }
+  const b = has(xs, 5);
+  console.log(b, has(xs, 6), typeof has(xs, 5), "has=" + has(xs, 5), b === true, b === 1);
+  let found = false;
+  for (const v of xs) { if (v > 4) found = xs.includes(v); }
+  console.log(found, typeof found);
+  const fs = [];
+  fs.push(0.5); fs.push(2.5);
+  const fr = fs.includes(2.5);
+  console.log(fr, typeof fr, fs.includes(1), "f" + fs.includes(0.5));
+  const ss = [];
+  ss.push("a"); ss.push("b");
+  const sr = ss.includes("b");
+  console.log(sr, "s:" + sr, ss.includes("z") ? 1 : 2, typeof ss.includes("a"));
+  const sl = xs.slice(1).includes(5);
+  console.log(sl, xs.slice(1).includes(3), typeof sl);
+  console.log(xs.indexOf(5), typeof xs.indexOf(5));
+}
+main();
+"""
+"search_result_argument_module.js" = """
+const xs = [];
+xs.push(3);
+function show(v) { console.log(v); }
+show(xs.includes(3));
+"""
+"search_result_argument.js" = """
+function main() {
+  const xs = [];
+  xs.push(3);
+  function show(v) { console.log(v); }
+  show(xs.includes(3));
+}
+main();
+"""
+"search_result_or_module.js" = """
+const xs = [];
+xs.push(3);
+console.log(xs.includes(4) || 0);
+"""
+"search_result_or.js" = """
+function main() {
+  const xs = [];
+  xs.push(3);
+  console.log(xs.includes(4) || 0);
+}
+main();
+"""
+"search_result_mixed_binding_module.js" = """
+const xs = [];
+xs.push(3);
+let r = 0;
+r = xs.includes(3);
+console.log(r);
+"""
+"search_result_mixed_binding.js" = """
+function main() {
+  const xs = [];
+  xs.push(3);
+  let r = 0;
+  r = xs.includes(3);
+  console.log(r);
+}
+main();
+"""
+"negated_search_module.js" = """
+const xs = [1];
+xs.push(2);
+const missing = !xs.includes(3);
+const r = !xs.includes(2);
+let flip = !xs.includes(2);
+flip = !flip;
+const eq = xs.includes(2) === false;
+const same = xs.includes(2) == xs.includes(3);
+function absent(a, v) { return !a.includes(v); }
+console.log(missing, r, flip, eq, same, absent(xs, 5), absent(xs, 1));
+console.log(typeof r, "r=" + r, `${dollar}{eq}`, r === 0, absent(xs, 1) === false);
+if (missing) console.log("missing 3");
+"""
+"negated_search.js" = """
+function main() {
+  const xs = [1];
+  xs.push(2);
+  const missing = !xs.includes(3);
+  const r = !xs.includes(2);
+  let flip = !xs.includes(2);
+  flip = !flip;
+  const eq = xs.includes(2) === false;
+  const same = xs.includes(2) == xs.includes(3);
+  function absent(a, v) { return !a.includes(v); }
+  console.log(missing, r, flip, eq, same, absent(xs, 5), absent(xs, 1));
+  console.log(typeof r, "r=" + r, `${dollar}{eq}`, r === 0, absent(xs, 1) === false);
+  if (missing) console.log("missing 3");
+}
+main();
+"""
+"negated_search_argument_module.js" = """
+const xs = [1];
+xs.push(2);
+function show(v) { console.log(v); }
+show(!xs.includes(2));
+"""
+"negated_search_argument.js" = """
+function main() {
+  const xs = [1];
+  xs.push(2);
+  function show(v) { console.log(v); }
+  show(!xs.includes(2));
+}
+main();
+"""
+"negated_logical_search_module.js" = """
+const xs = [1];
+xs.push(2); xs.push(3);
+const a = xs.includes(2);
+const r1 = !(xs.includes(2) || xs.includes(4));
+const r2 = !(xs.includes(2) && xs.includes(4));
+const r3 = !(xs.includes(2) ? xs.includes(3) : false);
+const r4 = !(xs.includes(2) ?? false);
+const r6 = !(xs.includes(2) || 0);
+const r7 = !(a || xs.includes(4));
+let r8 = !(xs.includes(2) || xs.includes(4));
+r8 = !r8;
+function none(ys, v) { return !(ys.includes(v) || ys.includes(v + 1)); }
+console.log(r1, r2, r3, r4, r6, r7, r8, none(xs, 7), none(xs, 1));
+console.log(typeof !xs.includes(2), typeof (xs.includes(2) === false), typeof r1);
+"""
+"negated_logical_search.js" = """
+function main() {
+  const xs = [1];
+  xs.push(2); xs.push(3);
+  const a = xs.includes(2);
+  const r1 = !(xs.includes(2) || xs.includes(4));
+  const r2 = !(xs.includes(2) && xs.includes(4));
+  const r3 = !(xs.includes(2) ? xs.includes(3) : false);
+  const r4 = !(xs.includes(2) ?? false);
+  const r6 = !(xs.includes(2) || 0);
+  const r7 = !(a || xs.includes(4));
+  let r8 = !(xs.includes(2) || xs.includes(4));
+  r8 = !r8;
+  function none(ys, v) { return !(ys.includes(v) || ys.includes(v + 1)); }
+  console.log(r1, r2, r3, r4, r6, r7, r8, none(xs, 7), none(xs, 1));
+  console.log(typeof !xs.includes(2), typeof (xs.includes(2) === false), typeof r1);
+}
+main();
+"""
+"compared_logical_search_module.js" = """
+const xs = [1];
+xs.push(3);
+const r = (xs.includes(5) || xs.includes(3)) === true;
+console.log(r);
+"""
+"compared_logical_search.js" = """
+function main() {
+  const xs = [1];
+  xs.push(3);
+  const r = (xs.includes(5) || xs.includes(3)) === true;
+  console.log(r);
+}
+main();
+"""
+"comma_search_module.js" = """
+const xs = [];
+xs.push(2); xs.push(5);
+const r = !(xs.includes(1), 5);
+console.log(r);
+"""
+"comma_search.js" = """
+function main() {
+  const xs = [];
+  xs.push(2); xs.push(5);
+  const r = !(xs.includes(1), 5);
+  console.log(r);
+}
+main();
+"""
+"comma_all_search_module.js" = """
+const xs = [];
+xs.push(2); xs.push(5);
+const r = !(xs.includes(1), xs.includes(5));
+const s = !(xs.includes(2), xs.includes(9));
+console.log(r, s, typeof r);
+"""
+"comma_all_search.js" = """
+function main() {
+  const xs = [];
+  xs.push(2); xs.push(5);
+  const r = !(xs.includes(1), xs.includes(5));
+  const s = !(xs.includes(2), xs.includes(9));
+  console.log(r, s, typeof r);
+}
+main();
+"""
+"signed_search_module.js" = """
+const xs = [];
+xs.push(2); xs.push(5);
+const r = !xs.includes(2);
+console.log(+r, -xs.includes(2));
+"""
+"signed_search.js" = """
+function main() {
+  const xs = [];
+  xs.push(2); xs.push(5);
+  const r = !xs.includes(2);
+  console.log(+r, -xs.includes(2));
+}
+main();
+"""
+
+[[case]]
+name = "pop_until_one_element_remains_module_scope"
+rationale = "Spec §3.5: `pop` returns and removes the last element (i64 and string), index writes stay in bounds."
+args = ["run", "pop_module.js"]
+exit = "success"
+stdout = "5 1 4\ny 1\n9,8\n"
+
+[[case]]
+name = "pop_until_one_element_remains"
+args = ["run", "pop_function.js"]
+exit = "success"
+stdout = "5 1 4\ny 1\n9,8\n"
+
+[[case]]
+name = "f64_search_follows_strict_and_same_value_zero_module_scope"
+rationale = "Review Focus 5: over [NaN, -0, 2.5], indexOf(NaN) is -1 and includes(NaN) true (SameValueZero); indexOf(0) finds -0. Strings compare by content (a runtime concat finds the literal)."
+args = ["run", "search_module.js"]
+exit = "success"
+stdout = "0 -1 true false\n-1 true 1 true 2\n0 true -1\n"
+
+[[case]]
+name = "f64_search_follows_strict_and_same_value_zero"
+args = ["run", "search_function.js"]
+exit = "success"
+stdout = "0 -1 true false\n-1 true 1 true 2\n0 true -1\n"
+
+[[case]]
+name = "slice_of_a_slice_matches_node_module_scope"
+rationale = "Review Focus 3, spec §3.5: negative and out-of-range bounds clamp; a slice is a new growable array (pushing it leaves the original alone); a slice of a slice re-slices the temporary."
+args = ["run", "slice_module.js"]
+exit = "success"
+stdout = "10,20 30,40 30,40 0 5\n5 5 10-20-30-40-99\n20-30-40 20,30\n"
+
+[[case]]
+name = "slice_of_a_slice_matches_node"
+args = ["run", "slice_function.js"]
+exit = "success"
+stdout = "10,20 30,40 30,40 0 5\n5 5 10-20-30-40-99\n20-30-40 20,30\n"
+
+[[case]]
+name = "floats_join_like_node"
+rationale = "Review Focus 5, spec A-11, A-12: f64 elements across a parameter and a return; `join` renders 0.5, 2^70 (built by doubling: a literal of 1e21 breaks codegen at the baseline), -0 as `0`, and 1/3."
+args = ["run", "floats_methods.js"]
+exit = "success"
+stdout = "4 2.25 2.25 3.75 5.25 6.75\n0.5,1.1805916207174113e+21,0,0.3333333333333333\n"
+
+[[case]]
+name = "floats_join_like_node_module_scope"
+rationale = "The module-scope twin of `floats_join_like_node`: a module-level f64 growable array passed to a function and a growable return joined at module scope."
+args = ["run", "floats_methods_module.js"]
+exit = "success"
+stdout = "4 2.25 2.25 3.75 5.25 6.75\n0.5,1.1805916207174113e+21,0,0.3333333333333333\n"
+
+[[case]]
+name = "pop_used_directly_as_a_value_module_scope"
+rationale = "Spec §3.5: `pop()` used inside an expression yields its element repr — a string (concat, `.length`), an f64 (arithmetic) or an i64."
+args = ["run", "pop_value_module.js"]
+exit = "success"
+stdout = "cd! 2 0\n4.5 1.5 0\n7 0\n"
+
+[[case]]
+name = "pop_used_directly_as_a_value"
+args = ["run", "pop_value_function.js"]
+exit = "success"
+stdout = "cd! 2 0\n4.5 1.5 0\n7 0\n"
+
+[[case]]
+name = "float_slice_bounds_truncate_module_scope"
+rationale = "Spec A-13: a float bound is truncated (ToIntegerOrInfinity): 1.5 -> 1, -1.5 -> -1, 4.5 -> 4, NaN -> 0, +Infinity and -Infinity saturate and clamp."
+args = ["run", "slice_float_module.js"]
+exit = "success"
+stdout = "1,2,3,4 4 0,1,2,3 0,1,2,3,4 0 5\n"
+
+[[case]]
+name = "float_slice_bounds_truncate"
+args = ["run", "slice_float_function.js"]
+exit = "success"
+stdout = "1,2,3,4 4 0,1,2,3 0,1,2,3,4 0 5\n"
+
+[[case]]
+name = "an_index_write_used_as_a_value_module_scope"
+rationale = "Task 9 re-review carried item: an f64 growable index write used as a value (`const r = (f[0] = f[1] * 2)`, `f[1] = (f[0] = 0.25)`) failed to load (E4201) because the assignment was not float-valued; the string analogue yields the stored handle."
+args = ["run", "write_value_module.js"]
+exit = "success"
+stdout = "3 0.25 0.25 0.25,0.25\nad e e e-e xg\n"
+
+[[case]]
+name = "an_index_write_used_as_a_value"
+args = ["run", "write_value_function.js"]
+exit = "success"
+stdout = "3 0.25 0.25 0.25,0.25\nad e e e-e xg\n"
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_run_module_scope"
+rationale = "Task 10 review I1: the argument was dropped unevaluated, so `bump()` never ran (node prints `1 2`; kali printed `0 …` at exit 0). Refused in inference, so `check` and `run` agree."
+args = ["run", "extra_args_pop_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} at module scope"]
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_check_module_scope"
+args = ["check", "extra_args_pop_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} at module scope"]
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_run"
+args = ["run", "extra_args_pop_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} in `main`"]
+
+[[case]]
+name = "an_extra_pop_argument_is_refused_under_check"
+args = ["check", "extra_args_pop_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${POP_ARG} in `main`"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_run_module_scope"
+rationale = "Task 10 review I1: the argument was dropped unevaluated, so `bump()` never ran (node prints `1 1`; kali printed `0 …` at exit 0). Refused in inference, so `check` and `run` agree."
+args = ["run", "extra_args_slice_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} at module scope"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_check_module_scope"
+args = ["check", "extra_args_slice_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} at module scope"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_run"
+args = ["run", "extra_args_slice_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} in `main`"]
+
+[[case]]
+name = "an_extra_slice_argument_is_refused_under_check"
+args = ["check", "extra_args_slice_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "${SLICE_ARGS} in `main`"]
+
+[[case]]
+name = "rounded_slice_bounds_match_node_module_scope"
+rationale = "Residual R2 (spec A-39): a `Math.floor`/`Math.ceil`/`Math.trunc`/`Math.round` bound, one through a `const`, and a `Math.min`/`Math.max` bound mixing an integer and a float (`3.5`, truncated as A-13 says). Before the fix `run` failed with E4201 while `check` passed. stdout is node v26.10.0's."
+args = ["run", "rounded_slice_bounds_module.js"]
+exit = "success"
+stdout = "30,40,50 0,10,20 40,50\n3 30,40,50 20\n"
+
+[[case]]
+name = "rounded_slice_bounds_match_node"
+args = ["run", "rounded_slice_bounds.js"]
+exit = "success"
+stdout = "30,40,50 0,10,20 40,50\n3 30,40,50 20\n"
+
+[[case]]
+name = "an_includes_result_keeps_its_boolean_value_module_scope"
+rationale = "Residual R1 (spec A-40): a growable `includes` result stored in a `const` or a `let`, returned from a function, used with `typeof`, concatenation, a template, `if`, `!`, `?:`, `===` and `==`, on i64, f64 and string arrays and on a `slice` result, prints what node prints (before: `1`, `0` and `typeof` `0`). `indexOf` stays a number. stdout is node v26.10.0's."
+args = ["run", "search_result_values_module.js"]
+exit = "success"
+stdout = "true false boolean boolean xtrue false!\nhas 3\nno 4\nyes false true true false true 2\ntrue false boolean has=true true false\ntrue boolean\ntrue boolean false ftrue\ntrue s:true 2 boolean\ntrue false boolean\n1 number\n"
+
+[[case]]
+name = "an_includes_result_keeps_its_boolean_value"
+args = ["run", "search_result_values.js"]
+exit = "success"
+stdout = "true false boolean boolean xtrue false!\nhas 3\nno 4\nyes false true true false true 2\ntrue false boolean has=true true false\ntrue boolean\ntrue boolean false ftrue\ntrue s:true 2 boolean\ntrue false boolean\n1 number\n"
+
+[[case]]
+name = "check_accepts_the_includes_result_programs"
+args = ["check", "search_result_values_module.js", "search_result_values.js"]
+exit = "success"
+
+[[case]]
+name = "an_includes_result_passed_as_an_argument_is_refused_under_check"
+rationale = "Residual R1 (spec A-40): a growable `includes` result in a position kali cannot keep as a boolean -- a call argument (node prints `true`), a `||` value (node `0` for `false || 0`), a binding that also holds a number (node `true`) -- printed `1` or `0`. Inference now refuses it, so `check` and `run` agree."
+args = ["check", "search_result_argument_module.js", "search_result_argument.js", "search_result_or_module.js", "search_result_or.js", "search_result_mixed_binding_module.js", "search_result_mixed_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array"]
+
+[[case]]
+name = "an_includes_result_passed_as_an_argument_is_refused_under_run_module_scope"
+args = ["run", "search_result_argument_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]
+
+[[case]]
+name = "an_includes_result_passed_as_an_argument_is_refused_under_run"
+args = ["run", "search_result_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "an_includes_result_in_a_logical_value_is_refused_under_run"
+args = ["run", "search_result_or.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "an_includes_result_in_a_logical_value_is_refused_under_run_module_scope"
+args = ["run", "search_result_or_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]
+
+[[case]]
+name = "an_includes_result_in_a_mixed_binding_is_refused_under_run"
+args = ["run", "search_result_mixed_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "an_includes_result_in_a_mixed_binding_is_refused_under_run_module_scope"
+args = ["run", "search_result_mixed_binding_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]
+
+[[case]]
+name = "a_negated_or_compared_includes_result_keeps_its_boolean_value_module_scope"
+rationale = "Residual round 1 (N2, spec A-40): `!xs.includes(v)` and a comparison over an `includes` result, stored in a `const`/`let` (also `r = !r`) or returned from a function, print `true`/`false` as node does (round 0 printed `0`/`1`). stdout is node v26.10.0's."
+args = ["run", "negated_search_module.js"]
+exit = "success"
+stdout = "true false true false false true false\nboolean r=false false false true\nmissing 3\n"
+
+[[case]]
+name = "a_negated_or_compared_includes_result_keeps_its_boolean_value"
+args = ["run", "negated_search.js"]
+exit = "success"
+stdout = "true false true false false true false\nboolean r=false false false true\nmissing 3\n"
+
+[[case]]
+name = "a_negated_includes_result_passed_as_an_argument_is_refused"
+rationale = "Residual round 1 (N2): `show(!xs.includes(2))` would print `0` (node `false`); inference refuses it under `check` and `run`."
+args = ["check", "negated_search_argument_module.js", "negated_search_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_negated_includes_result_passed_as_an_argument_is_refused_under_run"
+args = ["run", "negated_search_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_negated_logical_over_includes_results_keeps_its_boolean_value_module_scope"
+rationale = "RE-PINNED 2026-10-08 (residual round 3): the `,` line (`!(xs.includes(2), xs.includes(9))`) moved to the refusal rows, since kali's comma value is not JS's (stdout re-measured with node v26.10.0). Residual round 2 (N2b, spec A-42): `!` over `||`, `&&`, `??`, `?:` holding growable `includes` results, stored in a `const`/`let` or returned, and `typeof` of `!`/a comparison print what node prints (round 1 printed `0`/`1` and `typeof` `0`). stdout is node v26.10.0's."
+args = ["run", "negated_logical_search_module.js"]
+exit = "success"
+stdout = "false true false false false false true true false\nboolean boolean boolean\n"
+
+[[case]]
+name = "a_negated_logical_over_includes_results_keeps_its_boolean_value"
+args = ["run", "negated_logical_search.js"]
+exit = "success"
+stdout = "false true false false false false true true false\nboolean boolean boolean\n"
+
+[[case]]
+name = "a_comparison_over_a_logical_of_includes_results_is_refused"
+rationale = "Residual round 2 (N2b): a comparison over a `||` of `includes` results (node `true`) is refused by inference rather than risk `0`/`1`."
+args = ["check", "compared_logical_search_module.js", "compared_logical_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_comparison_over_a_logical_of_includes_results_is_refused_under_run"
+args = ["run", "compared_logical_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_comma_holding_an_includes_result_is_refused"
+rationale = "Residual round 3 (N2c, spec A-44): `!(xs.includes(1), 5)` printed `true` (node `false`), and so does `!(xs.includes(1), xs.includes(5))`: kali's comma value is not JS's (`(1, 5)` prints `2`, pre-existing). Inference refuses any `,` holding a growable `includes` result, whether its other operands are search values or not (the second pair)."
+args = ["check", "comma_search_module.js", "comma_search.js", "comma_all_search_module.js", "comma_all_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_comma_holding_an_includes_result_is_refused_under_run"
+args = ["run", "comma_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_unary_sign_of_an_includes_result_is_refused"
+rationale = "Residual round 3 (spec A-44): `+r` with `const r = !xs.includes(2)` printed `false` and `-xs.includes(2)` a boolean (node `0` and `-1`); unary `+`/`-` over a growable search value is refused by inference."
+args = ["check", "signed_search_module.js", "signed_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_unary_sign_of_an_includes_result_is_refused_under_run"
+args = ["run", "signed_search_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]

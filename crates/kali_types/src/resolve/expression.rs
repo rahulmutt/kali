@@ -365,36 +365,70 @@ impl TypeContext {
         }
     }
 
-    /// True iff `name` is registered as a GROWABLE runtime-array binding in
-    /// the CURRENT function (throw-fallout Stage 4) — the types-side mirror
-    /// of codegen's emitter `growable_array_bindings` set. Scope-walk twin
-    /// of `is_structural_runtime_array` (same fail-closed rules: crossing an
-    /// untracked function-shaped scope ⇒ `false`; module/global scope is
-    /// reachable only under `_start`).
+    /// True iff `name` is a GROWABLE runtime-array binding (or parameter) of
+    /// the function it resolves to. Growable-runtime-arrays spec §3.1: repr
+    /// inference's solution is the one registry (bindings, parameters,
+    /// call-bound and aliased names alike), keyed exactly as codegen keys it
+    /// (`binding_repr_function_key`, which fails closed across an untracked
+    /// function-shaped scope). There is no scope-side registry any more.
     pub(crate) fn is_growable_array_binding(&self, name: &str) -> bool {
-        let tracked_scope = self.current_function_scope();
-        let mut current = self.current_scope_id();
-        loop {
-            let Some(scope_id) = current else {
-                return self.global_scope.growable_array_bindings.contains_key(name);
-            };
-            let Some(scope) = self.scopes.get(&scope_id) else {
-                return false;
-            };
-            if scope.scope_type == ScopeType::Function && Some(scope_id) != tracked_scope {
-                // Crossed into a function `current_function_name()` does not
-                // name — fail closed rather than guess.
-                return false;
+        self.binding_repr_function_key(name)
+            .is_some_and(|func| self.repr_table.is_growable_array_binding(&func, name))
+    }
+
+    /// The table key a direct call `callee(…)` made in the current function
+    /// reaches on the array-return lanes — inference's own resolution
+    /// (`const` arrow aliases to `__kali_fn_N`, shadowed names excluded),
+    /// read from the table (controller ruling W2).
+    fn growable_call_key<'a>(&'a self, callee: &'a str) -> Option<&'a str> {
+        self.repr_table
+            .array_return_callee_key(self.current_function_name(), callee)
+    }
+
+    /// Growable-runtime-arrays spec §3.5, A-6: the element repr of a growable
+    /// value expression — a growable binding, a direct call to a growable-
+    /// returning function (unshadowed or through a `const` alias, inference's
+    /// own facts), or a `.slice(…)` of either. The resolve-side twin of
+    /// codegen's `growable_value_elem`.
+    pub(crate) fn growable_receiver_elem(&self, expr: &Expression) -> Option<kali_common::Repr> {
+        match unwrap_transparent(expr) {
+            Expression::Identifier(name) => {
+                let func = self.binding_repr_function_key(name)?;
+                self.repr_table
+                    .is_growable_array_binding(&func, name)
+                    .then(|| self.repr_table.array_element(&func, name))
             }
-            if scope.growable_array_bindings.contains_key(name) {
-                return true;
-            }
-            if scope.scope_type == ScopeType::Function {
-                // Tracked function's own top scope, no hit: a free module
-                // reference this function's emitter never registers.
-                return false;
-            }
-            current = scope.parent;
+            Expression::CallExpression(call) => match unwrap_transparent(&call.callee) {
+                Expression::MemberExpression(member) if member.dot_name() == Some("slice") => {
+                    self.growable_receiver_elem(&member.object)
+                }
+                Expression::Identifier(callee) => self
+                    .growable_call_key(callee)
+                    .and_then(|key| self.repr_table.growable_return(key)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Fail-closed: `true` unless the String elements of the growable value
+    /// `expr` are proven ASCII (`join` counts bytes).
+    pub(crate) fn growable_receiver_non_ascii(&self, expr: &Expression) -> bool {
+        match unwrap_transparent(expr) {
+            Expression::Identifier(name) => self.array_element_non_ascii(name),
+            Expression::CallExpression(call) => match unwrap_transparent(&call.callee) {
+                Expression::MemberExpression(member) if member.dot_name() == Some("slice") => {
+                    self.growable_receiver_non_ascii(&member.object)
+                }
+                Expression::Identifier(callee) => {
+                    self.growable_call_key(callee).is_none_or(|key| {
+                        self.repr_table
+                            .is_array_element_non_ascii(key, crate::array_return::RETURN_ARRAY_KEY)
+                    })
+                }
+                _ => true,
+            },
+            _ => true,
         }
     }
 
@@ -848,30 +882,6 @@ impl TypeContext {
         if self.global_scope.bindings.contains_key(name) {
             self.global_scope
                 .runtime_array_bindings
-                .insert(name.to_string(), true);
-        }
-    }
-
-    /// Register `name` as a GROWABLE runtime-array binding in the scope
-    /// where it is declared (module/global fallback otherwise). Grow-only,
-    /// mirroring `register_runtime_array_binding` and codegen's insert-only
-    /// `growable_array_bindings` — throw-fallout Stage 4.
-    pub(crate) fn register_growable_array_binding(&mut self, name: &str) {
-        let mut current = self.current_scope_id();
-        while let Some(scope_id) = current {
-            if let Some(scope) = self.scopes.get_mut(&scope_id) {
-                if scope.bindings.contains_key(name) {
-                    scope.growable_array_bindings.insert(name.to_string(), true);
-                    return;
-                }
-                current = scope.parent;
-            } else {
-                return;
-            }
-        }
-        if self.global_scope.bindings.contains_key(name) {
-            self.global_scope
-                .growable_array_bindings
                 .insert(name.to_string(), true);
         }
     }
@@ -1779,6 +1789,10 @@ impl TypeContext {
         let Expression::Identifier(target) = &assign.left else {
             return;
         };
+        // Growable-runtime-arrays spec A-7: inference owns growable writes.
+        if self.is_growable_array_binding(target) {
+            return;
+        }
         let Some(func) = self.binding_repr_function_key(target) else {
             return;
         };

@@ -418,6 +418,9 @@ struct CallEdge {
     /// an array; `No`/`Unknown` at and after the first spread argument.
     arg_num_proofs: Vec<crate::array_return::NumProof>,
     arg_array_proofs: Vec<crate::array_return::ArgArrayProof>,
+    /// Growable-runtime-arrays M2: each positional argument's
+    /// number-or-string proof; `No` at and after the first spread argument.
+    arg_elem_proofs: Vec<crate::growable::elem_proof::ElemProof>,
     /// Result node of the call expression itself (target of the callee's
     /// return-flow edge).
     result_node: usize,
@@ -430,6 +433,7 @@ struct NumberProofEdge {
     callee: String,
     num: Vec<crate::array_return::NumProof>,
     array: Vec<crate::array_return::ArgArrayProof>,
+    elem: Vec<crate::growable::elem_proof::ElemProof>,
 }
 
 /// What a locally declared name is, as a direct callee, to the array-return
@@ -455,7 +459,9 @@ enum ArrayOrigin {
     /// An allocation (length and fill proof).
     Allocation(crate::array_return::NumProof),
     /// A bare-identifier call; an array only when Phase C0 call-binds it.
-    Call,
+    /// The callee's key ([`ReprInfer::array_return_callee`]); `None` when the
+    /// name is shadowed (a parameter or local callee).
+    Call(Option<String>),
 }
 
 /// Ruling R15: a fact the element-number proof assumes until refuted
@@ -493,6 +499,36 @@ struct NumProofCheck<'a> {
 }
 
 impl NumProofCheck<'_> {
+    /// Discover every fact `goals` depend on, then refute until stable
+    /// (greatest fixed point); `refuted` holds the result.
+    fn refute(&mut self, goals: impl IntoIterator<Item = NumFact>) {
+        let mut universe: BTreeSet<NumFact> = BTreeSet::new();
+        let mut work: Vec<NumFact> = goals.into_iter().collect();
+        while let Some(fact) = work.pop() {
+            if !universe.insert(fact.clone()) {
+                continue;
+            }
+            let mut deps = Vec::new();
+            self.fact_holds(&fact, &mut deps);
+            work.extend(deps.into_iter().filter(|d| !universe.contains(d)));
+        }
+        loop {
+            let mut changed = false;
+            for fact in &universe {
+                if self.refuted.contains(fact) {
+                    continue;
+                }
+                if !self.fact_holds(fact, &mut Vec::new()) {
+                    self.refuted.insert(fact.clone());
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+
     fn assume(&self, fact: NumFact, deps: &mut Vec<NumFact>) -> bool {
         let holds = !self.refuted.contains(&fact);
         deps.push(fact);
@@ -661,7 +697,7 @@ impl NumProofCheck<'_> {
             ArrayOrigin::Allocation(proof) => {
                 kind != "var" && stable && self.proof_holds(proof, deps)
             }
-            ArrayOrigin::Call => self.solution.call_bound.contains(&key),
+            ArrayOrigin::Call(_) => self.solution.call_bound.contains(&key),
         }
     }
 
@@ -736,6 +772,495 @@ impl NumProofCheck<'_> {
             return false;
         }
         self.assume(NumFact::Binding(scope, name.to_string()), deps)
+    }
+}
+
+/// Growable-runtime-arrays M2 (spec §3.4, A-4, Task 7 fix round 1): a fact
+/// the number-or-string proof of a stored element leans on.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+///
+/// The `bool` is the context (Task 7 fix round 2): `true` when the value
+/// lands in a growable array whose solved element repr is `String`. Outside
+/// that context a string is refused — the element solve did not see it, so it
+/// would be stored and printed as a number.
+enum ElemFact {
+    /// Every value written to declared binding `(scope, name)` is proven.
+    Binding(String, String, bool),
+    /// Every call site of `func` passes a proven argument for param `name`,
+    /// and every write in its body is proven.
+    Param(String, String, bool),
+    /// Every return of `func` is proven.
+    Return(String, bool),
+    /// Every value stored into the growable component is proven, in the
+    /// component's own context.
+    Grow(usize),
+    /// Every value stored into the plain (non-growable) array component —
+    /// its literal seeds — is proven (`plain_component_closed` holds).
+    Plain(usize, bool),
+}
+
+/// Growable-runtime-arrays M2: the evaluator behind the unsupported-element
+/// refusal, a greatest fixed point like [`NumProofCheck`]. Integer elements
+/// of a plain (non-growable) array lean on the number proof's element-class
+/// facts, `num_proven` (`None` while discovering: assumed, and recorded in
+/// `num_goals`).
+struct ElemProofCheck<'a> {
+    infer: &'a ReprInfer,
+    table: &'a ReprTable,
+    solution: &'a crate::array_return::Solution,
+    roots: &'a [usize],
+    fields_of: &'a BTreeMap<ObjSlot, Vec<String>>,
+    materialized: &'a BTreeSet<ObjSlot>,
+    unwalked: bool,
+    /// Component (growable or plain) -> every value stored into it.
+    grow_values: BTreeMap<usize, Vec<&'a crate::growable::elem_proof::ElemProof>>,
+    num_proven: Option<BTreeSet<usize>>,
+    num_goals: std::cell::RefCell<BTreeSet<usize>>,
+    /// Growable components whose solved element repr is `String`.
+    string_components: BTreeSet<usize>,
+    refuted: BTreeSet<ElemFact>,
+}
+
+impl ElemProofCheck<'_> {
+    fn assume(&self, fact: ElemFact, deps: &mut Vec<ElemFact>) -> bool {
+        let holds = !self.refuted.contains(&fact);
+        deps.push(fact);
+        holds
+    }
+
+    fn slot_is_object(&self, slot: &ObjSlot) -> bool {
+        self.infer.obj_literal_slots.contains(slot)
+            || self.fields_of.contains_key(slot)
+            || self.materialized.contains(slot)
+    }
+
+    /// `name`, read in `func`, is object-shaped.
+    fn is_object(&self, func: &str, scope: &str, name: &str) -> bool {
+        self.slot_is_object(&ObjSlot::Binding(scope.to_string(), name.to_string()))
+            || self.slot_is_object(&ObjSlot::Binding(func.to_string(), name.to_string()))
+            || self.table.object_initialized_binding(scope, name)
+            || matches!(self.table.scalar(scope, name), Repr::Object(_))
+    }
+
+    /// Positive evidence that `(scope, name)` holds an array.
+    fn is_array(&self, scope: &str, name: &str) -> bool {
+        let infer = self.infer;
+        let key = (scope.to_string(), name.to_string());
+        let node = crate::growable::flow::GrowNode::Binding(key.0.clone(), key.1.clone());
+        infer.growable.is_growable_binding(scope, name)
+            || infer.growable_facts.literal_origins.contains(&node)
+            || infer.growable_facts.plain_origins.contains(&node)
+            || infer.array_origins.get(&key).is_some_and(|origins| {
+                origins
+                    .iter()
+                    .any(|(_, origin)| self.origin_is_array(origin))
+            })
+            || infer.const_literal_array_bindings.contains(&key)
+            || infer.const_bad_literal_array_bindings.contains(&key)
+            || infer.const_computed_literal_array_bindings.contains(&key)
+            || infer.let_literal_array_bindings.contains(&key)
+            || self.table.is_non_scalar_param(scope, name)
+            || self.solution.array_fed_params.contains(&key)
+            || self.solution.call_bound.contains(&key)
+    }
+
+    /// Final review I2: a literal or an allocation is an array; a call is one
+    /// only when its callee returns an array (the array-return lane) or a
+    /// growable array. A shadowed callee (a parameter or local) is unknown:
+    /// counted an array, fail-closed. A callee that returns no array leaves
+    /// the binding to the scalar proof, which refuses an unknown callee.
+    fn origin_is_array(&self, origin: &ArrayOrigin) -> bool {
+        match origin {
+            ArrayOrigin::Literal(_) | ArrayOrigin::Allocation(_) | ArrayOrigin::Call(None) => true,
+            ArrayOrigin::Call(Some(callee)) => {
+                self.solution.array_returning.contains(callee)
+                    || self
+                        .infer
+                        .growable
+                        .is_growable(&crate::growable::flow::GrowNode::Return(callee.clone()))
+            }
+        }
+    }
+
+    fn param_index(&self, func: &str, name: &str) -> Option<usize> {
+        self.infer
+            .functions
+            .get(func)
+            .and_then(|params| params.iter().position(|p| p == name))
+    }
+
+    /// `name` names no program function or binding visible from `func`.
+    fn is_global(&self, func: &str, name: &str) -> bool {
+        !self.infer.functions.contains_key(name)
+            && !self.infer.is_locally_declared(func, name)
+            && !self.infer.is_locally_declared(TOP_LEVEL, name)
+    }
+
+    fn grow_component(&self, node: &crate::growable::flow::GrowNode) -> Option<usize> {
+        let growable = &self.infer.growable;
+        if growable.is_growable(node) {
+            growable.component_of(node)
+        } else {
+            None
+        }
+    }
+
+    /// The bare identifier `name`, read in `func`, holds a number or a string
+    /// (and is a string, when `string`), in context `s`.
+    fn binding_holds(
+        &self,
+        func: &str,
+        name: &str,
+        string: bool,
+        s: bool,
+        deps: &mut Vec<ElemFact>,
+    ) -> bool {
+        if self.unwalked || self.infer.functions.contains_key(name) {
+            return false;
+        }
+        let scope = if self.param_index(func, name).is_some() {
+            func.to_string()
+        } else {
+            self.infer.binding_scope(func, name)
+        };
+        if !self.infer.is_locally_declared(&scope, name)
+            || self.is_object(func, &scope, name)
+            || self.is_array(&scope, name)
+        {
+            return false;
+        }
+        match self.table.scalar(&scope, name) {
+            Repr::String if s => {}
+            Repr::I64 | Repr::F64 if !string => {}
+            _ => return false,
+        }
+        if self.param_index(func, name).is_some() {
+            return self.assume(ElemFact::Param(func.to_string(), name.to_string(), s), deps);
+        }
+        self.assume(ElemFact::Binding(scope, name.to_string(), s), deps)
+    }
+
+    /// One element of `name`, read in `func` (a string's character is a
+    /// string), is a number or a string (a string, when `string`), in
+    /// context `s`.
+    fn elements_hold(
+        &self,
+        func: &str,
+        name: &str,
+        string: bool,
+        s: bool,
+        deps: &mut Vec<ElemFact>,
+    ) -> bool {
+        let scope = if self.param_index(func, name).is_some() {
+            func.to_string()
+        } else {
+            self.infer.binding_scope(func, name)
+        };
+        if self.table.scalar(&scope, name) == Repr::String && !self.is_array(&scope, name) {
+            return s && self.binding_holds(func, name, true, s, deps);
+        }
+        if self.is_object(func, &scope, name)
+            || self.slot_is_object(&ObjSlot::ArrayElem(scope.clone(), name.to_string()))
+        {
+            return false;
+        }
+        let element = self.table.array_element(&scope, name);
+        if (string || !s) && (element == Repr::String) != string {
+            return false;
+        }
+        let node = crate::growable::flow::GrowNode::Binding(scope.clone(), name.to_string());
+        if let Some(component) = self.grow_component(&node) {
+            return self.assume(ElemFact::Grow(component), deps);
+        }
+        if let Some(component) = self.infer.growable.component_of(&node) {
+            if self.plain_component_closed(component)
+                && self.assume(ElemFact::Plain(component, s), deps)
+            {
+                return true;
+            }
+        }
+        let Some(&elem) = self.infer.array_elem_node.get(&(scope, name.to_string())) else {
+            return false;
+        };
+        match element {
+            Repr::String => s,
+            Repr::I64 => {
+                let root = self.roots[elem];
+                match &self.num_proven {
+                    Some(proven) => proven.contains(&root),
+                    None => {
+                        self.num_goals.borrow_mut().insert(root);
+                        true
+                    }
+                }
+            }
+            _ => false,
+        }
+    }
+
+    /// A plain array component whose every element is one of its literal
+    /// seeds: only bindings (no temporaries, returns or parameters), at least
+    /// one array-literal origin written exactly once, every other member
+    /// written only by aliasing a member, no allocation origin, no non-array
+    /// write, and no position that could store into it (only reads,
+    /// `for..of`, `join`, `slice`, search, console and the non-mutating
+    /// methods).
+    fn plain_component_closed(&self, component: usize) -> bool {
+        use crate::growable::elem_proof::ElemProof;
+        use crate::growable::flow::{GrowNode, UseKind};
+        const READ_ONLY_METHODS: &[&str] = &[
+            "`.map(",
+            "`.filter(",
+            "`.forEach(",
+            "`.some(",
+            "`.every(",
+            "`.find(",
+            "`.findIndex(",
+            "`.at(",
+            "`.concat(",
+            "`.reduce(",
+            "`.keys(",
+            "`.values(",
+            "`.entries(",
+            "`.toString(",
+            // `slice` with more than two arguments (refused on a growable
+            // array, Task 10 review I1) still only reads a plain one.
+            "`.slice(",
+        ];
+        let infer = self.infer;
+        let facts = &infer.growable_facts;
+        let members = infer.growable.members_of_component(component);
+        let mut has_literal = false;
+        for member in members {
+            let GrowNode::Binding(scope, name) = member else {
+                return false;
+            };
+            if facts.plain_origins.contains(member)
+                || facts.non_array_writes.contains(member)
+                || infer.elem_unkeyed_names.contains(name)
+                || self.param_index(scope, name).is_some()
+                || self.slot_is_object(&ObjSlot::ArrayElem(scope.clone(), name.clone()))
+            {
+                return false;
+            }
+            let writes = infer
+                .binding_elem_proofs
+                .get(&(scope.clone(), name.clone()))
+                .map_or(&[][..], Vec::as_slice);
+            if facts.literal_origins.contains(member) {
+                has_literal = true;
+                if writes.len() != 1 {
+                    return false;
+                }
+            } else if writes.is_empty()
+                || !writes.iter().all(|write| match write {
+                    ElemProof::Binding { func, name } => members.contains(&GrowNode::Binding(
+                        infer.binding_scope(func, name),
+                        name.clone(),
+                    )),
+                    _ => false,
+                })
+            {
+                return false;
+            }
+        }
+        has_literal
+            && facts
+                .uses
+                .iter()
+                .filter(|u| members.contains(&u.node))
+                .all(|u| match &u.kind {
+                    UseKind::Flow
+                    | UseKind::IndexRead
+                    | UseKind::LengthRead
+                    | UseKind::ForOf
+                    | UseKind::Join
+                    | UseKind::Slice
+                    | UseKind::Search { .. }
+                    | UseKind::Console
+                    | UseKind::ModuleRead => true,
+                    UseKind::Method(text) => READ_ONLY_METHODS
+                        .iter()
+                        .any(|prefix| text.starts_with(prefix)),
+                    _ => false,
+                })
+    }
+
+    /// `proof` holds in context `s` (see [`ElemFact`]).
+    fn proof_holds(
+        &self,
+        proof: &crate::growable::elem_proof::ElemProof,
+        s: bool,
+        deps: &mut Vec<ElemFact>,
+    ) -> bool {
+        use crate::growable::elem_proof::ElemProof;
+        match proof {
+            ElemProof::Yes => true,
+            ElemProof::Str => s,
+            ElemProof::No => false,
+            ElemProof::All(parts) => parts.iter().all(|p| self.proof_holds(p, s, deps)),
+            ElemProof::Binding { func, name } => self.binding_holds(func, name, false, s, deps),
+            ElemProof::StringBinding { func, name } => {
+                s && self.binding_holds(func, name, true, s, deps)
+            }
+            ElemProof::Elements { func, name } => self.elements_hold(func, name, false, s, deps),
+            ElemProof::StringElements { func, name } => {
+                s && self.elements_hold(func, name, true, s, deps)
+            }
+            ElemProof::GrowElements(node) => self.grow_component(node).is_some_and(|component| {
+                (s || !self.string_components.contains(&component))
+                    && self.assume(ElemFact::Grow(component), deps)
+            }),
+            ElemProof::Global { func, name } => self.is_global(func, name),
+            ElemProof::ArrayOrString { func, name } => {
+                let scope = if self.param_index(func, name).is_some() {
+                    func.to_string()
+                } else {
+                    self.infer.binding_scope(func, name)
+                };
+                if self.is_object(func, &scope, name) {
+                    return false;
+                }
+                // The result (`.length`, `.indexOf()`, …) is a number
+                // whatever the receiver, so the receiver is checked in the
+                // string context.
+                self.is_array(&scope, name) || self.binding_holds(func, name, true, true, deps)
+            }
+            ElemProof::Call { caller, callee } => {
+                if crate::growable::elem_proof::is_scalar_global_function(callee)
+                    && self.is_global(caller, callee)
+                {
+                    // `String(x)` is a string; the others are numbers.
+                    return s || callee != "String";
+                }
+                self.infer
+                    .array_return_callee(caller, callee)
+                    .is_some_and(|key| self.assume(ElemFact::Return(key, s), deps))
+            }
+        }
+    }
+
+    /// Every call of `func` is an enumerated call edge (as
+    /// [`NumProofCheck::call_sites_enumerable`]).
+    fn call_sites_enumerable(&self, func: &str) -> bool {
+        !self.unwalked
+            && self.infer.array_return_facts.declaration_counts.get(func) == Some(&1)
+            && !self.infer.escaping_function_names.contains(func)
+            && (!crate::array_return::is_synthetic_fn_id(func)
+                || self
+                    .infer
+                    .number_proof_edges
+                    .iter()
+                    .any(|e| e.callee == func))
+    }
+
+    fn writes_hold(&self, scope: &str, name: &str, s: bool, deps: &mut Vec<ElemFact>) -> bool {
+        !self.infer.elem_unkeyed_names.contains(name)
+            && self
+                .infer
+                .binding_elem_proofs
+                .get(&(scope.to_string(), name.to_string()))
+                .is_none_or(|proofs| proofs.iter().all(|p| self.proof_holds(p, s, deps)))
+    }
+
+    fn fact_holds(&self, fact: &ElemFact, deps: &mut Vec<ElemFact>) -> bool {
+        match fact {
+            ElemFact::Binding(scope, name, s) => {
+                self.infer
+                    .binding_elem_proofs
+                    .get(&(scope.clone(), name.clone()))
+                    .is_some_and(|proofs| !proofs.is_empty())
+                    && self.writes_hold(scope, name, *s, deps)
+            }
+            ElemFact::Param(func, name, s) => {
+                let Some(index) = self.param_index(func, name) else {
+                    return false;
+                };
+                self.call_sites_enumerable(func)
+                    && self
+                        .infer
+                        .number_proof_edges
+                        .iter()
+                        .filter(|edge| &edge.callee == func)
+                        .all(|edge| {
+                            edge.elem
+                                .get(index)
+                                .is_some_and(|proof| self.proof_holds(proof, *s, deps))
+                        })
+                    && self.writes_hold(func, name, *s, deps)
+            }
+            ElemFact::Return(func, s) => {
+                let facts = &self.infer.array_return_facts;
+                facts.candidate_forms.contains(func)
+                    && facts.declaration_counts.get(func) == Some(&1)
+                    && !facts.falls_off_end.contains(func)
+                    && !facts.non_taintable.contains(func)
+                    && !self
+                        .infer
+                        .growable
+                        .is_growable(&crate::growable::flow::GrowNode::Return(func.clone()))
+                    && self
+                        .infer
+                        .return_elem_proofs
+                        .get(func)
+                        .is_some_and(|proofs| {
+                            !proofs.is_empty()
+                                && proofs.iter().all(|p| self.proof_holds(p, *s, deps))
+                        })
+            }
+            ElemFact::Grow(component) => {
+                self.infer
+                    .growable
+                    .members_of_component(*component)
+                    .iter()
+                    .all(|node| match node {
+                        crate::growable::flow::GrowNode::Binding(func, name) => {
+                            !self.slot_is_object(&ObjSlot::ArrayElem(func.clone(), name.clone()))
+                        }
+                        _ => true,
+                    })
+                    && self.grow_values.get(component).is_none_or(|values| {
+                        let s = self.string_components.contains(component);
+                        values.iter().all(|p| self.proof_holds(p, s, deps))
+                    })
+            }
+            ElemFact::Plain(component, s) => {
+                self.plain_component_closed(*component)
+                    && self
+                        .grow_values
+                        .get(component)
+                        .is_none_or(|values| values.iter().all(|p| self.proof_holds(p, *s, deps)))
+            }
+        }
+    }
+
+    /// Discover every fact `goals` depend on, then refute until stable.
+    fn refute(&mut self, goals: impl IntoIterator<Item = ElemFact>) {
+        let mut universe: BTreeSet<ElemFact> = BTreeSet::new();
+        let mut work: Vec<ElemFact> = goals.into_iter().collect();
+        while let Some(fact) = work.pop() {
+            if !universe.insert(fact.clone()) {
+                continue;
+            }
+            let mut deps = Vec::new();
+            self.fact_holds(&fact, &mut deps);
+            work.extend(deps.into_iter().filter(|d| !universe.contains(d)));
+        }
+        loop {
+            let mut changed = false;
+            for fact in &universe {
+                if self.refuted.contains(fact) {
+                    continue;
+                }
+                if !self.fact_holds(fact, &mut Vec::new()) {
+                    self.refuted.insert(fact.clone());
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
     }
 }
 
@@ -844,6 +1369,31 @@ struct ReprInfer {
     /// `(scope, binding)` of each `const` with a boolean-valued initializer
     /// (captured-bindings A-2.1); keyed like `numeric_binding_candidates`.
     boolean_consts: std::collections::HashSet<(String, String)>,
+    /// Residual round 1 (spec A-39): the initializer of every `const`
+    /// whose initializer could be a compile-time number (a numeric literal,
+    /// a unary sign, an identifier, an `Object.freeze(…)` call), keyed by
+    /// `(scope, binding)`. A rounding call over a chain of these folds to an
+    /// i64 in codegen, so it gets no float edge.
+    static_numeric_const_inits: BTreeMap<(String, String), Expression>,
+    /// Residual round 3 (spec A-44): every `const` loop variable of a
+    /// `for-of`, keyed `(scope, variable)`, with its iterable. Codegen
+    /// unrolls a `for-of` over a literal array, binding the variable to each
+    /// element, so a variable over numeric literals is a compile-time number.
+    static_numeric_loop_vars: BTreeMap<(String, String), Expression>,
+    /// `const` array-literal initializers, keyed `(scope, binding)`: the
+    /// iterable of such a loop may be a binding of one.
+    const_array_inits: BTreeMap<(String, String), Expression>,
+    /// Keys declared more than once in one scope (sibling blocks or loops):
+    /// never a compile-time number, since one key would stand for two values.
+    static_numeric_conflicts: BTreeSet<(String, String)>,
+    /// Residual round 5: the bindings that feed a growable element (from the
+    /// probe walk; `None` during the probe walk itself, which runs no plain
+    /// `for-of` item flow).
+    plain_for_of_feeding: Option<BTreeSet<(String, String)>>,
+    /// Last targeted fix (spec A-45 (6)): `(func, name)` of every plain
+    /// `for-of` loop variable that the loop body assigns and that feeds a
+    /// growable element; each is refused (`emit_table`).
+    assigned_feeding_loop_vars: BTreeSet<(String, String)>,
     /// The default-deny half of `numeric_binding_candidates`: any write this
     /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
     /// the C-6 leak), a declarator with NO initializer (`let x;` is
@@ -1168,6 +1718,17 @@ struct ReprInfer {
     /// Ruling R15, scope-blind: names written where `binding_scope` cannot
     /// name the declaring scope (a closure writing a captured binding).
     unkeyed_written_names: BTreeSet<String>,
+    /// Growable-runtime-arrays M2: `(scope, binding)` -> the number-or-string
+    /// proof of every value written to it (`record_elem_write`); a write with
+    /// no value (`let u;`) or an unknown one (a `catch` param) is `No`.
+    binding_elem_proofs: BTreeMap<(String, String), Vec<crate::growable::elem_proof::ElemProof>>,
+    /// Growable-runtime-arrays M2, scope-blind: names written where
+    /// `binding_scope` cannot name the declaring scope, and destructuring
+    /// targets.
+    elem_unkeyed_names: BTreeSet<String>,
+    /// Growable-runtime-arrays M2: each function's return arguments as
+    /// number-or-string proofs (a bare `return;` is `No`).
+    return_elem_proofs: BTreeMap<String, Vec<crate::growable::elem_proof::ElemProof>>,
     /// Ruling R15: every non-shadowed call edge's number and array proofs per
     /// argument position, snapshotted in Phase C0 before `resolve_calls`
     /// drains `calls`. `(caller, callee, number proofs, array proofs)`.
@@ -1286,35 +1847,24 @@ struct ReprInfer {
     /// silent-`1` for a Boolean field) is out of R-06's scope and must not
     /// change.
     mutable_object_literal_unsafe_field_bindings: BTreeSet<ObjSlot>,
-    /// Syntactic growable-array candidates `(func, binding)` from the Stage 4
-    /// choke-point predicate ([`crate::growable::growable_array_candidates`]),
-    /// computed in Phase A3 before any body walk. The `.push` visit arm
-    /// records pushed-value nodes ONLY for these; a non-candidate receiver
-    /// keeps today's repr graph byte-identically (zero behavior change for
-    /// any binding that does not promote).
-    growable_candidates: BTreeSet<(String, String)>,
-    /// Pushed-value evidence for growable candidates: `(func, binding,
-    /// value_node, value_identifier)` per recognized single-argument `.push`
-    /// site, adjudicated at `emit_table` time — promotion requires EVERY
-    /// pushed value to solve plain i64 (never float/string, and an identifier
-    /// argument must not name a function/array/object/for-in-key binding,
-    /// whose raw handle/ordinal would be stored as a number: a miscompile).
-    growable_pushes: Vec<(String, String, usize, Option<String>)>,
-    /// Task 6 fail-closed rejects `(func, binding) -> kind`: growable-SHAPE
-    /// bindings that are `.push` receivers but cannot promote — either some
-    /// occurrence is outside the safe-position allowlist (escape/alias/
-    /// computed-or-optional push/closure-capture/non-push-mutator) or a
-    /// `.push` call itself is malformed (wrong arity/unsupported argument).
-    /// Each becomes an E5506 `shape_conflict` at `emit_table` time, with the
-    /// kind picking the accurate message — the pre-existing push-no-op lane
-    /// is a silent miscompile and must fail closed.
-    growable_rejects: BTreeMap<(String, String), crate::growable::GrowableRejectKind>,
+    /// Growable-runtime-arrays spec §3.1: the facts and their solution,
+    /// computed in Phase A3, before any body walk. Phase B's `push`, `pop`,
+    /// search, `join` and `for-of` arms consult `growable`; `emit_table`
+    /// publishes it and turns its refusals into shape conflicts.
+    growable_facts: crate::growable::flow::GrowFacts,
+    growable: crate::growable::flow::GrowSolution,
+    /// Growable-runtime-arrays spec A-39, A-40 (residual R1, R2): binding
+    /// writes, `includes`-result occurrences and their positions.
+    growable_value_facts: crate::growable::values::ValueFacts,
+    /// Spec A-39: `(index node, whole-number proof, func, receiver)` for every
+    /// index of a growable binding.
+    growable_index_checks: Vec<(usize, crate::growable::values::Integral, String, String)>,
     /// F-AB-2 lockstep tracking (see
     /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2). Every
     /// synthetic `__kali_fn_N` id the shared Phase-A descent registers (walks
     /// 1-3, via `register_nested_fn`) and every id Phase B's OWN fn-expr/arrow
-    /// arms seed (walk 4, in `visit_expr`). The safe-direction invariant
-    /// `seeded ⊆ registered` (walk 4 never outruns the shared Phase-A descent)
+    /// arms seed (walk 3, in `visit_expr`). The safe-direction invariant
+    /// `seeded ⊆ registered` (walk 3 never outruns the shared Phase-A descent)
     /// is a hard `debug_assert` in `assert_nested_fn_lockstep`. The reverse gap
     /// `registered − seeded` is exactly the known-exotic UNSEEDED positions
     /// (object-literal-as-direct-call-arg, spread arg, tagged-template / yield /
@@ -1473,16 +2023,34 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     // regardless of source order.
     infer.collect_local_names(TOP_LEVEL, statements);
 
-    // Phase A3 (throw-fallout Stage 4): syntactic growable-array candidates
-    // per function — the choke-point safe-position allowlist. Purely
-    // syntactic here; the repr half of the gate runs in `emit_table` once
-    // the axes are solved. Module scope (`_start`) is deliberately not
-    // analyzed: a module-level push receiver keeps the plain lane.
-    infer.collect_growable_candidates(statements);
+    // Phase A3 (growable-runtime-arrays spec §3.1): the growable facts and
+    // their solution, before any body walk, so Phase B's arms know which
+    // arrays are growable. Replaces throw-fallout Stage 4's allowlist.
+    infer.solve_growable(statements);
 
     // Array-return lane (fix round 1): a class body is never walked, so its
     // writes are invisible to `array_return_written_names`.
     infer.array_return_unwalked_code = program_contains_class(statements);
+
+    // Residual round 5: which bindings feed a growable element. The M2 write,
+    // return and argument proofs are syntactic but recorded by the Phase B
+    // walk, and the plain `for-of` item flow must be decided as each loop is
+    // walked (later arms read the loop variable's seeds), so a probe walk of
+    // a fresh inference collects them first. A program without a growable
+    // array feeds none and needs no probe.
+    infer.plain_for_of_feeding = Some(if infer.growable.growable_members().next().is_some() {
+        let mut probe = ReprInfer::default();
+        probe.collect_functions(statements);
+        probe.collect_local_names(TOP_LEVEL, statements);
+        probe.solve_growable(statements);
+        probe.array_return_unwalked_code = infer.array_return_unwalked_code;
+        for stmt in statements {
+            probe.visit_stmt(TOP_LEVEL, stmt);
+        }
+        probe.growable_feeding_bindings()
+    } else {
+        BTreeSet::new()
+    });
 
     // P3 Task 2: `abort_controller_shadowed` and `abort_bindings` are both
     // populated DURING Phase B below (inline in `visit_stmt`/
@@ -1497,12 +2065,15 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
         infer.visit_stmt(TOP_LEVEL, stmt);
     }
 
-    // F-AB-2 lockstep tripwire: Phase A (walks 1-3) and Phase B (walk 4) share
+    // F-AB-2 lockstep tripwire: Phase A (walks 1-2) and Phase B (walk 3) share
     // the same `__kali_fn_N` frontier. Assert it here, after both registration
     // and seeding are complete, so a future divergence trips this rather than
     // becoming a silent i64. See
     // `docs/superpowers/followups/stageAB-followups.md` §F-AB-2.
     infer.assert_nested_fn_lockstep();
+
+    // Phase B2 (growable-runtime-arrays spec §3.4): one element repr per growable array.
+    infer.union_growable_elements();
 
     // Phase C0: the array-return lane's fixed point (before `resolve_calls`,
     // whose array-param fixpoint seeds from the element nodes it unions).
@@ -1524,8 +2095,17 @@ pub fn infer_reprs(statements: &[Statement]) -> ReprTable {
     table
 }
 
-/// F-AB-2 lockstep test hook: run Phase A (walks 1-3 registration) and Phase B
-/// (walk 4 seeding), then return the two `__kali_fn_N` sets — `(registered,
+/// Growable-runtime-arrays test hook: Phase A, A2, then the fact walk.
+#[cfg(test)]
+pub(crate) fn growable_facts_for(statements: &[Statement]) -> crate::growable::flow::GrowFacts {
+    let mut infer = ReprInfer::default();
+    infer.collect_functions(statements);
+    infer.collect_local_names(TOP_LEVEL, statements);
+    infer.collect_growable_facts(statements)
+}
+
+/// F-AB-2 lockstep test hook: run Phase A (walks 1-2 registration) and Phase B
+/// (walk 3 seeding), then return the two `__kali_fn_N` sets — `(registered,
 /// seeded)` — so unit tests can pin the exact membership of the reverse gap
 /// `registered − seeded` (the known-exotic UNSEEDED positions). Mirrors
 /// `infer_reprs` through the point where both sets are final; the later solve
@@ -1538,7 +2118,7 @@ pub(crate) fn nested_fn_lockstep_sets(
     let mut infer = ReprInfer::default();
     infer.collect_functions(statements);
     infer.collect_local_names(TOP_LEVEL, statements);
-    infer.collect_growable_candidates(statements);
+    infer.solve_growable(statements);
     for stmt in statements {
         infer.visit_stmt(TOP_LEVEL, stmt);
     }
@@ -1552,17 +2132,17 @@ pub(crate) fn nested_fn_lockstep_sets(
 /// `__kali_fn_{N}` id IN PLACE (it does not hoist), so those bodies live in
 /// EXPRESSION positions — primarily a `VariableDeclaration` declarator `init`
 /// (`const f = () => {…}`), but structurally anywhere an expression can appear.
-/// The three statement-only Phase-A walkers (`collect_functions_in_stmt`,
-/// `collect_local_names_in_stmt`, `collect_growable_candidates_in_stmt`) share
+/// The two statement-only Phase-A walkers (`collect_functions_in_stmt`,
+/// `collect_local_names_in_stmt`) share
 /// ONE expression-descent (`descend_stmt_fns` → `descend_expr_fns`) so they
 /// cannot drift; the per-walk registration differs and is dispatched by this
 /// tag in `register_nested_fn`. Phase B's `visit_stmt`/`visit_expr` carries its
-/// OWN fn-expr/arrow arm in `visit_expr` — the fourth walk that must stay in
-/// LOCKSTEP with these three. Unlike walks 1-3 it rides its OWN recursion (not
+/// OWN fn-expr/arrow arm in `visit_expr` — the third walk that must stay in
+/// LOCKSTEP with these two. Unlike walks 1-2 it rides its OWN recursion (not
 /// the shared `descend_expr_fns`): it seeds every fn-expr/arrow it REACHES, but
 /// its `_ => new_node()` arm does not recurse into bare `ArrayExpression`/
 /// `ObjectExpression`/spread operands, so a few exotic positions are covered by
-/// walks 1-3 yet not walk 4 — see the bound at that `_` arm and F-AB-2.
+/// walks 1-2 yet not walk 3 — see the bound at that `_` arm and F-AB-2.
 #[derive(Clone, Copy)]
 enum NestedFnWalk {
     /// `collect_functions_in_stmt`: register `(__kali_fn_N, params)` and a
@@ -1571,9 +2151,6 @@ enum NestedFnWalk {
     /// `collect_local_names_in_stmt`: register the nested body's own locals
     /// (params + declarators) under `__kali_fn_N`.
     LocalNames,
-    /// `collect_growable_candidates_in_stmt`: run the Stage-4 growable
-    /// choke-point predicate over the nested body, keyed on `__kali_fn_N`.
-    Growable,
 }
 
 impl ReprInfer {
@@ -1594,13 +2171,13 @@ impl ReprInfer {
     /// F-AB-2 lockstep tripwire (see
     /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2 and
     /// `nested_fns_registered`). Enforce the SAFE-direction invariant
-    /// `seeded ⊆ registered`: every `__kali_fn_N` id Phase B's own walk-4
+    /// `seeded ⊆ registered`: every `__kali_fn_N` id Phase B's own walk-3
     /// fn-expr/arrow arms seed must also have been registered by the shared
-    /// Phase-A descent (walks 1-3). This holds by construction today —
+    /// Phase-A descent (walks 1-2). This holds by construction today —
     /// `descend_expr_fns` reaches a strict SUPERSET of the positions
     /// `visit_expr` seeds — and would fire if a future edit taught Phase B to
     /// seed a fn-expr position the shared Phase-A descent does not cover
-    /// (whose params/locals/growable-candidates would then be unregistered:
+    /// (whose params/locals would then be unregistered:
     /// mis-scoped seeds). The REVERSE gap `registered − seeded` is the known
     /// set of exotic UNSEEDED positions; because it is legitimately non-empty
     /// for any program using those shapes, it is pinned by the
@@ -1609,9 +2186,9 @@ impl ReprInfer {
         debug_assert!(
             self.nested_fns_seeded
                 .is_subset(&self.nested_fns_registered),
-            "F-AB-2 lockstep violation: Phase-B (walk 4) seeded __kali_fn ids \
-             the shared Phase-A descent (walks 1-3) never registered: {:?}. A \
-             new walk-4 fn-expr/arrow seeding position must also be reached by \
+            "F-AB-2 lockstep violation: Phase-B (walk 3) seeded __kali_fn ids \
+             the shared Phase-A descent (walks 1-2) never registered: {:?}. A \
+             new walk-3 fn-expr/arrow seeding position must also be reached by \
              `descend_expr_fns`. See \
              docs/superpowers/followups/stageAB-followups.md §F-AB-2.",
             self.nested_fns_seeded
@@ -1913,6 +2490,14 @@ impl ReprInfer {
             .push(arg.map_or(crate::array_return::NumProof::No, |arg| {
                 crate::array_return::num_proof(func, arg)
             }));
+        self.return_elem_proofs
+            .entry(func.to_string())
+            .or_default()
+            .push(
+                arg.map_or(crate::growable::elem_proof::ElemProof::No, |arg| {
+                    crate::growable::elem_proof::elem_proof(func, arg)
+                }),
+            );
         if let (crate::array_return::ReturnArg::Allocation, Some(arg)) = (&class, arg) {
             self.return_allocation_proofs
                 .entry(func.to_string())
@@ -1972,9 +2557,6 @@ impl ReprInfer {
     /// Classify one `return` argument of `func` for the array-return lane
     /// (spec 2026-10-02 §3.1), over `crate::array_return::classify_return_arg`
     /// plus the facts only this pass has:
-    /// - a growable binding (a `.push` candidate or reject) is bad-array with
-    ///   `ARRAY_RETURN_GROWABLE`, never the literal class (ruling R3: `const
-    ///   a = []; a.push(1); return a;` is not an immutable literal);
     /// - a `const` literal with a non-integer-shaped element is bad-array with
     ///   `ARRAY_RETURN_ELEMENT`;
     /// - a name declared twice in `func` is never a literal binding (the flat
@@ -1988,9 +2570,6 @@ impl ReprInfer {
         use crate::array_return::ReturnArg;
         if let Some(Expression::Identifier(name)) = arg.map(crate::array_return::unparen) {
             let key = (func.to_string(), name.clone());
-            if self.growable_candidates.contains(&key) || self.growable_rejects.contains_key(&key) {
-                return ReturnArg::BadArray(kali_common::ARRAY_RETURN_GROWABLE);
-            }
             if self.const_bad_literal_array_bindings.contains(&key)
                 && !self.shadowed_index_names.contains(&key)
             {
@@ -2097,6 +2676,199 @@ impl ReprInfer {
     /// `value == None` is an unprovable write by definition (a declarator with
     /// no initializer, a `for..in`/`for..of` loop variable, a `catch`
     /// parameter, a non-arithmetic compound assignment).
+    /// Growable-runtime-arrays M2: record `proof` as one value written to
+    /// `name` in `func` (a declarator reading its own name reads `undefined`
+    /// or the TDZ: no proof).
+    fn record_elem_write(
+        &mut self,
+        func: &str,
+        name: &str,
+        proof: crate::growable::elem_proof::ElemProof,
+        allow_self: bool,
+    ) {
+        let proof = if !allow_self && proof.mentions_binding(name) {
+            crate::growable::elem_proof::ElemProof::No
+        } else {
+            proof
+        };
+        let scope = self.binding_scope(func, name);
+        if self.is_locally_declared(&scope, name) {
+            self.binding_elem_proofs
+                .entry((scope, name.to_string()))
+                .or_default()
+                .push(proof);
+        } else {
+            self.elem_unkeyed_names.insert(name.to_string());
+        }
+    }
+
+    /// Replace the write `record_numeric_binding_write` just recorded for
+    /// `name` (a `for..of` loop variable, recorded with no value) by `proof`.
+    fn replace_last_elem_write(
+        &mut self,
+        func: &str,
+        name: &str,
+        proof: crate::growable::elem_proof::ElemProof,
+    ) {
+        let scope = self.binding_scope(func, name);
+        if let Some(last) = self
+            .binding_elem_proofs
+            .get_mut(&(scope, name.to_string()))
+            .and_then(|proofs| proofs.last_mut())
+        {
+            *last = proof;
+        }
+    }
+
+    /// Growable-runtime-arrays M2: the proof that every element a `for..of`
+    /// over `right` yields is a number or a string. Sound shapes only; any
+    /// other iterable is `No`.
+    fn for_of_elem_proof(
+        &self,
+        func: &str,
+        right: &Expression,
+    ) -> crate::growable::elem_proof::ElemProof {
+        use crate::growable::elem_proof::{elem_proof, ElemProof};
+        let right = match crate::array_return::unparen(right) {
+            // `(0, xs)` iterates `xs`.
+            Expression::SequenceExpression(seq) => match seq.expressions.last() {
+                Some(last) => return self.for_of_elem_proof(func, last),
+                None => return ElemProof::No,
+            },
+            other => other,
+        };
+        match for_of_string_items(right) {
+            ForOfStringItems::Seed => return ElemProof::Str,
+            // `Object.values(s)` yields a string's characters; an object's
+            // field values are refused.
+            ForOfStringItems::ValuesOperandIdentifier(name) => {
+                return ElemProof::StringBinding {
+                    func: func.to_string(),
+                    name: name.to_string(),
+                };
+            }
+            ForOfStringItems::No => {}
+        }
+        match right {
+            Expression::Identifier(name) => ElemProof::Elements {
+                func: func.to_string(),
+                name: name.clone(),
+            },
+            // `[a, b]`, `[...xs]`: the listed values.
+            Expression::ArrayExpression(array) => ElemProof::all(
+                array
+                    .elements
+                    .iter()
+                    .map(|element| match element {
+                        Some(ExpressionOrSpread::Expression(Expression::SpreadElement(s))) => {
+                            self.for_of_elem_proof(func, &s.argument)
+                        }
+                        Some(ExpressionOrSpread::Expression(e)) => elem_proof(func, e),
+                        Some(ExpressionOrSpread::Spread(s)) => {
+                            self.for_of_elem_proof(func, &s.argument)
+                        }
+                        Some(ExpressionOrSpread::Empty) | None => ElemProof::No,
+                    })
+                    .collect(),
+            ),
+            // `new Set(xs)` (and `new (null ?? Set)(xs)`) iterates `xs`'s
+            // distinct values.
+            Expression::NewExpression(new) => {
+                match (new.args.as_slice(), strip_parenthesized(&new.callee)) {
+                    ([arg], callee) if is_set_constructor(callee) => {
+                        self.for_of_elem_proof(func, arg)
+                    }
+                    // The parser spells `new (C)(x)` as `new` of the call `(C)(x)`.
+                    ([], Expression::CallExpression(call))
+                        if call.args.len() == 1 && is_set_constructor(&call.callee) =>
+                    {
+                        self.for_of_elem_proof(func, &call.args[0])
+                    }
+                    _ => ElemProof::No,
+                }
+            }
+            Expression::CallExpression(call) => match crate::array_return::unparen(&call.callee) {
+                Expression::MemberExpression(member) if member.computed_index.is_none() => {
+                    match member.dot_name() {
+                        // A subset of the receiver's elements.
+                        Some("slice" | "filter") => self.for_of_elem_proof(func, &member.object),
+                        // `Array.from(xs)`.
+                        Some("from")
+                            if call.args.len() == 1
+                                && matches!(
+                                    crate::array_return::unparen(&member.object),
+                                    Expression::Identifier(a) if a == "Array"
+                                ) =>
+                        {
+                            self.for_of_elem_proof(func, &call.args[0])
+                        }
+                        // `xs.map((v) => <body>)`: the body, with `v` one of
+                        // `xs`'s elements.
+                        Some(method @ ("map" | "flatMap")) if call.args.len() == 1 => {
+                            let Expression::ArrowFunctionExpression(arrow) =
+                                crate::array_return::unparen(&call.args[0])
+                            else {
+                                return ElemProof::No;
+                            };
+                            let (Some(id), [param]) = (&arrow.id, arrow.params.as_slice()) else {
+                                return ElemProof::No;
+                            };
+                            let element = self.for_of_elem_proof(func, &member.object);
+                            let body = match (method, crate::array_return::unparen(&arrow.body)) {
+                                ("map", body) => elem_proof(id, body),
+                                ("flatMap", Expression::ArrayExpression(array)) => ElemProof::all(
+                                    array
+                                        .elements
+                                        .iter()
+                                        .map(|element| match element {
+                                            Some(ExpressionOrSpread::Expression(e)) => {
+                                                elem_proof(id, e)
+                                            }
+                                            _ => ElemProof::No,
+                                        })
+                                        .collect(),
+                                ),
+                                _ => ElemProof::No,
+                            };
+                            body.substitute(id, &param.name, &element)
+                        }
+                        // `Object.values({...})`, `Object.values(Object.freeze({...}))`.
+                        Some("values")
+                            if call.args.len() == 1
+                                && enumeration_namespace_root(&member.object) == Some("Object") =>
+                        {
+                            match object_literal_operand(&call.args[0]) {
+                                Some(object) => ElemProof::all(
+                                    object
+                                        .properties
+                                        .iter()
+                                        .map(|p| match p.kind {
+                                            kali_ast::ObjectPropertyKind::Init => {
+                                                elem_proof(func, &p.value)
+                                            }
+                                            _ => ElemProof::No,
+                                        })
+                                        .collect(),
+                                ),
+                                None => ElemProof::No,
+                            }
+                        }
+                        _ => ElemProof::No,
+                    }
+                }
+                Expression::Identifier(callee) => self
+                    .array_return_callee(func, callee)
+                    .map_or(ElemProof::No, |key| {
+                        ElemProof::GrowElements(crate::growable::flow::GrowNode::Return(key))
+                    }),
+                _ => ElemProof::No,
+            },
+            // A number-or-string iterable (`a + b`, a template) yields a
+            // string's characters (a number throws).
+            other => ElemProof::all(vec![elem_proof(func, other), ElemProof::Str]),
+        }
+    }
+
     fn record_numeric_binding_write(
         &mut self,
         func: &str,
@@ -2104,6 +2876,10 @@ impl ReprInfer {
         value: Option<&Expression>,
         allow_self: bool,
     ) {
+        let elem = value.map_or(crate::growable::elem_proof::ElemProof::No, |expr| {
+            crate::growable::elem_proof::elem_proof(func, expr)
+        });
+        self.record_elem_write(func, name, elem, allow_self);
         let scope = self.binding_scope(func, name);
         // Ruling R15: the same write, as an element-number proof obligation.
         // A declarator reading its own name (`var x = x`) reads `undefined`
@@ -2765,7 +3541,7 @@ impl ReprInfer {
     }
 
     fn collect_functions_in_stmt(&mut self, stmt: &Statement) {
-        // LOCKSTEP walk 1/4: descend into any fn-expr/arrow in this statement's
+        // LOCKSTEP walk 1/3: descend into any fn-expr/arrow in this statement's
         // expressions (see the shared-descent note above `register_nested_fn`).
         self.descend_stmt_fns(NestedFnWalk::Functions, stmt);
         match stmt {
@@ -2822,76 +3598,210 @@ impl ReprInfer {
         }
     }
 
-    // ---- Phase A3: growable-array candidate collection -------------------
+    /// Growable-runtime-arrays spec §3.1: the growable facts, from Phase A's
+    /// function table and Phase A2's local names (both must be complete).
+    /// A call reaches a declared function exactly as the array-return lane
+    /// resolves it (`array_return_callee`: `const` arrow aliases included,
+    /// shadowed names excluded).
+    fn collect_growable_facts(&self, statements: &[Statement]) -> crate::growable::flow::GrowFacts {
+        self.with_growable_walk_context(|ctx| {
+            crate::growable::facts::collect_facts(statements, ctx)
+        })
+    }
 
-    /// Walk every `FunctionDeclaration` (recursively, mirroring
-    /// `collect_functions_in_stmt`'s traversal) and run the Stage 4
-    /// choke-point predicate over its body. Function names are flat (as
-    /// everywhere in this pass), so monomorphized `f${N}` clones are
-    /// analyzed independently.
-    fn collect_growable_candidates(&mut self, statements: &[Statement]) {
-        for stmt in statements {
-            self.collect_growable_candidates_in_stmt(stmt);
+    fn with_growable_walk_context<T>(
+        &self,
+        f: impl FnOnce(&crate::growable::facts::WalkContext<'_>) -> T,
+    ) -> T {
+        let is_declared = |func: &str, name: &str| self.is_locally_declared(func, name);
+        let resolve_callee = |site: &str, name: &str| {
+            self.array_return_callee(site, name)
+                .filter(|key| self.functions.contains_key(key))
+        };
+        let ctx = crate::growable::facts::WalkContext {
+            is_declared: &is_declared,
+            resolve_callee: &resolve_callee,
+            params: &self.functions,
+        };
+        f(&ctx)
+    }
+
+    /// Phase A3 (growable-runtime-arrays spec §3.1).
+    fn solve_growable(&mut self, statements: &[Statement]) {
+        let facts = self.collect_growable_facts(statements);
+        self.growable = crate::growable::flow::solve(&facts);
+        self.growable_facts = facts;
+        self.growable_value_facts = self.with_growable_walk_context(|ctx| {
+            crate::growable::values::collect_value_facts(statements, ctx)
+        });
+    }
+
+    /// Residual round 1 (spec A-39): `expr` is a compile-time number codegen
+    /// folds (a numeric literal, a unary sign of one, `Object.freeze` of
+    /// one, or a `const` alias chain ending in one). Mirrors codegen's
+    /// `is_static_numeric_arg`, so a rounding call over it stays on the i64
+    /// fold lane on both sides.
+    ///
+    /// `hops` counts binding hops only (residual round 4): a chain that
+    /// visits more bindings than the program declares revisits one, which is
+    /// a cycle, so the bound is exact and a long acyclic chain (main folds
+    /// any length) is never cut short. Syntactic nesting is a finite tree.
+    fn is_static_numeric(&self, func: &str, expr: &Expression, hops: usize) -> bool {
+        if hops > self.static_numeric_hop_bound() {
+            return false;
+        }
+        match strip_static_wrappers(expr) {
+            Expression::Literal(LiteralValue::Number(_)) => true,
+            Expression::UnaryExpression(u) if matches!(u.operator.as_str(), "-" | "+") => {
+                self.is_static_numeric(func, &u.argument, hops)
+            }
+            Expression::Identifier(name) => {
+                let scope = self.binding_scope(func, name);
+                let key = (scope.clone(), name.clone());
+                if self.static_numeric_conflicts.contains(&key) {
+                    return false;
+                }
+                if let Some(init) = self.static_numeric_const_inits.get(&key) {
+                    return self.is_static_numeric(&scope, init, hops + 1);
+                }
+                // Residual round 3: a `const` loop variable of a `for-of`
+                // over a literal array (or a non-growable `const` binding of
+                // one) whose every element is a compile-time number.
+                self.static_numeric_loop_vars
+                    .get(&key)
+                    .is_some_and(|iterable| {
+                        self.is_static_numeric_array(&scope, iterable, hops + 1)
+                    })
+            }
+            Expression::CallExpression(call) if is_object_freeze_call(call) => call
+                .args
+                .first()
+                .is_some_and(|arg| self.is_static_numeric(func, arg, hops)),
+            _ => false,
         }
     }
 
-    fn collect_growable_candidates_in_stmt(&mut self, stmt: &Statement) {
-        // LOCKSTEP walk 3/4: descend into any fn-expr/arrow in this statement's
-        // expressions (see the shared-descent note above `register_nested_fn`).
-        self.descend_stmt_fns(NestedFnWalk::Growable, stmt);
-        match stmt {
-            Statement::FunctionDeclaration(func) => {
-                let (candidates, _pushes, rejects) =
-                    crate::growable::growable_array_candidates(&func.params, &func.body.body);
-                for name in candidates {
-                    self.growable_candidates.insert((func.name.clone(), name));
-                }
-                for (name, kind) in rejects {
-                    self.growable_rejects
-                        .insert((func.name.clone(), name), kind);
-                }
-                self.collect_growable_candidates(&func.body.body);
+    /// A literal array (or a non-growable `const` binding of one) whose every
+    /// element is a compile-time number (residual round 3).
+    fn is_static_numeric_array(&self, func: &str, expr: &Expression, hops: usize) -> bool {
+        if hops > self.static_numeric_hop_bound() {
+            return false;
+        }
+        match strip_static_wrappers(expr) {
+            Expression::ArrayExpression(array) => {
+                !array.elements.is_empty()
+                    && array.elements.iter().all(|element| match element {
+                        Some(ExpressionOrSpread::Expression(e)) => {
+                            self.is_static_numeric(func, e, hops)
+                        }
+                        _ => false,
+                    })
             }
-            Statement::BlockStatement(block) => self.collect_growable_candidates(&block.body),
-            Statement::IfStatement(node) => {
-                self.collect_growable_candidates(&node.consequent.body);
-                if let Some(alt) = &node.alternate {
-                    self.collect_growable_candidates(&alt.body);
-                }
+            Expression::Identifier(name) => {
+                let scope = self.binding_scope(func, name);
+                !self.growable.is_growable_binding(&scope, name)
+                    && self
+                        .const_array_inits
+                        .get(&(scope.clone(), name.clone()))
+                        .is_some_and(|init| self.is_static_numeric_array(&scope, init, hops + 1))
             }
-            Statement::ForStatement(node) => self.collect_growable_candidates(&node.body.body),
-            Statement::ForInStatement(node) => self.collect_growable_candidates_in_stmt(&node.body),
-            Statement::ForOfStatement(node) => self.collect_growable_candidates_in_stmt(&node.body),
-            Statement::WhileStatement(node) => self.collect_growable_candidates(&node.body.body),
-            Statement::DoWhileStatement(node) => self.collect_growable_candidates(&node.body.body),
-            Statement::LabeledStatement(node) => {
-                self.collect_growable_candidates_in_stmt(&node.body)
-            }
-            Statement::TryStatement(node) => {
-                self.collect_growable_candidates(&node.block.body);
-                if let Some(handler) = &node.handler {
-                    self.collect_growable_candidates(&handler.body.body);
-                }
-                if let Some(finalizer) = &node.finalizer {
-                    self.collect_growable_candidates(&finalizer.body);
-                }
-            }
-            _ => {}
+            _ => false,
         }
     }
 
-    // ---- Shared nested-fn-body descent (walks 1–3) ----------------------
+    /// Residual round 4: one more than the bindings a compile-time-number
+    /// chain can pass through without revisiting one.
+    fn static_numeric_hop_bound(&self) -> usize {
+        self.static_numeric_const_inits.len()
+            + self.static_numeric_loop_vars.len()
+            + self.const_array_inits.len()
+            + 1
+    }
+
+    /// Residual round 3 (spec A-44): every binding `is_static_numeric`
+    /// proves, published so codegen's fold follows exactly these.
+    fn static_numeric_bindings(&self) -> std::collections::HashSet<(String, String)> {
+        let consts = self.static_numeric_const_inits.keys();
+        let loops = self.static_numeric_loop_vars.keys();
+        consts
+            .chain(loops)
+            .filter(|(scope, name)| {
+                self.is_static_numeric(scope, &Expression::Identifier(name.clone()), 0)
+            })
+            .cloned()
+            .collect()
+    }
+
+    /// Spec A-39 (residual R2): record a growable binding's index for the
+    /// whole-number check `emit_table` runs once float-ness is solved.
+    fn record_growable_index(
+        &mut self,
+        func: &str,
+        receiver: &Expression,
+        index: &Expression,
+        node: usize,
+    ) {
+        let Expression::Identifier(name) = crate::array_return::unparen(receiver) else {
+            return;
+        };
+        if !self.growable.is_growable_binding(func, name) {
+            return;
+        }
+        let binding = |n: &str| Some((self.binding_scope(func, n), n.to_string()));
+        let callee = |n: &str| {
+            self.array_return_callee(func, n)
+                .filter(|key| self.functions.contains_key(key))
+        };
+        let proof = crate::growable::values::integral_proof(
+            index,
+            &crate::growable::values::Resolver {
+                binding: &binding,
+                callee: &callee,
+            },
+        );
+        self.growable_index_checks
+            .push((node, proof, func.to_string(), name.clone()));
+    }
+
+    /// Union the element node of every binding and return in each growable
+    /// component, so the existing element solve gives the whole component
+    /// one element repr. Temporaries carry no element node of their own.
+    fn union_growable_elements(&mut self) {
+        use crate::growable::flow::GrowNode;
+        let members: Vec<GrowNode> = self.growable.growable_members().cloned().collect();
+        let mut first: BTreeMap<usize, usize> = BTreeMap::new();
+        for node in members {
+            let Some(component) = self.growable.component_of(&node) else {
+                continue;
+            };
+            let elem = match &node {
+                GrowNode::Binding(func, name) => self.array_elem_node_for(func, name),
+                GrowNode::Return(func) => {
+                    self.array_elem_node_for(func, crate::array_return::RETURN_ARRAY_KEY)
+                }
+                GrowNode::Temp(_) => continue,
+            };
+            match first.get(&component) {
+                Some(&root) => self.uf.union(root, elem),
+                None => {
+                    first.insert(component, elem);
+                }
+            }
+        }
+    }
+
+    // ---- Shared nested-fn-body descent (walks 1–2) ----------------------
     //
     // `name_anon_functions` names every fn-expr/arrow `__kali_fn_{N}` IN PLACE
-    // (no hoist), so those bodies sit in EXPRESSION positions the three
-    // statement-only Phase-A walkers above never reach. The three walkers each
+    // (no hoist), so those bodies sit in EXPRESSION positions the two
+    // statement-only Phase-A walkers above never reach. The two walkers each
     // call `descend_stmt_fns` (which forwards a statement's DIRECT expressions
     // to the shared, exhaustive `descend_expr_fns`); `register_nested_fn` then
     // does the per-walk registration keyed on `__kali_fn_N`, EXACTLY as each
     // walk's `FunctionDeclaration` arm registers under `decl.name`. Keeping the
     // find-the-fn logic in ONE place is deliberate: the bug this closes was
     // FOUR hand-mirrored walks silently disagreeing. Phase B's
-    // `visit_stmt`/`visit_expr` is the fourth walk and must stay in lockstep —
+    // `visit_stmt`/`visit_expr` is the third walk and must stay in lockstep —
     // it carries its own fn-expr/arrow arm in `visit_expr` (see there).
 
     /// Do the per-walk registration for one nested fn-expr/arrow body found at
@@ -2909,9 +3819,9 @@ impl ReprInfer {
         params: &[String],
         body: Option<&BlockStatement>,
     ) {
-        // F-AB-2 lockstep: this shared Phase-A descent (walks 1-3) is the
+        // F-AB-2 lockstep: this shared Phase-A descent (walks 1-2) is the
         // authoritative `__kali_fn_N` frontier. Record the id ONCE (a set;
-        // called thrice, one per walk). See `nested_fns_registered`.
+        // called twice, one per walk). See `nested_fns_registered`.
         self.nested_fns_registered.insert(id.to_string());
         match walk {
             // Mirrors `collect_functions_in_stmt`'s `FunctionDeclaration` arm.
@@ -2937,29 +3847,13 @@ impl ReprInfer {
                     self.collect_local_names(id, &body.body);
                 }
             }
-            // Mirrors `collect_growable_candidates_in_stmt`'s
-            // `FunctionDeclaration` arm. An expression-bodied arrow has no
-            // statements, so it cannot host a growable push receiver.
-            NestedFnWalk::Growable => {
-                if let Some(body) = body {
-                    let (candidates, _pushes, rejects) =
-                        crate::growable::growable_array_candidates(params, &body.body);
-                    for name in candidates {
-                        self.growable_candidates.insert((id.to_string(), name));
-                    }
-                    for (name, kind) in rejects {
-                        self.growable_rejects.insert((id.to_string(), name), kind);
-                    }
-                    self.collect_growable_candidates(&body.body);
-                }
-            }
         }
     }
 
     /// Forward every DIRECT expression of `stmt` (not its child statements —
     /// the walker's own statement recursion covers those) to
     /// `descend_expr_fns`. Coverage is deliberately the SAME statement reach as
-    /// the three walkers' existing `FunctionDeclaration` traversal: `switch`
+    /// the two walkers' existing `FunctionDeclaration` traversal: `switch`
     /// case bodies and `with` bodies are not descended by those walkers today
     /// (a pre-existing boundary shared with fn-DECLARATIONS — see the walkers'
     /// `_ => {}` arms), so a fn-expr buried in a `switch`-case statement stays
@@ -3048,7 +3942,7 @@ impl ReprInfer {
                     // Expression-bodied arrow: register params (no statements),
                     // then descend the body expression for deeper nested fns
                     // (they key on their OWN id, so the arrow's scope is
-                    // irrelevant to walks 1–3).
+                    // irrelevant to walks 1–2).
                     self.register_nested_fn(walk, id, &params, None);
                     self.descend_expr_fns(walk, &a.body);
                 }
@@ -3179,7 +4073,7 @@ impl ReprInfer {
     }
 
     fn collect_local_names_in_stmt(&mut self, func: &str, stmt: &Statement) {
-        // LOCKSTEP walk 2/4: descend into any fn-expr/arrow in this statement's
+        // LOCKSTEP walk 2/3: descend into any fn-expr/arrow in this statement's
         // expressions (see the shared-descent note above `register_nested_fn`).
         // Nested bodies register their locals under their OWN `__kali_fn_N`, so
         // the outer `func` scope is intentionally not threaded through.
@@ -3211,6 +4105,23 @@ impl ReprInfer {
                     if decl.kind == "const" && d.init.as_ref().is_some_and(is_boolean_valued_init) {
                         let scope = self.binding_scope(func, &d.id);
                         self.boolean_consts.insert((scope, d.id.clone()));
+                    }
+                    if decl.kind == "const" {
+                        let key = (func.to_string(), d.id.clone());
+                        if self.static_numeric_const_inits.contains_key(&key)
+                            || self.static_numeric_loop_vars.contains_key(&key)
+                        {
+                            self.static_numeric_conflicts.insert(key.clone());
+                        }
+                        if let Some(init) = d.init.as_ref().filter(|i| may_be_static_numeric(i)) {
+                            self.static_numeric_const_inits.insert(key, init.clone());
+                        }
+                        if let Some(init @ Expression::ArrayExpression(_)) =
+                            d.init.as_ref().map(strip_static_wrappers)
+                        {
+                            self.const_array_inits
+                                .insert((func.to_string(), d.id.clone()), init.clone());
+                        }
                     }
                 }
             }
@@ -3247,6 +4158,20 @@ impl ReprInfer {
             }
             Statement::ForOfStatement(node) => {
                 if let ForOfLefthand::VariableDeclaration(decl) = &node.left {
+                    if decl.kind == "const" && decl.declarations.len() == 1 {
+                        let key = (func.to_string(), decl.declarations[0].id.clone());
+                        if self.static_numeric_const_inits.contains_key(&key)
+                            || self.static_numeric_loop_vars.contains_key(&key)
+                        {
+                            self.static_numeric_conflicts.insert(key.clone());
+                        }
+                        self.static_numeric_loop_vars
+                            .insert(key, node.right.clone());
+                    } else if let Some(d) = decl.declarations.first() {
+                        // A `let` loop variable may be reassigned.
+                        self.static_numeric_conflicts
+                            .insert((func.to_string(), d.id.clone()));
+                    }
                     let entry = self.local_names.entry(func.to_string()).or_default();
                     for d in &decl.declarations {
                         entry.insert(d.id.clone());
@@ -3659,6 +4584,9 @@ impl ReprInfer {
                 // binding's node into it — string operands seed transitively,
                 // object identities stay plain) so the element axis solves
                 // truthfully.
+                // Growable-runtime-arrays M2: the loop variable holds the
+                // iterable's elements.
+                let loop_proof = self.for_of_elem_proof(func, &stmt.right);
                 // P3 Task 2 shadow guard (see note above).
                 if let kali_ast::ForOfLefthand::VariableDeclaration(decl) = &stmt.left {
                     for d in &decl.declarations {
@@ -3667,6 +4595,7 @@ impl ReprInfer {
                         // an object pointer or a growable element — never a
                         // proven plain number. Taint.
                         self.record_numeric_binding_write(func, &d.id, None, false);
+                        self.replace_last_elem_write(func, &d.id, loop_proof.clone());
                     }
                 }
                 if let kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) =
@@ -3674,6 +4603,7 @@ impl ReprInfer {
                 {
                     self.array_return_written_names.insert(name.clone());
                     self.record_numeric_binding_write(func, name, None, false);
+                    self.replace_last_elem_write(func, name, loop_proof.clone());
                 }
                 let string_items = for_of_string_items(&stmt.right);
                 if !matches!(string_items, ForOfStringItems::No) {
@@ -3708,6 +4638,33 @@ impl ReprInfer {
                             }
                             ForOfStringItems::No => {}
                         }
+                    }
+                }
+                // Growable-runtime-arrays spec §3.5: the loop variable holds
+                // the elements, so it carries their repr (both axes, like an
+                // element read).
+                if let Some(elem) = self.growable_elem_node_of(func, &stmt.right) {
+                    let loop_var = match &stmt.left {
+                        kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+                            decl.declarations.first().map(|d| d.id.clone())
+                        }
+                        kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) => {
+                            Some(name.clone())
+                        }
+                        kali_ast::ForOfLefthand::Expression(_) => None,
+                    };
+                    if let Some(var) = loop_var {
+                        let node = self.scalar_node_for(func, &var);
+                        self.add_edge(elem, node);
+                    }
+                } else if let Some(var) = for_of_loop_var(stmt) {
+                    // Residual round 5: per loop (`plain_for_of_flows`).
+                    if self.plain_for_of_flows(func, &var) {
+                        self.flow_plain_for_of_items(func, &var, &stmt.right);
+                    }
+                    if self.assigned_loop_var_feeds_growable(func, &var, stmt) {
+                        self.assigned_feeding_loop_vars
+                            .insert((func.to_string(), var));
                     }
                 }
                 self.visit_expr(func, &stmt.right);
@@ -3842,10 +4799,11 @@ impl ReprInfer {
                 }
             }
             crate::array_return::InitKind::Call(callee) => {
+                let key = self.array_return_callee(func, &callee);
                 self.array_origins
                     .entry((func.to_string(), id.to_string()))
                     .or_default()
-                    .push((kind.to_string(), ArrayOrigin::Call));
+                    .push((kind.to_string(), ArrayOrigin::Call(key)));
                 if kind != "var" {
                     if let Some(callee) = self.array_return_callee(func, &callee) {
                         if kind == "let" {
@@ -4653,12 +5611,12 @@ impl ReprInfer {
             // int node.
             Expression::AwaitExpression(await_expr) => self.visit_expr(func, &await_expr.argument),
 
-            // LOCKSTEP walk 4/4: descend into a fn-expr / arrow body under its
+            // LOCKSTEP walk 3/3: descend into a fn-expr / arrow body under its
             // synthetic `__kali_fn_N` id so object-shape (`for..in`),
             // String-repr, and growable seeding inside nested bodies run
             // exactly as they do for a `FunctionDeclaration` (whose arm at the
-            // top of `visit_stmt` does the same). The three Phase-A walkers do
-            // the matching signature/local/growable registration via the shared
+            // top of `visit_stmt` does the same). The two Phase-A walkers do
+            // the matching signature/local registration via the shared
             // `descend_stmt_fns` (see the note above `register_nested_fn`). The
             // fn value itself is an i64 handle: return a fresh node.
             Expression::FunctionExpression(f) => {
@@ -4674,7 +5632,7 @@ impl ReprInfer {
                     for param in &f.params {
                         self.note_abort_shadow_name(id, &param.name);
                     }
-                    // F-AB-2 lockstep: record what walk 4 seeds (see
+                    // F-AB-2 lockstep: record what walk 3 seeds (see
                     // `nested_fns_seeded`).
                     self.nested_fns_seeded.insert(id.to_string());
                     if crate::array_return::is_synthetic_fn_id(id) {
@@ -4697,7 +5655,7 @@ impl ReprInfer {
                     self.note_abort_shadow_name(arrow_scope, &param.name);
                 }
                 if let Some(id) = a.id.as_deref() {
-                    // F-AB-2 lockstep: record what walk 4 seeds (see
+                    // F-AB-2 lockstep: record what walk 3 seeds (see
                     // `nested_fns_seeded`).
                     self.nested_fns_seeded.insert(id.to_string());
                     // Expression-bodied arrow (`x => x + 1`): visit its body
@@ -4739,7 +5697,7 @@ impl ReprInfer {
 
             // Any other expression kind is a fresh (int) node.
             //
-            // LOCKSTEP BOUND (walk 4 vs walks 1-3): this `_` arm does NOT recurse
+            // LOCKSTEP BOUND (walk 3 vs walks 1-2): this `_` arm does NOT recurse
             // into a bare `ArrayExpression`/`ObjectExpression`/spread operand
             // reached generically here (visit_expr has no arm for them). The
             // COMMON callback positions ARE already seeded elsewhere in Phase B:
@@ -4752,7 +5710,7 @@ impl ReprInfer {
             // passed directly as a call arg (`foo({f: () => {…}})`), a spread arg
             // (`foo(...[() => {}])`), a tagged-template / yield / optional-chain
             // operand, and a bare or doubly-nested array literal. Those are
-            // registered by walks 1-3 (shared `descend_expr_fns`) but not
+            // registered by walks 1-2 (shared `descend_expr_fns`) but not
             // Phase-B-seeded here. Sound today: codegen never INVOKES a callback
             // reached only through those positions (silent no-ops). When Stage C/D
             // make such shapes invocable, a string-element growable array in such a
@@ -4854,6 +5812,7 @@ impl ReprInfer {
             Expression::ArrayExpression(_) | Expression::ObjectExpression(_)
         ) {
             for name in destructuring_target_names(&assign.left) {
+                self.elem_unkeyed_names.insert(name.clone());
                 self.array_return_written_names.insert(name.clone());
                 self.numeric_binding_name_taints.insert(name);
             }
@@ -4899,7 +5858,8 @@ impl ReprInfer {
         // Array element store: `a[i] = v`.
         if let Expression::MemberExpression(member) = &assign.left {
             if let Some(index) = &member.computed_index {
-                self.visit_expr(func, index); // index stays i64 (untouched).
+                let index_node = self.visit_expr(func, index); // index stays i64 (untouched).
+                self.record_growable_index(func, &member.object, index, index_node);
                 let rn = self.visit_expr(func, &assign.right);
                 if let Expression::Identifier(name) = &member.object {
                     let elem = self.array_elem_node_for(func, name);
@@ -5012,6 +5972,138 @@ impl ReprInfer {
         rn
     }
 
+    /// Residual round 5: whether Task 7's plain `for-of` item flow runs for
+    /// this loop variable. It does exactly when the variable feeds a growable
+    /// array element (`growable_feeding_bindings`, computed by a probe walk
+    /// before Phase B: a pushed or stored value, an index, a `slice` bound or
+    /// a search value, directly or through bindings, parameters and returns).
+    /// The one other case is a loop variable inference proves a compile-time
+    /// number (`is_static_numeric`): its items only float it, so a local it
+    /// is copied into (`const y = x`) gets the f64 slot its value needs,
+    /// while the rounding calls over it stay on the fold (no float edge from
+    /// a compile-time number). The probe walk itself runs no flow.
+    fn plain_for_of_flows(&self, func: &str, var: &str) -> bool {
+        let Some(feeding) = &self.plain_for_of_feeding else {
+            return false;
+        };
+        let key = (self.binding_scope(func, var), var.to_string());
+        feeding.contains(&key)
+            || self.is_static_numeric(func, &Expression::Identifier(var.to_string()), 0)
+    }
+
+    /// Last targeted fix (spec A-45 (6)): codegen unrolls a `for-of` over a
+    /// non-growable iterable, binding the variable to each item, and never
+    /// writes a `let`/`var` (or bare-name) variable's slot. A body that
+    /// assigns the variable therefore reads a stale value, and when that
+    /// value (or one derived from it) reaches a growable array the stored
+    /// element or search value is silently wrong. True for such a loop:
+    /// the variable feeds a growable element (the round 5 feeding set) and
+    /// the body assigns it (`body_assigns_name`). A `const` variable cannot
+    /// be assigned.
+    fn assigned_loop_var_feeds_growable(
+        &self,
+        func: &str,
+        var: &str,
+        stmt: &kali_ast::ForOfStatement,
+    ) -> bool {
+        let Some(feeding) = &self.plain_for_of_feeding else {
+            return false;
+        };
+        let is_const = matches!(&stmt.left, ForOfLefthand::VariableDeclaration(decl)
+            if decl.kind == "const");
+        !is_const
+            && feeding.contains(&(self.binding_scope(func, var), var.to_string()))
+            && body_assigns_name(&stmt.body, var)
+    }
+
+    /// Residual round 5: every binding (`(scope, name)`, a parameter keyed by
+    /// its function) whose value can reach a growable array element or
+    /// operand. The roots are the M2 proofs of every value stored into a
+    /// growable array and of every index, `slice` bound and search value
+    /// applied to one; a binding a proof reads feeds, and so does everything
+    /// its writes read, the arguments passed for it when it is a parameter,
+    /// the returns of a function whose call a proof reads, and the literal
+    /// elements of an array whose elements a proof reads.
+    fn growable_feeding_bindings(&self) -> BTreeSet<(String, String)> {
+        use crate::growable::elem_proof::ElemProof;
+        let facts = &self.growable_facts;
+        let mut work: Vec<&ElemProof> = Vec::new();
+        for (node, proof) in &facts.element_values {
+            if self.growable.is_growable(node) {
+                work.push(proof);
+            }
+        }
+        for (node, _, proof) in &facts.operands {
+            if self.growable.is_growable(node) {
+                work.push(proof);
+            }
+        }
+        let mut bindings: BTreeSet<(String, String)> = BTreeSet::new();
+        let mut callees: BTreeSet<String> = BTreeSet::new();
+        while let Some(proof) = work.pop() {
+            match proof {
+                ElemProof::All(parts) => work.extend(parts.iter()),
+                ElemProof::Call { callee, .. } => {
+                    if callees.insert(callee.clone()) {
+                        if let Some(returns) = self.return_elem_proofs.get(callee) {
+                            work.extend(returns.iter());
+                        }
+                    }
+                }
+                ElemProof::Binding { func, name }
+                | ElemProof::Elements { func, name }
+                | ElemProof::StringElements { func, name }
+                | ElemProof::StringBinding { func, name }
+                | ElemProof::ArrayOrString { func, name } => {
+                    let param = self
+                        .functions
+                        .get(func)
+                        .and_then(|params| params.iter().position(|p| p == name));
+                    let scope = if param.is_some() {
+                        func.clone()
+                    } else {
+                        self.binding_scope(func, name)
+                    };
+                    let key = (scope.clone(), name.clone());
+                    if !bindings.insert(key.clone()) {
+                        continue;
+                    }
+                    if let Some(writes) = self.binding_elem_proofs.get(&key) {
+                        work.extend(writes.iter());
+                    }
+                    if let Some(index) = param {
+                        for edge in &self.calls {
+                            let reaches = edge.callee == *func
+                                || self
+                                    .array_return_callee(&edge.caller, &edge.callee)
+                                    .as_deref()
+                                    == Some(func.as_str());
+                            if reaches {
+                                if let Some(arg) = edge.arg_elem_proofs.get(index) {
+                                    work.push(arg);
+                                }
+                            }
+                        }
+                    }
+                    let array = crate::growable::flow::GrowNode::Binding(scope, name.clone());
+                    if let Some(component) = self.growable.component_of(&array) {
+                        for (node, value) in &facts.element_values {
+                            if self.growable.component_of(node) == Some(component) {
+                                work.push(value);
+                            }
+                        }
+                    }
+                }
+                ElemProof::Yes
+                | ElemProof::Str
+                | ElemProof::No
+                | ElemProof::GrowElements(_)
+                | ElemProof::Global { .. } => {}
+            }
+        }
+        bindings
+    }
+
     /// Non-inserting lookup twin of [`Self::array_elem_node_for`]: true when
     /// `(func, name)` already has an element node, without allocating one.
     fn binding_has_element_node(&self, func: &str, name: &str) -> bool {
@@ -5019,17 +6111,127 @@ impl ReprInfer {
             .contains_key(&(func.to_string(), name.to_string()))
     }
 
+    /// Task 7 fix round 2: the loop variable of a `for..of` over a plain
+    /// (non-growable) array or a string holds its items, so it carries their
+    /// repr, which then reaches any growable array it is pushed onto:
+    ///   * a bound array: its element node flows in (both axes);
+    ///   * a bound string: its scalar node flows in (a string's items are
+    ///     strings);
+    ///   * an inline array literal: each literal element seeds it (a string
+    ///     and a number together are the both-axes conflict, a refusal);
+    ///   * a string literal, a template or `a + b`: its items are strings.
+    ///
+    /// Any other iterable leaves the loop variable plain; the M2 proof then
+    /// refuses a string item it cannot see (`ElemProof::Str`).
+    ///
+    /// Residual rounds 4-5: the flow exists to feed a growable element, so it
+    /// runs only for a loop whose variable does (`plain_for_of_flows`).
+    /// Every other loop variable stays as on `main` (codegen unrolls the loop
+    /// to per-item bindings): `for (const x of [3, "a"])` prints its items
+    /// instead of the both-axes refusal, and a rounding call over a float
+    /// item keeps the integer fold (the variable has no float repr, so the
+    /// call gets no float edge; codegen's `math_float_lane` mirrors that).
+    fn flow_plain_for_of_items(&mut self, func: &str, var: &str, right: &Expression) {
+        let var = var.to_string();
+        match crate::array_return::unparen(right) {
+            Expression::Identifier(name) => {
+                let scope = self.binding_scope(func, name);
+                let key = (scope.clone(), name.clone());
+                let elem = self.array_elem_node.get(&key).copied();
+                let source = self.scalar_node.get(&key).copied();
+                let node = self.scalar_node_for(func, &var);
+                if let Some(elem) = elem {
+                    self.add_edge(elem, node);
+                }
+                if let Some(source) = source {
+                    self.add_edge(source, node);
+                }
+            }
+            Expression::ArrayExpression(array) => {
+                let mut string = false;
+                let mut number = false;
+                for element in &array.elements {
+                    let Some(ExpressionOrSpread::Expression(e)) = element else {
+                        continue;
+                    };
+                    match crate::array_return::unparen(e) {
+                        Expression::Literal(LiteralValue::String(_))
+                        | Expression::TemplateLiteral(_) => string = true,
+                        Expression::Literal(LiteralValue::Number(n)) => {
+                            number = true;
+                            if n.fract() != 0.0 || !n.is_finite() {
+                                let node = self.scalar_node_for(func, &var);
+                                self.add_seed(node);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                if string {
+                    let node = self.scalar_node_for(func, &var);
+                    self.add_string_seed(node);
+                    if number {
+                        self.add_seed(node);
+                    }
+                }
+            }
+            // A string literal, a template, and `a + b` (a string, or a
+            // number, whose iteration throws) yield strings.
+            Expression::Literal(LiteralValue::String(_)) | Expression::TemplateLiteral(_) => {
+                let node = self.scalar_node_for(func, &var);
+                self.add_string_seed(node);
+            }
+            Expression::BinaryExpression(binary) if binary.operator == "+" => {
+                let node = self.scalar_node_for(func, &var);
+                self.add_string_seed(node);
+            }
+            _ => {}
+        }
+    }
+
+    /// Growable-runtime-arrays spec §3.4: the element node of a growable value
+    /// expression — a growable binding, a direct call to a growable-returning
+    /// function, or a `slice` of either. `None` for anything else.
+    fn growable_elem_node_of(&mut self, func: &str, expr: &Expression) -> Option<usize> {
+        match crate::array_return::unparen(expr) {
+            Expression::Identifier(name) if self.growable.is_growable_binding(func, name) => {
+                Some(self.array_elem_node_for(func, name))
+            }
+            Expression::CallExpression(call) => {
+                if let Expression::MemberExpression(member) =
+                    crate::array_return::unparen(&call.callee)
+                {
+                    return if member.dot_name() == Some("slice") {
+                        self.growable_elem_node_of(func, &member.object)
+                    } else {
+                        None
+                    };
+                }
+                let Expression::Identifier(callee) = crate::array_return::unparen(&call.callee)
+                else {
+                    return None;
+                };
+                let key = self.array_return_callee(func, callee)?;
+                self.growable
+                    .is_growable(&crate::growable::flow::GrowNode::Return(key.clone()))
+                    .then(|| self.array_elem_node_for(&key, crate::array_return::RETURN_ARRAY_KEY))
+            }
+            _ => None,
+        }
+    }
+
     fn visit_member(&mut self, func: &str, member: &kali_ast::MemberExpression) -> usize {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
-            self.visit_expr(func, index); // index untouched (i64).
-                                          // `process.argv[<int>]` (Spec 5 Task 5): a runtime string handle
-                                          // (`args_get`), NOT an array element read. Its base is the
-                                          // `process.argv` member (never a bare array binding), so this must
-                                          // precede the Identifier-base element arm below. Register the read
-                                          // result as a runtime-string node so a consuming binding
-                                          // (`const s = process.argv[i]`) solves `Repr::String`, mirroring
-                                          // the substring/join result registration.
+            let index_node = self.visit_expr(func, index); // index untouched (i64).
+            self.record_growable_index(func, &member.object, index, index_node);
+            // `process.argv[<int>]` (Spec 5 Task 5): a runtime string handle
+            // (`args_get`), NOT an array element read. Its base is the
+            // `process.argv` member (never a bare array binding), so this must
+            // precede the Identifier-base element arm below. Register the read
+            // result as a runtime-string node so a consuming binding
+            // (`const s = process.argv[i]`) solves `Repr::String`, mirroring
+            // the substring/join result registration.
             if member_is_process_argv_element(member) {
                 self.visit_expr(func, &member.object);
                 let result = self.new_node();
@@ -5175,6 +6377,33 @@ impl ReprInfer {
             Expression::MemberExpression(member) if member.computed_index.is_none() => {
                 let method = member.dot_name().unwrap_or_default();
                 match method {
+                    // Growable-runtime-arrays residual R2 (spec A-39): these
+                    // are f64 exactly when an operand is. The first argument
+                    // of `floor`/`ceil`/`trunc`/`round`/`abs` floats the
+                    // result unless it is a signed numeric literal (the
+                    // constant-fold lane); any argument of `min`/`max` does.
+                    // Mirrors codegen's `math_float_lane`.
+                    method @ ("floor" | "ceil" | "trunc" | "round" | "abs" | "min" | "max")
+                        if is_math_object(&member.object) =>
+                    {
+                        let nodes: Vec<usize> = call
+                            .args
+                            .iter()
+                            .map(|arg| self.visit_expr(func, arg))
+                            .collect();
+                        let result = self.new_node();
+                        if matches!(method, "min" | "max") {
+                            for &node in &nodes {
+                                self.add_edge_float_only(node, result);
+                            }
+                        } else if let (Some(&node), Some(arg)) = (nodes.first(), call.args.first())
+                        {
+                            if !self.is_static_numeric(func, arg, 0) {
+                                self.add_edge_float_only(node, result);
+                            }
+                        }
+                        result
+                    }
                     "sqrt" | "cbrt" if is_math_object(&member.object) => {
                         for arg in &call.args {
                             self.visit_expr(func, arg);
@@ -5305,28 +6534,14 @@ impl ReprInfer {
                         self.runtime_string_nodes.push(result);
                         result
                     }
-                    // `a.push(v)` — throw-fallout Stage 4 growable lane. For
-                    // a syntactic growable CANDIDATE receiver, record the
-                    // pushed value's node for the emit-time promotion gate.
-                    // The repr GRAPH is byte-identical to the generic `_` arm
-                    // either way (same visits, same fresh result node):
-                    // candidacy only adds bookkeeping, so a binding that
-                    // fails the later repr gate keeps today's inference
-                    // exactly. Task 3 (string elements): the pushed value's
-                    // node is ALSO unioned into the receiver's element node
-                    // (`array_elem_node_for`) as a store-direction edge,
-                    // exactly mirroring `note_array_init`'s per-element
-                    // literal wiring — so a uniform-String push set solves
-                    // `array_element(func,name) == Repr::String` through the
-                    // SAME "Array elements" emit-time pass every other array
-                    // uses, and a MIXED I64+String push set trips that same
-                    // pass's existing mixed-store detection
-                    // (`element_store_sources`) into `add_shape_conflict`
-                    // (E5506) instead of silently falling back to the
-                    // pre-promotion no-op lane. Element-node wiring for a
-                    // PURE i64 push set is a no-op for the string/float axes
-                    // (an int literal seeds neither), so uniform-i64
-                    // candidates are unaffected.
+                    // `a.push(v)` — for a growable receiver (the Phase A3
+                    // solve), every pushed value's node is a store into the
+                    // receiver's element node, mirroring `note_array_init`'s
+                    // per-element literal wiring; the "Array elements" pass in
+                    // `emit_table` then solves the element repr and turns a
+                    // mixed number/string push set into the existing
+                    // mixed-store conflict. A non-growable receiver keeps the
+                    // generic graph (same visits, same fresh result node).
                     "push" => {
                         if is_console_object(&member.object) {
                             for arg in &call.args {
@@ -5343,37 +6558,18 @@ impl ReprInfer {
                             receiver = &inner.expression;
                         }
                         if let Expression::Identifier(name) = receiver {
-                            if call.args.len() == 1
-                                && self
-                                    .growable_candidates
-                                    .contains(&(func.to_string(), name.clone()))
-                            {
-                                let mut arg = &call.args[0];
-                                while let Expression::ParenthesizedExpression(inner) = arg {
-                                    arg = &inner.expression;
-                                }
-                                let arg_identifier = match arg {
-                                    Expression::Identifier(id) => Some(id.clone()),
-                                    _ => None,
-                                };
-                                // Element-node wiring (Task 3): store-direction
-                                // edge, verbatim on `note_array_init`'s literal
-                                // element wiring (`element_store_sources` feeds
-                                // the shared mixed-store detection in
-                                // `emit_table`'s "Array elements" pass).
+                            // Growable-runtime-arrays spec §3.4: every pushed
+                            // value is a store into the element node, so the
+                            // element solve sees i64, f64 and string pushes,
+                            // and a mix is the existing mixed-store conflict.
+                            if self.growable.is_growable_binding(func, name) {
                                 let elem = self.array_elem_node_for(func, name);
-                                self.add_edge(arg_nodes[0], elem);
-                                self.element_store_sources.push((elem, arg_nodes[0]));
-                                self.elem_number_obligations.push((
-                                    elem,
-                                    crate::array_return::num_proof(func, &call.args[0]),
-                                ));
-                                self.growable_pushes.push((
-                                    func.to_string(),
-                                    name.clone(),
-                                    arg_nodes[0],
-                                    arg_identifier,
-                                ));
+                                for (arg, &node) in call.args.iter().zip(&arg_nodes) {
+                                    self.add_edge(node, elem);
+                                    self.element_store_sources.push((elem, node));
+                                    self.elem_number_obligations
+                                        .push((elem, crate::array_return::num_proof(func, arg)));
+                                }
                             }
                         }
                         // `.push` returns the array's new length (i64) — a
@@ -5392,20 +6588,12 @@ impl ReprInfer {
                         // both facts fall out of the existing element solve
                         // (emit_table: mixed_store || float => conflict).
                         //
-                        // EXCEPT a growable CANDIDATE receiver (throw-fallout
-                        // Stage 4): joining a push-accumulated i64 array does
-                        // NOT imply string elements (the growable join, Task
-                        // 5, renders numbers) — seeding String here would veto
-                        // the i64 promotion gate for every pushed-and-joined
-                        // binding (the stage's target fixture shape). The
-                        // resolve-phase growable join gate rejects the call
-                        // E5506 until Task 5 lowers it, so no string-element
-                        // proof is needed for these receivers.
+                        // EXCEPT a growable receiver (the Phase A3 solve):
+                        // joining a pushed array does NOT imply string
+                        // elements (the growable join renders numbers), so its
+                        // element repr comes from what it stores.
                         if let Expression::Identifier(name) = &member.object {
-                            if !self
-                                .growable_candidates
-                                .contains(&(func.to_string(), name.clone()))
-                            {
+                            if !self.growable.is_growable_binding(func, name) {
                                 let elem = self.array_elem_node_for(func, name);
                                 self.add_string_seed(elem);
                             }
@@ -5457,6 +6645,35 @@ impl ReprInfer {
                             self.visit_expr(func, &member.object);
                         }
                         // `.fill` returns the array handle (i64).
+                        self.new_node()
+                    }
+                    // Growable-runtime-arrays spec §3.5: `pop` yields an element.
+                    "pop" => {
+                        let elem = self.growable_elem_node_of(func, &member.object);
+                        self.visit_expr(func, &member.object);
+                        for arg in &call.args {
+                            self.visit_expr(func, arg);
+                        }
+                        let result = self.new_node();
+                        if let Some(elem) = elem {
+                            self.add_edge(elem, result);
+                        }
+                        result
+                    }
+                    // Spec A-14: the search value counts as an element store,
+                    // so a float needle makes the array f64 and a
+                    // number/string mismatch is the mixed-store conflict.
+                    "indexOf" | "includes" => {
+                        let elem = self.growable_elem_node_of(func, &member.object);
+                        self.visit_expr(func, &member.object);
+                        let mut nodes = Vec::with_capacity(call.args.len());
+                        for arg in &call.args {
+                            nodes.push(self.visit_expr(func, arg));
+                        }
+                        if let (Some(elem), Some(&needle)) = (elem, nodes.first()) {
+                            self.add_edge(needle, elem);
+                            self.element_store_sources.push((elem, needle));
+                        }
                         self.new_node()
                     }
                     _ => {
@@ -5515,6 +6732,7 @@ impl ReprInfer {
                 let mut arg_numeric_literal = Vec::with_capacity(call.args.len());
                 let mut arg_array_shapes = Vec::with_capacity(call.args.len());
                 let (arg_num_proofs, arg_array_proofs) = Self::call_arg_proofs(func, &call.args);
+                let arg_elem_proofs = Self::call_arg_elem_proofs(func, &call.args);
                 for arg in &call.args {
                     arg_array_shapes.push(crate::array_return::arg_shape(arg));
                     if matches!(arg, Expression::ObjectExpression(_)) {
@@ -5558,6 +6776,7 @@ impl ReprInfer {
                     arg_numeric_literal,
                     arg_num_proofs,
                     arg_array_proofs,
+                    arg_elem_proofs,
                     result_node,
                 });
                 result_node
@@ -5579,6 +6798,7 @@ impl ReprInfer {
                             callee: id.clone(),
                             num,
                             array,
+                            elem: Self::call_arg_elem_proofs(func, &call.args),
                         });
                         self.iife_callees.insert(id);
                     }
@@ -5595,6 +6815,28 @@ impl ReprInfer {
     /// Ruling R15: each positional argument's number proof and array proof.
     /// A spread argument hides how many positions it fills, so it and every
     /// later position are `No` / `Unknown`.
+    /// Growable-runtime-arrays M2: each argument's number-or-string proof;
+    /// `No` at and after the first spread argument.
+    fn call_arg_elem_proofs(
+        func: &str,
+        args: &[Expression],
+    ) -> Vec<crate::growable::elem_proof::ElemProof> {
+        let first_spread = args
+            .iter()
+            .position(|arg| matches!(arg, Expression::SpreadElement(_)))
+            .unwrap_or(args.len());
+        args.iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                if index < first_spread {
+                    crate::growable::elem_proof::elem_proof(func, arg)
+                } else {
+                    crate::growable::elem_proof::ElemProof::No
+                }
+            })
+            .collect()
+    }
+
     fn call_arg_proofs(
         func: &str,
         args: &[Expression],
@@ -5789,6 +7031,8 @@ impl ReprInfer {
             }
         }
         self.array_return_facts.called = called;
+        self.array_return_facts.growable_returning =
+            self.growable.growable_returning().cloned().collect();
         let solution = crate::array_return::solve(
             &self.array_return_facts,
             &feeds,
@@ -5869,6 +7113,7 @@ impl ReprInfer {
                     callee: self.array_return_callee(&edge.caller, &edge.callee)?,
                     num: edge.arg_num_proofs.clone(),
                     array: edge.arg_array_proofs.clone(),
+                    elem: edge.arg_elem_proofs.clone(),
                 })
             })
             .collect();
@@ -6633,14 +7878,15 @@ impl ReprInfer {
     /// every call site passes such an array, an admitted `%return`). A greatest
     /// fixed point over [`NumFact`]s: everything is assumed until refuted, so
     /// recursion (`f(n - 1)`) and arrays passed back and forth are handled.
-    fn unproven_array_returns(
-        &mut self,
-        table: &ReprTable,
-        solution: &crate::array_return::Solution,
-    ) -> BTreeSet<String> {
-        let roots: Vec<usize> = (0..self.node_count).map(|n| self.uf.find(n)).collect();
+    /// Ruling R15: the number-proof evaluator over this pass's facts.
+    fn num_proof_check<'a>(
+        &'a self,
+        roots: Vec<usize>,
+        table: &'a ReprTable,
+        solution: &'a crate::array_return::Solution,
+    ) -> NumProofCheck<'a> {
         let mut check = NumProofCheck {
-            infer: &*self,
+            infer: self,
             table,
             solution,
             obligations: BTreeMap::new(),
@@ -6666,6 +7912,16 @@ impl ReprInfer {
                 .or_default()
                 .push((func.as_str(), name.as_str()));
         }
+        check
+    }
+
+    fn unproven_array_returns(
+        &mut self,
+        table: &ReprTable,
+        solution: &crate::array_return::Solution,
+    ) -> BTreeSet<String> {
+        let roots: Vec<usize> = (0..self.node_count).map(|n| self.uf.find(n)).collect();
+        let mut check = self.num_proof_check(roots, table, solution);
         let return_class = |f: &String| {
             self.array_elem_node
                 .get(&(f.clone(), crate::array_return::RETURN_ARRAY_KEY.to_string()))
@@ -6676,33 +7932,7 @@ impl ReprInfer {
             .iter()
             .map(|f| (f.clone(), return_class(f)))
             .collect();
-        // Discover every fact the goals depend on.
-        let mut universe: BTreeSet<NumFact> = BTreeSet::new();
-        let mut work: Vec<NumFact> = goals.iter().filter_map(|(_, g)| g.clone()).collect();
-        while let Some(fact) = work.pop() {
-            if !universe.insert(fact.clone()) {
-                continue;
-            }
-            let mut deps = Vec::new();
-            check.fact_holds(&fact, &mut deps);
-            work.extend(deps.into_iter().filter(|d| !universe.contains(d)));
-        }
-        // Refute until stable (greatest fixed point).
-        loop {
-            let mut changed = false;
-            for fact in &universe {
-                if check.refuted.contains(fact) {
-                    continue;
-                }
-                if !check.fact_holds(fact, &mut Vec::new()) {
-                    check.refuted.insert(fact.clone());
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
+        check.refute(goals.iter().filter_map(|(_, g)| g.clone()));
         goals
             .into_iter()
             .filter(|(_, goal)| match goal {
@@ -6710,6 +7940,26 @@ impl ReprInfer {
                 None => true,
             })
             .map(|(f, _)| f)
+            .collect()
+    }
+
+    /// The nodes a growable refusal on `node` names. A `Temp` receiver
+    /// (`(c ? a : b).push(v)`) has no name to report: every binding and
+    /// return of its component is named instead. A growable component always
+    /// holds a binding (its literal origin).
+    fn growable_named_members(
+        &self,
+        node: &crate::growable::flow::GrowNode,
+    ) -> Vec<crate::growable::flow::GrowNode> {
+        use crate::growable::flow::GrowNode;
+        if !matches!(node, GrowNode::Temp(_)) {
+            return vec![node.clone()];
+        }
+        self.growable
+            .members_of(node)
+            .iter()
+            .filter(|member| !matches!(member, GrowNode::Temp(_)))
+            .cloned()
             .collect()
     }
 
@@ -6937,6 +8187,87 @@ impl ReprInfer {
             }
         }
 
+        // Growable-runtime-arrays spec §3.1-§3.3: publish the solution — after
+        // the element pass (a growable return's element repr is read from it),
+        // before every later consumer of the growable set (the numeric-binding
+        // proof below excludes growable bindings).
+        for node in self.growable.growable_members() {
+            match node {
+                crate::growable::flow::GrowNode::Binding(func, name) => {
+                    table.set_growable_array_binding(func, name);
+                    if self.growable.is_local_only(func, name) {
+                        table.mark_growable_local_only(func, name);
+                    }
+                }
+                crate::growable::flow::GrowNode::Return(func) => {
+                    let elem = table.array_element(func, crate::array_return::RETURN_ARRAY_KEY);
+                    table.set_growable_return(func, elem);
+                }
+                crate::growable::flow::GrowNode::Temp(_) => {}
+            }
+        }
+        for (func, name) in &self.assigned_feeding_loop_vars {
+            table.add_shape_conflict(kali_common::growable_for_of_assigned_variable_message(
+                &kali_common::growable_binding_subject(name, func),
+            ));
+        }
+        for message in crate::growable::positions::growable_refusals(
+            &self.growable_facts,
+            &self.growable,
+            &self.functions,
+        ) {
+            table.add_shape_conflict(message);
+        }
+
+        // Residual R2 (spec A-39): a floating-point index must be proven a
+        // whole number; codegen truncates it.
+        {
+            use crate::growable::values::Integral;
+            let float_of: Vec<bool> = (0..self.node_count)
+                .map(|n| float.get(self.uf.find(n)).copied().unwrap_or(false))
+                .collect();
+            let node_float = |node: Option<&usize>| {
+                node.is_some_and(|&n| float_of.get(n).copied().unwrap_or(false))
+            };
+            let is_float = |leaf: &Integral| match leaf {
+                Integral::Binding(scope, name) => {
+                    node_float(self.scalar_node.get(&(scope.clone(), name.clone())))
+                }
+                Integral::Elements(scope, name) => {
+                    node_float(self.array_elem_node.get(&(scope.clone(), name.clone())))
+                }
+                Integral::Return(func) => node_float(self.return_node.get(func)),
+                _ => false,
+            };
+            for (node, proof, func, name) in &self.growable_index_checks {
+                if node_float(Some(node))
+                    && !crate::growable::values::integral_holds(
+                        proof,
+                        &self.growable_value_facts.integral,
+                        &is_float,
+                    )
+                {
+                    table.add_shape_conflict(kali_common::growable_fractional_index_message(
+                        &kali_common::growable_binding_subject(name, func),
+                    ));
+                }
+            }
+        }
+
+        // Residual R1 (spec A-40): growable `includes` results.
+        let search = crate::growable::values::solve_search_booleans(
+            &self.growable_value_facts,
+            &self.growable,
+        );
+        for site in &search.refused_sites {
+            table.add_shape_conflict(kali_common::growable_search_result_use_message(site));
+        }
+        table.set_static_numeric_bindings(self.static_numeric_bindings());
+        table.set_search_booleans(
+            search.bindings.into_iter().collect(),
+            search.returns.into_iter().collect(),
+        );
+
         // Array-return lane (spec 2026-10-02 §3.1): an admitted function's
         // returned elements must solve `I64`. A float or string element taints
         // it here, after solving, so the check sees computed elements too.
@@ -6971,6 +8302,12 @@ impl ReprInfer {
         }
         for f in &solution.array_returning {
             if !array_return_taints.contains_key(f) && !exempt_non_int.contains(f) {
+                // `ReprTable` invariant: never both an array return and a
+                // growable return (`solve` skips `growable_returning`).
+                debug_assert!(
+                    table.growable_return(f).is_none(),
+                    "`{f}` is both an array return and a growable return"
+                );
                 table.set_array_return(f, Repr::I64);
             }
         }
@@ -6988,6 +8325,22 @@ impl ReprInfer {
                 }
             }
         }
+        let growable_returning: Vec<String> = self.growable.growable_returning().cloned().collect();
+        for f in growable_returning {
+            for scope in scopes.iter().map(|s| s.as_str()).chain([TOP_LEVEL]) {
+                if self.callee_is_shadowed(scope, &f) {
+                    table.set_array_return_callee_shadowed(scope, &f);
+                }
+            }
+        }
+        // Controller ruling W2: publish every `const` alias's resolved target
+        // so the resolver keys a call `name(…)` exactly as
+        // `array_return_callee` does (one alias resolution, inference's).
+        for (func, name) in self.fn_aliases.keys() {
+            if let Some(target) = self.fn_alias_target(func, name) {
+                table.set_fn_alias_target(func, name, &target);
+            }
+        }
         for (f, reason) in &array_return_taints {
             table.set_array_return_taint(f, reason);
             table.add_shape_conflict(self.array_return_refusal(f, reason));
@@ -7002,8 +8355,13 @@ impl ReprInfer {
         // (the return) with an element-style shape conflict. Monotone: only a
         // return whose element node SOLVES `Repr::String` (string-reachable,
         // no mixed/float store) conflicts — int/float array returns are
-        // untouched.
+        // untouched. A growable return is exempt: it returns a growable
+        // handle whose element repr the caller reads from `growable_return`
+        // (growable-runtime-arrays spec §3.1, §3.4).
         for (func, name) in &self.array_binding_returns {
+            if self.growable.is_growable_binding(func, name) {
+                continue;
+            }
             if let Some(&node) = self.array_elem_node.get(&(func.clone(), name.clone())) {
                 let rep = self.uf.find(node);
                 if !string[rep] {
@@ -7434,121 +8792,6 @@ impl ReprInfer {
         table.set_numeric_bindings(numeric_bindings);
         table.set_boolean_consts(std::mem::take(&mut self.boolean_consts));
 
-        // Growable-array promotion (throw-fallout Stage 4) — the repr half
-        // of the gate, over the Phase A3 syntactic candidates. A candidate
-        // promotes iff its element axis and EVERY pushed value solve either
-        // uniformly plain i64 or uniformly String (never float/object, and
-        // an identifier argument never names a function/array/object/for-in-
-        // key binding). Mixed I64+String pushes are NOT silently left
-        // unpromoted: the push arm's element-node wiring feeds the SAME
-        // "Array elements" pass above, whose existing mixed-store detection
-        // already called `table.add_shape_conflict` for this element before
-        // this loop runs (E5506, aborts the compile — see `compile.rs`), so
-        // a mixed candidate reaching `pushes_ok` below is harmless dead
-        // weight (the conflict already recorded wins). A candidate that
-        // fails here for any OTHER reason (float, object, identifier guard)
-        // no longer silently keeps the pre-existing plain lane: Task 6 records
-        // an `add_shape_conflict` (E5506) on those paths too, so an
-        // unsupported-element push receiver fails closed instead of no-opping.
-        let growable_candidates: Vec<(String, String)> =
-            self.growable_candidates.iter().cloned().collect();
-        for (func, name) in growable_candidates {
-            let pushes: Vec<(usize, Option<String>)> = self
-                .growable_pushes
-                .iter()
-                .filter(|(f, n, _, _)| *f == func && *n == name)
-                .map(|(_, _, vnode, arg)| (*vnode, arg.clone()))
-                .collect();
-            if pushes.is_empty() {
-                continue;
-            }
-            // Element axis (populated by literal seeds and — Task 3 — pushed
-            // values) must never be float: I64 and String are the only
-            // growable element reprs this stage's codegen supports (F64
-            // fails closed by simply not promoting, unchanged from Task 2).
-            // A String-reachable element additionally must not be a MIXED
-            // store: the same `element_store_sources` mixed-store check the
-            // "Array elements" pass above already ran (and, if mixed,
-            // already recorded an `add_shape_conflict` that aborts the whole
-            // compile before codegen — see `compile.rs`) is re-consulted
-            // here so the table itself never claims a binding is BOTH
-            // growable-promoted and element-conflicted.
-            if let Some(&elem) = self.array_elem_node.get(&(func.clone(), name.clone())) {
-                let rep = self.uf.find(elem);
-                if float[rep] {
-                    // Float elements are unsupported (constraints doc: F64
-                    // fails closed). Task 6: reject rather than silently no-op.
-                    table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
-                    continue;
-                }
-                if string[rep] {
-                    let mixed_store = self
-                        .element_store_sources
-                        .iter()
-                        .any(|(e, s)| self.uf.find(*e) == rep && !string[self.uf.find(*s)]);
-                    if mixed_store {
-                        continue;
-                    }
-                }
-            }
-            // Object-shaped elements fail closed (defensive: the syntactic
-            // seed allowlist already excludes object literals/identifiers).
-            // Task 6 review fix: `self.obj_materialized`/`self.obj_fields_of`
-            // were `mem::take`n earlier in this function (object-shape
-            // emission), so consulting `self` here was DEAD — use the taken
-            // locals (`materialized`/`fields_of`) instead.
-            let elem_slot = ObjSlot::ArrayElem(func.clone(), name.clone());
-            if materialized.contains(&elem_slot) || fields_of.contains_key(&elem_slot) {
-                // Object-shaped elements are unsupported. Task 6: fail closed.
-                table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
-                continue;
-            }
-            let pushes_ok = pushes.iter().all(|(vnode, arg_identifier)| {
-                let rep = self.uf.find(*vnode);
-                if float[rep] {
-                    return false;
-                }
-                match arg_identifier {
-                    None => true,
-                    Some(arg) => {
-                        self.growable_push_identifier_ok(&func, arg, &fields_of, &materialized)
-                    }
-                }
-            });
-            if pushes_ok {
-                table.set_growable_array_binding(&func, &name);
-            } else {
-                // A pushed value is float, or an identifier naming a
-                // function/array/object/for-in-key binding whose raw
-                // handle/ordinal would be stored and read back as a number.
-                // Task 6: fail closed rather than silently no-op the pushes.
-                table.add_shape_conflict(growable_unsupported_element_message(&func, &name));
-            }
-        }
-
-        // Task 6 fail-closed reject: growable-SHAPE `.push` receivers that
-        // could not become candidates (an occurrence outside the safe-position
-        // allowlist, or a malformed `.push` call). These never reach the
-        // promotion loop above (they are not in `growable_candidates`), so
-        // they are reported here so the silent push-no-op lane cannot survive.
-        // The scanner's kind picks the accurate message.
-        let growable_rejects: Vec<(String, String, crate::growable::GrowableRejectKind)> = self
-            .growable_rejects
-            .iter()
-            .map(|((func, name), kind)| (func.clone(), name.clone(), *kind))
-            .collect();
-        for (func, name, kind) in growable_rejects {
-            let message = match kind {
-                crate::growable::GrowableRejectKind::UnsafePosition => {
-                    growable_unsupported_position_message(&func, &name)
-                }
-                crate::growable::GrowableRejectKind::UnsupportedPush => {
-                    growable_unsupported_push_message(&func, &name)
-                }
-            };
-            table.add_shape_conflict(message);
-        }
-
         // P3 Task 2: AbortHandle seeding. Only when the program-wide shadow
         // guard did not fire, and only for a binding no other axis already
         // claimed (`Repr::I64` is the untouched default — mixed provenance,
@@ -7613,74 +8856,174 @@ impl ReprInfer {
             }
         }
 
+        // Growable-runtime-arrays spec §3.4, A-4 (M2), fail-closed: a growable
+        // array holds only numbers or only strings. Every stored value must be
+        // PROVEN a number or a string (`growable::elem_proof`); everything
+        // else — an object, array, function (or alias), boolean, `null` or
+        // `undefined`, however it is reached — is refused. A mix of numbers
+        // and strings is the element pass's conflict above. Placed after
+        // every scalar seeding pass, so the proof reads final solved reprs.
+        // The object-pass facts go back into `self` for the number proof's
+        // object checks.
+        self.obj_fields_of = fields_of;
+        self.obj_materialized = materialized;
+        let roots: Vec<usize> = (0..self.node_count).map(|n| self.uf.find(n)).collect();
+        let unsupported = {
+            use crate::growable::flow::GrowNode;
+            let infer = &self;
+            let mut grow_values: BTreeMap<usize, Vec<&crate::growable::elem_proof::ElemProof>> =
+                BTreeMap::new();
+            for (node, proof) in &infer.growable_facts.element_values {
+                if let Some(component) = infer.growable.component_of(node) {
+                    grow_values.entry(component).or_default().push(proof);
+                }
+            }
+            let goals: Vec<ElemFact> = grow_values
+                .keys()
+                .filter(|&&c| {
+                    infer
+                        .growable
+                        .members_of_component(c)
+                        .first()
+                        .is_some_and(|member| infer.growable.is_growable(member))
+                })
+                .map(|&c| ElemFact::Grow(c))
+                .collect();
+            // Task 7 fix round 2: the context each growable component's
+            // values are proven in — `String` when its solved element repr is.
+            let string_components: BTreeSet<usize> = infer
+                .growable
+                .growable_members()
+                .filter(|member| match member {
+                    GrowNode::Binding(func, name) => {
+                        table.array_element(func, name) == Repr::String
+                    }
+                    GrowNode::Return(func) => table.growable_return(func) == Some(Repr::String),
+                    GrowNode::Temp(_) => false,
+                })
+                .filter_map(|member| infer.growable.component_of(member))
+                .collect();
+            let mut check = ElemProofCheck {
+                infer,
+                table: &table,
+                solution: &solution,
+                roots: &roots,
+                fields_of: &infer.obj_fields_of,
+                materialized: &infer.obj_materialized,
+                unwalked: infer.array_return_unwalked_code
+                    || !infer
+                        .nested_fns_registered
+                        .is_subset(&infer.nested_fns_seeded),
+                grow_values,
+                num_proven: None,
+                num_goals: std::cell::RefCell::new(BTreeSet::new()),
+                string_components,
+                refuted: BTreeSet::new(),
+            };
+            // Final review C1 (A-36): the facts every index, `slice` bound
+            // and search value of a growable array leans on are goals too —
+            // a fact outside the refuted universe would read as proven.
+            let mut goals = goals;
+            for (node, position, proof) in &infer.growable_facts.operands {
+                if infer.growable.is_growable(node) {
+                    check.proof_holds(proof, position.admits_strings(), &mut goals);
+                }
+            }
+            // Pass 1 discovers the plain integer element classes the proof
+            // leans on; the number proof settles them; pass 2 is the real one.
+            check.refute(goals.clone());
+            let num_goals = check.num_goals.take();
+            let mut num = infer.num_proof_check(roots.clone(), &table, &solution);
+            num.refute(num_goals.iter().map(|&root| NumFact::Class(root)));
+            check.num_proven = Some(
+                num_goals
+                    .into_iter()
+                    .filter(|&root| !num.refuted.contains(&NumFact::Class(root)))
+                    .collect(),
+            );
+            check.refuted.clear();
+            check.refute(goals);
+            let mut unproven_operands: BTreeSet<(
+                GrowNode,
+                crate::growable::flow::OperandPosition,
+            )> = BTreeSet::new();
+            for (node, position, proof) in &infer.growable_facts.operands {
+                if infer.growable.is_growable(node)
+                    && !check.proof_holds(proof, position.admits_strings(), &mut Vec::new())
+                {
+                    unproven_operands.insert((node.clone(), *position));
+                }
+            }
+            let mut unsupported: BTreeSet<GrowNode> = BTreeSet::new();
+            for (node, proof) in &infer.growable_facts.element_values {
+                if !infer.growable.is_growable(node) {
+                    continue;
+                }
+                let s = infer
+                    .growable
+                    .component_of(node)
+                    .is_some_and(|c| check.string_components.contains(&c));
+                if !check.proof_holds(proof, s, &mut Vec::new()) {
+                    unsupported.insert(node.clone());
+                }
+            }
+            for node in infer.growable.growable_members() {
+                if let GrowNode::Binding(func, name) = node {
+                    if check.slot_is_object(&ObjSlot::ArrayElem(func.clone(), name.clone())) {
+                        unsupported.insert(node.clone());
+                    }
+                }
+            }
+            let named = |node: &GrowNode| infer.growable_named_members(node);
+            let elements: BTreeSet<GrowNode> = unsupported.iter().flat_map(named).collect();
+            let operands: BTreeSet<(GrowNode, crate::growable::flow::OperandPosition)> =
+                unproven_operands
+                    .into_iter()
+                    .flat_map(|(node, position)| {
+                        named(&node)
+                            .into_iter()
+                            .map(move |member| (member, position))
+                    })
+                    .collect();
+            (elements, operands)
+        };
+        let (unsupported, unproven_operands) = unsupported;
+        for node in unsupported {
+            if let Some(subject) = growable_node_subject(&node) {
+                table.add_shape_conflict(kali_common::growable_unsupported_element_message(
+                    &subject,
+                ));
+            }
+        }
+        for (node, position) in unproven_operands {
+            if let Some(subject) = growable_node_subject(&node) {
+                table.add_shape_conflict(kali_common::growable_unproven_operand_message(
+                    position.text(),
+                    &subject,
+                    position.admits_strings(),
+                ));
+            }
+        }
+
         // Stage P5 T-new-E: finalize the whole-program String()-result deny
         // taint over the seeds + edges collected during the body walk.
         self.resolve_string_result_taint(&mut table);
 
         table
     }
+}
 
-    /// True when identifier `name`, pushed into a growable candidate inside
-    /// `func`, provably holds a plain scalar: it must be a DECLARED binding
-    /// (an undeclared name — `undefined`, `NaN`, … — has no i64 value), and
-    /// must not name a function reference, an array binding, an
-    /// object-shaped binding, or a `for..in` key (all of whose raw
-    /// handles/ordinals would be stored and read back as numbers — silent
-    /// miscompiles). Float/string-ness is separately covered by the pushed
-    /// value node's solved axes at the call site of this check.
-    fn growable_push_identifier_ok(
-        &self,
-        func: &str,
-        name: &str,
-        fields_of: &BTreeMap<ObjSlot, Vec<String>>,
-        materialized: &BTreeSet<ObjSlot>,
-    ) -> bool {
-        if self.functions.contains_key(name) {
-            return false;
+/// What a growable refusal calls a named growable node (`None` for a
+/// temporary, which [`ReprInfer::growable_named_members`] maps away).
+fn growable_node_subject(node: &crate::growable::flow::GrowNode) -> Option<String> {
+    match node {
+        crate::growable::flow::GrowNode::Binding(func, name) => {
+            Some(kali_common::growable_binding_subject(name, func))
         }
-        let local = self.is_locally_declared(func, name);
-        if !local && !self.is_locally_declared(TOP_LEVEL, name) {
-            return false;
+        crate::growable::flow::GrowNode::Return(func) => {
+            Some(kali_common::growable_return_subject(func))
         }
-        // Same local-vs-module scope resolution as `visit_expr`'s
-        // `Identifier` arm.
-        let scope = if func != TOP_LEVEL && !local {
-            TOP_LEVEL
-        } else {
-            func
-        };
-        if self
-            .for_in_key_names
-            .contains(&(scope.to_string(), name.to_string()))
-            || self
-                .for_in_key_names
-                .contains(&(func.to_string(), name.to_string()))
-        {
-            return false;
-        }
-        if self
-            .array_elem_node
-            .contains_key(&(scope.to_string(), name.to_string()))
-        {
-            return false;
-        }
-        let slot = ObjSlot::Binding(scope.to_string(), name.to_string());
-        let func_slot = ObjSlot::Binding(func.to_string(), name.to_string());
-        // Task 6 review fix (silent-miscompile close): an object-LITERAL-bound
-        // name (`const obj = {a:1}; o.push(obj)`) reaches
-        // `obj_materialized`/`obj_fields_of` only when its fields are READ
-        // somewhere (`resolve_objects`); a never-field-read literal passed
-        // this guard and its raw object pointer was stored as an i64 element
-        // (`o[0]` printed the pointer's low bits vs node's `{ a: 1 }`).
-        // `obj_literal_slots` covers every literal-bound slot and is never
-        // `mem::take`n (unlike `object_initialized_bindings`, `obj_fields_of`
-        // and `obj_materialized`, all consumed earlier in `emit_table` —
-        // which also made the two checks below dead; they now consult the
-        // taken locals passed in by the promotion loop).
-        if self.obj_literal_slots.contains(&slot) || self.obj_literal_slots.contains(&func_slot) {
-            return false;
-        }
-        !materialized.contains(&slot) && !fields_of.contains_key(&slot)
+        crate::growable::flow::GrowNode::Temp(_) => None,
     }
 }
 
@@ -7719,64 +9062,30 @@ fn returning_string_array_message(func: &str, name: &str) -> String {
     }
 }
 
-/// Task 6 fail-closed message for a growable-shape `.push` receiver used in an
-/// unsupported POSITION (escape/alias/computed-or-optional push/closure
-/// capture/non-`push` mutator). Names the binding and enumerates the
-/// unsupported positions so the user can move the binding onto the supported
-/// surface (`.push`/`.length`/`x[i]` read/`for..of`/`.join`).
-fn growable_unsupported_position_message(func: &str, name: &str) -> String {
-    let scope = if func == TOP_LEVEL {
-        "at module scope".to_string()
-    } else {
-        format!("in `{func}`")
-    };
-    format!(
-        "growable array `{name}` {scope} uses `.push` but also appears in a position the \
-         growable-array lane does not support (escaping via `return` or an alias, a computed \
-         `[\"push\"]` or optional-chain `?.push` call, capture by a nested function, or a \
-         non-`push` mutator such as `.pop()`); only `.push(v)`, `.length`, `x[i]` reads, \
-         `for..of`, and `.join` are available"
-    )
-}
-
-/// Task 6 fail-closed message for a growable-shape receiver whose `.push` CALL
-/// itself is malformed (wrong argument count, or an argument expression shape
-/// the lane cannot store). Distinct from the position message so `o.push({a:1})`
-/// is not blamed on positions that do not apply.
-fn growable_unsupported_push_message(func: &str, name: &str) -> String {
-    let scope = if func == TOP_LEVEL {
-        "at module scope".to_string()
-    } else {
-        format!("in `{func}`")
-    };
-    format!(
-        "growable array `{name}` {scope} has a `.push` call the growable-array lane does not \
-         support (exactly one argument is required, and it must be a number, a string literal, \
-         an identifier, or arithmetic over those — not an object/array literal, call, or member \
-         expression)"
-    )
-}
-
-/// Task 6 fail-closed message for a growable-shape `.push` receiver whose
-/// ELEMENT repr is unsupported (float, object, or an identifier push that names
-/// a function/array/object/for-in-key binding). Names the binding.
-fn growable_unsupported_element_message(func: &str, name: &str) -> String {
-    let scope = if func == TOP_LEVEL {
-        "at module scope".to_string()
-    } else {
-        format!("in `{func}`")
-    };
-    format!(
-        "growable array `{name}` {scope} pushes an unsupported element (only integer and string \
-         elements are available; float, object, and handle-valued pushes fail closed)"
-    )
-}
-
 /// Classify a numeric literal value as a float seed. The AST stores literals as
 /// `f64` (the raw token text is not retained), so a literal seeds float iff it
 /// is not an exact finite integer (has a fractional part, or is non-finite).
 fn is_float_literal(n: f64) -> bool {
     !(n.is_finite() && n.fract() == 0.0)
+}
+
+/// A `const` initializer that could be a compile-time number (residual
+/// round 1): see `ReprInfer::static_numeric_const_inits`.
+fn may_be_static_numeric(expr: &Expression) -> bool {
+    match strip_static_wrappers(expr) {
+        Expression::Literal(LiteralValue::Number(_)) | Expression::Identifier(_) => true,
+        Expression::UnaryExpression(u) => matches!(u.operator.as_str(), "-" | "+"),
+        Expression::CallExpression(call) => is_object_freeze_call(call),
+        _ => false,
+    }
+}
+
+/// `Object.freeze(…)` (residual round 1).
+fn is_object_freeze_call(call: &kali_ast::CallExpression) -> bool {
+    matches!(strip_parenthesized(&call.callee), Expression::MemberExpression(m)
+        if m.computed_index.is_none()
+            && m.dot_name() == Some("freeze")
+            && matches!(strip_parenthesized(&m.object), Expression::Identifier(o) if o == "Object"))
 }
 
 /// True when `expr` is the `Math` object (`Math` identifier).
@@ -7815,6 +9124,84 @@ fn collect_destructuring_target_names(pattern: &Expression, names: &mut Vec<Stri
             }
         }
         _ => {}
+    }
+}
+
+/// Last targeted fix (spec A-45 (6)): true when `body` (nested functions
+/// included, scope-blind) assigns the bare name `name`: `name = …`, a
+/// compound assignment, `name++`/`--name`, a destructuring assignment
+/// pattern that names it, or a nested `for-of`/`for-in` whose bare target is
+/// it. Exhaustive by construction, like `program_contains_class`: it
+/// searches the serialized AST, so no expression position is skipped. A
+/// node that does not deserialize back, or a serialization failure, answers
+/// `true` (fail-closed: it only refuses).
+fn body_assigns_name(body: &Statement, name: &str) -> bool {
+    fn target_names(value: &serde_json::Value, name: &str) -> bool {
+        serde_json::from_value::<Expression>(value.clone()).map_or(true, |target| {
+            destructuring_target_names(&target)
+                .iter()
+                .any(|n| n == name)
+        })
+    }
+    fn search(value: &serde_json::Value, name: &str) -> bool {
+        match value {
+            serde_json::Value::Object(map) => map.iter().any(|(key, v)| {
+                let assigns = match key.as_str() {
+                    "AssignmentExpression" => v.get("left").is_none_or(|t| target_names(t, name)),
+                    "UpdateExpression" => v.get("argument").is_none_or(|t| target_names(t, name)),
+                    "ForOfStatement" => serde_json::from_value::<kali_ast::ForOfStatement>(
+                        v.clone(),
+                    )
+                    .map_or(true, |node| match &node.left {
+                        ForOfLefthand::Expression(target) => {
+                            destructuring_target_names(target).iter().any(|n| n == name)
+                        }
+                        ForOfLefthand::VariableDeclaration(_) => false,
+                    }),
+                    "ForInStatement" => serde_json::from_value::<kali_ast::ForInStatement>(
+                        v.clone(),
+                    )
+                    .map_or(true, |node| match &node.left {
+                        ForInLefthand::Expression(target) => {
+                            destructuring_target_names(target).iter().any(|n| n == name)
+                        }
+                        ForInLefthand::VariableDeclaration(_) => false,
+                    }),
+                    _ => false,
+                };
+                assigns || search(v, name)
+            }),
+            serde_json::Value::Array(items) => items.iter().any(|item| search(item, name)),
+            _ => false,
+        }
+    }
+    serde_json::to_value(body).map_or(true, |value| search(&value, name))
+}
+
+/// The single loop variable of a `for-of` (a declaration or a bare name).
+fn for_of_loop_var(stmt: &kali_ast::ForOfStatement) -> Option<String> {
+    match &stmt.left {
+        kali_ast::ForOfLefthand::VariableDeclaration(decl) => {
+            decl.declarations.first().map(|d| d.id.clone())
+        }
+        kali_ast::ForOfLefthand::Expression(Expression::Identifier(name)) => Some(name.clone()),
+        kali_ast::ForOfLefthand::Expression(_) => None,
+    }
+}
+
+/// Residual round 4: parentheses and the type-only `as`/`satisfies`
+/// wrappers, which HIR lowering drops (`kali_hir` `lower_expression`), so
+/// codegen sees `const t = 1.5 as number` as `const t = 1.5`. The
+/// compile-time-number proof looks through them to agree with it.
+fn strip_static_wrappers(expr: &Expression) -> &Expression {
+    let mut current = expr;
+    loop {
+        current = match current {
+            Expression::ParenthesizedExpression(inner) => &inner.expression,
+            Expression::TypeAssertion(inner) => &inner.expression,
+            Expression::SatisfiesExpression(inner) => &inner.expression,
+            _ => return current,
+        };
     }
 }
 
@@ -7946,6 +9333,46 @@ fn enumeration_namespace_root(expr: &Expression) -> Option<&str> {
                 ) =>
         {
             member.static_name()
+        }
+        _ => None,
+    }
+}
+
+/// Growable-runtime-arrays M2: `Set`, or `(null ?? Set)` / `(false || Set)`.
+fn is_set_constructor(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Identifier(name) => name == "Set",
+        Expression::LogicalExpression(logical) => {
+            matches!(
+                strip_parenthesized(&logical.left),
+                Expression::Literal(LiteralValue::Null | LiteralValue::Boolean(false))
+            ) && is_set_constructor(&logical.right)
+        }
+        Expression::BinaryExpression(binary) if matches!(binary.operator.as_str(), "??" | "||") => {
+            matches!(
+                strip_parenthesized(&binary.left),
+                Expression::Literal(LiteralValue::Null | LiteralValue::Boolean(false))
+            ) && is_set_constructor(&binary.right)
+        }
+        _ => false,
+    }
+}
+
+/// Growable-runtime-arrays M2: the object literal `{…}` or
+/// `Object.freeze({…})` names.
+fn object_literal_operand(expr: &Expression) -> Option<&kali_ast::ObjectExpression> {
+    match strip_parenthesized(expr) {
+        Expression::ObjectExpression(object) => Some(object),
+        Expression::CallExpression(call) if call.args.len() == 1 => {
+            match strip_parenthesized(&call.callee) {
+                Expression::MemberExpression(member)
+                    if member.static_name() == Some("freeze")
+                        && enumeration_namespace_root(&member.object) == Some("Object") =>
+                {
+                    object_literal_operand(&call.args[0])
+                }
+                _ => None,
+            }
         }
         _ => None,
     }

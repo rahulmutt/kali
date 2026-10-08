@@ -1,0 +1,362 @@
+# Growable runtime arrays: layout, memory and element access
+# (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md §3.1,
+# §3.3-§3.5). Every expected stdout is node v26.10.0's for the same file,
+# measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`. Spec §5.2: each
+# program is pinned in module scope and inside `function main() { … } main();`.
+
+[source]
+"alias_module.js" = """
+const a = [];
+a.push(5);
+const b = a;
+b.push(6);
+console.log(a.length, a[1], b.length);
+"""
+"alias_function.js" = """
+function main() { const a = []; a.push(5); const b = a; b.push(6); console.log(a.length, a[1], b.length); }
+main();
+"""
+"multi_push_module.js" = """
+const a = []; const n = a.push(1, 2, 3); console.log(n, a.length, a.join(""));
+"""
+"multi_push.js" = """
+function main() { const a = []; const n = a.push(1, 2, 3); console.log(n, a.length, a.join("")); }
+main();
+"""
+"seeded_module.js" = """
+const a = [1, 2]; a.push(3); console.log(a.length, a.join("+"));
+"""
+"seeded.js" = """
+function main() { const a = [1, 2]; a.push(3); console.log(a.length, a.join("+")); }
+main();
+"""
+"three_index_module.js" = """
+function make() { const xs = []; xs.push(1); return xs; }
+function addTwo(a) { a.push(2); a.push(3); }
+function total(a) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s; }
+const xs = make(); addTwo(xs); console.log(xs.length, total(xs));
+"""
+"three_index.js" = """
+function make() { const xs = []; xs.push(1); return xs; }
+function addTwo(a) { a.push(2); a.push(3); }
+function total(a) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i]; return s; }
+function main() { const xs = make(); addTwo(xs); console.log(xs.length, total(xs)); }
+main();
+"""
+"two_builds.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+const a = build(3);
+const b = build(2);
+console.log(a[0], a[2], b[1], a.length + b.length);
+"""
+"two_builds_function.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+function main() { const a = build(3); const b = build(2); console.log(a[0], a[2], b[1], a.length + b.length); }
+main();
+"""
+"f64_rw_module.js" = """
+const a = []; a.push(1.5); a.push(2); a[1] = a[1] / 4; console.log(a[0], a[1], a.length);
+"""
+"f64_rw.js" = """
+function main() { const a = []; a.push(1.5); a.push(2); a[1] = a[1] / 4; console.log(a[0], a[1], a.length); }
+main();
+"""
+"arrow_alias_module.js" = """
+const mk = () => { const o = []; o.push(1); o.push(2); return o; };
+console.log(mk().length);
+"""
+"arrow_alias_function.js" = """
+function main() { const mk = () => { const o = []; o.push(1); o.push(2); return o; }; console.log(mk().length); }
+main();
+"""
+
+"grow_rhs_module.js" = """
+function grow(a) { for (let i = 0; i < 20; i++) a.push(i); return 99; }
+const a = []; a.push(1); a[0] = grow(a); console.log(a[0], a.length);
+"""
+"grow_rhs_function.js" = """
+function grow(a) { for (let i = 0; i < 20; i++) a.push(i); return 99; }
+function main() { const a = []; a.push(1); a[0] = grow(a); console.log(a[0], a.length); }
+main();
+"""
+"float_index_write_module.js" = """
+const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length);
+"""
+"float_index_write.js" = """
+function main() { const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length); }
+main();
+"""
+"negz_module.js" = """
+const a = []; a.push(-0); a.push(1.5); a.push(-0.0); a.push(-(0)); a.push(-(-0)); a[1] = -0;
+const b = [-0, 2.5]; b.push(+(-0));
+console.log(1 / a[0], 1 / a[1], 1 / a[2], 1 / a[3], 1 / a[4], 1 / b[0], 1 / b[2], a.length);
+"""
+"negz.js" = """
+function main() {
+  const a = []; a.push(-0); a.push(1.5); a.push(-0.0); a.push(-(0)); a.push(-(-0)); a[1] = -0;
+  const b = [-0, 2.5]; b.push(+(-0));
+  console.log(1 / a[0], 1 / a[1], 1 / a[2], 1 / a[3], 1 / a[4], 1 / b[0], 1 / b[2], a.length);
+}
+main();
+"""
+"rounded_index_module.js" = """
+const xs = [];
+for (let i = 0; i < 7; i++) xs.push(i + 100);
+const x = 9;
+console.log(xs[Math.floor(x / 2)], xs[Math.floor(xs.length / 2)]);
+const m = Math.floor(xs.length / 2);
+console.log(m, xs[m], xs[m - 1], xs[m + 1]);
+xs[Math.floor(x / 2)] = 7;
+xs[m] = xs[m] * 2;
+console.log(xs.join(","));
+console.log(xs[Math.trunc(x / 2)], xs[Math.ceil(x / 4)], xs[Math.round(x / 4)], xs[Math.round(-x / 6) + 3]);
+console.log(xs[Math.min(Math.floor(x / 2), xs.length - 1)], xs[Math.max(0, Math.ceil(x / 2) - 9)], xs[Math.abs(Math.floor(-x / 3))]);
+let lo = 0;
+let hi = xs.length - 1;
+while (lo < hi) {
+  const mid = Math.floor((lo + hi) / 2);
+  if (xs[mid] < 200) lo = mid + 1; else hi = mid;
+}
+console.log(lo, hi, xs[lo]);
+const f = [];
+f.push(0.5); f.push(1.5); f.push(2.5);
+console.log(f[Math.floor(f[1])], f[Math.round(f[0] * 3)]);
+"""
+"rounded_index.js" = """
+function main() {
+  const xs = [];
+  for (let i = 0; i < 7; i++) xs.push(i + 100);
+  const x = 9;
+  console.log(xs[Math.floor(x / 2)], xs[Math.floor(xs.length / 2)]);
+  const m = Math.floor(xs.length / 2);
+  console.log(m, xs[m], xs[m - 1], xs[m + 1]);
+  xs[Math.floor(x / 2)] = 7;
+  xs[m] = xs[m] * 2;
+  console.log(xs.join(","));
+  console.log(xs[Math.trunc(x / 2)], xs[Math.ceil(x / 4)], xs[Math.round(x / 4)], xs[Math.round(-x / 6) + 3]);
+  console.log(xs[Math.min(Math.floor(x / 2), xs.length - 1)], xs[Math.max(0, Math.ceil(x / 2) - 9)], xs[Math.abs(Math.floor(-x / 3))]);
+  let lo = 0;
+  let hi = xs.length - 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (xs[mid] < 200) lo = mid + 1; else hi = mid;
+  }
+  console.log(lo, hi, xs[lo]);
+  const f = [];
+  f.push(0.5); f.push(1.5); f.push(2.5);
+  console.log(f[Math.floor(f[1])], f[Math.round(f[0] * 3)]);
+}
+main();
+"""
+"fractional_index_read_module.js" = """
+const xs = [];
+xs.push(10); xs.push(20);
+const x = 3;
+console.log(xs[x / 2]);
+"""
+"fractional_index_read.js" = """
+function main() {
+  const xs = [];
+  xs.push(10); xs.push(20);
+  const x = 3;
+  console.log(xs[x / 2]);
+}
+main();
+"""
+"remainder_index_module.js" = """
+const xs = [];
+xs.push(1); xs.push(2);
+const q = 3;
+const i = Math.floor(q / 2);
+console.log(xs[i % 2]);
+"""
+"remainder_index.js" = """
+function main() {
+  const xs = [];
+  xs.push(1); xs.push(2);
+  const q = 3;
+  const i = Math.floor(q / 2);
+  console.log(xs[i % 2]);
+}
+main();
+"""
+
+[[case]]
+name = "alias_push_is_seen_through_the_original_module_scope"
+rationale = "Review Focus 2: `b` aliases `a`'s header, so `b.push` grows `a` (spec §3.1 alias edge, A-16 global allocation)."
+args = ["run", "alias_module.js"]
+exit = "success"
+stdout = "2 6 2\n"
+
+[[case]]
+name = "alias_push_is_seen_through_the_original"
+args = ["run", "alias_function.js"]
+exit = "success"
+stdout = "2 6 2\n"
+
+[[case]]
+name = "push_appends_every_argument_and_returns_the_new_length_module_scope"
+args = ["run", "multi_push_module.js"]
+exit = "success"
+stdout = "3 3 123\n"
+
+[[case]]
+name = "push_appends_every_argument_and_returns_the_new_length"
+args = ["run", "multi_push.js"]
+exit = "success"
+stdout = "3 3 123\n"
+
+[[case]]
+name = "a_seeded_literal_keeps_its_seeds_when_pushed_module_scope"
+args = ["run", "seeded_module.js"]
+exit = "success"
+stdout = "3 1+2+3\n"
+
+[[case]]
+name = "a_seeded_literal_keeps_its_seeds_when_pushed"
+args = ["run", "seeded.js"]
+exit = "success"
+stdout = "3 1+2+3\n"
+
+[[case]]
+name = "an_array_built_in_one_function_grown_in_a_second_and_read_in_a_third_module_scope"
+rationale = "Spec §5.2: the return edge, the argument edge into a parameter that pushes, and a third function reading through its parameter; the caller is module scope."
+args = ["run", "three_index_module.js"]
+exit = "success"
+stdout = "3 6\n"
+
+[[case]]
+name = "an_array_built_in_one_function_grown_in_a_second_and_read_in_a_third"
+rationale = "Spec §5.2: the return edge, the argument edge into a parameter that pushes, and a third function reading through its parameter."
+args = ["run", "three_index.js"]
+exit = "success"
+stdout = "3 6\n"
+
+[[case]]
+name = "returned_string_arrays_survive_later_allocations"
+rationale = "Spec §3.3: an escaping growable array and the strings in it outlive the creating call; the second `build` must not overwrite the first array's data."
+args = ["run", "two_builds.js"]
+exit = "success"
+stdout = "a abb ab 5\n"
+
+[[case]]
+name = "returned_string_arrays_survive_later_allocations_inside_a_function"
+args = ["run", "two_builds_function.js"]
+exit = "success"
+stdout = "a abb ab 5\n"
+
+[[case]]
+name = "f64_elements_are_stored_and_read_back_exactly_module_scope"
+args = ["run", "f64_rw_module.js"]
+exit = "success"
+stdout = "1.5 0.5 2\n"
+
+[[case]]
+name = "f64_elements_are_stored_and_read_back_exactly"
+rationale = "Spec §3.4: f64 elements are bit-reinterpreted into the 8-byte slots; an integer pushed into an f64 array is converted."
+args = ["run", "f64_rw.js"]
+exit = "success"
+stdout = "1.5 0.5 2\n"
+
+[[case]]
+name = "length_of_a_call_through_a_const_arrow_alias_module_scope"
+rationale = "Task 9 ruling W2: the callee key of `mk()` is inference's own (`array_return_callee_key` resolves the `const` alias to `__kali_fn_N`), the same fact the resolver uses."
+args = ["run", "arrow_alias_module.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "length_of_a_call_through_a_const_arrow_alias"
+args = ["run", "arrow_alias_function.js"]
+exit = "success"
+stdout = "2\n"
+
+[[case]]
+name = "an_index_write_whose_value_grows_the_array_stores_into_the_live_block_module_scope"
+rationale = "Task 9 fix round 1 (C1): the value is evaluated before the bounds check and the data pointer are read (`__growable_store`), so a right-hand side that grows the array (moving its data block) stores into the live block. Before the fix kali printed `1 21`."
+args = ["run", "grow_rhs_module.js"]
+exit = "success"
+stdout = "99 21\n"
+
+[[case]]
+name = "an_index_write_whose_value_grows_the_array_stores_into_the_live_block"
+args = ["run", "grow_rhs_function.js"]
+exit = "success"
+stdout = "99 21\n"
+
+[[case]]
+name = "a_float_index_write_is_refused_under_run_module_scope"
+rationale = "Task 9 fix round 1 (I1): a float index on a growable write is refused (E5506) instead of lowering to wasm that fails to load (E4201). node v26.10.0 prints `1` (it sets a `0.5` property). Since residual R2 (spec A-39) inference refuses it, so `check` refuses it too (pinned below)."
+args = ["run", "float_index_write_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value"]
+
+[[case]]
+name = "a_float_index_write_is_refused_under_run"
+args = ["run", "float_index_write.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value"]
+
+[[case]]
+name = "check_refuses_the_float_index_write"
+rationale = "RE-PINNED 2026-10-08 (residual R2, spec A-39): inference now refuses a float index it cannot prove whole, so `check` agrees with `run` (spec §3.6). Was `check_accepts_the_float_index_write_codegen_refusal_only`, exit success. node v26.10.0 prints `1`."
+args = ["check", "float_index_write_module.js", "float_index_write.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value", "`a` at module scope", "`a` in `main`"]
+
+[[case]]
+name = "a_negated_zero_stays_negative_zero_in_an_f64_array_module_scope"
+args = ["run", "negz_module.js"]
+exit = "success"
+stdout = "-Infinity -Infinity -Infinity -Infinity Infinity -Infinity -Infinity 5\n"
+
+[[case]]
+name = "a_negated_zero_stays_negative_zero_in_an_f64_array"
+rationale = "Task 11 review: `-0` pushed, written or seeded into an f64 growable array was converted from the integer 0 and stored +0. `1 / x` shows the sign, since `console.log(-0)` printing `0` is a separate defect."
+args = ["run", "negz.js"]
+exit = "success"
+stdout = "-Infinity -Infinity -Infinity -Infinity Infinity -Infinity -Infinity 5\n"
+
+[[case]]
+name = "a_rounded_float_index_reads_and_writes_like_node_module_scope"
+rationale = "Residual R2 (spec A-39): `Math.floor`, `Math.ceil`, `Math.trunc` and `Math.round` of a float are whole f64 numbers; used as an index (directly, through a `const`, through `Math.min`/`Math.max`/`Math.abs`, or through a `let` every write of which is such a value, as in a binary search) they read and write the element node does. Before the fix `run` failed with E4201 while `check` passed. stdout is node v26.10.0's."
+args = ["run", "rounded_index_module.js"]
+exit = "success"
+stdout = "104 103\n3 103 102 104\n100,101,102,206,7,105,106\n7 206 102 102\n7 100 206\n3 3 206\n1.5 2.5\n"
+
+[[case]]
+name = "a_rounded_float_index_reads_and_writes_like_node"
+args = ["run", "rounded_index.js"]
+exit = "success"
+stdout = "104 103\n3 103 102 104\n100,101,102,206,7,105,106\n7 206 102 102\n7 100 206\n3 3 206\n1.5 2.5\n"
+
+[[case]]
+name = "check_accepts_the_rounded_float_index_programs"
+args = ["check", "rounded_index_module.js", "rounded_index.js"]
+exit = "success"
+
+[[case]]
+name = "a_fractional_index_is_refused_under_check"
+rationale = "Residual R2 (spec A-39): a float index kali cannot prove whole (`xs[x / 2]`; node prints `undefined`) is refused by inference, so `check` and `run` agree (spec §3.6). Before, only `run` refused it."
+args = ["check", "fractional_index_read_module.js", "fractional_index_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value", "`xs` at module scope", "`xs` in `main`"]
+
+[[case]]
+name = "a_fractional_index_is_refused_under_run"
+args = ["run", "fractional_index_read.js"]
+exit = "failure"
+stderr_contains = ["E5506", "indexing a growable array with a floating-point value", "`xs` in `main`"]
+
+[[case]]
+name = "a_remainder_of_a_float_index_is_refused_under_check"
+rationale = "Residual round 1 (minor, spec A-39): a float `%` does not lower (E4201), so `xs[i % 2]` with `i = Math.floor(q / 2)` is not proven whole and is refused by inference (node prints `2`). Round 0 admitted it under `check` and failed to load under `run`."
+args = ["check", "remainder_index_module.js", "remainder_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "not proven to be a whole number", "`xs` at module scope", "`xs` in `main`"]
+
+[[case]]
+name = "a_remainder_of_a_float_index_is_refused_under_run"
+args = ["run", "remainder_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "not proven to be a whole number"]

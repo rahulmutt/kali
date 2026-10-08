@@ -91,7 +91,7 @@ working as designed, and it is the first thing §6 discusses.
 | acorn | `8.18.0` | `counts.json` |
 | kali binary | `kali 0.1.0` (`/workspace/target/debug/kali`) | `accepts.json` |
 | §0.2's verdicts, measured at | `62b11a78c3` | `kali-silent-miscompile-register.md` §0.2's own sentence |
-| this document generated at | `027409c91f` | `git rev-parse HEAD`, recorded by the generator |
+| this document generated at | `2fd8b8ebc6` | `git rev-parse HEAD`, recorded by the generator |
 <!-- GENERATED-PROVENANCE:END -->
 
 **Everything from §2 to §5 is generated**, by
@@ -351,7 +351,7 @@ Their counts are printed because the removal is not cosmetic: it takes the large
 | R-04 | 1 | 112 | 0 | FIXED |
 | R-05 | 1 | 6 | 0 | FAIL_CLOSED |
 | R-11 | 2 | 10 | 0 | FIXED |
-| R-12 | 2 | 3 | 0 | FAIL_CLOSED |
+| R-12 | 2 | 3 | 0 | FIXED |
 | R-19 | 2 | 27 | 0 | FIXED / FAIL_CLOSED |
 | R-20 | 2 | 4 | 0 | FAIL_CLOSED |
 | R-25 | 2 | 1 | 0 | FAIL_CLOSED |
@@ -1385,6 +1385,69 @@ project, `docs/superpowers/followups/default-parameters-discovered-defects.md`).
   `hooks = {}` object default, which stays refused). `accepts.json` and
   `counts.json` are unchanged apart from the binary path, which was not
   committed.
+
+**AMENDMENT 2026-10-08 — a FOURTEENTH regeneration: R-12 moves FAIL_CLOSED →
+FIXED (growable-runtime-arrays project,
+`docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md`).**
+
+- **What moved: R-12.** The two `r12` oracle cases now assert FIXED, measured at
+  `417b58fb8` against node v26.10.0: `const a=[1,2]; const b=a; b[0]=7;` prints
+  `b0=7` at exit 0 in both scopes, as node does. The project did not target
+  R-12; an index write now makes an array-literal binding a growable runtime
+  array and the alias joins its component, so the store has a lane.
+- **What changed in §2–§5:** only §3's R-12 verdict cell. R-12 was already not
+  damage (it left the SILENT filter and `clusters.json` on 2026-09-09), so no
+  band moves.
+- **No band moved on either axis, and the accept set did not move.**
+  `accepts.mjs`, re-run against this branch's binary, still reads anchor
+  125/137 and extension 0/40. `accepts.json` and `counts.json` are unchanged
+  apart from the binary path, which was not committed.
+
+**AMENDMENT 2026-10-08 — a FIFTEENTH regeneration: R-53 moves SILENT → FIXED and
+leaves the ranking (growable-runtime-arrays project, residual round 5,
+`docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md`).**
+
+- **What moved: R-53.** Its `var` and `let` oracle cases (`r53v_*`, `r53l_*`,
+  both scopes) now assert FIXED against node v26.10.0: kali prints
+  `iter=1..3`/`t=6` and `iter=1..4`/`s=10` at exit 0, as node does. The static
+  `for-of` unroll lane never wrote a `var`/`let` loop variable's slot; a read of
+  the variable now resolves to the bound item while the body is emitted. Its
+  `const` control was already FIXED, so it has no SILENT lane left; its
+  `clusters.json` assignment is removed (G4 keeps R-08 and R-21).
+- **What changed in §2–§5:** R-53 leaves §2.1, both G4 member lists, §2.3's
+  alternate-cluster table and §3's ranked table, and joins §3.1's not-damage list
+  as FIXED. **No band moved**: G4 had an uncountable member before and still
+  does, and R-53's reachable count was 0. The generator's fixed prose in §3 still
+  says "R-47's and R-53's FIXED lanes are the `const` controls"; for R-53 that is
+  now history.
+- **Not retired in the wider sense:** a loop body that assigns the loop variable
+  keeps the slot lane and is still silent (`for (let x of [1, 2]) { x = x + 10;
+  console.log(x); }` prints `1 2`), but no oracle case pins that shape.
+- **`accepts.json` and `counts.json` were not re-measured** and are unchanged; the
+  fix changes which value a read lowers to, not which programs kali accepts.
+
+**AMENDMENT 2026-10-08 — a SIXTEENTH regeneration, which REVERSES the fifteenth:
+R-53 is back in the ranking as SILENT (growable-runtime-arrays project, last
+targeted fix, `docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md`).**
+
+- **Why.** The fifteenth amendment read a LANE result as an entry result, which §3.4
+  says never to do. Round 5 fixed only reads of the loop variable lexically inside the
+  unrolled body; the slot is still never written, so a closure capturing the variable,
+  a `var` read after the loop, a bare-identifier target read after the loop, a helper
+  function or IIFE reading a `var` loop variable, and a body that assigns the variable
+  still bind `0`, as on `main`.
+- **What moved.** New oracle cases `r53a_*` (a `var` loop variable read after the loop,
+  both scopes) assert SILENT: kali `t=6 v=0`, node `t=6 v=3`. R-53's §0.2 row is
+  `SILENT / FIXED` again, and its `clusters.json` assignment to G4 is restored (with a
+  REVERSED note).
+- **What changed in §2–§5:** exactly the fifteenth amendment's changes, undone. R-53
+  returns to §2.1, both G4 member lists, §2.3's alternate-cluster table, §3's ranked
+  table and §3.4's lane list, and leaves §3.1's not-damage list. **No band moved**, for
+  the same reason as before: G4 has an uncountable member either way, and R-53's
+  reachable count is 0. The generator's §3 prose ("R-47's and R-53's FIXED lanes are the
+  `const` controls") is accurate for R-53's `const` lane; its `var` and `let` lanes are
+  FIXED too, for reads inside the body only.
+- **`accepts.json` and `counts.json` were not re-measured** and are unchanged.
 
 ### 6.1 The most important thing here is not a rank
 

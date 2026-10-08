@@ -42,3 +42,6 @@ mod for_await;
 
 #[path = "array_tests/methods.rs"]
 mod methods;
+
+#[path = "array_tests/growable.rs"]
+mod growable;

@@ -581,26 +581,20 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
             reason: "Release/ReleaseAdvanced print \"1\" where node/Fast say \"24\" -- silent miscompile, no diagnostic. Pre-existing, confirmed at baseline eec408d000, unrelated to this project. See task-5-report.md.",
         },
     ),
-    (
-        "math-trunc-benchmark-v1",
-        Expectation::KnownBroken {
-            fast: None,
-            release_refusal_code: None,
-            reason: "Fast/Release build but the wasm fails to load (E4201, wasm[0]::function[41]); ReleaseAdvanced loads and agrees with node (24). Pre-existing, confirmed at baseline eec408d000. See task-5-report.md.",
-        },
-    ),
+    // RE-PINNED 2026-10-08 (growable-runtime-arrays residual R2, spec A-39):
+    // was KnownBroken (Fast/Release failed to load, E4201). `Math.trunc`/
+    // `Math.ceil` of a float now take the f64 lane, so every tier runs and
+    // agrees with node (`24`).
+    ("math-trunc-benchmark-v1", Expectation::Runs),
     ("math-imul-benchmark-v1", Expectation::Runs),
     ("math-imul-benchmark-v1-js", Expectation::Runs),
     ("math-clz32-benchmark-v1", Expectation::Runs),
     ("math-clz32-benchmark-v1-js", Expectation::Runs),
-    (
-        "math-ceil-benchmark-v1",
-        Expectation::KnownBroken {
-            fast: None,
-            release_refusal_code: None,
-            reason: "Fast/Release build but the wasm fails to load (E4201, wasm[0]::function[41]); ReleaseAdvanced loads and agrees with node (24). Pre-existing, confirmed at baseline eec408d000. See task-5-report.md.",
-        },
-    ),
+    // RE-PINNED 2026-10-08 (growable-runtime-arrays residual R2, spec A-39):
+    // was KnownBroken (Fast/Release failed to load, E4201). `Math.trunc`/
+    // `Math.ceil` of a float now take the f64 lane, so every tier runs and
+    // agrees with node (`24`).
+    ("math-ceil-benchmark-v1", Expectation::Runs),
     ("math-abs-sign-benchmark-v1", Expectation::Runs),
     ("math-abs-sign-benchmark-v1-js", Expectation::Runs),
     ("math-max-min-benchmark-v1", Expectation::Runs),
@@ -947,22 +941,16 @@ pub(crate) const FIXTURES: &[(&str, Expectation)] = &[
                      Unrelated to this project. See task-5-report.md.",
         },
     ),
-    (
-        "math-ceil-benchmark-v1-js",
-        Expectation::KnownBroken {
-            fast: None,
-            release_refusal_code: None,
-            reason: "Same wasm[0]::function[41] unloadable-module defect as math-ceil-benchmark-v1/math-trunc-benchmark-v1; Fast/Release fail to load, ReleaseAdvanced agrees with node (24). Pre-existing, baseline eec408d000. See task-5-report.md.",
-        },
-    ),
-    (
-        "math-trunc-benchmark-v1-js",
-        Expectation::KnownBroken {
-            fast: None,
-            release_refusal_code: None,
-            reason: "Same wasm[0]::function[41] unloadable-module defect as math-ceil-benchmark-v1/math-trunc-benchmark-v1; Fast/Release fail to load, ReleaseAdvanced agrees with node (24). Pre-existing, baseline eec408d000. See task-5-report.md.",
-        },
-    ),
+    // RE-PINNED 2026-10-08 (growable-runtime-arrays residual R2, spec A-39):
+    // was KnownBroken (Fast/Release failed to load, E4201). `Math.trunc`/
+    // `Math.ceil` of a float now take the f64 lane, so every tier runs and
+    // agrees with node (`24`).
+    ("math-ceil-benchmark-v1-js", Expectation::Runs),
+    // RE-PINNED 2026-10-08 (growable-runtime-arrays residual R2, spec A-39):
+    // was KnownBroken (Fast/Release failed to load, E4201). `Math.trunc`/
+    // `Math.ceil` of a float now take the f64 lane, so every tier runs and
+    // agrees with node (`24`).
+    ("math-trunc-benchmark-v1-js", Expectation::Runs),
     (
         "mandelbrot-benchmark-v1",
         Expectation::KnownBroken {

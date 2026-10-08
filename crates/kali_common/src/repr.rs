@@ -101,6 +101,14 @@ pub struct ReprTable {
     /// a SEPARATE lane from `array_bindings`' inline `[len][elem…]` layout.
     /// Misses fail closed (not growable == the pre-existing plain lane).
     growable_array_bindings: HashSet<(String, String)>,
+    /// Functions whose every return is a growable array (growable-runtime-
+    /// arrays spec §3.1), with the element repr. Disjoint from
+    /// `array_returns`: a function is on one array-return lane or neither.
+    growable_returns: HashMap<String, Repr>,
+    /// Growable bindings whose array never leaves the creating function
+    /// (spec §3.3, A-16): codegen may allocate them from the function arena.
+    /// Every other growable binding allocates with `__alloc_global`.
+    growable_local_only: HashSet<(String, String)>,
     /// Functions that return a runtime `[len][elem…]` array on every path,
     /// with the element repr (array-return project, spec
     /// docs/superpowers/specs/2026-10-02-array-return-design.md §3.1).
@@ -126,6 +134,13 @@ pub struct ReprTable {
     /// lexically enclosing function, hoisting-aware) shadows it. A nested
     /// `function name` declaration is not a shadow of itself.
     shadowed_array_return_callees: HashSet<(String, String)>,
+    /// `(func, name)` → the anonymous function's `__kali_fn_N` a direct call
+    /// `name(…)` made in `func` reaches through a `const` arrow /
+    /// function-expression alias (following `const h = f` chains), exactly
+    /// as inference's `array_return_callee` keys it. Published so the
+    /// resolver keys a growable call result the way inference does (controller
+    /// ruling W2) instead of re-deriving aliases.
+    fn_alias_targets: HashMap<(String, String), String>,
     /// `(func, param)` parameters that interprocedural call-site flow shows may
     /// receive a NON-SCALAR argument. This taint covers EXACTLY the DIRECT array
     /// shapes visible at the call site: a bare-identifier array binding, or a
@@ -347,6 +362,20 @@ pub struct ReprTable {
     /// evidence only: `scalar(..)` is `I64` for a boolean, so the repr cannot
     /// say this.
     boolean_consts: HashSet<(String, String)>,
+    /// Growable-runtime-arrays spec A-40 (residual R1): `(scope, binding)`
+    /// pairs every write of which is a boolean and at least one of which is a
+    /// growable `includes` result. Positive evidence for codegen: a read
+    /// carries `ValueShape::Boolean`, so it prints `true`/`false`.
+    search_boolean_bindings: HashSet<(String, String)>,
+    /// The function twin of `search_boolean_bindings`: every `return` of the
+    /// function is such a boolean, so a call result carries the shape.
+    search_boolean_returns: HashSet<String>,
+    /// Residual round 3 (spec A-44): `(scope, binding)` pairs inference
+    /// proved hold a compile-time number (a `const` alias chain of a numeric
+    /// literal, or a `const` loop variable of a `for-of` over a literal array
+    /// of such). Codegen's `static_numeric_chain` follows an identifier only
+    /// through these, so its folds and inference's float edges agree.
+    static_numeric_bindings: HashSet<(String, String)>,
     /// `(scope, binding)` pairs that provably carry a `String()` intrinsic
     /// coercion RESULT (Stage P5 T-new-E). Unlike the numeric_* allowlists
     /// above, this is a DENY taint: `repr_infer` seeds no `Repr::String` for a
@@ -629,6 +658,24 @@ impl ReprTable {
             .contains(&(func.to_string(), binding.to_string()))
     }
 
+    pub fn set_growable_return(&mut self, func: &str, elem: Repr) {
+        self.growable_returns.insert(func.to_string(), elem);
+    }
+
+    pub fn growable_return(&self, func: &str) -> Option<Repr> {
+        self.growable_returns.get(func).copied()
+    }
+
+    pub fn mark_growable_local_only(&mut self, func: &str, binding: &str) {
+        self.growable_local_only
+            .insert((func.to_string(), binding.to_string()));
+    }
+
+    pub fn is_growable_local_only(&self, func: &str, binding: &str) -> bool {
+        self.growable_local_only
+            .contains(&(func.to_string(), binding.to_string()))
+    }
+
     pub fn set_array_return(&mut self, func: &str, elem: Repr) {
         self.array_returns.insert(func.to_string(), elem);
     }
@@ -671,6 +718,31 @@ impl ReprTable {
     pub fn is_array_return_callee_shadowed(&self, func: &str, name: &str) -> bool {
         self.shadowed_array_return_callees
             .contains(&(func.to_string(), name.to_string()))
+    }
+
+    pub fn set_fn_alias_target(&mut self, func: &str, name: &str, target: &str) {
+        self.fn_alias_targets
+            .insert((func.to_string(), name.to_string()), target.to_string());
+    }
+
+    /// The `__kali_fn_N` a call `name(…)` in `func` reaches through a `const`
+    /// alias, if any — see `fn_alias_targets`.
+    pub fn fn_alias_target(&self, func: &str, name: &str) -> Option<&str> {
+        self.fn_alias_targets
+            .get(&(func.to_string(), name.to_string()))
+            .map(String::as_str)
+    }
+
+    /// The key a direct call `name(…)` made in `func` reaches for the
+    /// array-return lanes: the alias target, else `name` unless `func`
+    /// shadows it. The table-side twin of inference's `array_return_callee`
+    /// (the shadow fact is published only for array/growable-returning names,
+    /// which is every name these lanes look up).
+    pub fn array_return_callee_key<'a>(&'a self, func: &str, name: &'a str) -> Option<&'a str> {
+        if let Some(target) = self.fn_alias_target(func, name) {
+            return Some(target);
+        }
+        (!self.is_array_return_callee_shadowed(func, name)).then_some(name)
     }
 
     /// Distinct NAMES of every growable-array binding across all functions.
@@ -933,6 +1005,46 @@ impl ReprTable {
 
     pub fn set_boolean_consts(&mut self, consts: HashSet<(String, String)>) {
         self.boolean_consts = consts;
+    }
+
+    /// Growable-runtime-arrays spec A-40: record the boolean bindings and
+    /// functions the `includes`-result analysis proved.
+    pub fn set_search_booleans(
+        &mut self,
+        bindings: HashSet<(String, String)>,
+        returns: HashSet<String>,
+    ) {
+        self.search_boolean_bindings = bindings;
+        self.search_boolean_returns = returns;
+    }
+
+    /// Residual round 3 (spec A-44): record the compile-time-number bindings.
+    pub fn set_static_numeric_bindings(&mut self, bindings: HashSet<(String, String)>) {
+        self.static_numeric_bindings = bindings;
+    }
+
+    /// How many bindings inference proved compile-time numbers (residual
+    /// round 4: codegen's chain bound, so a published chain of any length is
+    /// followed and a cycle is not).
+    pub fn static_numeric_binding_count(&self) -> usize {
+        self.static_numeric_bindings.len()
+    }
+
+    /// Whether inference proved `scope`.`binding` a compile-time number.
+    pub fn binding_is_static_numeric(&self, scope: &str, binding: &str) -> bool {
+        self.static_numeric_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Whether `scope`.`binding` always holds a boolean (spec A-40).
+    pub fn binding_is_search_boolean(&self, scope: &str, binding: &str) -> bool {
+        self.search_boolean_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Whether every `return` of `func` is a boolean (spec A-40).
+    pub fn return_is_search_boolean(&self, func: &str) -> bool {
+        self.search_boolean_returns.contains(func)
     }
 
     pub fn binding_is_boolean_const(&self, scope: &str, binding: &str) -> bool {

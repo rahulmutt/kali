@@ -78,9 +78,13 @@ fn supported_static_string_prefix_suffix_lowers_ascii_literals() {
     // also present in every module) = 1: its `i64.const 16` grow term
     // (`cap*2*8`, identical to `__usp_set`'s counted grow term) as a
     // "i64.const 1" SUBSTRING; its remaining constants (2/8/0) don't match.
+    // + the growable-runtime-arrays method synthetics (spec §3.5, also
+    // present in every module) = 5: `__join_growable_f64` = 3 (the same three
+    // sites as its `_i64`/`_str` twins), `__growable_pop` = 1 (`len - 1`),
+    // `__growable_find` = 1 (`i += 1`); `__growable_slice` has none.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        4 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3 + 1 + 5 + 9,
+        4 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3 + 1 + 5 + 9 + 5,
         "{printed}"
     );
     assert!(printed.contains("i64.const 0"), "{printed}");
@@ -129,9 +133,13 @@ fn supported_static_string_search_lowers_omitted_search_as_undefined() {
     // + the Stage P4 fix-wave `__usp_append` (C-3, also present in every
     // module) = 1: its `i64.const 16` grow term counted as a "i64.const 1"
     // SUBSTRING, exactly like `__usp_set`'s.
+    // + the growable-runtime-arrays method synthetics (spec §3.5, also
+    // present in every module) = 5: `__join_growable_f64` = 3 (the same three
+    // sites as its `_i64`/`_str` twins), `__growable_pop` = 1 (`len - 1`),
+    // `__growable_find` = 1 (`i += 1`); `__growable_slice` has none.
     assert_eq!(
         printed.matches("i64.const 1").count(),
-        2 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3 + 1 + 5 + 9,
+        2 + 3 + 3 + 3 + 3 + 4 + 1 + 2 + 4 + 3 + 1 + 5 + 9 + 5,
         "{printed}"
     );
     assert!(printed.contains("i64.const 6"), "{printed}");

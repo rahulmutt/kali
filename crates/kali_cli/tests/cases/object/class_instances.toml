@@ -462,20 +462,18 @@ exit = "success"
 stdout = "8\n"
 
 [[case]]
-name = "ok_user_push_is_refused_under_run"
-rationale = """Control, equal to its own baseline row (ruling R-7): the refusal is the pre-existing literal-array `.push()` lane (`a.push(2)` on `const a=[1]`), not the class. node v26.10.0 prints `2 5`. At `7c4daa9f7` the baseline row `cls_ok_user_push`: REFUSES, kali printed `error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call`, check exit 1."""
+name = "ok_user_push_matches_node_under_run"
+rationale = """Control, equal to its own baseline row (ruling R-7): the refusal is the pre-existing literal-array `.push()` lane (`a.push(2)` on `const a=[1]`), not the class. node v26.10.0 prints `2 5`. At `7c4daa9f7` the baseline row `cls_ok_user_push`: REFUSES, kali printed `error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call`, check exit 1. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: the program now RUNS and AGREES WITH NODE -- kali and node both print `2 5` (exit 0). The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). The class instance in the program is unaffected; only the literal `.push()` lane this control leaned on moved. Previously pinned as a refusal; no longer refused. Renamed 2026-10-08 (final review) from `ok_user_push_is_refused_under_run`, which named the refusal it no longer asserts."""
 args = ["run", "ok_user_push.js"]
-exit = "failure"
-stdout = ""
-stderr_contains = ["E5506", "calling `.push()` on a literal array"]
+exit = "success"
+stdout = "2 5\n"
 
 [[case]]
-name = "ok_user_push_is_refused_under_check"
-rationale = """Control, equal to its own baseline row (ruling R-7): the refusal is the pre-existing literal-array `.push()` lane (`a.push(2)` on `const a=[1]`), not the class. node v26.10.0 prints `2 5`. At `7c4daa9f7` the baseline row `cls_ok_user_push`: REFUSES, kali printed `error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call`, check exit 1."""
+name = "ok_user_push_passes_check"
+rationale = """Control, equal to its own baseline row (ruling R-7): the refusal is the pre-existing literal-array `.push()` lane (`a.push(2)` on `const a=[1]`), not the class. node v26.10.0 prints `2 5`. At `7c4daa9f7` the baseline row `cls_ok_user_push`: REFUSES, kali printed `error[E5506]: calling `.push()` on a literal array is unavailable in the current phase: kali folds a literal array to its initial elements, so kali refuses rather than silently skip the call`, check exit 1. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: `check` now ACCEPTS (exit 0) and the `run` twin prints node's `2 5`. The literal is a growable array (spec §3.1: a `push`, `pop` or index write makes an array-literal binding a source). The class instance in the program is unaffected; only the literal `.push()` lane this control leaned on moved. Previously pinned as a refusal. Renamed 2026-10-08 (final review) from `ok_user_push_is_refused_under_check`, which named the refusal it no longer asserts."""
 args = ["check", "ok_user_push.js"]
-exit = "failure"
-stdout = ""
-stderr_contains = ["E5506", "calling `.push()` on a literal array"]
+exit = "success"
+stdout = "Checked 1 file(s)\n"
 
 [[case]]
 name = "outside_write_matches_node"

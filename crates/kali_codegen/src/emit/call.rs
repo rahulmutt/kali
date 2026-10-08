@@ -1,3 +1,4 @@
+use crate::emit::growable::GrowableMethod;
 use crate::emit::operators::StringSink;
 use crate::*;
 use kali_common::computed_member_access_unavailable_message;
@@ -117,11 +118,12 @@ impl<'a> FunctionEmitter<'a> {
     /// second ladder, and so this lane gains the ladder's repr knowledge
     /// (a boolean renders `true`/`false`, not `1`/`0` — R-30).
     fn emit_console_argument(&mut self, function: &mut Function, id: LirNodeId) {
-        if self.is_runtime_array_value(id) {
+        // Growable-runtime-arrays spec A-9: a whole growable array is refused
+        // like a plain runtime array (inference refuses it first, M9; belt).
+        if self.is_runtime_array_value(id) || self.growable_value_elem(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
-                    .to_string(),
+                kali_common::runtime_array_print_unavailable_message().to_string(),
             ));
         }
         if self.object_shape_of_node(id).is_some() {
@@ -164,11 +166,10 @@ impl<'a> FunctionEmitter<'a> {
     /// position 0, or printing an object in a later position would silently
     /// render a pointer.
     fn emit_console_argument_as_string(&mut self, function: &mut Function, id: LirNodeId) {
-        if self.is_runtime_array_value(id) {
+        if self.is_runtime_array_value(id) || self.growable_value_elem(id).is_some() {
             self.diagnostics.push(Diagnostic::error(
                 e5::FEATURE_UNAVAILABLE as u32,
-                "printing a whole runtime array is unavailable in the current phase: kali would print its handle; print its elements instead"
-                    .to_string(),
+                kali_common::runtime_array_print_unavailable_message().to_string(),
             ));
         }
         if self.object_shape_of_node(id).is_some() {
@@ -1057,21 +1058,15 @@ impl<'a> FunctionEmitter<'a> {
                 };
             }
 
-            // Stage 4 Task 6 re-review fix: the dynamic lane below emits ONLY
-            // the first argument and drops the rest — a pre-existing lane
-            // limitation. For a MULTI-argument call whose arguments read a
-            // GROWABLE array (a lane new in this stage, so nothing green can
-            // depend on it), that would be a brand-new silent divergence
-            // (`console.log(o.length, o[0])` printed `2`, node `2 1`): fail
-            // closed instead. Non-growable multi-arg calls keep the
-            // pre-existing behavior byte-identically (documented follow-up in
-            // the stage triage doc).
+            // Growable-runtime-arrays spec A-9: named growable arrays print
+            // through the multi-argument lane below; only a growable object
+            // FIELD read keeps this pre-existing refusal.
             if node.children.len() > 2
                 && node
                     .children
                     .iter()
                     .skip(1)
-                    .any(|arg| self.subtree_mentions_growable(*arg))
+                    .any(|arg| self.subtree_mentions_growable_field(*arg))
             {
                 self.diagnostics.push(Diagnostic::error(
                     e5::FEATURE_UNAVAILABLE as u32,
@@ -1708,6 +1703,41 @@ impl<'a> FunctionEmitter<'a> {
             return self.emit_growable_push_call(function, receiver, &args);
         }
 
+        // Growable-runtime-arrays spec §3.5: `pop`, `indexOf`, `includes` and
+        // `slice` on a growable value. Before the plain-array mutator refusal
+        // and every static array lane, which would read a growable binding's
+        // stale declarator literal.
+        if let Some((method, receiver, args)) = self.growable_method_call_parts(node) {
+            // Belt for inference's refusal (Task 10 review I1): an argument
+            // these lanes would not evaluate is never silently dropped.
+            let extra = match method {
+                GrowableMethod::Pop if !args.is_empty() => Some("`.pop()` with an argument"),
+                GrowableMethod::Slice if args.len() > 2 => {
+                    Some("`.slice()` with more than two arguments")
+                }
+                _ => None,
+            };
+            if let Some(operation) = extra {
+                let subject = match self.bare_identifier_name(receiver) {
+                    Some(name) => kali_common::growable_binding_subject(&name, &self.function_name),
+                    None => "value".to_string(),
+                };
+                let message =
+                    kali_common::growable_unsupported_operation_message(operation, &subject);
+                return self.deny_e5506(function, &message);
+            }
+            return match method {
+                GrowableMethod::Pop => self.emit_growable_pop(function, receiver),
+                GrowableMethod::IndexOf => {
+                    self.emit_growable_search(function, receiver, args.first().copied(), false)
+                }
+                GrowableMethod::Includes => {
+                    self.emit_growable_search(function, receiver, args.first().copied(), true)
+                }
+                GrowableMethod::Slice => self.emit_growable_slice(function, receiver, &args),
+            };
+        }
+
         // A fixed-length runtime array cannot grow or shrink (array-bounds
         // spec §3.2). These calls used to reach the terminal warn + `0`
         // fallback, which never emits the receiver: a silent no-op.
@@ -2041,6 +2071,13 @@ impl<'a> FunctionEmitter<'a> {
                 produced: true,
                 shape: ValueShape::Boolean,
             };
+        }
+
+        // Growable-runtime-arrays residual R2 (spec A-39): a floating-point
+        // operand takes the f64 lane (the integer lanes below would leave an
+        // f64 where they promise an i64: E4201).
+        if let Some(method) = self.math_float_lane(node) {
+            return self.emit_math_float_lane(function, node, method);
         }
 
         if let Some(import_index) = self.math_max_import_index(&callee_node) {
@@ -3728,7 +3765,12 @@ impl<'a> FunctionEmitter<'a> {
             if resolved.is_some() {
                 let arg_is_allocation = self.resolve_array_alloc_call(*arg).is_some()
                     || self.resolve_array_fill_call(*arg).is_some();
+                // Growable-runtime-arrays: a growable value (even a seeded
+                // literal, `const xs = [1]; xs.push(2); f(xs)`) is passed as
+                // its tagged handle, never folded.
+                let arg_is_growable = self.growable_value_elem(*arg).is_some();
                 let fold_lane_array = !arg_is_allocation
+                    && !arg_is_growable
                     && self
                         .resolve_literal_aggregate(*arg)
                         .map(|id| self.node(id).clone())
@@ -3772,6 +3814,10 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(index) = resolved {
             let shape = if self.repr_table.return_repr(callee_name) == kali_common::Repr::F64 {
                 ValueShape::Float
+            } else if self.repr_table.return_is_search_boolean(callee_name) {
+                // Spec A-40: every `return` is a growable `includes` result
+                // or another boolean.
+                ValueShape::Boolean
             } else {
                 ValueShape::Unknown
             };
@@ -4487,7 +4533,7 @@ impl<'a> FunctionEmitter<'a> {
     /// produces a plain integer (a folded `I64Const` or the integer-math
     /// import's result), never a tagged handle.
     pub(crate) fn is_integer_rounding_math_call(&self, node: &LirNode) -> bool {
-        if node.kind != LirNodeKind::Call {
+        if node.kind != LirNodeKind::Call || self.math_float_lane(node).is_some() {
             return false;
         }
         let Some(&callee) = node.children.first() else {
@@ -6087,18 +6133,19 @@ impl<'a> FunctionEmitter<'a> {
             return None;
         }
         let receiver = callee_node.children.first().copied()?;
-        let receiver_node = self.node(self.unwrap_transparent(receiver));
-        let base = receiver_node.text.as_deref()?;
-        // Growable receiver (throw-fallout Stage 4 Task 5): a tagged-handle
-        // growable array admits for BOTH element reprs — `I64` (rendered via
-        // `int_to_string`) and `String`. Checked FIRST and independently of
-        // `array_bindings`: the two lanes are layout-distinct, and
-        // `emit_runtime_join` re-derives the growable-ness to pick the
-        // header-indirected `__join_growable_*` synthetic. Float growables
-        // never promote, so no float element repr can reach here.
-        if self.is_growable_array(base) {
+        // Growable receiver (growable-runtime-arrays spec §3.5): any growable
+        // VALUE — a growable binding, a call to a growable-returning function,
+        // or a `slice` of either — admits for every element repr (`I64`
+        // through `int_to_string`, `F64` through `float_to_string`, `String`
+        // copied). Checked FIRST and independently of `array_bindings`: the
+        // two lanes are layout-distinct, and `emit_runtime_join` re-derives
+        // the element repr through the same `growable_value_elem` to pick the
+        // header-indirected `__join_growable_*` synthetic.
+        if self.growable_value_elem(receiver).is_some() {
             return Some((receiver, node.children.get(1).copied()));
         }
+        let receiver_node = self.node(self.unwrap_transparent(receiver));
+        let base = receiver_node.text.as_deref()?;
         // Growable-array FIELD receiver `o.values.join(...)` (Stage P2 Lane 1
         // Task 5): a `GrowableArrayI64` object field carries the same tagged
         // handle; admit it through the positive `object_field_is_growable_array`
@@ -6246,33 +6293,22 @@ impl<'a> FunctionEmitter<'a> {
                 function.instruction(&Instruction::I64Const(encode_string_handle(offset, len)));
             }
         }
-        // Growable receiver (Task 5): a tagged-handle growable array joins
-        // through the header-indirected `__join_growable_*` synthetic, picked
-        // by the binding's element repr (`String` → the string-handle copy
-        // body; default `I64` → the `int_to_string`-render body). Both allocate
-        // globally (no arena twin this task — a join result must outlive any
-        // reset), so the arena routing below is bypassed. The base name is
-        // re-derived exactly as `runtime_join_call_parts` recognized it.
-        let growable_base = self
-            .node(self.unwrap_transparent(receiver))
-            .text
-            .as_deref()
-            .filter(|base| self.is_growable_array(base))
-            .map(str::to_string);
-        // Field receiver `o.values.join(...)` (Task 5): a `GrowableArrayI64`
-        // field is provably i64 (Task 3 conflicts string array fields to
-        // E5506), so it always joins via `__join_growable_i64` — no name to key
-        // an element-repr lookup on. Checked when the base-name lane found no
-        // named growable.
-        let field_growable =
-            growable_base.is_none() && self.object_field_is_growable_array(receiver);
-        let join_index = if let Some(base) = growable_base {
-            if self.array_elem_repr(&base) == kali_common::Repr::String {
-                self.join_growable_str_fn_index()
-            } else {
-                self.join_growable_i64_fn_index()
+        // Growable receiver (growable-runtime-arrays spec §3.5): a growable
+        // value joins through the header-indirected `__join_growable_*`
+        // synthetic picked by its element repr (`String` → the string-handle
+        // copy body, `F64` → the `float_to_string` body, `I64` → the
+        // `int_to_string` body), re-derived exactly as
+        // `runtime_join_call_parts` recognized it. All allocate globally (a
+        // join result must outlive any reset), so the arena routing below is
+        // bypassed. A `GrowableArrayI64` field (`o.values.join(...)`, Task 5)
+        // is provably i64 and joins via `__join_growable_i64`.
+        let join_index = if let Some(elem) = self.growable_value_elem(receiver) {
+            match elem {
+                kali_common::Repr::String => self.join_growable_str_fn_index(),
+                kali_common::Repr::F64 => self.join_growable_f64_fn_index(),
+                _ => self.join_growable_i64_fn_index(),
             }
-        } else if field_growable {
+        } else if self.object_field_is_growable_array(receiver) {
             self.join_growable_i64_fn_index()
         } else {
             // Per-site arena routing (fasta Spec 7 Task 4c): select the

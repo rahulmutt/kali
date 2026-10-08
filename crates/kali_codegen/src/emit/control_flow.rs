@@ -1746,39 +1746,57 @@ impl<'a> FunctionEmitter<'a> {
                         // growable oracle must win for its bindings.
                         if let Some(name) = declarator.text.clone() {
                             if self.is_growable_array(&name) {
-                                let aggregate = self
-                                    .resolve_literal_aggregate(init)
-                                    .map(|id| self.node(id).clone())
-                                    .filter(|node| self.is_array_literal(node));
-                                let (Some(aggregate), Some(index)) =
-                                    (aggregate, self.locals.get(&name).copied())
-                                else {
-                                    // Promotion admitted exactly this shape;
-                                    // anything else here is a gate/provisioning
-                                    // bug — fail closed, never a silent no-op.
+                                let Some(index) = self.locals.get(&name).copied() else {
                                     self.diagnostics.push(Diagnostic::error(
                                         e5::FEATURE_UNAVAILABLE as u32,
-                                        format!(
-                                            "growable array `{name}` must be declared with an array-literal initializer and a local slot"
-                                        ),
+                                        format!("growable array `{name}` has no local slot"),
                                     ));
                                     function.instruction(&Instruction::Unreachable);
                                     continue;
                                 };
+                                // Growable-runtime-arrays spec §3.1: a name, a
+                                // call or a `slice` already yields the tagged
+                                // handle — it is an alias, a call result or a
+                                // copy, never a fresh literal. Checked BEFORE
+                                // `resolve_literal_aggregate`, which would see
+                                // through a name to its declarator literal and
+                                // allocate a second array (breaking the alias).
+                                let init_id = self.unwrap_transparent(init);
+                                let init_is_value = self.bare_identifier_name(init_id).is_some()
+                                    || self.node(init_id).kind == LirNodeKind::Call;
+                                let aggregate = (!init_is_value)
+                                    .then(|| self.resolve_literal_aggregate(init))
+                                    .flatten()
+                                    .map(|id| self.node(id).clone())
+                                    .filter(|node| self.is_array_literal(node));
+                                let Some(aggregate) = aggregate else {
+                                    let value = self.emit_node(function, init, true);
+                                    if !value.produced {
+                                        function.instruction(&Instruction::I64Const(0));
+                                    }
+                                    function.instruction(&Instruction::LocalSet(index));
+                                    continue;
+                                };
+                                // Spec §3.3, A-16: only an array that never
+                                // leaves this function may use the arena.
+                                let global = !self
+                                    .repr_table
+                                    .is_growable_local_only(&self.function_name, &name);
+                                let elem = self.array_elem_repr(&name);
                                 let seed_len = aggregate.children.len();
                                 let cap = seed_len.max(crate::emit::growable::GROWABLE_INITIAL_CAP);
-                                let allocated = self.emit_growable_alloc(function, seed_len, cap);
+                                let allocated =
+                                    self.emit_growable_alloc(function, seed_len, cap, global);
                                 if !allocated.produced {
                                     function.instruction(&Instruction::I64Const(0));
                                 }
                                 function.instruction(&Instruction::LocalSet(index));
-                                // Seed elements: *(data_ptr + i*8) = seed_i.
-                                // The promotion gate admits only scalar-shaped
-                                // (never float/string/object) seeds.
+                                // Seed elements: *(data_ptr + i*8) = seed_i,
+                                // encoded for the element repr (spec §3.4).
                                 for (i, child) in aggregate.children.iter().copied().enumerate() {
                                     function.instruction(&Instruction::LocalGet(index));
                                     function.instruction(&Instruction::I64Const(
-                                        !(crate::ARRAY_HANDLE_TAG) as i64,
+                                        crate::emit::growable::GROWABLE_HANDLE_MASK,
                                     ));
                                     function.instruction(&Instruction::I64And);
                                     function.instruction(&Instruction::I32WrapI64);
@@ -1792,6 +1810,12 @@ impl<'a> FunctionEmitter<'a> {
                                     if !produced.produced {
                                         function.instruction(&Instruction::I64Const(0));
                                     }
+                                    self.emit_growable_slot_encode(
+                                        function,
+                                        elem,
+                                        child,
+                                        produced.produced,
+                                    );
                                     function.instruction(&Instruction::I64Store(MemArg {
                                         offset: (i * 8) as u64,
                                         align: 3,
@@ -2220,6 +2244,13 @@ impl<'a> FunctionEmitter<'a> {
                 }
             }
         }
+        // Residual round 5: a static `for-of`'s loop variable reads the item
+        // the unroll lane bound, not its never-written local or global.
+        if self.unrolled_loop_items.contains(text) {
+            if let Some(bound) = self.bindings.get(text).copied() {
+                return IdentifierResolution::Binding(bound);
+            }
+        }
         // Module-scope mutable scalar promoted to a persistent WASM global.
         // Gated on NOT being a local first — a shadowing local/param wins.
         if !self.locals.contains_key(text) {
@@ -2569,6 +2600,12 @@ impl<'a> FunctionEmitter<'a> {
                                 produced: true,
                                 shape: if repr == kali_common::Repr::F64 {
                                     ValueShape::Float
+                                } else if self
+                                    .repr_table
+                                    .binding_is_search_boolean("_start", text)
+                                {
+                                    // Spec A-40: a growable `includes` result.
+                                    ValueShape::Boolean
                                 } else {
                                     ValueShape::Scalar
                                 },
@@ -2578,7 +2615,15 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::LocalGet(index));
                             EmittedValue {
                                 produced: true,
-                                shape: ValueShape::Unknown,
+                                // Spec A-40: a growable `includes` result.
+                                shape: if self
+                                    .repr_table
+                                    .binding_is_search_boolean(&self.function_name, text)
+                                {
+                                    ValueShape::Boolean
+                                } else {
+                                    ValueShape::Unknown
+                                },
                             }
                         }
                         IdentifierResolution::Binding(bound) => {
@@ -2894,6 +2939,13 @@ impl<'a> FunctionEmitter<'a> {
                     if self.is_usp_getall_call(base_id) {
                         return self.emit_growable_length(function, base_id);
                     }
+                    // Growable-runtime-arrays spec §3.5, A-6: `.length` of
+                    // any growable value — a binding, a call to a growable-
+                    // returning function, or a `slice` (`a.slice(4, 1).length`).
+                    // The call is emitted once as the base.
+                    if self.growable_value_elem(base_id).is_some() {
+                        return self.emit_growable_length(function, base_id);
+                    }
                     // Array-return lane (spec 2026-10-02 §3.3): `f().length`
                     // reads the returned array's length header; the call is
                     // emitted once as the base.
@@ -2910,13 +2962,6 @@ impl<'a> FunctionEmitter<'a> {
                         };
                     }
                     if let Some(base_name) = self.assignment_target_name(node, base_id) {
-                        // Growable runtime array `.length` (throw-fallout
-                        // Stage 4): decode the tagged handle, read `hdr.len`.
-                        // Must win before the plain-array lane — the two
-                        // layouts differ (tagged header vs inline base).
-                        if self.is_growable_array(&base_name) {
-                            return self.emit_growable_length(function, base_id);
-                        }
                         if self.array_bindings.contains(&base_name) {
                             self.emit_array_base_address(function, base_id);
                             function.instruction(&Instruction::I64Load(MemArg {

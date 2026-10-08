@@ -344,6 +344,9 @@ pub(crate) struct FunctionEmitter<'a> {
     pub(crate) current_function_flavor: Option<FunctionFlavor>,
     pub(crate) locals: BTreeMap<String, u32>,
     pub(crate) bindings: BTreeMap<String, LirNodeId>,
+    /// Residual round 5: loop variables of a static (unrolled) `for-of`
+    /// whose body is being emitted; a read resolves to the bound item.
+    pub(crate) unrolled_loop_items: BTreeSet<String>,
     /// `const` names promoted to a local slot by the stability allowlist — the
     /// ones that get a `bindings` denotation entry DESPITE having a slot. A
     /// handle-promoted `const` (`ConstPromotion::Handle`) is deliberately
@@ -388,19 +391,16 @@ pub(crate) struct FunctionEmitter<'a> {
     /// DISJOINT from `array_bindings` (a separate tagged-header layout; the
     /// two lanes must never conflate).
     pub(crate) growable_array_bindings: HashSet<String>,
-    /// `Some(<iterated binding name>)` while emitting the body of a runtime
-    /// `for..of` over a growable array (throw-fallout Stage 4 Task 4). Two
-    /// fail-closed guards key on it: (1) a growable `for..of` lexically NESTED
-    /// inside another rejects E5506 — the shared index/length scratch pair
-    /// (`growable_foreach_index_local_name`) would otherwise be clobbered by
-    /// the inner loop and silently miscompile the outer counter; (2) a `.push`
-    /// on the SAME binding being iterated rejects E5506 in
-    /// `emit_growable_push_call` — the by-construction mirror of the
-    /// resolve-time self-push reject (node grows the iteration; the counted
-    /// loop's once-snapshotted length does not). Per-function scoped (fresh
-    /// emitter per function), so a growable `for..of` in a nested FUNCTION is
-    /// a separate emitter and never blocked.
-    pub(crate) growable_for_of_active: Option<String>,
+    /// The iterated keys of the runtime growable `for..of` loops currently
+    /// being emitted, outermost first (growable-runtime-arrays spec §3.5,
+    /// A-10): a binding name, a `base.field` key for a growable field, or an
+    /// empty key for a call or `slice` iterable. Its length is the nesting
+    /// depth that picks the scratch locals
+    /// (`growable_foreach_index_local_name(depth)` and its twins); the
+    /// push/pop guards in `emit/growable.rs` are a belt behind inference's
+    /// snapshot refusal (spec A-8). Per-function scoped (fresh emitter per
+    /// function).
+    pub(crate) growable_for_of_active: Vec<String>,
     /// Stage P2 review C-2: `true` only while a growable-aware recognizer
     /// (push/join/length/index/for-of receiver, or the Lane-3 `===` field pair)
     /// is deliberately reading a `GrowableArrayI64` FIELD receiver's tagged
@@ -671,8 +671,13 @@ impl<'a> FunctionEmitter<'a> {
         // element load/store, `.length`, and `.fill` paths fire. Scalar params
         // are left untouched, so integer programs are byte-identical.
         let mut array_bindings = HashSet::new();
+        // A growable parameter (growable-runtime-arrays spec §3.2) carries a
+        // tagged header handle, never a plain `[len][elem…]` base: it stays off
+        // the plain lane and is registered only in `growable_array_bindings`.
         for name in params {
-            if repr_table.is_array_binding(function_name, name) {
+            if repr_table.is_array_binding(function_name, name)
+                && !repr_table.is_growable_array_binding(function_name, name)
+            {
                 array_bindings.insert(name.clone());
             }
         }
@@ -744,6 +749,7 @@ impl<'a> FunctionEmitter<'a> {
             current_function_flavor,
             locals,
             bindings: BTreeMap::new(),
+            unrolled_loop_items: BTreeSet::new(),
             allowlist_promoted_consts,
             fn_valued_locals: BTreeMap::new(),
             unstable_provenance_names,
@@ -753,7 +759,7 @@ impl<'a> FunctionEmitter<'a> {
             program_stores_function_in_aggregate_cache: std::cell::OnceCell::new(),
             array_bindings,
             growable_array_bindings,
-            growable_for_of_active: None,
+            growable_for_of_active: Vec::new(),
             admit_growable_field_read: false,
             reported_placeholder_fallbacks: HashSet::new(),
             control_frames: Vec::new(),
@@ -1345,6 +1351,44 @@ impl<'a> FunctionEmitter<'a> {
     /// element read and write.
     pub(crate) fn array_elem_addr_fn_index(&self) -> u32 {
         self.functions["__array_elem_addr"]
+    }
+
+    /// Wasm function index of `__growable_elem_addr(arr, idx, msg) -> i64`
+    /// (growable-runtime-arrays spec §3.5): every growable element read and
+    /// write routes its address through it.
+    pub(crate) fn growable_elem_addr_fn_index(&self) -> u32 {
+        self.functions["__growable_elem_addr"]
+    }
+
+    /// Wasm function index of `__growable_store(arr, idx, val, msg) -> i64`
+    /// (growable-runtime-arrays spec §3.5): every growable index write stores
+    /// through it, bounds-checked at store time.
+    pub(crate) fn growable_store_fn_index(&self) -> u32 {
+        self.functions["__growable_store"]
+    }
+
+    /// Wasm function index of `__growable_pop(arr, msg) -> i64`
+    /// (growable-runtime-arrays spec §3.5): the removed last slot's raw bits.
+    pub(crate) fn growable_pop_fn_index(&self) -> u32 {
+        self.functions["__growable_pop"]
+    }
+
+    /// Wasm function index of `__growable_find(arr, needle, mode) -> i64`
+    /// (spec §3.5): the first matching index, else -1.
+    pub(crate) fn growable_find_fn_index(&self) -> u32 {
+        self.functions["__growable_find"]
+    }
+
+    /// Wasm function index of `__growable_slice(arr, start, end) -> i64`
+    /// (spec §3.5): a fresh growable handle on the global heap.
+    pub(crate) fn growable_slice_fn_index(&self) -> u32 {
+        self.functions["__growable_slice"]
+    }
+
+    /// Wasm function index of `__join_growable_f64(arr, sep) -> i64`
+    /// (spec §3.5, A-12).
+    pub(crate) fn join_growable_f64_fn_index(&self) -> u32 {
+        self.functions["__join_growable_f64"]
     }
 
     /// Selects the string-concat host import for the concat node `id` (fasta

@@ -2,6 +2,15 @@
 # Edit the generator and re-run it with --write; its default mode re-renders every
 # file it owns and fails on any byte difference.
 #
+# HAND-EDITED 2026-10-08 AT `417b58fb8`, DELIBERATELY, AND THE GENERATOR CHECK
+# ABOVE IS THEREFORE RED for this file. The growable-runtime-arrays project
+# (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13)
+# re-pinned the cases whose outcome it moved; each re-pinned case's rationale
+# carries a dated `RE-PINNED 2026-10-08` note with node v26.10.0's reading.
+# `gen_task19_batch4.py` has no re-pin channel, so `--write` WOULD SILENTLY REVERT the
+# re-pins -- see cases/runtime/join.toml's header for what a regenerating fix
+# would need.
+#
 # Migrated from tests/arena_reclamation_runtime.rs.
 #   SOURCE REF: 7f57e0ed87ac9eaa0d05de88816f1fb1fdf6ef15
 #
@@ -300,12 +309,11 @@ stdout = """
 
 [[case]]
 name = "module_global_store_fails_closed"
-rationale = "Migrated 1:1 from `arena_reclamation_runtime.rs`'s `#[test] fn module_global_store_fails_closed`. The source asserts the command succeeds. It asserts that stdout is exactly the pinned text, which mirrors the source's own exact assertion (ruling 3, clause 1). A function called inside a loop stores a fresh object into a persistent, long-lived container (an array allocated BEFORE the loop) reachable only by reference through a call argument — the interprocedural sibling of `store_to_outer_fails_closed` below (the escaping store happens inside the CALLEE, not inline in the loop's own function). The gate must veto the loop's arena; the container's contents must be correct after the loop. mk(100): 100+101 Build a process-wide-unique directory name for a test fixture. Uniqueness must NOT depend on wall-clock resolution: tests run multi-threaded, and on platforms with a coarse `SystemTime` clock (e.g. macOS) two concurrent calls can observe the same `as_nanos()` value and collide on the same temp dir. A process-wide monotonic counter guarantees uniqueness independently of the wall-clock's resolution."
+rationale = "Migrated 1:1 from `arena_reclamation_runtime.rs`'s `#[test] fn module_global_store_fails_closed`. The source asserts the command succeeds. It asserts that stdout is exactly the pinned text, which mirrors the source's own exact assertion (ruling 3, clause 1). A function called inside a loop stores a fresh object into a persistent, long-lived container (an array allocated BEFORE the loop) reachable only by reference through a call argument — the interprocedural sibling of `store_to_outer_fails_closed` below (the escaping store happens inside the CALLEE, not inline in the loop's own function). The gate must veto the loop's arena; the container's contents must be correct after the loop. mk(100): 100+101 Build a process-wide-unique directory name for a test fixture. Uniqueness must NOT depend on wall-clock resolution: tests run multi-threaded, and on platforms with a coarse `SystemTime` clock (e.g. macOS) two concurrent calls can observe the same `as_nanos()` value and collide on the same temp dir. A process-wide monotonic counter guarantees uniqueness independently of the wall-clock's resolution. RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13), measured at `417b58fb8` against node v26.10.0: CAPABILITY LOSS, spec-ruled. At `edb3a77df` kali printed node's `201` at exit 0; it is now REFUSED (E5506). The index write `arr[0] = mk(v)` makes the array literal a growable array (spec §3.1, A-2), and a growable array holding objects is refused (spec §3.4, A-4). The controller ruled to accept the loss (ledger, Task 6 concern 2); it is recorded in docs/superpowers/followups/growable-runtime-arrays-discovered-defects.md. node v26.10.0 prints `201`."
 args = ["run", "module_global_store_fails_closed.ts"]
-exit = "success"
-stdout = """
-201
-"""
+exit = "failure"
+stdout = ""
+stderr_contains = ["E5506", "is a growable array with an element that is an object"]
 
 [[case]]
 name = "store_to_outer_fails_closed"

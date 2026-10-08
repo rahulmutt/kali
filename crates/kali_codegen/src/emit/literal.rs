@@ -683,6 +683,29 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::I64Const(0));
                             return true;
                         }
+                        // Growable-runtime-arrays spec §3.5: a bounds-checked
+                        // store into the header layout. `.length` writes are
+                        // refused by inference (M7); this is the belt.
+                        if self.is_growable_array(&base_name) {
+                            if matches!(&index, ArrayWriteIndex::Text(text) if text == "length") {
+                                let message = kali_common::growable_length_write_message(
+                                    &kali_common::growable_binding_subject(
+                                        &base_name,
+                                        &self.function_name,
+                                    ),
+                                );
+                                let _ = self.deny_e5506(function, &message);
+                                return true;
+                            }
+                            let index_id = match index {
+                                ArrayWriteIndex::Text(text) => {
+                                    self.alloc_scratch_node(LirNodeKind::Value, Some(text), vec![])
+                                }
+                                ArrayWriteIndex::Node(id) => id,
+                            };
+                            self.emit_growable_index_write(function, base_id, index_id, right);
+                            return true;
+                        }
                         if self.array_bindings.contains(&base_name) {
                             // Array-bounds spec §3.2: `a.length = v` reaches
                             // this arm as the text index `length`, which used

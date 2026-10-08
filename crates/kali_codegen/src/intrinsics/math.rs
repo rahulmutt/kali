@@ -303,8 +303,13 @@ impl<'a> FunctionEmitter<'a> {
         method: &str,
         arg: LirNodeId,
     ) -> Option<i64> {
-        let rendered = self.render_static_value(arg)?;
-        let value = parse_numeric_literal_value(&rendered)?;
+        // Residual round 1: a module `const` of a literal read from a
+        // function folds too (inference treats it as a compile-time number,
+        // `is_static_numeric`; it used to reach the integer lane as an f64).
+        let value = match self.render_static_value(arg) {
+            Some(rendered) => parse_numeric_literal_value(&rendered)?,
+            None => self.static_numeric_chain(arg)?,
+        };
         let folded = match method {
             "round" => {
                 if value.fract() == 0.0 {
@@ -357,8 +362,89 @@ impl<'a> FunctionEmitter<'a> {
         Some(folded)
     }
 
+    /// Residual rounds 1-2 (spec A-41): the value of a compile-time number
+    /// — a numeric literal, a unary sign, `Object.freeze(…)` or a transparent
+    /// wrapper of one, or an identifier bound to one through a chain of local
+    /// `const` fold aliases (`self.bindings`) and, from a function, module
+    /// `const`s (`module_const_inits`, whose own identifiers resolve at
+    /// module scope only). Cycle-safe by a hop bound. The codegen half of
+    /// `repr_infer::is_static_numeric`, which follows the same chains over
+    /// the AST, so a rounding call over it takes the i64 fold on both sides.
+    pub(crate) fn static_numeric_chain(&self, id: LirNodeId) -> Option<f64> {
+        self.static_numeric_chain_at(id, false, 0)
+    }
+
+    fn static_numeric_chain_at(
+        &self,
+        id: LirNodeId,
+        module_only: bool,
+        hops: usize,
+    ) -> Option<f64> {
+        // Residual round 4: `hops` counts name hops only, and each one goes
+        // through a binding inference published, so a chain longer than the
+        // published set revisits one (a cycle); an acyclic chain of any
+        // length is followed, as inference follows it.
+        if hops > self.repr_table.static_numeric_binding_count() + 1 {
+            return None;
+        }
+        let node = self.node(id);
+        if self.is_object_freeze_call(node) {
+            let arg = *node.children.get(1)?;
+            return self.static_numeric_chain_at(arg, module_only, hops);
+        }
+        match node.kind {
+            LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
+            LirNodeKind::Value if node.children.is_empty() => {
+                let name = node.text.as_deref()?;
+                // Residual round 3 (A-44): follow a name only when inference
+                // proved it a compile-time number, so the fold here and
+                // inference's float edges agree by construction (an unrolled
+                // loop binding over a non-literal array is not followed).
+                if !module_only {
+                    if let Some(&bound) = self.bindings.get(name) {
+                        if !self
+                            .repr_table
+                            .binding_is_static_numeric(&self.function_name, name)
+                        {
+                            return None;
+                        }
+                        return self.static_numeric_chain_at(bound, false, hops + 1);
+                    }
+                }
+                let module_scope = module_only
+                    || (!self.locals.contains_key(name) && self.function_name != "_start");
+                if module_scope {
+                    if let Some(&init) = self.module_const_inits.get(name) {
+                        if !self.repr_table.binding_is_static_numeric("_start", name) {
+                            return None;
+                        }
+                        return self.static_numeric_chain_at(init, true, hops + 1);
+                    }
+                }
+                parse_numeric_literal_value(name)
+            }
+            LirNodeKind::Value if node.children.len() == 1 => match node.text.as_deref() {
+                None | Some("") | Some("await") | Some("+") => {
+                    self.static_numeric_chain_at(node.children[0], module_only, hops)
+                }
+                Some("-") => self
+                    .static_numeric_chain_at(node.children[0], module_only, hops)
+                    .map(|v| -v),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub(crate) fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
-        let rendered = self.render_static_value(arg)?;
+        let Some(rendered) = self.render_static_value(arg) else {
+            // Residual round 2: a module `const` chain read from a function.
+            let value = self.static_numeric_chain(arg)?;
+            if value.fract() != 0.0 || !value.is_finite() || value.abs() > i64::MAX as f64 {
+                return None;
+            }
+            return (value as i64).checked_abs();
+        };
         parse_number_literal(&rendered)?.checked_abs()
     }
 
@@ -397,3 +483,244 @@ impl<'a> FunctionEmitter<'a> {
 #[cfg(test)]
 #[path = "math_tests.rs"]
 mod math_tests;
+
+/// Growable-runtime-arrays residual R2 (spec A-39): the `Math` methods that
+/// take the f64 lane when an operand is a floating-point value.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MathFloatMethod {
+    Floor,
+    Ceil,
+    Trunc,
+    Round,
+    Abs,
+    Min,
+    Max,
+}
+
+impl MathFloatMethod {
+    fn from_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "floor" => Self::Floor,
+            "ceil" => Self::Ceil,
+            "trunc" => Self::Trunc,
+            "round" => Self::Round,
+            "abs" => Self::Abs,
+            "min" => Self::Min,
+            "max" => Self::Max,
+            _ => return None,
+        })
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Floor => "floor",
+            Self::Ceil => "ceil",
+            Self::Trunc => "trunc",
+            Self::Round => "round",
+            Self::Abs => "abs",
+            Self::Min => "min",
+            Self::Max => "max",
+        }
+    }
+
+    /// `min`/`max` read every argument; the others read the first only.
+    fn is_extremum(self) -> bool {
+        matches!(self, Self::Min | Self::Max)
+    }
+}
+
+impl<'a> FunctionEmitter<'a> {
+    /// Spec A-39: the method when `node` is a `Math.floor`/`ceil`/`trunc`/
+    /// `round`/`abs` call whose first argument is a floating-point value
+    /// other than a signed numeric literal (a literal keeps the constant-fold
+    /// lane), or a `Math.min`/`Math.max` call with any floating-point
+    /// argument. The result is then an f64. Mirrors `repr_infer`'s float
+    /// edges for the same calls (`math_float_operand_edges`), so the two
+    /// agree on which results are f64.
+    pub(crate) fn math_float_lane(&self, node: &LirNode) -> Option<MathFloatMethod> {
+        if node.kind != LirNodeKind::Call {
+            return None;
+        }
+        let callee = self.unwrap_transparent(*node.children.first()?);
+        let callee_node = self.node(callee);
+        // Only the bare `Math.<method>(…)` spelling, which is the one
+        // `repr_infer` gives float edges.
+        let object = self.node(self.unwrap_transparent(*callee_node.children.first()?));
+        if object.kind != LirNodeKind::Value
+            || !object.children.is_empty()
+            || object.text.as_deref() != Some("Math")
+            || !self.is_math_object(callee_node)
+        {
+            return None;
+        }
+        let method = MathFloatMethod::from_name(callee_node.text.as_deref()?)?;
+        let args = &node.children[1..];
+        let float = if method.is_extremum() {
+            args.iter()
+                .any(|&arg| self.is_float_valued(arg) && !self.is_unfloated_fold_alias(arg))
+        } else {
+            args.first().is_some_and(|&arg| {
+                // Residual round 1: a compile-time number (a literal, or a
+                // `const` alias chain of one) keeps the i64 fold lane, as on
+                // `main`; `repr_infer` gives it no float edge either
+                // (`is_static_numeric`).
+                self.is_float_valued(arg)
+                    && !self.is_static_numeric_arg(arg)
+                    && !self.is_unfloated_fold_alias(arg)
+            })
+        };
+        float.then_some(method)
+    }
+
+    /// Residual round 4: `id` is an identifier codegen resolves to a
+    /// compile-time number through a local fold binding (`self.bindings`: a
+    /// `const`, or an unrolled loop item) to which inference gave no float
+    /// repr. That is a binding in a scope inference does not walk (a class
+    /// body), or a loop variable it leaves plain (no growable array in the
+    /// program, or an iterable whose items it does not model, such as
+    /// `new Set([...])`). Inference's float edge for the rounding call comes
+    /// from the binding's own node, so the call has none, and the call must
+    /// not be f64 here either: it folds to an integer, as on `main`.
+    ///
+    /// A fold binding inference did float, and did not publish as a
+    /// compile-time number, takes the runtime f64 lane instead
+    /// (`emit_math_float_lane`), which is what inference's float edge
+    /// expects. So publication only upgrades a call to the i64 fold, and
+    /// either way both sides agree on the result's repr.
+    /// Residual round 4: the compile-time value of an identifier bound
+    /// through a local fold binding (`self.bindings`).
+    fn fold_binding_numeric_value(&self, id: LirNodeId) -> Option<f64> {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return None;
+        }
+        self.bindings.get(node.text.as_deref()?)?;
+        self.resolve_static_numeric_value(id)
+    }
+
+    fn is_unfloated_fold_alias(&self, id: LirNodeId) -> bool {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return false;
+        }
+        let Some(name) = node.text.as_deref() else {
+            return false;
+        };
+        self.repr_table.scalar(&self.function_name, name) != kali_common::Repr::F64
+            && self.fold_binding_numeric_value(id).is_some()
+    }
+
+    /// A compile-time number: a literal, a unary sign or `Object.freeze` of
+    /// one, a local `const` fold alias of one, or (from a function) a
+    /// module `const` whose initializer is one. Mirrors `repr_infer`'s
+    /// `is_static_numeric`.
+    fn is_static_numeric_arg(&self, id: LirNodeId) -> bool {
+        self.static_numeric_chain(id).is_some()
+    }
+
+    /// Spec A-39: lower a `math_float_lane` call. Every argument is
+    /// evaluated left to right through `emit_math_arg` (which keeps its
+    /// string refusal; a non-integer literal is an f64 here), an integer one promoted
+    /// to f64; `min`/`max` fold with `f64.min`/`f64.max` (NaN-propagating,
+    /// `-0 < +0`, as JS), the others apply to the first argument and evaluate
+    /// and drop the rest. `round` is JS's: `floor(x)`, plus one when
+    /// `x - floor(x) >= 0.5`, with the sign of `x` (so `-0.25` gives `-0`).
+    /// Leaves an f64.
+    pub(crate) fn emit_math_float_lane(
+        &mut self,
+        function: &mut Function,
+        node: &LirNode,
+        method: MathFloatMethod,
+    ) -> EmittedValue {
+        let args: Vec<LirNodeId> = node.children[1..].to_vec();
+        for (position, &arg) in args.iter().enumerate() {
+            // Residual round 4 (spec A-45): a fold binding inference floated
+            // but did not publish as a compile-time number (a floated `let`
+            // loop item, a `const` it could not prove) is lowered as the f64
+            // it is, not refused as a non-integer literal: inference gave the
+            // call a float edge, so this is the lane `check` promised. The
+            // value is the binding's own (the unrolled item), as the integer
+            // fold reads it; a read through `emit_node` could reach a stale
+            // `let` local or global the unroll lane never writes.
+            if let Some(value) = self.fold_binding_numeric_value(arg) {
+                function.instruction(&Instruction::F64Const(value.into()));
+            } else {
+                let is_float = self.is_float_valued(arg);
+                if !self.emit_math_arg(function, arg, method.name(), false) {
+                    return EmittedValue {
+                        produced: false,
+                        shape: ValueShape::Unknown,
+                    };
+                }
+                if !is_float && (position == 0 || method.is_extremum()) {
+                    function.instruction(&Instruction::F64ConvertI64S);
+                }
+            }
+            if position > 0 && !method.is_extremum() {
+                function.instruction(&Instruction::Drop);
+                continue;
+            }
+            match method {
+                MathFloatMethod::Min if position > 0 => {
+                    function.instruction(&Instruction::F64Min);
+                }
+                MathFloatMethod::Max if position > 0 => {
+                    function.instruction(&Instruction::F64Max);
+                }
+                MathFloatMethod::Floor => {
+                    function.instruction(&Instruction::F64Floor);
+                }
+                MathFloatMethod::Ceil => {
+                    function.instruction(&Instruction::F64Ceil);
+                }
+                MathFloatMethod::Trunc => {
+                    function.instruction(&Instruction::F64Trunc);
+                }
+                MathFloatMethod::Abs => {
+                    function.instruction(&Instruction::F64Abs);
+                }
+                MathFloatMethod::Round => self.emit_f64_js_round(function),
+                MathFloatMethod::Min | MathFloatMethod::Max => {}
+            }
+        }
+        EmittedValue {
+            produced: true,
+            shape: ValueShape::Float,
+        }
+    }
+
+    /// JS `Math.round` of the f64 on top of the stack. Holds the operand's
+    /// bits in the dedicated `__math_round_scratch` local for the few
+    /// instructions below only; nothing is emitted in between, so a nested
+    /// `Math.round` (already finished) cannot clobber it.
+    fn emit_f64_js_round(&self, function: &mut Function) {
+        let scratch = self
+            .locals
+            .get(crate::lower::math_round_scratch_local_name().as_str())
+            .copied()
+            .expect("the `Math.round` scratch is reserved for any body that reads `.round`");
+        let x = |function: &mut Function| {
+            function.instruction(&Instruction::LocalGet(scratch));
+            function.instruction(&Instruction::F64ReinterpretI64);
+        };
+        function.instruction(&Instruction::I64ReinterpretF64);
+        function.instruction(&Instruction::LocalSet(scratch));
+        // floor(x)
+        x(function);
+        function.instruction(&Instruction::F64Floor);
+        // + (x - floor(x) >= 0.5)
+        x(function);
+        x(function);
+        function.instruction(&Instruction::F64Floor);
+        function.instruction(&Instruction::F64Sub);
+        function.instruction(&Instruction::F64Const(0.5.into()));
+        function.instruction(&Instruction::F64Ge);
+        function.instruction(&Instruction::F64ConvertI32U);
+        function.instruction(&Instruction::F64Add);
+        // with the sign of x
+        x(function);
+        function.instruction(&Instruction::F64Copysign);
+    }
+}

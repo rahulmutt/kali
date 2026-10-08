@@ -40,7 +40,11 @@ impl TypeContext {
         // lockstep with what codegen lowers (mirrors the FunctionDeclaration
         // arm, `resolve/mod.rs`).
         for param in &expr.params {
-            if self.repr_table.is_array_binding(&name, &param.name) {
+            if self.repr_table.is_array_binding(&name, &param.name)
+                && !self
+                    .repr_table
+                    .is_growable_array_binding(&name, &param.name)
+            {
                 if let Some(scope) = self.scopes.get_mut(&function_scope_id) {
                     scope
                         .runtime_array_bindings
@@ -78,7 +82,11 @@ impl TypeContext {
         // Structural runtime-array registry (C1) — mirrors
         // `resolve_function_expression` above.
         for param in &expr.params {
-            if self.repr_table.is_array_binding(&name, &param.name) {
+            if self.repr_table.is_array_binding(&name, &param.name)
+                && !self
+                    .repr_table
+                    .is_growable_array_binding(&name, &param.name)
+            {
                 if let Some(scope) = self.scopes.get_mut(&function_scope_id) {
                     scope
                         .runtime_array_bindings
@@ -143,7 +151,11 @@ impl TypeContext {
             // Structural runtime-array registry (C1) — mirrors the
             // FunctionDeclaration arm and `resolve_function_expression`.
             for param in &method.params {
-                if self.repr_table.is_array_binding(&method.name, param) {
+                if self.repr_table.is_array_binding(&method.name, param)
+                    && !self
+                        .repr_table
+                        .is_growable_array_binding(&method.name, param)
+                {
                     if let Some(scope) = self.scopes.get_mut(&function_scope_id) {
                         scope.runtime_array_bindings.insert(param.clone(), true);
                     }

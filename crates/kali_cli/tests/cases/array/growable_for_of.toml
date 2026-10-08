@@ -1,0 +1,759 @@
+# Growable runtime arrays: for-of over bindings, calls and slices, nested,
+# with i64, f64 and string elements; multi-argument console output
+# (spec §3.5, A-9, A-10). Every expected stdout is node v26.10.0's for the
+# same file, measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`.
+
+[source]
+"nested_module.js" = """
+const a = [];
+a.push(1); a.push(2);
+const b = [];
+b.push(10); b.push(20);
+let s = 0;
+for (const x of a) { for (const y of b) { s += x * y; } }
+let t = 0;
+for (const x of a) { for (const y of a) { t += x * y; } }
+console.log(s, t);
+"""
+"nested_function.js" = """
+function main() {
+  const a = []; a.push(1); a.push(2);
+  const b = []; b.push(10); b.push(20);
+  let s = 0;
+  for (const x of a) { for (const y of b) { s += x * y; } }
+  let t = 0;
+  for (const x of a) { for (const y of a) { t += x * y; } }
+  console.log(s, t);
+}
+main();
+"""
+"p2_module.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+const ws = build(3);
+for (const w of ws) console.log(w);
+console.log(ws.length, ws.join(" "));
+"""
+"p2_function.js" = """
+function build(n) { const out = []; let w = "a"; for (let i = 0; i < n; i++) { out.push(w); w = w + "b"; } return out; }
+function main() {
+  const ws = build(3);
+  for (const w of ws) console.log(w);
+  console.log(ws.length, ws.join(" "));
+}
+main();
+"""
+"p3_module.js" = """
+const out = [];
+for (let i = 0; i < 4; i++) out.push(i);
+let s = 0;
+for (const x of out) s += x;
+console.log(s, out.length, out.join("|"));
+"""
+"p3_function.js" = """
+function main() { const out = []; for (let i = 0; i < 4; i++) out.push(i); let s = 0; for (const x of out) s += x; console.log(s, out.length, out.join("|")); }
+main();
+"""
+"float_loop.js" = """
+const data = [];
+for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+let t = 0;
+for (const v of data) t += v;
+console.log(t);
+"""
+"float_loop_function.js" = """
+function main() { const data = []; for (let i = 1; i <= 5; i++) data.push(i * 1.5); let t = 0; for (const v of data) t += v; console.log(t); }
+main();
+"""
+"slice_loop.js" = """
+function main() { const a = []; for (let i = 0; i < 4; i++) a.push(i); let s = ""; for (const x of a.slice(1, 3)) s = s + x; console.log(s); }
+main();
+"""
+"slice_loop_module.js" = """
+const a = [];
+for (let i = 0; i < 4; i++) a.push(i);
+let s = "";
+for (const x of a.slice(1, 3)) s = s + x;
+console.log(s);
+"""
+"write_in_loop.js" = """
+function main() { const a = []; a.push(1); a.push(2); a.push(3); for (const x of a) a[0] = x; console.log(a.join(",")); }
+main();
+"""
+"write_in_loop_module.js" = """
+const a = [];
+a.push(1); a.push(2); a.push(3);
+for (const x of a) a[0] = x;
+console.log(a.join(","));
+"""
+"break_continue.js" = """
+function main() { const a = []; for (let i = 0; i < 6; i++) a.push(i); let s = 0; for (const x of a) { if (x === 1) continue; if (x === 4) break; s += x; } console.log(s); }
+main();
+"""
+"break_continue_module.js" = """
+const a = [];
+for (let i = 0; i < 6; i++) a.push(i);
+let s = 0;
+for (const x of a) { if (x === 1) continue; if (x === 4) break; s += x; }
+console.log(s);
+"""
+"wrap_module.js" = """
+function wrap(words) { const lines = []; for (const w of words) { if (w.length > 1) lines.push(w); } return lines; }
+const ws = [];
+ws.push("a"); ws.push("bb"); ws.push("ccc");
+for (const line of wrap(ws)) console.log(line);
+"""
+"wrap_function.js" = """
+function wrap(words) { const lines = []; for (const w of words) { if (w.length > 1) lines.push(w); } return lines; }
+function main() {
+  const ws = [];
+  ws.push("a"); ws.push("bb"); ws.push("ccc");
+  for (const line of wrap(ws)) console.log(line);
+}
+main();
+"""
+"mixed_module.js" = """
+const ws = [];
+ws.push("x"); ws.push("yz");
+const fs = [];
+fs.push(0.5); fs.push(2.25);
+const ns = [];
+ns.push(3); ns.push(4);
+for (const w of ws) { for (const f of fs) { for (const n of ns) { console.log(w, f * n); } } }
+let line = "";
+for (const w of ws.slice(1)) { for (const n of ns) line = line + " " + w + n; }
+console.log(line);
+"""
+"mixed_function.js" = """
+function main() {
+  const ws = []; ws.push("x"); ws.push("yz");
+  const fs = []; fs.push(0.5); fs.push(2.25);
+  const ns = []; ns.push(3); ns.push(4);
+  for (const w of ws) { for (const f of fs) { for (const n of ns) { console.log(w, f * n); } } }
+  let line = "";
+  for (const w of ws.slice(1)) { for (const n of ns) line = line + " " + w + n; }
+  console.log(line);
+}
+main();
+"""
+"call_once_module.js" = """
+let calls = 0;
+function build(n) { calls += 1; const out = []; for (let i = 0; i < n; i++) out.push(i * 2); return out; }
+let s = 0;
+for (const x of build(3)) { for (const y of build(2)) s += x + y; }
+console.log(s, calls);
+"""
+"call_once_function.js" = """
+let calls = 0;
+function build(n) { calls += 1; const out = []; for (let i = 0; i < n; i++) out.push(i * 2); return out; }
+function main() {
+  let s = 0;
+  for (const x of build(3)) { for (const y of build(2)) s += x + y; }
+  console.log(s, calls);
+}
+main();
+"""
+"mixed_loops.js" = """
+for (const x of [3, "a"]) { console.log(x); }
+for (const x of [1.5, 2.5]) { console.log(x); }
+for (const x of [1.5, 2.5]) { console.log(Math.floor(x) % 2); }
+"""
+"mixed_loops_main.js" = """
+function main() {
+  for (const x of [3, "a"]) { console.log(x); }
+  for (const x of [1.5, 2.5]) { console.log(x); }
+  for (const x of [1.5, 2.5]) { console.log(Math.floor(x) % 2); }
+}
+main();
+"""
+"r5_feed_d02.js" = """
+function main() { const out = []; out.push(1); for (const x of [3, "a"]) console.log(x); console.log(out.length); }
+main();
+"""
+"r5_feed_d02_module.js" = """
+const out = []; out.push(1); for (const x of [3, "a"]) console.log(x); console.log(out.length);
+"""
+"r5_feed_d03.js" = """
+function main() { const out = []; out.push(1); console.log(out.length); }
+main();
+for (const x of [3, "a"]) console.log(x);
+"""
+"r5_feed_d08.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2); console.log(out.length); }
+main();
+"""
+"r5_feed_d08_module.js" = """
+const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2); console.log(out.length);
+"""
+"r5_feed_e01.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) { const k = Math.floor(y); console.log(k % 2, k); } console.log(out.length); }
+main();
+"""
+"r5_feed_e01_module.js" = """
+const out = []; out.push(1); for (let y of [1.5, 2.5]) { const k = Math.floor(y); console.log(k % 2, k); } console.log(out.length);
+"""
+"r5_feed_e02.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) | 0); console.log(out.length); }
+main();
+"""
+"r5_feed_e06.js" = """
+function main() { const out = []; out.push(1); for (const x of [1, "b", 2]) console.log(x); console.log(out.length); }
+main();
+"""
+"r5_feed_e08.js" = """
+function main() { const out = []; out.push(1); for (const x of [3, "a"]) console.log(typeof x); console.log(out.length); }
+main();
+"""
+"r5_feed_e09.js" = """
+function main() { const out = []; out.push(1); for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2 === 0); console.log(out.length); }
+main();
+"""
+"r5_feed_e13.js" = """
+function main() { const out = []; out.push(1); for (const s of ["a", 1]) console.log(s); console.log(out.length); }
+main();
+"""
+"r5_feed_e14.js" = """
+function helper() { const xs = []; xs.push(4); return xs.length; }
+for (const x of [3, "a"]) console.log(x);
+console.log(helper());
+"""
+"r5_feed_e15.js" = """
+function helper() { const xs = []; xs.push(4); return xs.length; }
+for (let y of [1.5, 2.5]) console.log(Math.floor(y) % 2);
+console.log(helper());
+"""
+"r5_mixed_push_function.js" = """
+function main() { const out = []; for (const x of [3, "a"]) { const y = x; out.push(y); } console.log(out.length); }
+main();
+"""
+"r5_mixed_push_module.js" = """
+const out = []; for (const x of [3, "a"]) out.push(x); console.log(out.length);
+"""
+"r5_mixed_push_param.js" = """
+function add(out, v) { out.push(v); }
+function main() { const out = []; for (const x of [3, "a"]) add(out, x); console.log(out.length); }
+main();
+"""
+"let_item_function.js" = """
+function main() {
+  const out = [];
+  for (let x of [1, 2]) out.push(x);
+  for (let y of [1.5, 2.5]) out.push(y);
+  for (let z of [3, 4]) console.log(z + 1, Math.abs(z));
+  console.log(out[0], out[1], out[2], out[3]);
+}
+main();
+"""
+"let_item_module.js" = """
+const out = [];
+for (let x of [1, 2]) out.push(x);
+for (let y of [1.5, 2.5]) out.push(y);
+for (let z of [3, 4]) console.log(z + 1, Math.abs(z));
+console.log(out[0], out[1], out[2], out[3]);
+"""
+
+"lf_assign_after_push_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { xs.push(x); x = 9; } console.log(xs.join(",")); }
+main();
+"""
+"lf_assign_before_push_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { x = x + 10; xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_conditional_assign_module.js" = """
+const xs = []; for (let x of [1, 2]) { if (x > 5) { x = 0; } xs.push(x); } console.log(xs.join(","));
+"""
+"lf_conditional_assign_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { if (x > 5) { x = 0; } xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_update_var_function.js" = """
+function main() { const xs = []; for (var x of [1, 2]) { x++; xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_compound_module.js" = """
+const xs = []; for (let x of [1, 2]) { x += 5; xs.push(x); } console.log(xs.join(","));
+"""
+"lf_destructure_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { ([x] = [x * 3]); xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_derived_module.js" = """
+const xs = []; for (let x of [1, 2]) { const d = x * 2; x = 7; xs.push(d); } console.log(xs.join(","));
+"""
+"lf_derived_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { const d = x * 2; x = 7; xs.push(d); } console.log(xs.join(",")); }
+main();
+"""
+"lf_needle_function.js" = """
+function main() { const xs = []; xs.push(3); for (let x of [1, 2]) { x = x + 1; console.log(xs.includes(x)); } }
+main();
+"""
+"lf_needle_module.js" = """
+const xs = []; xs.push(3); for (let x of [1, 2]) { x = x + 1; console.log(xs.indexOf(x)); }
+"""
+"lf_string_bare_function.js" = """
+function main() { const xs = []; let c = ""; for (c of "ab") { c = c + "!"; xs.push(c); } console.log(xs.join(",")); }
+main();
+"""
+"lf_ok_growable_iterable_function.js" = """
+function main() { const xs = []; xs.push(1); xs.push(2); const ys = []; for (let c of xs) { c = c + 1; ys.push(c); } console.log(ys.join(",")); }
+main();
+"""
+"lf_ok_other_binding_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { let y = x; y = y + 1; xs.push(y); } console.log(xs.join(",")); }
+main();
+"""
+"lf_ok_other_binding_module.js" = """
+const xs = []; for (let x of [1, 2]) { let y = x; y = y + 1; xs.push(y); } console.log(xs.join(","));
+"""
+
+[[case]]
+name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice_module_scope"
+rationale = "Spec §3.5, A-10: per-depth index, length and handle locals. At the baseline `run` refused the nesting and `check` accepted it."
+args = ["run", "nested_module.js"]
+exit = "success"
+stdout = "90 9\n"
+
+[[case]]
+name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice"
+args = ["run", "nested_function.js"]
+exit = "success"
+stdout = "90 9\n"
+
+[[case]]
+name = "string_elements_iterate_and_join_module_scope"
+rationale = "Spec §2.1 p2. At the baseline: E5506 at `push`, `for-of`, `join`."
+args = ["run", "p2_module.js"]
+exit = "success"
+stdout = "a\nab\nabb\n3 a ab abb\n"
+
+[[case]]
+name = "string_elements_iterate_and_join"
+args = ["run", "p2_function.js"]
+exit = "success"
+stdout = "a\nab\nabb\n3 a ab abb\n"
+
+[[case]]
+name = "multi_argument_console_reads_a_growable_array_module_scope"
+rationale = "Spec §2.1 p3, A-9. At the baseline: \"console output of multiple arguments where one reads a growable array is unavailable\"."
+args = ["run", "p3_module.js"]
+exit = "success"
+stdout = "6 4 0|1|2|3\n"
+
+[[case]]
+name = "multi_argument_console_reads_a_growable_array"
+args = ["run", "p3_function.js"]
+exit = "success"
+stdout = "6 4 0|1|2|3\n"
+
+[[case]]
+name = "f64_elements_iterate"
+args = ["run", "float_loop.js"]
+exit = "success"
+stdout = "22.5\n"
+
+[[case]]
+name = "f64_elements_iterate_in_a_function"
+rationale = "W6 twin of `f64_elements_iterate` (module scope). At the baseline: \"for-of over a growable array of non-integer elements\" (codegen only; `check` accepted it)."
+args = ["run", "float_loop_function.js"]
+exit = "success"
+stdout = "22.5\n"
+
+[[case]]
+name = "for_of_over_a_slice_iterates_the_temporary"
+args = ["run", "slice_loop.js"]
+exit = "success"
+stdout = "12\n"
+
+[[case]]
+name = "for_of_over_a_slice_iterates_the_temporary_module_scope"
+args = ["run", "slice_loop_module.js"]
+exit = "success"
+stdout = "12\n"
+
+[[case]]
+name = "an_index_write_inside_the_loop_is_seen_by_later_iterations"
+rationale = "An index write keeps the length (so it is admitted, spec A-8) and each iteration reloads the element: node's `3,2,3`."
+args = ["run", "write_in_loop.js"]
+exit = "success"
+stdout = "3,2,3\n"
+
+[[case]]
+name = "an_index_write_inside_the_loop_is_seen_by_later_iterations_module_scope"
+args = ["run", "write_in_loop_module.js"]
+exit = "success"
+stdout = "3,2,3\n"
+
+[[case]]
+name = "break_and_continue_in_a_growable_for_of"
+args = ["run", "break_continue.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "break_and_continue_in_a_growable_for_of_module_scope"
+args = ["run", "break_continue_module.js"]
+exit = "success"
+stdout = "5\n"
+
+[[case]]
+name = "for_of_over_a_call_returning_a_filtered_string_array_module_scope"
+rationale = "Corpus shape: a function builds a growable string array inside a for-of over its parameter and the caller iterates the call result directly (spec §3.5, A-6)."
+args = ["run", "wrap_module.js"]
+exit = "success"
+stdout = "bb\nccc\n"
+
+[[case]]
+name = "for_of_over_a_call_returning_a_filtered_string_array"
+args = ["run", "wrap_function.js"]
+exit = "success"
+stdout = "bb\nccc\n"
+
+[[case]]
+name = "three_deep_nesting_over_string_f64_and_i64_elements_and_a_slice_module_scope"
+rationale = "Spec A-10: each depth has its own scratch locals, and each loop variable carries its own element repr."
+args = ["run", "mixed_module.js"]
+exit = "success"
+stdout = "x 1.5\nx 2\nx 6.75\nx 9\nyz 1.5\nyz 2\nyz 6.75\nyz 9\n yz3 yz4\n"
+
+[[case]]
+name = "three_deep_nesting_over_string_f64_and_i64_elements_and_a_slice"
+args = ["run", "mixed_function.js"]
+exit = "success"
+stdout = "x 1.5\nx 2\nx 6.75\nx 9\nyz 1.5\nyz 2\nyz 6.75\nyz 9\n yz3 yz4\n"
+
+[[case]]
+name = "a_call_iterable_is_evaluated_once_per_loop_entry_module_scope"
+rationale = "Spec §3.5: the iterable is evaluated once into the depth's handle local; the inner call runs once per outer iteration, as in node."
+args = ["run", "call_once_module.js"]
+exit = "success"
+stdout = "18 4\n"
+
+[[case]]
+name = "a_call_iterable_is_evaluated_once_per_loop_entry"
+args = ["run", "call_once_function.js"]
+exit = "success"
+stdout = "18 4\n"
+
+[[case]]
+name = "a_plain_for_of_over_a_mixed_literal_array_prints_its_items_module_scope"
+rationale = "Residual round 4 (item 4): with no growable array in the program, a plain for-of loop variable carries no item repr (Task 7's item flow only feeds a growable element), so `[3, \"a\"]` and a reused `x` over floats print node's output as on `main` instead of the both-axes refusal."
+args = ["run", "mixed_loops.js"]
+exit = "success"
+stdout = "3\na\n1.5\n2.5\n1\n0\n"
+
+[[case]]
+name = "a_plain_for_of_over_a_mixed_literal_array_prints_its_items"
+args = ["run", "mixed_loops_main.js"]
+exit = "success"
+stdout = "3\na\n1.5\n2.5\n1\n0\n"
+
+[[case]]
+name = "check_accepts_a_plain_for_of_over_a_mixed_literal_array"
+args = ["check", "mixed_loops.js", "mixed_loops_main.js"]
+exit = "success"
+
+[[case]]
+name = "a_mixed_literal_loop_beside_a_function_local_growable_array_prints_its_items"
+rationale = "Residual round 5 (rr/p28, p29): the plain for-of item flow runs only for a loop whose variable feeds a growable array element, so a loop that does not feed one behaves as on `main` even when the program (or another function) has a growable array. Round 4 gated on the whole program and refused or failed these at load."
+args = ["run", "r5_feed_d02.js"]
+exit = "success"
+stdout = "3\na\n1\n"
+
+[[case]]
+name = "a_mixed_literal_loop_beside_a_function_local_growable_array_prints_its_items_module_scope"
+args = ["run", "r5_feed_d02_module.js"]
+exit = "success"
+stdout = "3\na\n1\n"
+
+[[case]]
+name = "a_module_mixed_literal_loop_beside_a_function_local_growable_array_prints_its_items"
+args = ["run", "r5_feed_d03.js"]
+exit = "success"
+stdout = "1\n3\na\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_remainder"
+args = ["run", "r5_feed_d08.js"]
+exit = "success"
+stdout = "1\n0\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_remainder_module_scope"
+args = ["run", "r5_feed_d08_module.js"]
+exit = "success"
+stdout = "1\n0\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_into_a_const"
+args = ["run", "r5_feed_e01.js"]
+exit = "success"
+stdout = "1 1\n0 2\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_into_a_const_module_scope"
+args = ["run", "r5_feed_e01_module.js"]
+exit = "success"
+stdout = "1 1\n0 2\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_bitwise_or"
+args = ["run", "r5_feed_e02.js"]
+exit = "success"
+stdout = "1\n2\n1\n"
+
+[[case]]
+name = "a_three_item_mixed_literal_loop_beside_a_growable_array_prints_its_items"
+args = ["run", "r5_feed_e06.js"]
+exit = "success"
+stdout = "1\nb\n2\n1\n"
+
+[[case]]
+name = "typeof_of_a_mixed_literal_loop_item_beside_a_growable_array"
+args = ["run", "r5_feed_e08.js"]
+exit = "success"
+stdout = "number\nstring\n1\n"
+
+[[case]]
+name = "a_rounded_float_let_loop_item_beside_a_growable_array_folds_under_a_comparison"
+args = ["run", "r5_feed_e09.js"]
+exit = "success"
+stdout = "false\ntrue\n1\n"
+
+[[case]]
+name = "a_string_first_mixed_literal_loop_beside_a_growable_array_prints_its_items"
+args = ["run", "r5_feed_e13.js"]
+exit = "success"
+stdout = "a\n1\n1\n"
+
+[[case]]
+name = "a_module_mixed_literal_loop_beside_a_growable_array_in_a_helper_prints_its_items"
+args = ["run", "r5_feed_e14.js"]
+exit = "success"
+stdout = "3\na\n1\n"
+
+[[case]]
+name = "a_module_rounded_float_let_loop_item_beside_a_growable_array_in_a_helper_folds"
+args = ["run", "r5_feed_e15.js"]
+exit = "success"
+stdout = "1\n0\n1\n"
+
+[[case]]
+name = "check_accepts_loops_that_do_not_feed_a_growable_array"
+args = ["check", "r5_feed_d02.js", "r5_feed_d02_module.js", "r5_feed_d03.js", "r5_feed_d08.js", "r5_feed_d08_module.js", "r5_feed_e01.js", "r5_feed_e01_module.js", "r5_feed_e02.js", "r5_feed_e06.js", "r5_feed_e08.js", "r5_feed_e09.js", "r5_feed_e13.js", "r5_feed_e14.js", "r5_feed_e15.js"]
+exit = "success"
+
+[[case]]
+name = "check_refuses_a_mixed_literal_loop_feeding_a_growable_push_through_a_binding"
+args = ["check", "r5_mixed_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_mixed_literal_loop_feeding_a_growable_push_through_a_binding_is_refused_under_run"
+rationale = "Residual round 5: a loop whose variable feeds a growable push (directly, through a binding, or through a parameter) keeps Task 7's item flow, so a mixed literal array is the both-axes refusal under `check` and `run` (node prints `2`)."
+args = ["run", "r5_mixed_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "check_refuses_a_mixed_literal_loop_feeding_a_growable_push_module_scope"
+args = ["check", "r5_mixed_push_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_mixed_literal_loop_feeding_a_growable_push_is_refused_module_scope_under_run"
+args = ["run", "r5_mixed_push_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "check_refuses_a_mixed_literal_loop_feeding_a_growable_push_through_a_parameter"
+args = ["check", "r5_mixed_push_param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_mixed_literal_loop_feeding_a_growable_push_through_a_parameter_is_refused_under_run"
+args = ["run", "r5_mixed_push_param.js"]
+exit = "failure"
+stderr_contains = ["E5506", "used as both a string and a number"]
+
+[[case]]
+name = "a_let_loop_item_over_a_literal_array_is_read_as_the_item"
+rationale = "Residual round 5: the static (unrolled) for-of lanes bind the item but never write a `let` variable's local, so a read through it gave `0`: `out.push(x)` stored `0, 0` (silent) and `console.log(z + 1, Math.abs(z))` printed the stale value (on `main` too). While the body is emitted a read of the variable resolves to the item, unless the body assigns it."
+args = ["run", "let_item_function.js"]
+exit = "success"
+stdout = "4 3\n5 4\n1 2 1.5 2.5\n"
+
+[[case]]
+name = "a_let_loop_item_over_a_literal_array_is_read_as_the_item_module_scope"
+args = ["run", "let_item_module.js"]
+exit = "success"
+stdout = "4 3\n5 4\n1 2 1.5 2.5\n"
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_after_push_function"
+rationale = "Last targeted fix (D, spec A-45 (6)): the unrolled for-of lanes never write the loop variable's slot, so a body assignment was invisible and the value stored into (or searched in) a growable array was silently wrong (node prints the assigned values). Refused in inference, so `check` and `run` agree."
+args = ["check", "lf_assign_after_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_after_push_function"
+args = ["run", "lf_assign_after_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_before_push_function"
+args = ["check", "lf_assign_before_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_before_push_function"
+args = ["run", "lf_assign_before_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_module"
+args = ["check", "lf_conditional_assign_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_module"
+args = ["run", "lf_conditional_assign_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_function"
+args = ["check", "lf_conditional_assign_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_function"
+args = ["run", "lf_conditional_assign_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_update_var_function"
+rationale = "Already refused before inference by the update/compound-assignment lowering check on a `for-of` loop variable (on `main` too); inference's own refusal of this shape is covered by `values_tests`."
+args = ["check", "lf_update_var_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "update expression lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_update_var_function"
+args = ["run", "lf_update_var_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "update expression lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_compound_module"
+rationale = "Already refused before inference by the update/compound-assignment lowering check on a `for-of` loop variable (on `main` too); inference's own refusal of this shape is covered by `values_tests`."
+args = ["check", "lf_compound_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "compound assignment lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_compound_module"
+args = ["run", "lf_compound_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "compound assignment lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_destructure_function"
+args = ["check", "lf_destructure_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_destructure_function"
+args = ["run", "lf_destructure_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_module"
+args = ["check", "lf_derived_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_module"
+args = ["run", "lf_derived_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_function"
+args = ["check", "lf_derived_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_function"
+args = ["run", "lf_derived_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_function"
+args = ["check", "lf_needle_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_function"
+args = ["run", "lf_needle_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_module"
+args = ["check", "lf_needle_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_module"
+args = ["run", "lf_needle_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_string_bare_function"
+args = ["check", "lf_string_bare_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_string_bare_function"
+args = ["run", "lf_string_bare_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "a_for_of_loop_that_does_not_assign_a_variable_feeding_a_growable_array_stays_admitted_ok_growable_iterable_function"
+args = ["run", "lf_ok_growable_iterable_function.js"]
+exit = "success"
+stdout = "2,3\n"
+
+[[case]]
+name = "a_for_of_loop_that_does_not_assign_a_variable_feeding_a_growable_array_stays_admitted_ok_other_binding_function"
+args = ["run", "lf_ok_other_binding_function.js"]
+exit = "success"
+stdout = "2,3\n"
+
+[[case]]
+name = "a_for_of_loop_that_does_not_assign_a_variable_feeding_a_growable_array_stays_admitted_ok_other_binding_module"
+args = ["run", "lf_ok_other_binding_module.js"]
+exit = "success"
+stdout = "2,3\n"

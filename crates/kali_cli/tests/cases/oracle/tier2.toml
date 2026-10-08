@@ -20,7 +20,7 @@
 # ~~TWENTY-NINE ... R-56, R-57, R-58.~~
 # ~~TWENTY-SEVEN ... R-53, R-56.~~
 #
-# ALL THIRTY-SIX ARE COVERED HERE, in ONE HUNDRED AND TWELVE cases (~~one hundred and eight~~; ~~one
+# ALL THIRTY-SIX ARE COVERED HERE, in ONE HUNDRED AND FOURTEEN cases (~~one hundred and twelve~~; ~~one hundred and eight~~; ~~one
 # hundred and six~~; ~~one hundred and four~~; ~~one hundred and two~~; ~~thirty-one / one hundred~~; ~~twenty-nine / ninety-six~~; ~~twenty-seven /
 # ninety-two~~).
 # Nothing in Tier 2 is left unauthored. The file was written in
@@ -37,7 +37,10 @@
 # inline-allocation-value-position project), R-65 (two cases, 2026-09-11,
 # off `733cd26125`, the same project's second filing), and R-66/R-67 (four
 # cases, 2026-09-11, off `733cd26125`, the same project's third filing, in one
-# commit because neither retirement fixes the other) -- and
+# commit because neither retirement fixes the other), plus R-53's after-loop
+# lane r53a (two cases, 2026-10-08, by the growable-runtime-arrays project's
+# last targeted fix, when the `var`/`let` lanes had moved to FIXED and R-53's
+# remaining silent surface had no case) -- and
 # the passes' measurement summaries are kept separate below because they were
 # taken at different commits.
 #
@@ -122,6 +125,7 @@
 #   R-53   `var` loop variable        r53v_..._module_scope  r53v_..._in_function
 #   R-53   `let` loop variable        r53l_..._module_scope  r53l_..._in_function
 #   R-53   `const` loop variable      r53c_..._module_scope  r53c_..._in_function
+#   R-53   `var` read after the loop  r53a_..._module_scope  r53a_..._in_function
 #   R-56   --                         r56a_..._module_scope  r56a_..._in_function
 #   R-57   --                         r57a_..._module_scope  r57a_..._in_function
 #   R-58   --                         r58a_..._module_scope  r58a_..._in_function
@@ -1026,6 +1030,21 @@ console.log("t=" + t);
 }
 main();
 """
+"r53a_module.js" = """var t = 0;
+for (var v of [1, 2, 3]) {
+  t = t + v;
+}
+console.log("t=" + t + " v=" + v);
+"""
+"r53a_function.js" = """function main() {
+  var t = 0;
+  for (var v of [1, 2, 3]) {
+    t = t + v;
+  }
+  console.log("t=" + t + " v=" + v);
+}
+main();
+"""
 "r56a_module.js" = """const o = {'"5"': 1};
 console.log(o['"5"']);
 console.log(Object.hasOwn(o, '"5"'));
@@ -1437,7 +1456,7 @@ name = "r12_alias_defeats_array_store_guard_module_scope"
 kind = "oracle"
 register_entry = "R-12"
 program = "r12_module.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-12, module scope. §2's `Repro` (`scratchpad/consolidate/al.js`) with its `function f(){ … } f();` wrapper removed and nothing else changed -- the mirror image of the wrapping used elsewhere in this file, because the register states this repro in-function. The alias `const b=a` is the whole point of the entry: it is the single interposed binding that turns a refused store into a silent one.
 
 Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §2's `Correction 2026-07-25` records the aliased form as "silent in **both** scopes (module `1`, in-function `1`; node `7`)", and §0.2's row reads "R-12 alias defeats array-store guard | **SILENT** | both scopes". SILENT.
@@ -1457,6 +1476,8 @@ MOVED BY A PROJECT THAT DOES NOT NAME R-12. The computed-member-static-name proj
 FAIL_CLOSED IS A REAL IMPROVEMENT HERE AND ALSO LEAVES THE ENTRY OPEN. node's `b0=7` is still not produced; what changed is that kali no longer produces a plausible wrong number at exit 0. Whoever re-derives section 0.2's R-12 row must record FAIL_CLOSED rather than reading this as closed.
 
 A TWIN DISAGREEMENT SITS ON THIS PROGRAM AND IS NOT MEASURED BY THIS CASE. `kali check` on the same program exits 0 (`Checked 1 file(s)`) at `3ef65ef785` while `kali run` refuses. The oracle harness observes `run` only, so this case cannot see it; it is recorded in object/computed_member_static_name.toml and reported to the controller as a spec section 8 defect.
+
+RE-MEASURED 2026-10-08 at `417b58fb8` against node v26.10.0: FIXED (was FAIL_CLOSED). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13). kali prints `b0=7` at exit 0 with empty stderr, as node does (module scope). What moved: the index write `b[0]=7` makes the array literal a growable array, and the alias `const b=a` is a growable edge (spec §3.1: sources and the alias edge), so `a` and `b` are one growable component sharing one header, and the store lands in it through the bounds-checked growable store (spec §3.5). The twin disagreement recorded above is gone too: `kali check` exits 0 and `kali run` prints node's answer. Section 0.2's R-12 row is re-derived to FIXED in the same commit.
 """
 
 [[case]]
@@ -1464,7 +1485,7 @@ name = "r12_alias_defeats_array_store_guard_in_function"
 kind = "oracle"
 register_entry = "R-12"
 program = "r12_function.js"
-verdict = "fail_closed"
+verdict = "fixed"
 rationale = """R-12, in-function scope. §2's `Repro` (`scratchpad/consolidate/al.js`) verbatim, wrapper and all -- the scope the register states it in, and the scope its `CONFIRMED-BY-CONTROLLER` verification covers.
 
 Expected verdict set from the register's recorded status: SILENT -- §2 records node `b0=7` against kali `b0=1` at exit 0.
@@ -1474,6 +1495,8 @@ RE-MEASURED 2026-08-15 at `2a49fa1f3f` against node v26.7.0: SILENT, unchanged -
 This is the scope where the entry's headline claim is measurable, because as of `61c2d48ea9` the register records the un-aliased in-function control failing CLOSED with `error[E5506]: mutating a literal array is unavailable …` for `const`, `let` and `var` alike. That control is a DIFFERENT program and is not measured by this case; what this case establishes is that the aliased form is silent, which is the half of the comparison that belongs in a silent-miscompile ranking.
 
 RE-MEASURED 2026-09-09 at `3ef65ef785` against node v26.8.1: FAIL_CLOSED (was SILENT). kali exits 1 with empty stdout and the shared computed-member E5506 on stderr; node prints `b0=7` at exit 0 -- byte-identical to the module scope. Moved by the computed-member-static-name project's bracket-store choke point, for the reason set out on the module-scope case above; the same twin disagreement (`kali check` clean, `kali run` refusing) applies here and is likewise not observable through the oracle harness. The verdict was flipped only after this reading.
+
+RE-MEASURED 2026-10-08 at `417b58fb8` against node v26.10.0: FIXED (was FAIL_CLOSED). RE-PINNED 2026-10-08 by the growable-runtime-arrays project (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, Task 13). kali prints `b0=7` at exit 0 with empty stderr, as node does (in-function). What moved: the index write `b[0]=7` makes the array literal a growable array, and the alias `const b=a` is a growable edge (spec §3.1: sources and the alias edge), so `a` and `b` are one growable component sharing one header, and the store lands in it through the bounds-checked growable store (spec §3.5). The twin disagreement recorded above is gone too: `kali check` exits 0 and `kali run` prints node's answer. Section 0.2's R-12 row is re-derived to FIXED in the same commit.
 """
 
 [[case]]
@@ -2411,7 +2434,7 @@ name = "r53v_for_of_var_loop_variable_module_scope"
 kind = "oracle"
 register_entry = "R-53"
 program = "r53v_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-53, `var` LOOP-VARIABLE lane, module scope. §2's `Repro` verbatim and complete, all six lines: a `var` loop variable over an array LITERAL, with a per-iteration `console.log` and a running sum.
 
 THE PER-ITERATION LOG AND THE SUM ARE BOTH LOAD-BEARING AND ARE KEPT. As of `61c2d48ea9` the register's central claim for this entry is that "the trip count is CORRECT -- three iterations -- and only the bound value is lost", and that this is "what makes it Tier 2 rather than Tier 1". Only the per-iteration log shows the trip count; only the sum shows the arithmetic consequence. A shortened repro would have measured a wrong value while losing the finding that the loop structure is intact.
@@ -2420,26 +2443,30 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `t=0` at exit 0 with empty stderr; node prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0. Three iterations on both engines: the trip count is still correct and still only the bound value is lost.
 
-THE PROBE-DESIGN CONSEQUENCE THIS CASE PINS. §2 says at length that `for (var v of […])` "must NOT be used as a faithful-loop control", because a fixture asserting "the loop ran three times" passes while a fixture asserting a sum gets a plausible `0`. This case measures both assertions at once, which is why it is the shape that keeps that warning honest. This case does not measure R-53's bound on the ITERABLE axis; R-47's `var` lane in this file measures that construct."""
+THE PROBE-DESIGN CONSEQUENCE THIS CASE PINS. §2 says at length that `for (var v of […])` "must NOT be used as a faithful-loop control", because a fixture asserting "the loop ran three times" passes while a fixture asserting a sum gets a plausible `0`. This case measures both assertions at once, which is why it is the shape that keeps that warning honest. This case does not measure R-53's bound on the ITERABLE axis; R-47's `var` lane in this file measures that construct.
+
+RE-MEASURED 2026-10-08 against node v26.10.0: FIXED (was SILENT). RE-PINNED 2026-10-08 by the growable-runtime-arrays project, residual round 5 (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, A-45 (5)). kali prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0 with empty stderr, as node does. What moved: the static (unrolled) for-of lane binds the loop variable to each item but never wrote the `var`/`let` variable's declared local or module global, and a read resolved to that slot first (`0`); while the body is emitted a read of the variable now resolves to the bound item (`FunctionEmitter::unrolled_loop_items`). This case measures a read of the loop variable lexically inside the loop body, and only that: the fix covers such reads. It does not retire R-53. Reads outside the unrolled body still see the never-written slot, as on `main`: a closure capturing the variable, a `var` read after the loop (`r53a` pins that lane SILENT), a bare-identifier target read after the loop, a helper function or IIFE reading a `var` loop variable; and a body that assigns the loop variable keeps the slot lane (`for (let x of [1, 2]) { x = x + 10; console.log(x); }` prints `1`, `2`; node `11`, `12`). Corrected 2026-10-08 by the growable-runtime-arrays last targeted fix, which found round 5's "FIXED" read as an entry result."""
 
 [[case]]
 name = "r53v_for_of_var_loop_variable_in_function"
 kind = "oracle"
 register_entry = "R-53"
 program = "r53v_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-53, `var` LOOP-VARIABLE lane, in-function scope. The module-scope repro verbatim inside `function main() { … }` with a trailing `main();`.
 
 THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. As of `61c2d48ea9`, §2's R-53 is `CONFIRMED-BY-CONTROLLER` at `58234e87c7` against node v26.5.0 but carries no `Scopes affected` line at all, and both its fixtures are stated at module scope, so the register had no in-function observation to inherit. The expected class was set to the entry's recorded SILENT on the assumption that the scopes agree.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `t=0` at exit 0; node prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0. Identical to the module scope, so the probe-design warning applies in both scopes rather than only at top level."""
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `t=0` at exit 0; node prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0. Identical to the module scope, so the probe-design warning applies in both scopes rather than only at top level.
+
+RE-MEASURED 2026-10-08 against node v26.10.0: FIXED (was SILENT). RE-PINNED 2026-10-08 by the growable-runtime-arrays project, residual round 5 (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, A-45 (5)). kali prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0 with empty stderr, as node does. What moved: the static (unrolled) for-of lane binds the loop variable to each item but never wrote the `var`/`let` variable's declared local or module global, and a read resolved to that slot first (`0`); while the body is emitted a read of the variable now resolves to the bound item (`FunctionEmitter::unrolled_loop_items`). This case measures a read of the loop variable lexically inside the loop body, and only that: the fix covers such reads. It does not retire R-53. Reads outside the unrolled body still see the never-written slot, as on `main`: a closure capturing the variable, a `var` read after the loop (`r53a` pins that lane SILENT), a bare-identifier target read after the loop, a helper function or IIFE reading a `var` loop variable; and a body that assigns the loop variable keeps the slot lane (`for (let x of [1, 2]) { x = x + 10; console.log(x); }` prints `1`, `2`; node `11`, `12`). Corrected 2026-10-08 by the growable-runtime-arrays last targeted fix, which found round 5's "FIXED" read as an entry result."""
 
 [[case]]
 name = "r53l_for_of_let_loop_variable_module_scope"
 kind = "oracle"
 register_entry = "R-53"
 program = "r53l_module.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-53, `let` LOOP-VARIABLE lane, module scope. §2's `WIDENED 2026-07-29 (64438bf0ef, fix wave item 1)` fixture verbatim and complete -- a separate, separately dated program from the entry's original repro, with a FOUR-element literal and its own sum.
 
 WHY THIS LANE HAS ITS OWN CASE EVEN THOUGH IT SHARES THE `var` LANE'S CLASS. The register states it as its own dated measurement over its own fixture, and it exists because the original entry got the boundary wrong: as of `61c2d48ea9` §2 says the entry "probed `var` and `const` only and left `let` untested, which made the headline read as if `let` were on the correct side. It is not." Folding this into the `var` lane would re-create exactly the gap the widening was written to close.
@@ -2448,19 +2475,23 @@ Expected verdict set from the register's recorded status: as of `61c2d48ea9`, §
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0`, `iter=0`, `iter=0`, `iter=0`, `s=0` at exit 0 with empty stderr; node prints `iter=1`, `iter=2`, `iter=3`, `iter=4`, `s=10` at exit 0. Four iterations on both engines, so the trip count is correct here too and the widening still holds at HEAD.
 
-This is the half of R-53 that carries its blast radius. §2's own revision says the original "`var` is the transpiled-output spelling" reasoning understated the entry because `for (let x of …)` is also idiomatic modern JS and is also silent, and this case is what that revision rests on."""
+This is the half of R-53 that carries its blast radius. §2's own revision says the original "`var` is the transpiled-output spelling" reasoning understated the entry because `for (let x of …)` is also idiomatic modern JS and is also silent, and this case is what that revision rests on.
+
+RE-MEASURED 2026-10-08 against node v26.10.0: FIXED (was SILENT). RE-PINNED 2026-10-08 by the growable-runtime-arrays project, residual round 5 (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, A-45 (5)). kali prints `iter=1` .. `iter=4`, `s=10` at exit 0 with empty stderr, as node does. What moved: the static (unrolled) for-of lane binds the loop variable to each item but never wrote the `var`/`let` variable's declared local or module global, and a read resolved to that slot first (`0`); while the body is emitted a read of the variable now resolves to the bound item (`FunctionEmitter::unrolled_loop_items`). This case measures a read of the loop variable lexically inside the loop body, and only that: the fix covers such reads. It does not retire R-53. Reads outside the unrolled body still see the never-written slot, as on `main`: a closure capturing the variable, a `var` read after the loop (`r53a` pins that lane SILENT), a bare-identifier target read after the loop, a helper function or IIFE reading a `var` loop variable; and a body that assigns the loop variable keeps the slot lane (`for (let x of [1, 2]) { x = x + 10; console.log(x); }` prints `1`, `2`; node `11`, `12`). Corrected 2026-10-08 by the growable-runtime-arrays last targeted fix, which found round 5's "FIXED" read as an entry result."""
 
 [[case]]
 name = "r53l_for_of_let_loop_variable_in_function"
 kind = "oracle"
 register_entry = "R-53"
 program = "r53l_function.js"
-verdict = "silent"
+verdict = "fixed"
 rationale = """R-53, `let` LOOP-VARIABLE lane, in-function scope. The module-scope widening fixture verbatim inside `function main() { … }` with a trailing `main();`.
 
 THIS SCOPE HAD NEVER BEEN MEASURED FOR THIS ENTRY. §2's R-53 carries no `Scopes affected` line as of `61c2d48ea9`, and the widening explicitly records itself as "measured switch-free at `64438bf0ef` against node v26.5.0" with the fixture at module scope. The expected class was set to SILENT on the assumption that the scopes agree.
 
-MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0` four times then `s=0` at exit 0; node prints `iter=1` through `iter=4` then `s=10` at exit 0. Identical to the module scope."""
+MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: SILENT, as recorded -- no reconciliation. kali prints `iter=0` four times then `s=0` at exit 0; node prints `iter=1` through `iter=4` then `s=10` at exit 0. Identical to the module scope.
+
+RE-MEASURED 2026-10-08 against node v26.10.0: FIXED (was SILENT). RE-PINNED 2026-10-08 by the growable-runtime-arrays project, residual round 5 (docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, A-45 (5)). kali prints `iter=1` .. `iter=4`, `s=10` at exit 0 with empty stderr, as node does. What moved: the static (unrolled) for-of lane binds the loop variable to each item but never wrote the `var`/`let` variable's declared local or module global, and a read resolved to that slot first (`0`); while the body is emitted a read of the variable now resolves to the bound item (`FunctionEmitter::unrolled_loop_items`). This case measures a read of the loop variable lexically inside the loop body, and only that: the fix covers such reads. It does not retire R-53. Reads outside the unrolled body still see the never-written slot, as on `main`: a closure capturing the variable, a `var` read after the loop (`r53a` pins that lane SILENT), a bare-identifier target read after the loop, a helper function or IIFE reading a `var` loop variable; and a body that assigns the loop variable keeps the slot lane (`for (let x of [1, 2]) { x = x + 10; console.log(x); }` prints `1`, `2`; node `11`, `12`). Corrected 2026-10-08 by the growable-runtime-arrays last targeted fix, which found round 5's "FIXED" read as an entry result."""
 
 [[case]]
 name = "r53c_for_of_const_loop_variable_module_scope"
@@ -2478,7 +2509,7 @@ MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- 
 
 WHY A CORRECT LANE IS WORTH A CASE. §2 uses it to conclude "this is the loop variable's **declarator kind**, not `for…of` and not array literals", and §7-era probe design depends on it: the register's recommended faithful-loop control is `for (const v of …)`, so if this lane ever goes red, an instrument this project relies on has become unusable and R-53 has stopped being about declarator kind. Note also that R-47 and R-53 assign OPPOSITE classes to `var` -- fail-closed there, silent here -- so a reader cannot generalise either entry's declarator story to the other; §2's own comparison table says so.
 
-A READER MUST NOT TAKE THIS GREEN AS R-53 BEING FIXED, AND NEITHER MUST A TOOL. R-53 has three lanes; this is the one the register calls correct, and BOTH of the others -- `var` and `let` -- still measure SILENT in this file. A regeneration of §0.2 keys its rows on `register_entry`, and `register_entry` is "R-53" for all six of this entry's cases, so a row built from this case alone would retire an open entry."""
+A READER MUST NOT TAKE THIS GREEN AS R-53 BEING FIXED, AND NEITHER MUST A TOOL. R-53 has four lanes; this is the one the register calls correct. ~~BOTH of the others -- `var` and `let` -- still measure SILENT in this file.~~ (Corrected 2026-10-08: the `var` and `let` lanes, which read the variable inside the body, measure FIXED since the growable-runtime-arrays residual round 5; the after-loop `var` read lane `r53a` measures SILENT.) A regeneration of §0.2 keys its rows on `register_entry`, and `register_entry` is "R-53" for all six of this entry's cases, so a row built from this case alone would retire an open entry."""
 
 [[case]]
 name = "r53c_for_of_const_loop_variable_in_function"
@@ -2491,6 +2522,28 @@ rationale = """R-53, `const` LOOP-VARIABLE lane, in-function scope. The module-s
 Expected verdict set from the register's recorded status: FIXED, as for the module scope. §2 carries no `Scopes affected` line for R-53, so the class was set on the assumption that the scopes agree.
 
 MEASURED 2026-08-15 at `36f9c814a2` against node v26.7.0: FIXED, as recorded -- no reconciliation. kali prints `iter=1`, `iter=2`, `iter=3`, `t=6` at exit 0; node prints the same four lines at exit 0. Identical to the module scope, so the correct lane is correct in both scopes -- which is what licenses `for (const v of …)` as a faithful-loop control in-function as well as at top level."""
+
+[[case]]
+name = "r53a_for_of_var_loop_variable_read_after_the_loop_module_scope"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53a_module.js"
+verdict = "silent"
+rationale = """R-53, `var` loop variable READ AFTER THE LOOP, module scope. Added 2026-10-08 by the growable-runtime-arrays project's last targeted fix.
+
+WHY THIS LANE EXISTS. The growable-runtime-arrays residual round 5 made a read of a `var`/`let` loop variable lexically inside the unrolled body resolve to the bound item, which moved `r53v` and `r53l` to FIXED. The static (unrolled) for-of lane still never writes the variable's declared local or module global, so every read OUTSIDE the unrolled body still sees the slot's `0`. This program is `r53v`'s repro with the per-iteration log dropped and the variable read once after the loop, which a `var` loop variable allows (node: its last item).
+
+MEASURED 2026-10-08 against node v26.10.0: SILENT. kali prints `t=6 v=0` at exit 0 with empty stderr; node prints `t=6 v=3` at exit 0. The sum is right (the body's reads are the bound items) and only the after-loop read is lost. `main` printed `t=0 v=0`. This case measures the after-loop read only; closures capturing the variable, a bare-identifier target read after the loop, and a helper function or IIFE reading a `var` loop variable are the same never-written slot and are recorded in the register's prose, not here."""
+
+[[case]]
+name = "r53a_for_of_var_loop_variable_read_after_the_loop_in_function"
+kind = "oracle"
+register_entry = "R-53"
+program = "r53a_function.js"
+verdict = "silent"
+rationale = """R-53, `var` loop variable READ AFTER THE LOOP, in-function scope. The module-scope program inside `function main() { … }` with a trailing `main();`.
+
+MEASURED 2026-10-08 against node v26.10.0: SILENT. kali prints `t=6 v=0` at exit 0 with empty stderr; node prints `t=6 v=3` at exit 0. Identical to the module scope."""
 
 [[case]]
 name = "r56a_quoted_numeric_string_key_module_scope"

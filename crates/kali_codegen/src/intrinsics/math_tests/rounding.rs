@@ -290,6 +290,15 @@ fn supported_math_ceil_member_constant_folds_non_integer_numeric_literals() {
         compat_eval: false,
         coverage: false,
     });
+    // Residual round 3 (spec A-44): codegen folds through a binding only
+    // when inference published it as a compile-time number; this ctx runs
+    // no inference, so the fixture states what `repr_infer` publishes.
+    ctx.repr_table.set_static_numeric_bindings(
+        [("_start", "value"), ("_start", "alias")]
+            .into_iter()
+            .map(|(scope, name)| (scope.to_string(), name.to_string()))
+            .collect(),
+    );
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
@@ -311,6 +320,15 @@ fn supported_math_trunc_member_constant_folds_non_integer_numeric_literals() {
         compat_eval: false,
         coverage: false,
     });
+    // Residual round 3 (spec A-44): codegen folds through a binding only
+    // when inference published it as a compile-time number; this ctx runs
+    // no inference, so the fixture states what `repr_infer` publishes.
+    ctx.repr_table.set_static_numeric_bindings(
+        [("_start", "value"), ("_start", "alias")]
+            .into_iter()
+            .map(|(scope, name)| (scope.to_string(), name.to_string()))
+            .collect(),
+    );
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
@@ -404,4 +422,61 @@ fn unsupported_math_expm1_log1p_and_fround_member_reports_feature_unavailable() 
             .validate_all(&result.wasm_bytes)
             .expect("generated wasm should validate");
     }
+}
+
+/// Residual round 4 (spec A-45): a fold binding inference floated (`scalar`
+/// F64) but did not publish as a compile-time number takes the runtime f64
+/// lane, the lane inference's float edge expects; it is not refused as a
+/// non-integer literal.
+#[test]
+fn an_unpublished_float_fold_binding_takes_the_runtime_f64_lane() {
+    let program = parse_and_lower_lir(
+        "const value = 1.6; const alias = value; console.log(Math.floor(alias));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    ctx.repr_table
+        .set_scalar("_start", "value", kali_common::Repr::F64);
+    ctx.repr_table
+        .set_scalar("_start", "alias", kali_common::Repr::F64);
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(
+        result.diagnostics.iter().all(|d| !d.is_error()),
+        "{:?}",
+        result.diagnostics
+    );
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("f64.floor"), "{printed}");
+}
+
+/// Residual round 4: a fold binding inference gave no float repr (a scope it
+/// does not walk, such as a class body, or a plain loop item) gives the
+/// rounding call no float edge there, so codegen folds it to an integer, as
+/// on `main`, without a publication.
+#[test]
+fn an_unfloated_fold_binding_folds_without_a_publication() {
+    let program = parse_and_lower_lir(
+        "const value = 1.6; const alias = value; console.log(Math.floor(alias));",
+    );
+    let mut ctx = CodegenCtx::new(TargetConfig {
+        max_specializations: 16,
+        compat_eval: false,
+        coverage: false,
+    });
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+    let printed = wasmprinter::print_bytes(&result.wasm_bytes).expect("print wasm");
+    assert!(printed.contains("i64.const 1"), "{printed}");
+    assert!(!printed.contains("f64.floor"), "{printed}");
 }

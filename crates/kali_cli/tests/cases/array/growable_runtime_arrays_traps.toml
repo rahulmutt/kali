@@ -1,0 +1,102 @@
+# Growable runtime arrays: the bounds and empty-pop traps (spec §3.6). node
+# v26.10.0 prints `undefined` for the reads and the pop, and `2` for the write
+# at `length` (it appends); kali traps instead, printing the kali message and
+# exiting 1 (E4000 follows). A trap is a run-time event, so `check` accepts
+# each program. Spec §5.2: each program is pinned in module scope and inside
+# `function main() { … } main();`.
+
+[constants]
+OOB = "kali: array index out of bounds"
+POP = "kali: pop on empty array"
+
+[source]
+"oob_read.js" = """
+function main() { const a = []; a.push(1); a.push(2); console.log(a[5]); }
+main();
+"""
+"oob_read_module.js" = """
+const a = []; a.push(1); a.push(2); console.log(a[5]);
+"""
+"oob_negative.js" = """
+function main() { const a = []; a.push(1); let i = -1; console.log(a[i]); }
+main();
+"""
+"oob_negative_module.js" = """
+const a = []; a.push(1); let i = -1; console.log(a[i]);
+"""
+"oob_write.js" = """
+function main() { const a = []; a.push(1); a[a.length] = 2; console.log(a.length); }
+main();
+"""
+"oob_write_module.js" = """
+const a = []; a.push(1); a[a.length] = 2; console.log(a.length);
+"""
+"pop_empty.js" = """
+function main() { const a = []; a.push(1); a.pop(); console.log(a.pop()); }
+main();
+"""
+"pop_empty_module.js" = """
+const a = []; a.push(1); a.pop(); console.log(a.pop());
+"""
+
+[[case]]
+name = "a_read_past_the_end_traps"
+rationale = "node v26.10.0 prints `undefined`. At the baseline Stage 4's unchecked read printed a stale slot (`51` measured on a similar program)."
+args = ["run", "oob_read.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_read_past_the_end_traps_module_scope"
+args = ["run", "oob_read_module.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_negative_runtime_index_traps"
+args = ["run", "oob_negative.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_negative_runtime_index_traps_module_scope"
+args = ["run", "oob_negative_module.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_write_at_length_traps_where_node_appends"
+rationale = "Spec §3.5: `i == length` is out of bounds for a write too."
+args = ["run", "oob_write.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "a_write_at_length_traps_where_node_appends_module_scope"
+args = ["run", "oob_write_module.js"]
+exit = "failure"
+stderr_contains = ["${OOB}", "E4000"]
+
+[[case]]
+name = "check_accepts_the_trapping_programs"
+args = ["check", "oob_read.js", "oob_negative.js", "oob_write.js", "oob_read_module.js", "oob_negative_module.js", "oob_write_module.js"]
+exit = "success"
+
+[[case]]
+name = "pop_on_an_empty_array_traps"
+rationale = "node v26.10.0 prints `undefined`; kali has no runtime undefined (spec §1.1) and traps."
+args = ["run", "pop_empty.js"]
+exit = "failure"
+stderr_contains = ["${POP}", "E4000"]
+
+[[case]]
+name = "pop_on_an_empty_array_traps_module_scope"
+args = ["run", "pop_empty_module.js"]
+exit = "failure"
+stderr_contains = ["${POP}", "E4000"]
+
+[[case]]
+name = "check_accepts_the_pop_trap_programs"
+rationale = "Spec §3.6: a trap is a run-time event, so `check` accepts the program."
+args = ["check", "pop_empty.js", "pop_empty_module.js"]
+exit = "success"

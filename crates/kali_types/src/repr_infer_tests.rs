@@ -803,115 +803,10 @@ fn for_in_key_is_seeded_and_not_a_string_repr_by_default() {
     assert_eq!(t.scalar("m", "c"), Repr::I64);
 }
 
-// ---- throw-fallout Stage 4: growable-array promotion gate ----
-
-#[test]
-fn growable_promotion_fires_for_safe_numeric_push_bindings() {
-    let t = reprs(
-        "function main() { const o = []; o.push(1); o.push(2); \
-         console.log(o.length); console.log(o[0]); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_accepts_identifier_and_arithmetic_pushes() {
-    let t = reprs(
-        "function main() { const o = []; \
-         for (let i = 0; i < 10; i++) { o.push(i * 2); } \
-         for (const item of [1, 2]) { o.push(item); } \
-         console.log(o.length); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_blocks_non_i64_pushes() {
-    // Float push.
-    let t =
-        reprs("function main() { const o = []; o.push(1.5); console.log(o.length); }\nmain();\n");
-    assert!(!t.is_growable_array_binding("main", "o"));
-    // Float-solved identifier push.
-    let t = reprs(
-        "function main() { const f = 1 / 2; const o = []; o.push(f); console.log(o.length); }\nmain();\n",
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-    // Undeclared identifier push (`undefined` has no i64 value).
-    let t = reprs(
-        "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_promotes_uniform_string_pushes() {
-    // Task 3: a uniform-String push set promotes, with the element axis
-    // solving `Repr::String` (deliberate flip of the pre-Task-3 pin above,
-    // which used to assert a string push blocks promotion — see the Task 3
-    // report for the recorded intent).
-    let t = reprs(
-        "function main() { const o = []; o.push(\"a\"); o.push(\"b\"); \
-         console.log(o[0]); console.log(o.length); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-    assert_eq!(t.array_element("main", "o"), Repr::String);
-    assert!(t.shape_conflicts().is_empty());
-}
-
-#[test]
-fn growable_promotion_accepts_string_identifier_pushes() {
-    // A declared (non-function/array/object/for-in-key) string-valued
-    // identifier push is allowed — the Task 2 identifier guard is
-    // repr-agnostic and stays intact for the String lane too.
-    let t = reprs(
-        "function main() { const s = \"x\"; const o = []; o.push(s); \
-         console.log(o.length); }\nmain();\n",
-    );
-    assert!(t.is_growable_array_binding("main", "o"));
-    assert_eq!(t.array_element("main", "o"), Repr::String);
-}
-
-#[test]
-fn growable_promotion_rejects_mixed_i64_and_string_pushes() {
-    // Task 3 fail-closed requirement: a MIXED i64+String push set on the
-    // SAME growable candidate must not silently fall back to the
-    // pre-promotion no-op lane — it is a shape conflict (E5506), mirroring
-    // the pre-existing mixed-store rejection idiom for ordinary array
-    // element stores.
-    let t = reprs(
-        "function main() { const o = []; o.push(1); o.push(\"a\"); \
-         console.log(o.length); }\nmain();\n",
-    );
-    assert!(
-        !t.shape_conflicts().is_empty(),
-        "expected a shape conflict for a mixed i64/String push set"
-    );
-    assert!(
-        t.shape_conflicts()
-            .iter()
-            .any(|m| m.contains("used as both strings and numbers")),
-        "shape_conflicts: {:?}",
-        t.shape_conflicts()
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-}
-
-#[test]
-fn growable_promotion_blocks_escaping_and_module_scope_bindings() {
-    // Escaping (call argument) — not a candidate.
-    let t = reprs(
-        "function f(x) { return x; }\nfunction main() { const o = []; o.push(1); f(o); }\nmain();\n",
-    );
-    assert!(!t.is_growable_array_binding("main", "o"));
-    // Module-scope push receiver — deliberately not analyzed.
-    let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
-    assert!(!t.is_growable_array_binding("_start", "o"));
-}
-
 // ---- F-AB-2 lockstep tripwire ----------------------------------------------
 //
-// These pin the two `__kali_fn_N` sets the shared Phase-A descent (walks 1-3)
-// and Phase B (walk 4) build. The product code carries a hard
+// These pin the two `__kali_fn_N` sets the shared Phase-A descent (walks 1-2)
+// and Phase B (walk 3) build. The product code carries a hard
 // `debug_assert!(seeded ⊆ registered)` in `assert_nested_fn_lockstep`; these
 // tests pin BOTH directions — that common callback positions are in exact
 // lockstep (seeded == registered) and that the KNOWN-exotic positions form the
@@ -935,7 +830,7 @@ fn nested_fn_lockstep_common_positions_are_equal() {
     ));
     assert!(
         registered.contains("cb"),
-        "walks 1-3 must register the fn-expr id; registered={registered:?}"
+        "walks 1-2 must register the fn-expr id; registered={registered:?}"
     );
     assert_eq!(
         registered, seeded,
@@ -946,7 +841,7 @@ fn nested_fn_lockstep_common_positions_are_equal() {
 #[test]
 fn nested_fn_lockstep_ternary_and_arg_positions_are_equal() {
     // Ternary branch + bare call-argument callback — both common positions
-    // that walk 4 seeds. Still exact lockstep.
+    // that walk 3 seeds. Still exact lockstep.
     let (registered, seeded) = nested_fn_lockstep_sets(&crate::test_support::parse_statements(
         "function run(cb){ return cb; }\n\
              let g = true ? function a(){ let x = 1; } : function b(){ let y = 2; };\n\
@@ -964,7 +859,7 @@ fn nested_fn_lockstep_ternary_and_arg_positions_are_equal() {
 fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
     // F-AB-2 exotic position: a fn-expr inside an object literal passed
     // DIRECTLY as a call argument (`sink({ f: function(){…} })`). The shared
-    // Phase-A descent (walks 1-3) descends the object-property value and
+    // Phase-A descent (walks 1-2) descends the object-property value and
     // REGISTERS it, but Phase B's walk-4 `_` arm has no `ObjectExpression`
     // recursion, so it is NOT seeded. This is the documented, allowed reverse
     // gap `registered − seeded` — pinned here rather than by a hard
@@ -975,15 +870,15 @@ fn nested_fn_lockstep_exotic_object_literal_arg_is_the_allowed_gap() {
     ));
     assert!(
         registered.contains("exotic"),
-        "walks 1-3 must register the exotic-position fn-expr; registered={registered:?}"
+        "walks 1-2 must register the exotic-position fn-expr; registered={registered:?}"
     );
     assert!(
         !seeded.contains("exotic"),
-        "walk 4 must NOT seed the object-literal-as-direct-call-arg position \
+        "walk 3 must NOT seed the object-literal-as-direct-call-arg position \
          (F-AB-2 known gap); seeded={seeded:?}"
     );
     // The SAFE-direction invariant the debug_assert enforces still holds:
-    // everything walk 4 seeds was registered by walks 1-3.
+    // everything walk 3 seeds was registered by walks 1-2.
     assert!(
         seeded.is_subset(&registered),
         "F-AB-2 safe-direction invariant (seeded ⊆ registered) must hold; \
@@ -1035,11 +930,11 @@ fn nested_fn_lockstep_yield_operand_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("yieldfn"),
-        "walks 1-3 must register the yield-operand fn-expr; registered={registered:?}"
+        "walks 1-2 must register the yield-operand fn-expr; registered={registered:?}"
     );
     assert!(
         !seeded.contains("yieldfn"),
-        "walk 4 must NOT seed the yield-operand position (F-AB-2 known gap); \
+        "walk 3 must NOT seed the yield-operand position (F-AB-2 known gap); \
          seeded={seeded:?}"
     );
     assert!(
@@ -1072,12 +967,12 @@ fn nested_fn_lockstep_optional_chain_operand_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("optfn"),
-        "walks 1-3 must register the optional-chain-operand fn-expr; \
+        "walks 1-2 must register the optional-chain-operand fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("optfn"),
-        "walk 4 must NOT seed the optional-chain-operand position (F-AB-2 \
+        "walk 3 must NOT seed the optional-chain-operand position (F-AB-2 \
          known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1111,12 +1006,12 @@ fn nested_fn_lockstep_bare_array_literal_call_arg_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("barecallarg"),
-        "walks 1-3 must register the bare-array-literal-call-arg fn-expr; \
+        "walks 1-2 must register the bare-array-literal-call-arg fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("barecallarg"),
-        "walk 4 must NOT seed the bare-array-literal-call-arg position \
+        "walk 3 must NOT seed the bare-array-literal-call-arg position \
          (F-AB-2 known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1150,12 +1045,12 @@ fn nested_fn_lockstep_doubly_nested_array_literal_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("nestedfn"),
-        "walks 1-3 must register the doubly-nested-array-literal fn-expr; \
+        "walks 1-2 must register the doubly-nested-array-literal fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("nestedfn"),
-        "walk 4 must NOT seed the doubly-nested-array-literal position \
+        "walk 3 must NOT seed the doubly-nested-array-literal position \
          (F-AB-2 known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1193,12 +1088,12 @@ fn nested_fn_lockstep_array_literal_spread_is_an_unseeded_gap() {
     ));
     assert!(
         registered.contains("spreadfn"),
-        "walks 1-3 must register the array-literal-spread fn-expr; \
+        "walks 1-2 must register the array-literal-spread fn-expr; \
          registered={registered:?}"
     );
     assert!(
         !seeded.contains("spreadfn"),
-        "walk 4 must NOT seed the array-literal-spread position (F-AB-2 \
+        "walk 3 must NOT seed the array-literal-spread position (F-AB-2 \
          known gap); seeded={seeded:?}"
     );
     assert!(
@@ -1950,21 +1845,6 @@ fn array_return_absent_for_programs_without_array_returns() {
     assert!(t.shape_conflicts().is_empty());
 }
 
-// Ruling R3: a growable binding is never admitted as an array return.
-#[test]
-fn array_return_growable_const_literal_taints_growable() {
-    let t = reprs(
-        "function f() { const a = []; a.push(1); a.push(2); return a; }\n\
-         function main() { const b = f(); console.log(b[1]); }\nmain();\n",
-    );
-    assert_eq!(t.array_return("f"), None);
-    assert_eq!(
-        t.array_return_taint("f"),
-        Some(kali_common::ARRAY_RETURN_GROWABLE)
-    );
-    assert!(!t.is_call_bound_array_binding("main", "b"));
-}
-
 // Obligation 2: a `const` literal is the literal class only when its elements
 // are integer-shaped.
 #[test]
@@ -2340,4 +2220,547 @@ fn a_let_from_a_parameter_with_numeric_call_sites_is_proven_numeric() {
 fn a_let_from_a_parameter_with_a_string_call_site_is_not_proven_numeric() {
     let t = reprs("function f(kp){ let k = kp; const g=()=>k; return g(); } f(\"a\");");
     assert!(!t.binding_is_proven_numeric("f", "k"));
+}
+
+// ---- growable-runtime-arrays: the solve, published --------------------------
+
+#[test]
+fn a_returned_growable_array_reaches_the_call_bound_binding() {
+    let t = reprs(
+        "function build(n) { const out = []; for (let i = 0; i < n; i++) out.push(i * i); return out; }\n\
+         const xs = build(5);\nconsole.log(xs.length, xs[2]);\n",
+    );
+    assert!(t.is_growable_array_binding("build", "out"));
+    assert!(t.is_growable_array_binding("_start", "xs"));
+    assert_eq!(t.growable_return("build"), Some(Repr::I64));
+    assert_eq!(t.array_return("build"), None);
+    assert_eq!(t.array_return_taint("build"), None);
+    assert!(!t.is_growable_local_only("build", "out"));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn an_argument_makes_the_parameter_growable() {
+    let t = reprs(
+        "function add(a) { a.push(2); }\n\
+         function main() { const xs = [1]; add(xs); console.log(xs.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "xs"));
+    assert!(t.is_growable_array_binding("add", "a"));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn an_alias_shares_the_growable_array_and_escapes() {
+    let t = reprs(
+        "function main() { const a = []; a.push(5); const b = a; b.push(6); console.log(a.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "a"));
+    assert!(t.is_growable_array_binding("main", "b"));
+    assert!(!t.is_growable_local_only("main", "a"));
+}
+
+#[test]
+fn a_slice_result_is_growable_when_its_receiver_is() {
+    let t = reprs(
+        "function main() { const a = []; a.push(1); const t = a.slice(0); console.log(t.length); }\nmain();\n",
+    );
+    assert!(t.is_growable_array_binding("main", "t"));
+}
+
+#[test]
+fn a_module_scope_growable_array_is_growable_but_never_local_only() {
+    let t = reprs("const o = [];\no.push(1);\nconsole.log(o.length);\n");
+    assert!(t.is_growable_array_binding("_start", "o"));
+    assert!(!t.is_growable_local_only("_start", "o"));
+}
+
+#[test]
+fn a_growable_array_that_stays_in_its_function_is_local_only() {
+    let t = reprs("function main() { const o = []; o.push(1); console.log(o.length); }\nmain();\n");
+    assert!(t.is_growable_array_binding("main", "o"));
+    assert!(t.is_growable_local_only("main", "o"));
+}
+
+#[test]
+fn a_returned_literal_nobody_mutates_stays_on_the_array_return_lane() {
+    // Spec A-2, measured on `ret1.js`: this program runs today.
+    let t = reprs("function f() { const a = [1, 2, 3]; return a; }\nconst xs = f();\nconsole.log(xs.length);\n");
+    assert_eq!(t.array_return("f"), Some(Repr::I64));
+    assert_eq!(t.growable_return("f"), None);
+    assert!(!t.is_growable_array_binding("_start", "xs"));
+}
+
+#[test]
+fn string_pushes_give_string_elements_across_the_return() {
+    let t = reprs(
+        "function build(n) { const out = []; let w = \"a\"; for (let i = 0; i < n; i++) { out.push(w); w = w + \"b\"; } return out; }\n\
+         const ws = build(3);\nconsole.log(ws.length);\n",
+    );
+    assert_eq!(t.array_element("build", "out"), Repr::String);
+    assert_eq!(t.array_element("_start", "ws"), Repr::String);
+    assert_eq!(t.growable_return("build"), Some(Repr::String));
+    // The I2 string-array-return refusal does not apply to a growable return.
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn a_mixed_number_and_string_push_set_is_the_existing_element_conflict() {
+    // Spec A-4.
+    let t = reprs("function main() { const o = []; o.push(1); o.push(\"a\"); console.log(o.length); }\nmain();\n");
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("used as both strings and numbers")),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn the_solved_refusals_become_shape_conflicts() {
+    for (src, needle) in [
+        (
+            "function total(a) { return a.length; }\nconst xs = []; xs.push(1); const p = new Array(2);\nconsole.log(total(xs), total(p));\n",
+            "`a` in `total` would hold both a growable array",
+        ),
+        (
+            "const out = []; out.push(1);\nfunction size() { return out.length; }\nconsole.log(size());\n",
+            "function `size` uses the module-level growable array `out`",
+        ),
+        (
+            "function main() { const o = []; o.push(1); const f = () => o.length; console.log(f()); }\nmain();\n",
+            "the growable array `o` in `main` is captured",
+        ),
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts().iter().any(|m| m.contains(needle)),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn float_pushes_give_f64_elements_through_parameters_and_returns() {
+    let t = reprs(
+        "function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }\n\
+         const data = [];\nfor (let i = 1; i <= 5; i++) data.push(i * 1.5);\nconst avg = averages(data, 2);\nconsole.log(avg.length);\n",
+    );
+    assert_eq!(t.array_element("_start", "data"), Repr::F64);
+    assert_eq!(t.array_element("averages", "xs"), Repr::F64);
+    assert_eq!(t.array_element("_start", "avg"), Repr::F64);
+    assert_eq!(t.growable_return("averages"), Some(Repr::F64));
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+#[test]
+fn a_for_of_loop_variable_takes_the_element_repr() {
+    let t = reprs(
+        "function main() { const ws = []; ws.push(\"a\"); const fs = []; fs.push(0.5); let n = \"\"; let s = 0;\n\
+         for (const w of ws) n = n + w;\nfor (const f of fs) s = s + f;\nfor (const x of fs.slice(0)) s = s + x;\nconsole.log(n, s); }\nmain();\n",
+    );
+    assert_eq!(t.scalar("main", "w"), Repr::String);
+    assert_eq!(t.scalar("main", "f"), Repr::F64);
+    assert_eq!(t.scalar("main", "x"), Repr::F64);
+}
+
+#[test]
+fn a_for_of_over_a_call_takes_the_returned_element_repr() {
+    let t = reprs(
+        "function build() { const out = []; out.push(\"a\"); return out; }\nfor (const line of build()) console.log(line);\n",
+    );
+    assert_eq!(t.scalar("_start", "line"), Repr::String);
+}
+
+#[test]
+fn pop_yields_the_element_repr() {
+    let t = reprs(
+        "function main() { const s = []; s.push(\"x\"); const top = s.pop(); const f = []; f.push(1.5); const v = f.pop(); console.log(top, v); }\nmain();\n",
+    );
+    assert_eq!(t.scalar("main", "top"), Repr::String);
+    assert_eq!(t.scalar("main", "v"), Repr::F64);
+}
+
+#[test]
+fn a_float_search_value_makes_the_array_f64() {
+    // Spec A-14.
+    let t = reprs("function main() { const a = []; a.push(1); let h = 0.5; console.log(a.indexOf(h)); }\nmain();\n");
+    assert_eq!(t.array_element("main", "a"), Repr::F64);
+}
+
+#[test]
+fn a_string_search_value_in_a_number_array_is_the_mixed_element_conflict() {
+    let t = reprs(
+        "function main() { const a = []; a.push(1); console.log(a.includes(\"1\")); }\nmain();\n",
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains("used as both strings and numbers")),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn unsupported_elements_are_refused() {
+    for src in [
+        "function main() { const o = []; o.push({a: 1}); console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; o.push(true); console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; o.push(undefined); console.log(o.length); }\nmain();\n",
+        "function main() { const o = [1, , 2]; o.push(3); console.log(o.length); }\nmain();\n",
+        "function g() { return 1; }\nfunction main() { const o = []; o.push(g); console.log(o.length); }\nmain();\n",
+        "function main() { const inner = []; inner.push(1); const o = []; o.push(inner); console.log(o.length); }\nmain();\n",
+        "function main() { const obj = {a: 1}; const o = []; o.push(obj); console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn number_and_string_elements_are_not_refused_as_unsupported() {
+    let t = reprs(
+        "function main() { const o = []; const n = 2; o.push(1, n, n * 3); const s = []; const w = \"x\"; s.push(w, \"y\"); console.log(o.length, s.length); }\nmain();\n",
+    );
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+}
+
+// Controller ruling W1: a pushed identifier is judged by its solved scalar
+// repr, not by whether `.length` gave it an element node.
+#[test]
+fn a_pushed_string_whose_length_is_read_is_a_string_element() {
+    let t = reprs(
+        "function main() { const ws = []; ws.push(\"a\"); ws.push(\"bb\"); const out = [];\n\
+         for (const w of ws) { if (w.length > 1) out.push(w); }\n\
+         const z = \"zz\"; if (z.length > 1) out.push(z);\nconsole.log(out.length); }\nmain();\n",
+    );
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert_eq!(t.scalar("main", "w"), Repr::String);
+    assert_eq!(t.array_element("main", "out"), Repr::String);
+}
+
+#[test]
+fn a_pushed_object_or_array_identifier_is_refused() {
+    for src in [
+        "function main() { const x = {a: 1}; const o = []; o.push(x); console.log(o.length); console.log(o[0]); }\nmain();\n",
+        "function main() { const inner = [1]; const o = []; o.push(inner); console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+// Task 7 fix round 1 (controller ruling): M2 is fail-closed — an element is
+// admitted only when it is provably a number or a string.
+#[test]
+fn elements_not_provably_numbers_or_strings_are_refused() {
+    for src in [
+        // I1: a `const` alias of a function declaration.
+        "function g() { return 1; }\nfunction main() { const h = g; const o = []; o.push(h); console.log(o.length); }\nmain();\n",
+        // I1: a `let`-bound arrow.
+        "function main() { let h = () => 1; const o = []; o.push(h); console.log(o.length); }\nmain();\n",
+        // I2: booleans, `null` and `undefined` held in a binding.
+        "function main() { let b = true; const o = []; o.push(b); console.log(o.join()); }\nmain();\n",
+        "function main() { const x = 3; let b = x > 1; const o = []; o.push(b); console.log(o.length); }\nmain();\n",
+        "function main() { let b = 1; b = false; const o = []; o.push(b); console.log(o.length); }\nmain();\n",
+        "function main() { const u = null; const o = []; o.push(u); console.log(o.length); }\nmain();\n",
+        "function main() { const u = undefined; const o = []; o.push(u); console.log(o.length); }\nmain();\n",
+        "function main() { let u; const o = []; o.push(u); console.log(o.length); }\nmain();\n",
+        // I3: calls returning an object, an array or a boolean.
+        "function mk() { return {a: 1}; }\nfunction main() { const o = []; o.push(mk()); console.log(o.length); }\nmain();\n",
+        "function mk() { return [1, 2]; }\nfunction main() { const o = []; o.push(mk()); console.log(o.length); }\nmain();\n",
+        "function isBig(n) { return n > 1; }\nfunction main() { const o = []; o.push(isBig(3)); console.log(o.length); }\nmain();\n",
+        // I3: a boolean ternary.
+        "function main() { const x = 3; const o = []; o.push(x > 1 ? true : false); console.log(o.length); }\nmain();\n",
+        // An alias of an alias.
+        "function g() { return 1; }\nfunction main() { const h = g; const h2 = h; const o = []; o.push(h2); console.log(o.length); }\nmain();\n",
+        // A boolean read out of an array.
+        "function main() { const bs = [true]; const o = []; o.push(bs[0]); console.log(o.length); }\nmain();\n",
+        // A parameter passed a boolean.
+        "function add(xs, v) { xs.push(v); }\nfunction main() { const o = []; add(o, true); console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn provable_number_and_string_elements_are_admitted() {
+    for src in [
+        "function main() { const out = []; for (let i = 0; i < 5; i++) out.push(i * i); console.log(out.length); }\nmain();\n",
+        "function main() { const out = []; for (let i = 0; i < 5; i++) out.push(i); console.log(out.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) { if (w.length > 1) out.push(w); } console.log(out.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; let line = \"\"; for (const w of ws) { line = line + w + \",\"; } out.push(line); let l2 = \"\"; l2 += \"x\"; out.push(l2); console.log(out.length); }\nmain();\n",
+        "function main() { const words = [\"a\", \"b\"]; const out = []; for (let i = 0; i < words.length; i++) out.push(words[i]); console.log(out.length); }\nmain();\n",
+        "function main() { const x = 3; const out = []; out.push(x / 2); console.log(out.length); }\nmain();\n",
+        "function main() { const nums = [1, 2, 3]; const out = []; for (let i = 0; i < nums.length; i++) { if (nums[i] > 1) out.push(nums[i]); } console.log(out.length); }\nmain();\n",
+        "function sq(n) { return n * n; }\nfunction main() { const out = []; out.push(sq(3)); const s = \"ab\"; out.push(s.length); console.log(out.length); }\nmain();\n",
+        "function add(xs, v) { xs.push(v); }\nfunction main() { const o = []; add(o, 3); add(o, 4); console.log(o.length); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) out.push(w); const c = ws.pop(); out.push(c); console.log(out.length); }\nmain();\n",
+        "function add(xs, s) { xs.push(s); }\nfunction main() { const o = []; add(o, \"a\"); console.log(o.length); }\nmain();\n",
+        "function main() { const xs = []; xs.push(1); const out = []; for (const x of xs) out.push(x); console.log(out.length); }\nmain();\n",
+        "function main() { const out = []; const x = 2.5; out.push(Math.floor(x)); console.log(out.length); }\nmain();\n",
+        "function main() { const o = {a: 1, b: 2}; const out = []; for (const k of Object.keys(o)) out.push(k); console.log(out.length); }\nmain();\n",
+        "function main() { const s = \"ab\"; const o = []; for (const v of Object.values(s)) { o.push(v); } console.log(o.join(\",\")); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            !t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn for_of_over_provable_iterables_admits_the_loop_variable() {
+    // (`map`/`flatMap` callbacks need the CLI's anonymous-function naming
+    // pass; the `callback_identity_browser_harness` cases cover them.)
+    for src in [
+        "function main() { const values = [0, 1, 1]; const valuesAlias = values; const items = []; for (const value of valuesAlias) { if (!value) { continue; } items.push(value); } console.log(items.length); }\nmain();\n",
+        "function main() { const o = []; for (const item of [1, 2].filter((value) => value)) { o.push(item); } for (const item of Array.from([1, 2])) { o.push(item); } for (const item of [...[1, 2]]) { o.push(item); } for (const item of [...[1, 2].filter((value) => value)]) { o.push(item); } console.log(o.join(\",\")); }\nmain();\n",
+        "function main() { const values = []; for (const value of Object.values({ 10: 10, b: 5 })) { values.push(value); } console.log(values.length); }\nmain();\n",
+        "function main() { const prefix = \"ab\"; const suffix = \"c\"; const chars = []; for (const item of prefix + suffix) { chars.push(item); } for (const item of `${prefix}!`) { chars.push(item); } console.log(chars.join(\"\")); }\nmain();\n",
+        "function main() { const out = []; for (const v of new (null ?? Set)([1, 2, 1])) { out.push(v); } console.log(out.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            !t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+#[test]
+fn for_of_over_unprovable_iterables_refuses_the_loop_variable() {
+    for src in [
+        "function main() { const bs = [true, false]; const alias = bs; const o = []; for (const b of alias) { o.push(b); } console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; for (const e of Object.entries({ a: 1 })) { o.push(e); } console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; for (const v of [1, 2].map((x) => x > 1)) { o.push(v); } console.log(o.length); }\nmain();\n",
+        "function main() { const o = []; for (const v of Object.values({ a: true })) { o.push(v); } console.log(o.length); }\nmain();\n",
+        "function main() { const xs = [1, 2]; xs.fill(true); const o = []; for (const v of xs) { o.push(v); } console.log(o.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
+}
+
+// Task 7 fix round 2: a string loop variable of a for-of over a plain
+// (non-growable) array or a string carries the String repr into the growable
+// array it is pushed onto.
+#[test]
+fn a_string_loop_variable_over_a_plain_array_makes_the_pushed_elements_strings() {
+    for (src, func) in [
+        ("const words = [\"a\", \"bb\", \"ccc\"]; const out = []; for (const w of words) out.push(w); console.log(out.join(\",\"));\n", "_start"),
+        ("const words = [\"a\", \"bb\", \"ccc\"]; const out = []; for (const w of words) { if (w.length > 1) out.push(w); } console.log(out.join(\",\"));\n", "_start"),
+        ("const out = []; for (const w of [\"a\", \"bb\"]) out.push(w); console.log(out.join(\",\"));\n", "_start"),
+        ("function main() { const words = [\"a\", \"bb\", \"ccc\"]; const out = []; for (const w of words) { if (w.length > 1) out.push(w); } console.log(out.join(\",\")); }\nmain();\n", "main"),
+        ("function main() { const out = []; for (const w of [\"a\", \"bb\"]) { if (w.length > 1) out.push(w); } console.log(out.join(\",\")); }\nmain();\n", "main"),
+        ("function main() { const s = \"abc\"; const out = []; for (const c of s) out.push(c); console.log(out.join(\",\")); }\nmain();\n", "main"),
+        ("function main() { const out = []; for (const c of \"abc\") out.push(c); console.log(out.join(\",\")); }\nmain();\n", "main"),
+    ] {
+        let t = reprs(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}\n{:?}", t.shape_conflicts());
+        assert_eq!(t.array_element(func, "out"), Repr::String, "{src}");
+    }
+}
+
+// Whatever cannot be given the String element repr is refused, never stored
+// into a number-element array.
+#[test]
+fn a_string_value_the_element_repr_cannot_see_is_refused() {
+    for src in [
+        "function main() { const out = []; for (const w of [\"a\", \"b\"].filter((x) => x)) out.push(w); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const out = []; for (const w of Object.values({ a: \"x\" })) out.push(w); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const words = [\"a\", \"b\"]; const out = []; for (const w of Array.from(words)) out.push(w); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const words = [\"a\", \"b\"]; const out = []; for (let i = 0; i < words.length; i++) out.push(words[i]); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const p = \"ab\"; const q = \"c\"; const out = []; for (const c of p + q) out.push(c); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const ws = []; ws.push(\"a\"); const out = []; for (const w of ws) out.push(w.toUpperCase()); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const out = []; out.push(String(3)); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const s = \"abc\"; const out = []; out.push(s.slice(1)); console.log(out.join(\",\")); }\nmain();\n",
+        "function main() { const out = []; const xs = [1, 2]; out.push(xs.join(\"-\")); console.log(out.join(\",\")); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        let ok = t.array_element("main", "out") == Repr::String
+            || t
+                .shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is"));
+        assert!(ok, "{src}\n{:?} {:?}", t.array_element("main", "out"), t.shape_conflicts());
+    }
+}
+
+// Final review C1 (A-36): an index, a `slice` bound and a search value of a
+// growable array are proven before codegen sees them. Each operand below is
+// refused in module scope and in `main()`.
+const UNPROVEN_OPERAND: &str = "is not proven to be";
+
+fn in_both_scopes(body: &str) -> [String; 2] {
+    [
+        format!("const a = [1, 2]; a.push(3);\n{body}\n"),
+        format!("function main() {{ const a = [1, 2]; a.push(3);\n{body}\n}}\nmain();\n"),
+    ]
+}
+
+#[test]
+fn unproven_index_bound_and_search_operands_are_refused() {
+    for body in [
+        // Index read and write.
+        "console.log(a[true]);",
+        "console.log(a[null]);",
+        "console.log(a[undefined]);",
+        "const k = \"1\"; console.log(a[k]);",
+        "console.log(a[\"1\"]);",
+        "const j = [1]; console.log(a[j]);",
+        "let i; a[i] = 7; console.log(a.join());",
+        "a[false] = 7; console.log(a.join());",
+        "a[\"1\"] = 7; console.log(a.join());",
+        // Both `slice` bounds.
+        "console.log(a.slice(true).join());",
+        "console.log(a.slice(null).join());",
+        "console.log(a.slice(\"1\").join());",
+        "console.log(a.slice(1, undefined).join());",
+        "let e; console.log(a.slice(0, e).join());",
+        "console.log(a.slice(0, [1]).join());",
+        "console.log(a.slice(0, a.length > 0).join());",
+        // The search value of `indexOf` and `includes`.
+        "console.log(a.includes(true));",
+        "console.log(a.indexOf(false));",
+        "console.log(a.includes(null));",
+        "console.log(a.indexOf(undefined));",
+        "console.log(a.indexOf(a.length > 0));",
+        "const j = [1]; console.log(a.includes(j));",
+    ] {
+        for src in in_both_scopes(body) {
+            let t = reprs(&src);
+            assert!(
+                t.shape_conflicts()
+                    .iter()
+                    .any(|m| m.contains(UNPROVEN_OPERAND)),
+                "{src}\n{:?}",
+                t.shape_conflicts()
+            );
+        }
+    }
+}
+
+#[test]
+fn a_string_search_value_of_a_string_array_null_is_refused() {
+    let t = reprs(
+        "function main() { const w = []; w.push(\"x\"); console.log(w.indexOf(null), w.includes(true)); }\nmain();\n",
+    );
+    assert!(
+        t.shape_conflicts()
+            .iter()
+            .any(|m| m.contains(UNPROVEN_OPERAND)),
+        "{:?}",
+        t.shape_conflicts()
+    );
+}
+
+#[test]
+fn proven_index_bound_and_search_operands_stay_admitted() {
+    for body in [
+        "for (let i = 0; i < a.length; i++) console.log(a[i]);",
+        "console.log(a[a.length - 1]);",
+        // RE-PINNED 2026-10-08 (residual R2, A-39): a fractional float index
+        // (`const h = 1.5; a[h]`) is now refused here (`values_tests.rs`); a
+        // whole one is admitted.
+        "const h = 1.5; console.log(a[0], a[Math.floor(h)]);",
+        "a[0] = 5; let k = 1; a[k] = a[k] + 1; console.log(a.join());",
+        "console.log(a.slice(1, 3).join(), a.slice(-2).join(), a.slice(0.5).join());",
+        "const x = 2; console.log(a.includes(x), a.indexOf(x), a.includes(2.5));",
+        "const xs = []; xs.push(\"p\"); const w = \"p\"; console.log(xs.indexOf(w), xs.includes(\"q\"));",
+        "const n = Math.floor(a.length / 2); console.log(a[n], a.slice(n).join());",
+    ] {
+        for src in in_both_scopes(body) {
+            let t = reprs(&src);
+            assert!(t.shape_conflicts().is_empty(), "{src}\n{:?}", t.shape_conflicts());
+        }
+    }
+}
+
+#[test]
+fn a_parameter_index_is_proven_through_its_call_sites() {
+    let ok = reprs(
+        "function at(xs, i) { return xs[i]; }\nfunction main() { const a = []; a.push(4); console.log(at(a, 0)); }\nmain();\n",
+    );
+    assert!(
+        ok.shape_conflicts().is_empty(),
+        "{:?}",
+        ok.shape_conflicts()
+    );
+    let bad = reprs(
+        "function at(xs, i) { return xs[i]; }\nfunction main() { const a = []; a.push(4); console.log(at(a, true)); }\nmain();\n",
+    );
+    assert!(
+        bad.shape_conflicts()
+            .iter()
+            .any(|m| m.contains(UNPROVEN_OPERAND)),
+        "{:?}",
+        bad.shape_conflicts()
+    );
+}
+
+// Final review I2: a `const` bound to a call is an array only when its callee
+// returns one.
+#[test]
+fn a_const_bound_to_a_number_returning_call_is_a_number_element() {
+    for src in [
+        "function sq(n) { return n * n; }\nconst out = []; for (let i = 0; i < 4; i++) { const v = sq(i); out.push(v); } console.log(out.join(\" \"));\n",
+        "function sq(n) { return n * n; }\nfunction main() { const out = []; for (let i = 0; i < 4; i++) { const v = sq(i); out.push(v); } console.log(out.join(\" \")); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(t.shape_conflicts().is_empty(), "{src}\n{:?}", t.shape_conflicts());
+    }
+}
+
+#[test]
+fn a_const_bound_to_an_array_returning_call_stays_refused_as_an_element() {
+    for src in [
+        "function mk(n) { return [n, n]; }\nfunction main() { const out = []; for (let i = 0; i < 4; i++) { const v = mk(i); out.push(v); } console.log(out.length); }\nmain();\n",
+        "function mk(n) { const r = []; r.push(n); return r; }\nfunction main() { const out = []; for (let i = 0; i < 4; i++) { const v = mk(i); out.push(v); } console.log(out.length); }\nmain();\n",
+        "function main() { const out = []; const v = unknownFn(1); out.push(v); console.log(out.length); }\nmain();\n",
+    ] {
+        let t = reprs(src);
+        assert!(
+            t.shape_conflicts()
+                .iter()
+                .any(|m| m.contains("is a growable array with an element that is")),
+            "{src}\n{:?}",
+            t.shape_conflicts()
+        );
+    }
 }
