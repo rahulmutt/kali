@@ -103,7 +103,9 @@ pub(crate) fn integral_proof(expr: &Expression, r: &Resolver<'_>) -> Integral {
             _ => Integral::No,
         },
         Expression::BinaryExpression(b) => match b.operator.as_str() {
-            "+" | "-" | "*" | "%" => all(vec![
+            // Not `%`: a float `%` does not lower (E4201), so a `%` index
+            // over a float is refused (residual round 1).
+            "+" | "-" | "*" => all(vec![
                 integral_proof(&b.left, r),
                 integral_proof(&b.right, r),
             ]),
@@ -244,8 +246,13 @@ pub(crate) enum BoolValue {
     /// `r.includes(…)`; the result is a growable search result when `r` is
     /// growable.
     Search(GrowNode),
-    /// `true`, `false`, a comparison or `!x`: always a boolean.
+    /// `true`, `false`, a comparison or `!x` over values that are not search
+    /// values: always a boolean.
     Syntactic,
+    /// A comparison or `!x` over at least one value that may be a search
+    /// value (residual round 1): always a boolean, and a search boolean when
+    /// one of the listed operands is derived.
+    Over(Vec<BoolValue>),
     /// A read of the binding.
     Binding(GrowNode),
     /// A call of the declared function.
@@ -321,12 +328,16 @@ pub(crate) struct SearchBooleans {
 }
 
 pub(crate) fn solve_search_booleans(facts: &ValueFacts, solution: &GrowSolution) -> SearchBooleans {
-    let derived = |value: &BoolValue, set: &BTreeSet<GrowNode>| match value {
-        BoolValue::Search(receiver) => solution.is_growable(receiver),
-        BoolValue::Binding(key) => set.contains(key),
-        BoolValue::Call(func) => set.contains(&GrowNode::Return(func.clone())),
-        BoolValue::Syntactic | BoolValue::Other => false,
-    };
+    fn is_derived(value: &BoolValue, set: &BTreeSet<GrowNode>, solution: &GrowSolution) -> bool {
+        match value {
+            BoolValue::Search(receiver) => solution.is_growable(receiver),
+            BoolValue::Binding(key) => set.contains(key),
+            BoolValue::Call(func) => set.contains(&GrowNode::Return(func.clone())),
+            BoolValue::Over(operands) => operands.iter().any(|o| is_derived(o, set, solution)),
+            BoolValue::Syntactic | BoolValue::Other => false,
+        }
+    }
+    let derived = |value: &BoolValue, set: &BTreeSet<GrowNode>| is_derived(value, set, solution);
     let mut set: BTreeSet<GrowNode> = BTreeSet::new();
     loop {
         let next: BTreeSet<GrowNode> = facts
@@ -334,9 +345,9 @@ pub(crate) fn solve_search_booleans(facts: &ValueFacts, solution: &GrowSolution)
             .iter()
             .filter(|(key, writes)| {
                 !facts.bool_taints.contains(*key)
-                    && writes
-                        .iter()
-                        .all(|w| matches!(w, BoolValue::Syntactic) || derived(w, &set))
+                    && writes.iter().all(|w| {
+                        matches!(w, BoolValue::Syntactic | BoolValue::Over(_)) || derived(w, &set)
+                    })
                     && writes.iter().any(|w| derived(w, &set))
             })
             .map(|(key, _)| key.clone())
@@ -398,6 +409,15 @@ struct Walker<'w, 'c> {
     /// The function-key stack at every class, `with`, JSX or module-syntax
     /// site the walk does not enter.
     opaque: Vec<Vec<String>>,
+}
+
+/// A value that is a search result when the solve says so: an `includes`
+/// call, a binding read, a declared-function call, or a boolean over one.
+fn is_search_candidate(value: &BoolValue) -> bool {
+    matches!(
+        value,
+        BoolValue::Search(_) | BoolValue::Binding(_) | BoolValue::Call(_) | BoolValue::Over(_)
+    )
 }
 
 const CONSOLE_METHODS: &[&str] = &["log", "error", "warn", "info", "debug"];
@@ -559,9 +579,9 @@ impl Walker<'_, '_> {
                     "==" | "===" | "!=" | "!==" | "<" | ">" | "<=" | ">="
                 ) =>
             {
-                BoolValue::Syntactic
+                self.over(&[&b.left, &b.right])
             }
-            Expression::UnaryExpression(u) if u.operator == "!" => BoolValue::Syntactic,
+            Expression::UnaryExpression(u) if u.operator == "!" => self.over(&[&u.argument]),
             Expression::Identifier(name) => match self.resolve(name) {
                 Resolved::Local(n) | Resolved::Module(n) | Resolved::Captured(n) => {
                     BoolValue::Binding(n)
@@ -574,6 +594,21 @@ impl Walker<'_, '_> {
                 _ => BoolValue::Other,
             },
             _ => BoolValue::Other,
+        }
+    }
+
+    /// A boolean computed from `operands` (`!x`, a comparison): `Over` the
+    /// operands that may be search values, or `Syntactic` when none may be.
+    fn over(&self, operands: &[&Expression]) -> BoolValue {
+        let inner: Vec<BoolValue> = operands
+            .iter()
+            .map(|o| self.classify(o))
+            .filter(is_search_candidate)
+            .collect();
+        if inner.is_empty() {
+            BoolValue::Syntactic
+        } else {
+            BoolValue::Over(inner)
         }
     }
 
@@ -762,10 +797,7 @@ impl Walker<'_, '_> {
     /// its operands in the positions they sit in.
     fn expr(&mut self, expr: &Expression, ctx: Ctx) {
         let value = self.classify(expr);
-        if matches!(
-            value,
-            BoolValue::Search(_) | BoolValue::Binding(_) | BoolValue::Call(_)
-        ) {
+        if is_search_candidate(&value) {
             if let Expression::Identifier(name) = unwrap(expr) {
                 // A captured read: codegen's capture lane has no boolean shape.
                 if let Resolved::Captured(node) = self.resolve(name) {

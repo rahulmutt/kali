@@ -1369,6 +1369,12 @@ struct ReprInfer {
     /// `(scope, binding)` of each `const` with a boolean-valued initializer
     /// (captured-bindings A-2.1); keyed like `numeric_binding_candidates`.
     boolean_consts: std::collections::HashSet<(String, String)>,
+    /// Residual round 1 (spec A-39): the initializer of every `const`
+    /// whose initializer could be a compile-time number (a numeric literal,
+    /// a unary sign, an identifier, an `Object.freeze(…)` call), keyed by
+    /// `(scope, binding)`. A rounding call over a chain of these folds to an
+    /// i64 in codegen, so it gets no float edge.
+    static_numeric_const_inits: BTreeMap<(String, String), Expression>,
     /// The default-deny half of `numeric_binding_candidates`: any write this
     /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
     /// the C-6 leak), a declarator with NO initializer (`let x;` is
@@ -3591,6 +3597,34 @@ impl ReprInfer {
         });
     }
 
+    /// Residual round 1 (spec A-39): `expr` is a compile-time number codegen
+    /// folds (a numeric literal, a unary sign of one, `Object.freeze` of
+    /// one, or a `const` alias chain ending in one). Mirrors codegen's
+    /// `is_static_numeric_arg`, so a rounding call over it stays on the i64
+    /// fold lane on both sides.
+    fn is_static_numeric(&self, func: &str, expr: &Expression, depth: usize) -> bool {
+        if depth > 16 {
+            return false;
+        }
+        match strip_parenthesized(expr) {
+            Expression::Literal(LiteralValue::Number(_)) => true,
+            Expression::UnaryExpression(u) if matches!(u.operator.as_str(), "-" | "+") => {
+                self.is_static_numeric(func, &u.argument, depth + 1)
+            }
+            Expression::Identifier(name) => {
+                let scope = self.binding_scope(func, name);
+                self.static_numeric_const_inits
+                    .get(&(scope.clone(), name.clone()))
+                    .is_some_and(|init| self.is_static_numeric(&scope, init, depth + 1))
+            }
+            Expression::CallExpression(call) if is_object_freeze_call(call) => call
+                .args
+                .first()
+                .is_some_and(|arg| self.is_static_numeric(func, arg, depth + 1)),
+            _ => false,
+        }
+    }
+
     /// Spec A-39 (residual R2): record a growable binding's index for the
     /// whole-number check `emit_table` runs once float-ness is solved.
     fn record_growable_index(
@@ -3964,6 +3998,12 @@ impl ReprInfer {
                     if decl.kind == "const" && d.init.as_ref().is_some_and(is_boolean_valued_init) {
                         let scope = self.binding_scope(func, &d.id);
                         self.boolean_consts.insert((scope, d.id.clone()));
+                    }
+                    if decl.kind == "const" {
+                        if let Some(init) = d.init.as_ref().filter(|i| may_be_static_numeric(i)) {
+                            self.static_numeric_const_inits
+                                .insert((func.to_string(), d.id.clone()), init.clone());
+                        }
                     }
                 }
             }
@@ -6088,7 +6128,7 @@ impl ReprInfer {
                             }
                         } else if let (Some(&node), Some(arg)) = (nodes.first(), call.args.first())
                         {
-                            if !is_signed_numeric_literal(arg) {
+                            if !self.is_static_numeric(func, arg, 0) {
                                 self.add_edge_float_only(node, result);
                             }
                         }
@@ -8753,15 +8793,23 @@ fn is_float_literal(n: f64) -> bool {
     !(n.is_finite() && n.fract() == 0.0)
 }
 
-/// A numeric literal, possibly under unary `-`/`+` and parentheses (spec A-39).
-fn is_signed_numeric_literal(expr: &Expression) -> bool {
+/// A `const` initializer that could be a compile-time number (residual
+/// round 1): see `ReprInfer::static_numeric_const_inits`.
+fn may_be_static_numeric(expr: &Expression) -> bool {
     match strip_parenthesized(expr) {
-        Expression::Literal(LiteralValue::Number(_)) => true,
-        Expression::UnaryExpression(u) if matches!(u.operator.as_str(), "-" | "+") => {
-            is_signed_numeric_literal(&u.argument)
-        }
+        Expression::Literal(LiteralValue::Number(_)) | Expression::Identifier(_) => true,
+        Expression::UnaryExpression(u) => matches!(u.operator.as_str(), "-" | "+"),
+        Expression::CallExpression(call) => is_object_freeze_call(call),
         _ => false,
     }
+}
+
+/// `Object.freeze(…)` (residual round 1).
+fn is_object_freeze_call(call: &kali_ast::CallExpression) -> bool {
+    matches!(strip_parenthesized(&call.callee), Expression::MemberExpression(m)
+        if m.computed_index.is_none()
+            && m.dot_name() == Some("freeze")
+            && matches!(strip_parenthesized(&m.object), Expression::Identifier(o) if o == "Object"))
 }
 
 /// True when `expr` is the `Math` object (`Math` identifier).

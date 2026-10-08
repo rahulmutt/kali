@@ -163,6 +163,23 @@ function main() {
 }
 main();
 """
+"remainder_index_module.js" = """
+const xs = [];
+xs.push(1); xs.push(2);
+const q = 3;
+const i = Math.floor(q / 2);
+console.log(xs[i % 2]);
+"""
+"remainder_index.js" = """
+function main() {
+  const xs = [];
+  xs.push(1); xs.push(2);
+  const q = 3;
+  const i = Math.floor(q / 2);
+  console.log(xs[i % 2]);
+}
+main();
+"""
 
 [[case]]
 name = "alias_push_is_seen_through_the_original_module_scope"
@@ -330,3 +347,16 @@ name = "a_fractional_index_is_refused_under_run"
 args = ["run", "fractional_index_read.js"]
 exit = "failure"
 stderr_contains = ["E5506", "indexing a growable array with a floating-point value", "`xs` in `main`"]
+
+[[case]]
+name = "a_remainder_of_a_float_index_is_refused_under_check"
+rationale = "Residual round 1 (minor, spec A-39): a float `%` does not lower (E4201), so `xs[i % 2]` with `i = Math.floor(q / 2)` is not proven whole and is refused by inference (node prints `2`). Round 0 admitted it under `check` and failed to load under `run`."
+args = ["check", "remainder_index_module.js", "remainder_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "not proven to be a whole number", "`xs` at module scope", "`xs` in `main`"]
+
+[[case]]
+name = "a_remainder_of_a_float_index_is_refused_under_run"
+args = ["run", "remainder_index.js"]
+exit = "failure"
+stderr_contains = ["E5506", "not proven to be a whole number"]

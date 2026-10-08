@@ -328,6 +328,52 @@ function main() {
 }
 main();
 """
+"negated_search_module.js" = """
+const xs = [1];
+xs.push(2);
+const missing = !xs.includes(3);
+const r = !xs.includes(2);
+let flip = !xs.includes(2);
+flip = !flip;
+const eq = xs.includes(2) === false;
+const same = xs.includes(2) == xs.includes(3);
+function absent(a, v) { return !a.includes(v); }
+console.log(missing, r, flip, eq, same, absent(xs, 5), absent(xs, 1));
+console.log(typeof r, "r=" + r, `${dollar}{eq}`, r === 0, absent(xs, 1) === false);
+if (missing) console.log("missing 3");
+"""
+"negated_search.js" = """
+function main() {
+  const xs = [1];
+  xs.push(2);
+  const missing = !xs.includes(3);
+  const r = !xs.includes(2);
+  let flip = !xs.includes(2);
+  flip = !flip;
+  const eq = xs.includes(2) === false;
+  const same = xs.includes(2) == xs.includes(3);
+  function absent(a, v) { return !a.includes(v); }
+  console.log(missing, r, flip, eq, same, absent(xs, 5), absent(xs, 1));
+  console.log(typeof r, "r=" + r, `${dollar}{eq}`, r === 0, absent(xs, 1) === false);
+  if (missing) console.log("missing 3");
+}
+main();
+"""
+"negated_search_argument_module.js" = """
+const xs = [1];
+xs.push(2);
+function show(v) { console.log(v); }
+show(!xs.includes(2));
+"""
+"negated_search_argument.js" = """
+function main() {
+  const xs = [1];
+  xs.push(2);
+  function show(v) { console.log(v); }
+  show(!xs.includes(2));
+}
+main();
+"""
 
 [[case]]
 name = "pop_until_one_element_remains_module_scope"
@@ -544,3 +590,29 @@ name = "an_includes_result_in_a_mixed_binding_is_refused_under_run_module_scope"
 args = ["run", "search_result_mixed_binding_module.js"]
 exit = "failure"
 stderr_contains = ["E5506", "result of a growable array at module scope"]
+
+[[case]]
+name = "a_negated_or_compared_includes_result_keeps_its_boolean_value_module_scope"
+rationale = "Residual round 1 (N2, spec A-40): `!xs.includes(v)` and a comparison over an `includes` result, stored in a `const`/`let` (also `r = !r`) or returned from a function, print `true`/`false` as node does (round 0 printed `0`/`1`). stdout is node v26.10.0's."
+args = ["run", "negated_search_module.js"]
+exit = "success"
+stdout = "true false true false false true false\nboolean r=false false false true\nmissing 3\n"
+
+[[case]]
+name = "a_negated_or_compared_includes_result_keeps_its_boolean_value"
+args = ["run", "negated_search.js"]
+exit = "success"
+stdout = "true false true false false true false\nboolean r=false false false true\nmissing 3\n"
+
+[[case]]
+name = "a_negated_includes_result_passed_as_an_argument_is_refused"
+rationale = "Residual round 1 (N2): `show(!xs.includes(2))` would print `0` (node `false`); inference refuses it under `check` and `run`."
+args = ["check", "negated_search_argument_module.js", "negated_search_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_negated_includes_result_passed_as_an_argument_is_refused_under_run"
+args = ["run", "negated_search_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]

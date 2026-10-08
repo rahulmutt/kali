@@ -303,7 +303,12 @@ impl<'a> FunctionEmitter<'a> {
         method: &str,
         arg: LirNodeId,
     ) -> Option<i64> {
-        let rendered = self.render_static_value(arg)?;
+        // Residual round 1: a module `const` of a literal read from a
+        // function folds too (inference treats it as a compile-time number,
+        // `is_static_numeric`; it used to reach the integer lane as an f64).
+        let rendered = self
+            .render_static_value(arg)
+            .or_else(|| self.module_const_static_render(arg))?;
         let value = parse_numeric_literal_value(&rendered)?;
         let folded = match method {
             "round" => {
@@ -355,6 +360,20 @@ impl<'a> FunctionEmitter<'a> {
         }
 
         Some(folded)
+    }
+
+    /// The static rendering of a module `const` read by name from a function.
+    fn module_const_static_render(&self, id: LirNodeId) -> Option<String> {
+        let node = self.node(self.unwrap_transparent(id));
+        if node.kind != LirNodeKind::Value || !node.children.is_empty() {
+            return None;
+        }
+        let name = node.text.as_deref()?;
+        if self.locals.contains_key(name) || self.function_name == "_start" {
+            return None;
+        }
+        let init = *self.module_const_inits.get(name)?;
+        self.render_static_value(init)
     }
 
     pub(crate) fn math_abs_static_literal_value(&self, arg: LirNodeId) -> Option<i64> {
@@ -473,27 +492,35 @@ impl<'a> FunctionEmitter<'a> {
             args.iter().any(|&arg| self.is_float_valued(arg))
         } else {
             args.first().is_some_and(|&arg| {
-                self.is_float_valued(arg) && !self.is_signed_numeric_literal(arg)
+                // Residual round 1: a compile-time number (a literal, or a
+                // `const` alias chain of one) keeps the i64 fold lane, as on
+                // `main`; `repr_infer` gives it no float edge either
+                // (`is_static_numeric`).
+                self.is_float_valued(arg) && !self.is_static_numeric_arg(arg)
             })
         };
         float.then_some(method)
     }
 
-    /// A numeric literal, possibly under unary `-`/`+` and parentheses.
-    fn is_signed_numeric_literal(&self, id: LirNodeId) -> bool {
-        let node = self.node(self.unwrap_transparent(id));
-        match node.kind {
-            LirNodeKind::Literal => node
-                .text
-                .as_deref()
-                .and_then(parse_numeric_literal_value)
-                .is_some(),
-            LirNodeKind::Value if node.children.len() == 1 => {
-                matches!(node.text.as_deref(), Some("-" | "+"))
-                    && self.is_signed_numeric_literal(node.children[0])
-            }
-            _ => false,
+    /// A compile-time number: a literal, a unary sign or `Object.freeze` of
+    /// one, a local `const` fold alias of one, or (from a function) a
+    /// module `const` whose initializer is one. Mirrors `repr_infer`'s
+    /// `is_static_numeric`.
+    fn is_static_numeric_arg(&self, id: LirNodeId) -> bool {
+        if self.resolve_static_numeric_value(id).is_some() {
+            return true;
         }
+        let node = self.node(self.unwrap_transparent(id));
+        if node.kind == LirNodeKind::Value && node.children.is_empty() {
+            if let Some(name) = node.text.as_deref() {
+                if !self.locals.contains_key(name) && self.function_name != "_start" {
+                    if let Some(&init) = self.module_const_inits.get(name) {
+                        return self.resolve_static_numeric_value(init).is_some();
+                    }
+                }
+            }
+        }
+        false
     }
 
     /// Spec A-39: lower a `math_float_lane` call. Every argument is
@@ -511,27 +538,6 @@ impl<'a> FunctionEmitter<'a> {
         method: MathFloatMethod,
     ) -> EmittedValue {
         let args: Vec<LirNodeId> = node.children[1..].to_vec();
-        // A float `const` alias of a literal (`const a = 1.6; Math.floor(a)`)
-        // keeps the constant-fold lane, as an f64.
-        if !method.is_extremum() {
-            let folded = args.first().and_then(|&arg| match method {
-                MathFloatMethod::Abs => self.math_abs_static_literal_value(arg),
-                _ => self.math_round_like_static_literal_value(method.name(), arg),
-            });
-            if let Some(folded) = folded {
-                function.instruction(&Instruction::F64Const((folded as f64).into()));
-                for &arg in args.iter().skip(1) {
-                    let produced = self.emit_node(function, arg, true);
-                    if produced.produced {
-                        function.instruction(&Instruction::Drop);
-                    }
-                }
-                return EmittedValue {
-                    produced: true,
-                    shape: ValueShape::Float,
-                };
-            }
-        }
         for (position, &arg) in args.iter().enumerate() {
             let is_float = self.is_float_valued(arg);
             if !self.emit_integer_math_arg(function, arg, method.name()) {

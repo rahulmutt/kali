@@ -123,3 +123,60 @@ fn a_math_rounding_of_a_float_is_f64_and_of_a_literal_is_not() {
     assert_eq!(t.scalar("main", "c"), kali_common::Repr::F64);
     assert_eq!(t.scalar("main", "d"), kali_common::Repr::I64);
 }
+
+// ---- residual round 1 ---------------------------------------------------
+
+#[test]
+fn a_rounding_of_a_const_alias_of_a_literal_is_not_f64() {
+    // N1: `const t = 7.9; Math.floor(t)` folds to an i64 in codegen, so
+    // inference gives it no float edge (it ran on `main`; round 0 made it
+    // f64 and `% 3` failed to load).
+    for src in [
+        "function main() { const t = 7.9; const k = Math.floor(t); console.log(k % 3); } main();",
+        "function main() { const v = 2.6; const t = v; const k = Math.round(-t); console.log(k); } main();",
+        "const t = 3.2; function main() { const k = Math.ceil(t); console.log(k % 2); } main();",
+    ] {
+        assert_eq!(table(src).scalar("main", "k"), kali_common::Repr::I64, "{src}");
+    }
+    let runtime = "function main() { let t = 7; t = t / 2; const k = Math.floor(t); console.log(k); } main();";
+    assert_eq!(table(runtime).scalar("main", "k"), kali_common::Repr::F64);
+}
+
+#[test]
+fn a_negated_or_compared_includes_result_is_a_boolean_binding() {
+    // N2: `!xs.includes(v)` and a comparison over an `includes` result.
+    let src = "function absent(a, v) { return !a.includes(v); } \
+               function main() { const xs = []; xs.push(2); const r = !xs.includes(2); \
+               let f = !xs.includes(2); f = !f; const e = xs.includes(2) === false; \
+               const s = xs.includes(2) == xs.includes(3); const c = 1 < 2; \
+               console.log(r, f, e, s, c, absent(xs, 1)); } main();";
+    let t = table(src);
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    for name in ["r", "f", "e", "s"] {
+        assert!(t.binding_is_search_boolean("main", name), "{name}");
+    }
+    assert!(!t.binding_is_search_boolean("main", "c"));
+    assert!(t.return_is_search_boolean("absent"));
+}
+
+#[test]
+fn a_negated_includes_result_in_an_unkept_position_is_refused() {
+    for body in [
+        "function show(v) { console.log(v); } show(!xs.includes(3));",
+        "let r = 0; r = !xs.includes(3); console.log(r);",
+        "const o = { k: xs.includes(3) === true }; console.log(o.k);",
+    ] {
+        let src = format!("function main() {{ const xs = []; xs.push(3); {body} }} main();");
+        assert!(refused(&src, SEARCH), "{src}\n{:?}", conflicts(&src));
+    }
+}
+
+#[test]
+fn a_remainder_index_over_a_float_is_refused() {
+    // Minor: a float `%` does not lower, so it is not proven whole.
+    let src = "function main() { const xs = []; xs.push(1); xs.push(2); const q = 3; \
+               const i = Math.floor(q / 2); console.log(xs[i % 2]); } main();";
+    assert!(refused(src, FRACTIONAL), "{:?}", conflicts(src));
+    let int = "function main() { const xs = []; xs.push(1); for (let i = 0; i < 3; i++) console.log(xs[i % 1]); } main();";
+    assert!(!refused(int, FRACTIONAL), "{:?}", conflicts(int));
+}
