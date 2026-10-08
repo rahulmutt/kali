@@ -248,6 +248,19 @@ fn a_rounding_of_a_module_const_chain_in_a_function_folds_to_an_integer() {
     // `Math.floor(u)` with `const u = t; const t = 7.9` folds to an i64 and
     // `% 3` / `| 1` lower (round 1 followed one hop: E4201).
     let mut ctx = ctx_with_growable("main", "unused", kali_common::Repr::I64);
+    // Round 3 (A-44): what `repr_infer` publishes for these bindings.
+    ctx.repr_table.set_static_numeric_bindings(
+        [
+            ("_start", "t"),
+            ("_start", "u"),
+            ("_start", "a"),
+            ("_start", "b"),
+            ("f", "t2"),
+        ]
+        .into_iter()
+        .map(|(scope, name)| (scope.to_string(), name.to_string()))
+        .collect(),
+    );
     let program = parse_and_lower_lir(
         "const t = 7.9; const u = t; const a = 7.9; const b = -a; function f() { const t2 = t; return Math.floor(u) % 3 + (Math.floor(b) % 3) + (Math.floor(t2) | 1); } console.log(f());",
     );

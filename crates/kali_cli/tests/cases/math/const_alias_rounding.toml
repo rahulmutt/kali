@@ -68,6 +68,31 @@ function main() {
 }
 main();
 """
+"loop_module.js" = """
+for (const x of [1.5, 2.5]) {
+  const k = Math.floor(x);
+  console.log(k, k % 2, k / 2, Math.round(x) * 1.5);
+}
+const ys = [3.5, 4.25];
+for (const y of ys) {
+  const k = Math.ceil(y);
+  console.log(k | 1, k % 3);
+}
+"""
+"loop_function.js" = """
+function main() {
+  for (const x of [1.5, 2.5]) {
+    const k = Math.floor(x);
+    console.log(k, k % 2, k / 2, Math.round(x) * 1.5);
+  }
+  const ys = [3.5, 4.25];
+  for (const y of ys) {
+    const k = Math.ceil(y);
+    console.log(k | 1, k % 3);
+  }
+}
+main();
+"""
 
 [[case]]
 name = "a_rounded_const_alias_folds_to_an_integer_module_scope"
@@ -110,4 +135,22 @@ stdout = "1 -2 7 7 -7\n"
 [[case]]
 name = "check_accepts_the_const_chain_programs"
 args = ["check", "chain_module.js", "chain_function.js"]
+exit = "success"
+
+[[case]]
+name = "a_rounded_unrolled_loop_variable_folds_to_an_integer_module_scope"
+rationale = "Residual round 3 (N1c, spec A-44): a `const` loop variable of a `for-of` over a literal array of floats (inline, or a non-growable `const` binding) is a compile-time number on both sides, so `Math.floor`/`Math.ceil` of it folds to an integer and `%`, `|`, `/` and `* 1.5` print node's values (round 2: `check` passed, `run` E4201)."
+args = ["run", "loop_module.js"]
+exit = "success"
+stdout = "1 1 0.5 3\n2 0 1 4.5\n5 1\n5 2\n"
+
+[[case]]
+name = "a_rounded_unrolled_loop_variable_folds_to_an_integer"
+args = ["run", "loop_function.js"]
+exit = "success"
+stdout = "1 1 0.5 3\n2 0 1 4.5\n5 1\n5 2\n"
+
+[[case]]
+name = "check_accepts_the_unrolled_loop_programs"
+args = ["check", "loop_module.js", "loop_function.js"]
 exit = "success"

@@ -411,6 +411,13 @@ struct Walker<'w, 'c> {
     opaque: Vec<Vec<String>>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SequenceMix {
+    None,
+    Some,
+    All,
+}
+
 /// A value that is a search result when the solve says so: an `includes`
 /// call, a binding read, a declared-function call, or a boolean over one.
 fn is_search_candidate(value: &BoolValue) -> bool {
@@ -636,12 +643,30 @@ impl Walker<'_, '_> {
                 self.candidates_in(&c.consequent, out);
                 self.candidates_in(&c.alternate, out);
             }
-            Expression::SequenceExpression(seq) => {
-                for e in &seq.expressions {
-                    self.candidates_in(e, out);
-                }
-            }
+            // Residual round 3: a `,` holding a search value is never one:
+            // kali's comma value is not JS's (`(1, 5)` prints `2`,
+            // `!(0, 5)` prints `true`), so it is refused where it is walked
+            // (`operands`).
+            Expression::SequenceExpression(_) => {}
             _ => {}
+        }
+    }
+
+    /// Whether every, some or none of a `,` expression's operands hold a
+    /// possible search value.
+    fn sequence_mix(&self, seq: &kali_ast::SequenceExpression) -> SequenceMix {
+        let mut with = 0;
+        for e in &seq.expressions {
+            let mut found = Vec::new();
+            self.candidates_in(e, &mut found);
+            if !found.is_empty() {
+                with += 1;
+            }
+        }
+        match with {
+            0 => SequenceMix::None,
+            n if n == seq.expressions.len() => SequenceMix::All,
+            _ => SequenceMix::Some,
         }
     }
 
@@ -880,7 +905,10 @@ impl Walker<'_, '_> {
             Expression::UnaryExpression(u) => {
                 let operand = match u.operator.as_str() {
                     "!" => Ctx::Truthy,
-                    "-" | "+" | "~" | "typeof" | "void" => Ctx::Render,
+                    // Residual round 3: unary `-`/`+` of a boolean shape
+                    // prints `true`/`false` (node: a number), so a search
+                    // value under them is refused.
+                    "~" | "typeof" | "void" => Ctx::Render,
                     _ => Ctx::Refuse,
                 };
                 self.expr(&u.argument, operand);
@@ -897,7 +925,13 @@ impl Walker<'_, '_> {
                 self.expr(&c.alternate, arm);
             }
             Expression::SequenceExpression(s) => {
-                if let Some((last, init)) = s.expressions.split_last() {
+                if self.sequence_mix(s) != SequenceMix::None {
+                    // Residual round 3: a `,` holding a search value is
+                    // refused (kali's comma value is not JS's).
+                    for e in &s.expressions {
+                        self.expr(e, Ctx::Refuse);
+                    }
+                } else if let Some((last, init)) = s.expressions.split_last() {
                     for e in init {
                         self.expr(e, Ctx::Truthy);
                     }

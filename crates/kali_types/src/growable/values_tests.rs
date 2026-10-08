@@ -197,17 +197,18 @@ fn a_rounding_of_a_module_const_chain_read_from_a_function_is_not_f64() {
 
 #[test]
 fn a_negated_logical_over_includes_results_is_a_boolean_binding() {
-    // N2b: `!` over `||`, `&&`, `??`, `?:` and `,` holding search values.
+    // N2b: `!` over `||`, `&&`, `??` and `?:` holding search values (a `,`
+    // is refused since round 3: `a_comma_holding_an_includes_result_is_refused`).
     let src = "function none(ys, v) { return !(ys.includes(v) || ys.includes(v + 1)); } \
                function main() { const xs = []; xs.push(2); const a = xs.includes(2); \
                const r1 = !(xs.includes(2) || xs.includes(4)); const r2 = !(xs.includes(2) && xs.includes(4)); \
                const r3 = !(xs.includes(2) ? xs.includes(3) : false); const r4 = !(xs.includes(2) ?? false); \
-               const r5 = !(xs.includes(2), xs.includes(9)); const r6 = !(a || xs.includes(4)); \
+               const r6 = !(a || xs.includes(4)); \
                let r7 = !(xs.includes(2) || 0); r7 = !r7; \
-               console.log(r1, r2, r3, r4, r5, r6, r7, none(xs, 7)); } main();";
+               console.log(r1, r2, r3, r4, r6, r7, none(xs, 7)); } main();";
     let t = table(src);
     assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
-    for name in ["r1", "r2", "r3", "r4", "r5", "r6", "r7"] {
+    for name in ["r1", "r2", "r3", "r4", "r6", "r7"] {
         assert!(t.binding_is_search_boolean("main", name), "{name}");
     }
     assert!(t.return_is_search_boolean("none"));
@@ -218,4 +219,47 @@ fn a_comparison_over_a_logical_of_includes_results_is_refused() {
     let src = "function main() { const xs = []; xs.push(3); \
                const r = (xs.includes(5) || xs.includes(3)) === true; console.log(r); } main();";
     assert!(refused(src, SEARCH), "{:?}", conflicts(src));
+}
+
+// ---- residual round 3 ---------------------------------------------------
+
+#[test]
+fn a_const_loop_variable_over_numeric_literals_is_a_compile_time_number() {
+    // N1c: codegen unrolls the loop and folds `Math.floor(x)`; inference
+    // must not give it a float edge, and publishes the binding.
+    for (src, func) in [
+        ("for (const x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k % 2); }", "_start"),
+        ("function f() { for (const x of [1.5, 2.5]) { const k = Math.floor(x); console.log(k % 2); } } f();", "f"),
+        ("const xs = [1.5, 2.5]; for (const x of xs) { const k = Math.floor(x); console.log(k / 2); }", "_start"),
+    ] {
+        let t = table(src);
+        assert_eq!(t.scalar(func, "k"), kali_common::Repr::I64, "{src}");
+        assert!(t.binding_is_static_numeric(func, "x"), "{src}");
+    }
+    // A growable iterable is a runtime loop: its variable is not static.
+    let t = table("const xs = [1.5]; xs.push(2.5); for (const x of xs) { const k = Math.floor(x); console.log(k); }");
+    assert!(!t.binding_is_static_numeric("_start", "x"));
+    assert_eq!(t.scalar("_start", "k"), kali_common::Repr::F64);
+}
+
+#[test]
+fn a_comma_holding_an_includes_result_is_refused() {
+    // N2c: kali's comma value is not JS's (`(1, 5)` prints `2`).
+    for e in [
+        "!(xs.includes(1), 5)",
+        "!(xs.includes(1), xs.includes(5))",
+        "!(1, xs.includes(2))",
+    ] {
+        let src = format!("function main() {{ const xs = []; xs.push(5); const r = {e}; console.log(r); }} main();");
+        assert!(refused(&src, SEARCH), "{src}\n{:?}", conflicts(&src));
+    }
+}
+
+#[test]
+fn a_unary_sign_of_an_includes_result_is_refused() {
+    // Round 3: `+r` printed `false` (node `0`).
+    for e in ["+r", "-xs.includes(5)", "+!xs.includes(5)"] {
+        let src = format!("function main() {{ const xs = []; xs.push(5); const r = !xs.includes(5); console.log({e}); }} main();");
+        assert!(refused(&src, SEARCH), "{src}\n{:?}", conflicts(&src));
+    }
 }

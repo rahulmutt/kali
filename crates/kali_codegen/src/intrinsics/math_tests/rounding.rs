@@ -290,6 +290,15 @@ fn supported_math_ceil_member_constant_folds_non_integer_numeric_literals() {
         compat_eval: false,
         coverage: false,
     });
+    // Residual round 3 (spec A-44): codegen folds through a binding only
+    // when inference published it as a compile-time number; this ctx runs
+    // no inference, so the fixture states what `repr_infer` publishes.
+    ctx.repr_table.set_static_numeric_bindings(
+        [("_start", "value"), ("_start", "alias")]
+            .into_iter()
+            .map(|(scope, name)| (scope.to_string(), name.to_string()))
+            .collect(),
+    );
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
@@ -311,6 +320,15 @@ fn supported_math_trunc_member_constant_folds_non_integer_numeric_literals() {
         compat_eval: false,
         coverage: false,
     });
+    // Residual round 3 (spec A-44): codegen folds through a binding only
+    // when inference published it as a compile-time number; this ctx runs
+    // no inference, so the fixture states what `repr_infer` publishes.
+    ctx.repr_table.set_static_numeric_bindings(
+        [("_start", "value"), ("_start", "alias")]
+            .into_iter()
+            .map(|(scope, name)| (scope.to_string(), name.to_string()))
+            .collect(),
+    );
     let result = lower_lir_to_wasm(&mut ctx, &program);
 
     assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);

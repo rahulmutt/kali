@@ -1375,6 +1375,17 @@ struct ReprInfer {
     /// `(scope, binding)`. A rounding call over a chain of these folds to an
     /// i64 in codegen, so it gets no float edge.
     static_numeric_const_inits: BTreeMap<(String, String), Expression>,
+    /// Residual round 3 (spec A-44): every `const` loop variable of a
+    /// `for-of`, keyed `(scope, variable)`, with its iterable. Codegen
+    /// unrolls a `for-of` over a literal array, binding the variable to each
+    /// element, so a variable over numeric literals is a compile-time number.
+    static_numeric_loop_vars: BTreeMap<(String, String), Expression>,
+    /// `const` array-literal initializers, keyed `(scope, binding)`: the
+    /// iterable of such a loop may be a binding of one.
+    const_array_inits: BTreeMap<(String, String), Expression>,
+    /// Keys declared more than once in one scope (sibling blocks or loops):
+    /// never a compile-time number, since one key would stand for two values.
+    static_numeric_conflicts: BTreeSet<(String, String)>,
     /// The default-deny half of `numeric_binding_candidates`: any write this
     /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
     /// the C-6 leak), a declarator with NO initializer (`let x;` is
@@ -3603,7 +3614,7 @@ impl ReprInfer {
     /// `is_static_numeric_arg`, so a rounding call over it stays on the i64
     /// fold lane on both sides.
     fn is_static_numeric(&self, func: &str, expr: &Expression, depth: usize) -> bool {
-        if depth > 16 {
+        if depth > kali_common::STATIC_NUMERIC_CHAIN_DEPTH {
             return false;
         }
         match strip_parenthesized(expr) {
@@ -3613,9 +3624,21 @@ impl ReprInfer {
             }
             Expression::Identifier(name) => {
                 let scope = self.binding_scope(func, name);
-                self.static_numeric_const_inits
-                    .get(&(scope.clone(), name.clone()))
-                    .is_some_and(|init| self.is_static_numeric(&scope, init, depth + 1))
+                let key = (scope.clone(), name.clone());
+                if self.static_numeric_conflicts.contains(&key) {
+                    return false;
+                }
+                if let Some(init) = self.static_numeric_const_inits.get(&key) {
+                    return self.is_static_numeric(&scope, init, depth + 1);
+                }
+                // Residual round 3: a `const` loop variable of a `for-of`
+                // over a literal array (or a non-growable `const` binding of
+                // one) whose every element is a compile-time number.
+                self.static_numeric_loop_vars
+                    .get(&key)
+                    .is_some_and(|iterable| {
+                        self.is_static_numeric_array(&scope, iterable, depth + 1)
+                    })
             }
             Expression::CallExpression(call) if is_object_freeze_call(call) => call
                 .args
@@ -3623,6 +3646,48 @@ impl ReprInfer {
                 .is_some_and(|arg| self.is_static_numeric(func, arg, depth + 1)),
             _ => false,
         }
+    }
+
+    /// A literal array (or a non-growable `const` binding of one) whose every
+    /// element is a compile-time number (residual round 3).
+    fn is_static_numeric_array(&self, func: &str, expr: &Expression, depth: usize) -> bool {
+        if depth > kali_common::STATIC_NUMERIC_CHAIN_DEPTH {
+            return false;
+        }
+        match strip_parenthesized(expr) {
+            Expression::ArrayExpression(array) => {
+                !array.elements.is_empty()
+                    && array.elements.iter().all(|element| match element {
+                        Some(ExpressionOrSpread::Expression(e)) => {
+                            self.is_static_numeric(func, e, depth + 1)
+                        }
+                        _ => false,
+                    })
+            }
+            Expression::Identifier(name) => {
+                let scope = self.binding_scope(func, name);
+                !self.growable.is_growable_binding(&scope, name)
+                    && self
+                        .const_array_inits
+                        .get(&(scope.clone(), name.clone()))
+                        .is_some_and(|init| self.is_static_numeric_array(&scope, init, depth + 1))
+            }
+            _ => false,
+        }
+    }
+
+    /// Residual round 3 (spec A-44): every binding `is_static_numeric`
+    /// proves, published so codegen's fold follows exactly these.
+    fn static_numeric_bindings(&self) -> std::collections::HashSet<(String, String)> {
+        let consts = self.static_numeric_const_inits.keys();
+        let loops = self.static_numeric_loop_vars.keys();
+        consts
+            .chain(loops)
+            .filter(|(scope, name)| {
+                self.is_static_numeric(scope, &Expression::Identifier(name.clone()), 0)
+            })
+            .cloned()
+            .collect()
     }
 
     /// Spec A-39 (residual R2): record a growable binding's index for the
@@ -4000,8 +4065,19 @@ impl ReprInfer {
                         self.boolean_consts.insert((scope, d.id.clone()));
                     }
                     if decl.kind == "const" {
+                        let key = (func.to_string(), d.id.clone());
+                        if self.static_numeric_const_inits.contains_key(&key)
+                            || self.static_numeric_loop_vars.contains_key(&key)
+                        {
+                            self.static_numeric_conflicts.insert(key.clone());
+                        }
                         if let Some(init) = d.init.as_ref().filter(|i| may_be_static_numeric(i)) {
-                            self.static_numeric_const_inits
+                            self.static_numeric_const_inits.insert(key, init.clone());
+                        }
+                        if let Some(init @ Expression::ArrayExpression(_)) =
+                            d.init.as_ref().map(strip_parenthesized)
+                        {
+                            self.const_array_inits
                                 .insert((func.to_string(), d.id.clone()), init.clone());
                         }
                     }
@@ -4040,6 +4116,20 @@ impl ReprInfer {
             }
             Statement::ForOfStatement(node) => {
                 if let ForOfLefthand::VariableDeclaration(decl) = &node.left {
+                    if decl.kind == "const" && decl.declarations.len() == 1 {
+                        let key = (func.to_string(), decl.declarations[0].id.clone());
+                        if self.static_numeric_const_inits.contains_key(&key)
+                            || self.static_numeric_loop_vars.contains_key(&key)
+                        {
+                            self.static_numeric_conflicts.insert(key.clone());
+                        }
+                        self.static_numeric_loop_vars
+                            .insert(key, node.right.clone());
+                    } else if let Some(d) = decl.declarations.first() {
+                        // A `let` loop variable may be reassigned.
+                        self.static_numeric_conflicts
+                            .insert((func.to_string(), d.id.clone()));
+                    }
                     let entry = self.local_names.entry(func.to_string()).or_default();
                     for d in &decl.declarations {
                         entry.insert(d.id.clone());
@@ -7987,6 +8077,7 @@ impl ReprInfer {
         for site in &search.refused_sites {
             table.add_shape_conflict(kali_common::growable_search_result_use_message(site));
         }
+        table.set_static_numeric_bindings(self.static_numeric_bindings());
         table.set_search_booleans(
             search.bindings.into_iter().collect(),
             search.returns.into_iter().collect(),

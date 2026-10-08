@@ -382,13 +382,12 @@ const r1 = !(xs.includes(2) || xs.includes(4));
 const r2 = !(xs.includes(2) && xs.includes(4));
 const r3 = !(xs.includes(2) ? xs.includes(3) : false);
 const r4 = !(xs.includes(2) ?? false);
-const r5 = !(xs.includes(2), xs.includes(9));
 const r6 = !(xs.includes(2) || 0);
 const r7 = !(a || xs.includes(4));
 let r8 = !(xs.includes(2) || xs.includes(4));
 r8 = !r8;
 function none(ys, v) { return !(ys.includes(v) || ys.includes(v + 1)); }
-console.log(r1, r2, r3, r4, r5, r6, r7, r8, none(xs, 7), none(xs, 1));
+console.log(r1, r2, r3, r4, r6, r7, r8, none(xs, 7), none(xs, 1));
 console.log(typeof !xs.includes(2), typeof (xs.includes(2) === false), typeof r1);
 """
 "negated_logical_search.js" = """
@@ -400,13 +399,12 @@ function main() {
   const r2 = !(xs.includes(2) && xs.includes(4));
   const r3 = !(xs.includes(2) ? xs.includes(3) : false);
   const r4 = !(xs.includes(2) ?? false);
-  const r5 = !(xs.includes(2), xs.includes(9));
   const r6 = !(xs.includes(2) || 0);
   const r7 = !(a || xs.includes(4));
   let r8 = !(xs.includes(2) || xs.includes(4));
   r8 = !r8;
   function none(ys, v) { return !(ys.includes(v) || ys.includes(v + 1)); }
-  console.log(r1, r2, r3, r4, r5, r6, r7, r8, none(xs, 7), none(xs, 1));
+  console.log(r1, r2, r3, r4, r6, r7, r8, none(xs, 7), none(xs, 1));
   console.log(typeof !xs.includes(2), typeof (xs.includes(2) === false), typeof r1);
 }
 main();
@@ -423,6 +421,53 @@ function main() {
   xs.push(3);
   const r = (xs.includes(5) || xs.includes(3)) === true;
   console.log(r);
+}
+main();
+"""
+"comma_search_module.js" = """
+const xs = [];
+xs.push(2); xs.push(5);
+const r = !(xs.includes(1), 5);
+console.log(r);
+"""
+"comma_search.js" = """
+function main() {
+  const xs = [];
+  xs.push(2); xs.push(5);
+  const r = !(xs.includes(1), 5);
+  console.log(r);
+}
+main();
+"""
+"comma_all_search_module.js" = """
+const xs = [];
+xs.push(2); xs.push(5);
+const r = !(xs.includes(1), xs.includes(5));
+const s = !(xs.includes(2), xs.includes(9));
+console.log(r, s, typeof r);
+"""
+"comma_all_search.js" = """
+function main() {
+  const xs = [];
+  xs.push(2); xs.push(5);
+  const r = !(xs.includes(1), xs.includes(5));
+  const s = !(xs.includes(2), xs.includes(9));
+  console.log(r, s, typeof r);
+}
+main();
+"""
+"signed_search_module.js" = """
+const xs = [];
+xs.push(2); xs.push(5);
+const r = !xs.includes(2);
+console.log(+r, -xs.includes(2));
+"""
+"signed_search.js" = """
+function main() {
+  const xs = [];
+  xs.push(2); xs.push(5);
+  const r = !xs.includes(2);
+  console.log(+r, -xs.includes(2));
 }
 main();
 """
@@ -671,16 +716,16 @@ stderr_contains = ["E5506", "result of a growable array in `main`"]
 
 [[case]]
 name = "a_negated_logical_over_includes_results_keeps_its_boolean_value_module_scope"
-rationale = "Residual round 2 (N2b, spec A-42): `!` over `||`, `&&`, `??`, `?:` and `,` holding growable `includes` results, stored in a `const`/`let` or returned, and `typeof` of `!`/a comparison print what node prints (round 1 printed `0`/`1` and `typeof` `0`). stdout is node v26.10.0's."
+rationale = "RE-PINNED 2026-10-08 (residual round 3): the `,` line (`!(xs.includes(2), xs.includes(9))`) moved to the refusal rows, since kali's comma value is not JS's (stdout re-measured with node v26.10.0). Residual round 2 (N2b, spec A-42): `!` over `||`, `&&`, `??`, `?:` holding growable `includes` results, stored in a `const`/`let` or returned, and `typeof` of `!`/a comparison print what node prints (round 1 printed `0`/`1` and `typeof` `0`). stdout is node v26.10.0's."
 args = ["run", "negated_logical_search_module.js"]
 exit = "success"
-stdout = "false true false false true false false true true false\nboolean boolean boolean\n"
+stdout = "false true false false false false true true false\nboolean boolean boolean\n"
 
 [[case]]
 name = "a_negated_logical_over_includes_results_keeps_its_boolean_value"
 args = ["run", "negated_logical_search.js"]
 exit = "success"
-stdout = "false true false false true false false true true false\nboolean boolean boolean\n"
+stdout = "false true false false false false true true false\nboolean boolean boolean\n"
 
 [[case]]
 name = "a_comparison_over_a_logical_of_includes_results_is_refused"
@@ -694,3 +739,29 @@ name = "a_comparison_over_a_logical_of_includes_results_is_refused_under_run"
 args = ["run", "compared_logical_search.js"]
 exit = "failure"
 stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_comma_holding_an_includes_result_is_refused"
+rationale = "Residual round 3 (N2c, spec A-44): `!(xs.includes(1), 5)` printed `true` (node `false`), and so does `!(xs.includes(1), xs.includes(5))`: kali's comma value is not JS's (`(1, 5)` prints `2`, pre-existing). Inference refuses any `,` holding a growable `includes` result, whether its other operands are search values or not (the second pair)."
+args = ["check", "comma_search_module.js", "comma_search.js", "comma_all_search_module.js", "comma_all_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_comma_holding_an_includes_result_is_refused_under_run"
+args = ["run", "comma_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_unary_sign_of_an_includes_result_is_refused"
+rationale = "Residual round 3 (spec A-44): `+r` with `const r = !xs.includes(2)` printed `false` and `-xs.includes(2)` a boolean (node `0` and `-1`); unary `+`/`-` over a growable search value is refused by inference."
+args = ["check", "signed_search_module.js", "signed_search.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope", "result of a growable array in `main`"]
+
+[[case]]
+name = "a_unary_sign_of_an_includes_result_is_refused_under_run"
+args = ["run", "signed_search_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]

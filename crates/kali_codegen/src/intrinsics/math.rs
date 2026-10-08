@@ -380,7 +380,7 @@ impl<'a> FunctionEmitter<'a> {
         module_only: bool,
         depth: usize,
     ) -> Option<f64> {
-        if depth > 32 {
+        if depth > kali_common::STATIC_NUMERIC_CHAIN_DEPTH {
             return None;
         }
         let node = self.node(id);
@@ -392,8 +392,18 @@ impl<'a> FunctionEmitter<'a> {
             LirNodeKind::Literal => node.text.as_deref().and_then(parse_numeric_literal_value),
             LirNodeKind::Value if node.children.is_empty() => {
                 let name = node.text.as_deref()?;
+                // Residual round 3 (A-44): follow a name only when inference
+                // proved it a compile-time number, so the fold here and
+                // inference's float edges agree by construction (an unrolled
+                // loop binding over a non-literal array is not followed).
                 if !module_only {
                     if let Some(&bound) = self.bindings.get(name) {
+                        if !self
+                            .repr_table
+                            .binding_is_static_numeric(&self.function_name, name)
+                        {
+                            return None;
+                        }
                         return self.static_numeric_chain_at(bound, false, depth + 1);
                     }
                 }
@@ -401,6 +411,9 @@ impl<'a> FunctionEmitter<'a> {
                     || (!self.locals.contains_key(name) && self.function_name != "_start");
                 if module_scope {
                     if let Some(&init) = self.module_const_inits.get(name) {
+                        if !self.repr_table.binding_is_static_numeric("_start", name) {
+                            return None;
+                        }
                         return self.static_numeric_chain_at(init, true, depth + 1);
                     }
                 }

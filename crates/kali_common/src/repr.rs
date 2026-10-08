@@ -370,6 +370,12 @@ pub struct ReprTable {
     /// The function twin of `search_boolean_bindings`: every `return` of the
     /// function is such a boolean, so a call result carries the shape.
     search_boolean_returns: HashSet<String>,
+    /// Residual round 3 (spec A-44): `(scope, binding)` pairs inference
+    /// proved hold a compile-time number (a `const` alias chain of a numeric
+    /// literal, or a `const` loop variable of a `for-of` over a literal array
+    /// of such). Codegen's `static_numeric_chain` follows an identifier only
+    /// through these, so its folds and inference's float edges agree.
+    static_numeric_bindings: HashSet<(String, String)>,
     /// `(scope, binding)` pairs that provably carry a `String()` intrinsic
     /// coercion RESULT (Stage P5 T-new-E). Unlike the numeric_* allowlists
     /// above, this is a DENY taint: `repr_infer` seeds no `Repr::String` for a
@@ -1010,6 +1016,17 @@ impl ReprTable {
     ) {
         self.search_boolean_bindings = bindings;
         self.search_boolean_returns = returns;
+    }
+
+    /// Residual round 3 (spec A-44): record the compile-time-number bindings.
+    pub fn set_static_numeric_bindings(&mut self, bindings: HashSet<(String, String)>) {
+        self.static_numeric_bindings = bindings;
+    }
+
+    /// Whether inference proved `scope`.`binding` a compile-time number.
+    pub fn binding_is_static_numeric(&self, scope: &str, binding: &str) -> bool {
+        self.static_numeric_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
     }
 
     /// Whether `scope`.`binding` always holds a boolean (spec A-40).
