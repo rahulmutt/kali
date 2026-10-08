@@ -462,6 +462,10 @@ fn growable_runtime_array_messages_name_the_array_and_say_why() {
         "the closure or nested function at module scope captures `x`, which a `for-of` loop over a growable array declares; capturing a loop binding at module scope is unavailable in the current phase"
     );
     assert_eq!(
+        growable_for_of_assigned_variable_message("`x` in `main`"),
+        "the `for-of` loop variable `x` in `main` is assigned in the loop body and its value reaches a growable array (a stored element, an index, a `slice` bound or a search value); kali binds the variable to each item and does not track the assignment, so assigning a `for-of` loop variable that feeds a growable array is unavailable in the current phase"
+    );
+    assert_eq!(
         growable_from_index_message("indexOf"),
         "`indexOf` with a `fromIndex` argument on a growable array is unavailable in the current phase"
     );

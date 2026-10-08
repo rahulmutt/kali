@@ -1390,6 +1390,10 @@ struct ReprInfer {
     /// probe walk; `None` during the probe walk itself, which runs no plain
     /// `for-of` item flow).
     plain_for_of_feeding: Option<BTreeSet<(String, String)>>,
+    /// Last targeted fix (spec A-45 (6)): `(func, name)` of every plain
+    /// `for-of` loop variable that the loop body assigns and that feeds a
+    /// growable element; each is refused (`emit_table`).
+    assigned_feeding_loop_vars: BTreeSet<(String, String)>,
     /// The default-deny half of `numeric_binding_candidates`: any write this
     /// pass CANNOT prove numeric — an unproven initializer (`const s = g(1n)`,
     /// the C-6 leak), a declarator with NO initializer (`let x;` is
@@ -4658,6 +4662,10 @@ impl ReprInfer {
                     if self.plain_for_of_flows(func, &var) {
                         self.flow_plain_for_of_items(func, &var, &stmt.right);
                     }
+                    if self.assigned_loop_var_feeds_growable(func, &var, stmt) {
+                        self.assigned_feeding_loop_vars
+                            .insert((func.to_string(), var));
+                    }
                 }
                 self.visit_expr(func, &stmt.right);
                 self.visit_stmt(func, &stmt.body);
@@ -5981,6 +5989,31 @@ impl ReprInfer {
         let key = (self.binding_scope(func, var), var.to_string());
         feeding.contains(&key)
             || self.is_static_numeric(func, &Expression::Identifier(var.to_string()), 0)
+    }
+
+    /// Last targeted fix (spec A-45 (6)): codegen unrolls a `for-of` over a
+    /// non-growable iterable, binding the variable to each item, and never
+    /// writes a `let`/`var` (or bare-name) variable's slot. A body that
+    /// assigns the variable therefore reads a stale value, and when that
+    /// value (or one derived from it) reaches a growable array the stored
+    /// element or search value is silently wrong. True for such a loop:
+    /// the variable feeds a growable element (the round 5 feeding set) and
+    /// the body assigns it (`body_assigns_name`). A `const` variable cannot
+    /// be assigned.
+    fn assigned_loop_var_feeds_growable(
+        &self,
+        func: &str,
+        var: &str,
+        stmt: &kali_ast::ForOfStatement,
+    ) -> bool {
+        let Some(feeding) = &self.plain_for_of_feeding else {
+            return false;
+        };
+        let is_const = matches!(&stmt.left, ForOfLefthand::VariableDeclaration(decl)
+            if decl.kind == "const");
+        !is_const
+            && feeding.contains(&(self.binding_scope(func, var), var.to_string()))
+            && body_assigns_name(&stmt.body, var)
     }
 
     /// Residual round 5: every binding (`(scope, name)`, a parameter keyed by
@@ -8173,6 +8206,11 @@ impl ReprInfer {
                 crate::growable::flow::GrowNode::Temp(_) => {}
             }
         }
+        for (func, name) in &self.assigned_feeding_loop_vars {
+            table.add_shape_conflict(kali_common::growable_for_of_assigned_variable_message(
+                &kali_common::growable_binding_subject(name, func),
+            ));
+        }
         for message in crate::growable::positions::growable_refusals(
             &self.growable_facts,
             &self.growable,
@@ -9089,7 +9127,57 @@ fn collect_destructuring_target_names(pattern: &Expression, names: &mut Vec<Stri
     }
 }
 
-/// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
+/// Last targeted fix (spec A-45 (6)): true when `body` (nested functions
+/// included, scope-blind) assigns the bare name `name`: `name = …`, a
+/// compound assignment, `name++`/`--name`, a destructuring assignment
+/// pattern that names it, or a nested `for-of`/`for-in` whose bare target is
+/// it. Exhaustive by construction, like `program_contains_class`: it
+/// searches the serialized AST, so no expression position is skipped. A
+/// node that does not deserialize back, or a serialization failure, answers
+/// `true` (fail-closed: it only refuses).
+fn body_assigns_name(body: &Statement, name: &str) -> bool {
+    fn target_names(value: &serde_json::Value, name: &str) -> bool {
+        serde_json::from_value::<Expression>(value.clone()).map_or(true, |target| {
+            destructuring_target_names(&target)
+                .iter()
+                .any(|n| n == name)
+        })
+    }
+    fn search(value: &serde_json::Value, name: &str) -> bool {
+        match value {
+            serde_json::Value::Object(map) => map.iter().any(|(key, v)| {
+                let assigns = match key.as_str() {
+                    "AssignmentExpression" => v.get("left").is_none_or(|t| target_names(t, name)),
+                    "UpdateExpression" => v.get("argument").is_none_or(|t| target_names(t, name)),
+                    "ForOfStatement" => serde_json::from_value::<kali_ast::ForOfStatement>(
+                        v.clone(),
+                    )
+                    .map_or(true, |node| match &node.left {
+                        ForOfLefthand::Expression(target) => {
+                            destructuring_target_names(target).iter().any(|n| n == name)
+                        }
+                        ForOfLefthand::VariableDeclaration(_) => false,
+                    }),
+                    "ForInStatement" => serde_json::from_value::<kali_ast::ForInStatement>(
+                        v.clone(),
+                    )
+                    .map_or(true, |node| match &node.left {
+                        ForInLefthand::Expression(target) => {
+                            destructuring_target_names(target).iter().any(|n| n == name)
+                        }
+                        ForInLefthand::VariableDeclaration(_) => false,
+                    }),
+                    _ => false,
+                };
+                assigns || search(v, name)
+            }),
+            serde_json::Value::Array(items) => items.iter().any(|item| search(item, name)),
+            _ => false,
+        }
+    }
+    serde_json::to_value(body).map_or(true, |value| search(&value, name))
+}
+
 /// The single loop variable of a `for-of` (a declaration or a bare name).
 fn for_of_loop_var(stmt: &kali_ast::ForOfStatement) -> Option<String> {
     match &stmt.left {
@@ -9117,6 +9205,7 @@ fn strip_static_wrappers(expr: &Expression) -> &Expression {
     }
 }
 
+/// Strip `ParenthesizedExpression` wrappers (Task 6 enumeration recognizer).
 fn strip_parenthesized(expr: &Expression) -> &Expression {
     let mut current = expr;
     while let Expression::ParenthesizedExpression(inner) = current {

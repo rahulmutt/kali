@@ -365,3 +365,44 @@ fn a_compile_time_loop_variable_still_floats_a_local_it_is_copied_into() {
     assert!(t.binding_is_static_numeric("_start", "z"));
     assert_eq!(t.scalar("_start", "k"), kali_common::Repr::I64);
 }
+
+const ASSIGNED_LOOP_VARIABLE: &str =
+    "is assigned in the loop body and its value reaches a growable array";
+
+#[test]
+fn a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_is_refused() {
+    // Last targeted fix (D): the unrolled `for-of` lanes never write the loop
+    // variable's slot, so a body assignment is invisible to a read and the
+    // value stored into a growable array was silently wrong
+    // (`for (let x of [1, 2]) { if (x > 5) x = 0; xs.push(x) }` stored `0,0`).
+    for src in [
+        "const xs = []; for (let x of [1, 2]) { if (x > 5) { x = 0; } xs.push(x); } console.log(xs.join(\",\"));",
+        "function main() { const xs = []; for (let x of [1, 2]) { xs.push(x); x = 9; } console.log(xs.join(\",\")); } main();",
+        "function main() { const xs = []; for (let x of [1, 2]) { x = x + 10; xs.push(x); } console.log(xs.join(\",\")); } main();",
+        "function main() { const xs = []; for (var x of [1, 2]) { x++; xs.push(x); } console.log(xs.join(\",\")); } main();",
+        "const xs = []; for (let x of [1, 2]) { x += 5; xs.push(x); } console.log(xs.join(\",\"));",
+        "function main() { const xs = []; for (let x of [1, 2]) { ([x] = [x * 3]); xs.push(x); } console.log(xs.join(\",\")); } main();",
+        "const xs = []; for (let x of [1, 2]) { const d = x * 2; x = 7; xs.push(d); } console.log(xs.join(\",\"));",
+        "function main() { const xs = []; xs.push(3); for (let x of [1, 2]) { x = x + 1; console.log(xs.includes(x)); } } main();",
+        "function main() { const xs = []; let c = \"\"; for (c of \"ab\") { c = c + \"!\"; xs.push(c); } console.log(xs.join(\",\")); } main();",
+        "function add(xs, v) { xs.push(v); } function main() { const xs = []; for (let x of [1, 2]) { x = x * 2; add(xs, x); } console.log(xs.join(\",\")); } main();",
+    ] {
+        assert!(refused(src, ASSIGNED_LOOP_VARIABLE), "{src}: {:?}", conflicts(src));
+    }
+}
+
+#[test]
+fn a_for_of_variable_that_is_not_assigned_or_does_not_feed_a_growable_array_is_admitted() {
+    for src in [
+        // Not assigned in the body.
+        "function main() { const xs = []; for (let x of [1, 2]) xs.push(x); console.log(xs.join(\",\")); } main();",
+        // Another binding derived from the item is assigned, not the item.
+        "function main() { const xs = []; for (let x of [1, 2]) { let y = x; y = y + 1; xs.push(y); } console.log(xs.join(\",\")); } main();",
+        // A loop over a growable array writes its variable's slot.
+        "function main() { const xs = []; xs.push(1); const ys = []; for (let c of xs) { c = c + 1; ys.push(c); } console.log(ys.join(\",\")); } main();",
+        // The assigned variable does not reach a growable array.
+        "function main() { const xs = []; xs.push(1); for (let x of [1, 2]) { x = 5; console.log(x); } console.log(xs.length); } main();",
+    ] {
+        assert!(!refused(src, ASSIGNED_LOOP_VARIABLE), "{src}: {:?}", conflicts(src));
+    }
+}

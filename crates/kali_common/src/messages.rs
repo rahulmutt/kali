@@ -600,6 +600,16 @@ pub fn growable_for_of_mutation_message(subject: &str) -> String {
     )
 }
 
+/// Growable-runtime-arrays last targeted fix (spec A-45 (6)): a `for-of`
+/// loop variable that the loop body assigns and whose value reaches a
+/// growable array. The unrolled `for-of` lanes bind the variable to each item
+/// and never write its slot, so the stored value would be silently wrong.
+pub fn growable_for_of_assigned_variable_message(subject: &str) -> String {
+    format!(
+        "the `for-of` loop variable {subject} is assigned in the loop body and its value reaches a growable array (a stored element, an index, a `slice` bound or a search value); kali binds the variable to each item and does not track the assignment, so assigning a `for-of` loop variable that feeds a growable array is unavailable in the current phase"
+    )
+}
+
 /// Growable-runtime-arrays spec §1, §3.6 (Task 11b): a closure or nested
 /// function at module scope reads a binding a `for-of` over a growable array
 /// declares (its variable or a binding in its body), which kali would read

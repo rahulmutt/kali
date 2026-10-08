@@ -251,6 +251,62 @@ for (let z of [3, 4]) console.log(z + 1, Math.abs(z));
 console.log(out[0], out[1], out[2], out[3]);
 """
 
+"lf_assign_after_push_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { xs.push(x); x = 9; } console.log(xs.join(",")); }
+main();
+"""
+"lf_assign_before_push_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { x = x + 10; xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_conditional_assign_module.js" = """
+const xs = []; for (let x of [1, 2]) { if (x > 5) { x = 0; } xs.push(x); } console.log(xs.join(","));
+"""
+"lf_conditional_assign_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { if (x > 5) { x = 0; } xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_update_var_function.js" = """
+function main() { const xs = []; for (var x of [1, 2]) { x++; xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_compound_module.js" = """
+const xs = []; for (let x of [1, 2]) { x += 5; xs.push(x); } console.log(xs.join(","));
+"""
+"lf_destructure_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { ([x] = [x * 3]); xs.push(x); } console.log(xs.join(",")); }
+main();
+"""
+"lf_derived_module.js" = """
+const xs = []; for (let x of [1, 2]) { const d = x * 2; x = 7; xs.push(d); } console.log(xs.join(","));
+"""
+"lf_derived_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { const d = x * 2; x = 7; xs.push(d); } console.log(xs.join(",")); }
+main();
+"""
+"lf_needle_function.js" = """
+function main() { const xs = []; xs.push(3); for (let x of [1, 2]) { x = x + 1; console.log(xs.includes(x)); } }
+main();
+"""
+"lf_needle_module.js" = """
+const xs = []; xs.push(3); for (let x of [1, 2]) { x = x + 1; console.log(xs.indexOf(x)); }
+"""
+"lf_string_bare_function.js" = """
+function main() { const xs = []; let c = ""; for (c of "ab") { c = c + "!"; xs.push(c); } console.log(xs.join(",")); }
+main();
+"""
+"lf_ok_growable_iterable_function.js" = """
+function main() { const xs = []; xs.push(1); xs.push(2); const ys = []; for (let c of xs) { c = c + 1; ys.push(c); } console.log(ys.join(",")); }
+main();
+"""
+"lf_ok_other_binding_function.js" = """
+function main() { const xs = []; for (let x of [1, 2]) { let y = x; y = y + 1; xs.push(y); } console.log(xs.join(",")); }
+main();
+"""
+"lf_ok_other_binding_module.js" = """
+const xs = []; for (let x of [1, 2]) { let y = x; y = y + 1; xs.push(y); } console.log(xs.join(","));
+"""
+
 [[case]]
 name = "nested_for_of_over_two_growable_arrays_and_over_one_array_twice_module_scope"
 rationale = "Spec §3.5, A-10: per-depth index, length and handle locals. At the baseline `run` refused the nesting and `check` accepted it."
@@ -536,3 +592,168 @@ name = "a_let_loop_item_over_a_literal_array_is_read_as_the_item_module_scope"
 args = ["run", "let_item_module.js"]
 exit = "success"
 stdout = "4 3\n5 4\n1 2 1.5 2.5\n"
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_after_push_function"
+rationale = "Last targeted fix (D, spec A-45 (6)): the unrolled for-of lanes never write the loop variable's slot, so a body assignment was invisible and the value stored into (or searched in) a growable array was silently wrong (node prints the assigned values). Refused in inference, so `check` and `run` agree."
+args = ["check", "lf_assign_after_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_after_push_function"
+args = ["run", "lf_assign_after_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_before_push_function"
+args = ["check", "lf_assign_before_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_assign_before_push_function"
+args = ["run", "lf_assign_before_push_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_module"
+args = ["check", "lf_conditional_assign_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_module"
+args = ["run", "lf_conditional_assign_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_function"
+args = ["check", "lf_conditional_assign_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_conditional_assign_function"
+args = ["run", "lf_conditional_assign_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_update_var_function"
+rationale = "Already refused before inference by the update/compound-assignment lowering check on a `for-of` loop variable (on `main` too); inference's own refusal of this shape is covered by `values_tests`."
+args = ["check", "lf_update_var_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "update expression lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_update_var_function"
+args = ["run", "lf_update_var_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "update expression lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_compound_module"
+rationale = "Already refused before inference by the update/compound-assignment lowering check on a `for-of` loop variable (on `main` too); inference's own refusal of this shape is covered by `values_tests`."
+args = ["check", "lf_compound_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "compound assignment lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_compound_module"
+args = ["run", "lf_compound_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "compound assignment lowering is unavailable for binding 'x'"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_destructure_function"
+args = ["check", "lf_destructure_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_destructure_function"
+args = ["run", "lf_destructure_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_module"
+args = ["check", "lf_derived_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_module"
+args = ["run", "lf_derived_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_function"
+args = ["check", "lf_derived_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_derived_function"
+args = ["run", "lf_derived_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_function"
+args = ["check", "lf_needle_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_function"
+args = ["run", "lf_needle_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_module"
+args = ["check", "lf_needle_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_needle_module"
+args = ["run", "lf_needle_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "check_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_string_bare_function"
+args = ["check", "lf_string_bare_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "run_refuses_a_for_of_variable_assigned_in_its_body_that_feeds_a_growable_array_string_bare_function"
+args = ["run", "lf_string_bare_function.js"]
+exit = "failure"
+stderr_contains = ["E5506", "is assigned in the loop body and its value reaches a growable array"]
+
+[[case]]
+name = "a_for_of_loop_that_does_not_assign_a_variable_feeding_a_growable_array_stays_admitted_ok_growable_iterable_function"
+args = ["run", "lf_ok_growable_iterable_function.js"]
+exit = "success"
+stdout = "2,3\n"
+
+[[case]]
+name = "a_for_of_loop_that_does_not_assign_a_variable_feeding_a_growable_array_stays_admitted_ok_other_binding_function"
+args = ["run", "lf_ok_other_binding_function.js"]
+exit = "success"
+stdout = "2,3\n"
+
+[[case]]
+name = "a_for_of_loop_that_does_not_assign_a_variable_feeding_a_growable_array_stays_admitted_ok_other_binding_module"
+args = ["run", "lf_ok_other_binding_module.js"]
+exit = "success"
+stdout = "2,3\n"
