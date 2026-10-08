@@ -1,0 +1,125 @@
+//! Growable-runtime-arrays residual fixes R1 (spec A-40) and R2 (spec A-39).
+
+use kali_common::ReprTable;
+
+fn table(src: &str) -> ReprTable {
+    crate::repr_infer::infer_reprs(&crate::test_support::parse_statements(src))
+}
+
+fn conflicts(src: &str) -> Vec<String> {
+    table(src).shape_conflicts().to_vec()
+}
+
+fn refused(src: &str, needle: &str) -> bool {
+    conflicts(src).iter().any(|m| m.contains(needle))
+}
+
+const SEARCH: &str = "result of a growable array";
+const FRACTIONAL: &str = "not proven to be a whole number";
+
+// ---- R1 (A-40) ----------------------------------------------------------
+
+#[test]
+fn a_stored_includes_result_is_a_boolean_binding() {
+    let src = "function main() { const xs = []; xs.push(3); const r = xs.includes(3); \
+               let found = false; found = xs.includes(4); console.log(r, found, typeof r); } main();";
+    let t = table(src);
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert!(t.binding_is_search_boolean("main", "r"));
+    assert!(t.binding_is_search_boolean("main", "found"));
+}
+
+#[test]
+fn a_module_scope_includes_result_is_a_boolean_binding() {
+    let t = table("const xs = []; xs.push(3); const r = xs.includes(3); console.log(r);");
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert!(t.binding_is_search_boolean("_start", "r"));
+}
+
+#[test]
+fn a_function_returning_an_includes_result_is_boolean() {
+    let src = "function has(a, v) { return a.includes(v); } \
+               function main() { const xs = []; xs.push(3); const b = has(xs, 3); console.log(b, has(xs, 4)); } main();";
+    let t = table(src);
+    assert!(t.shape_conflicts().is_empty(), "{:?}", t.shape_conflicts());
+    assert!(t.return_is_search_boolean("has"));
+    assert!(t.binding_is_search_boolean("main", "b"));
+}
+
+#[test]
+fn an_includes_result_in_an_unkept_position_is_refused() {
+    for body in [
+        "function show(v) { console.log(v); } show(xs.includes(3));",
+        "console.log(xs.includes(4) || 0);",
+        "console.log(xs.includes(4) ? xs.includes(3) : 1);",
+        "let r = 0; r = xs.includes(3); console.log(r);",
+        "const o = { k: xs.includes(3) }; console.log(o.k);",
+        "const r = xs.includes(3); const f = () => r; console.log(f());",
+        "function g() { if (xs.length > 5) return xs.includes(3); } console.log(g());",
+        "let r = false; console.log(r = xs.includes(3));",
+    ] {
+        let module = format!("const xs = []; xs.push(3); {body}");
+        assert!(
+            refused(&module, SEARCH),
+            "{module}\n{:?}",
+            conflicts(&module)
+        );
+    }
+}
+
+#[test]
+fn a_kept_includes_result_and_a_plain_includes_are_quiet() {
+    let src = "function main() { const xs = []; xs.push(3); \
+               if (xs.includes(3) && xs.length > 0) console.log(1); \
+               console.log(!xs.includes(3), xs.includes(3) ? 1 : 2, \"x\" + xs.includes(3), xs.includes(3) === true); \
+               xs.includes(4); \
+               const lit = [1, 2].indexOf(2); console.log(lit, xs.indexOf(3)); } main();";
+    assert!(!refused(src, SEARCH), "{:?}", conflicts(src));
+}
+
+// ---- R2 (A-39) ----------------------------------------------------------
+
+#[test]
+fn a_rounded_float_index_is_admitted() {
+    let src = "function main() { const xs = []; for (let i = 0; i < 7; i++) xs.push(i); const x = 9; \
+               const m = Math.floor(xs.length / 2); \
+               console.log(xs[Math.floor(x / 2)], xs[m], xs[m + 1], xs[Math.min(Math.ceil(x / 4), 6)]); \
+               let lo = 0; let hi = 6; while (lo < hi) { const mid = Math.floor((lo + hi) / 2); \
+               if (xs[mid] < 3) lo = mid + 1; else hi = mid; } console.log(xs[lo]); } main();";
+    assert!(!refused(src, FRACTIONAL), "{:?}", conflicts(src));
+    assert_eq!(table(src).scalar("main", "m"), kali_common::Repr::F64);
+}
+
+#[test]
+fn a_fractional_float_index_is_refused() {
+    for index in [
+        "x / 2",
+        "Math.max(x / 2, 1)",
+        "w",
+        "Math.floor(x / 2) + 0.5",
+    ] {
+        let src = format!(
+            "function main() {{ const xs = []; xs.push(1); const x = 3; let w = Math.floor(x / 2); w = x / 4; console.log(xs[{index}]); }} main();"
+        );
+        assert!(refused(&src, FRACTIONAL), "{src}\n{:?}", conflicts(&src));
+    }
+}
+
+#[test]
+fn an_integer_index_is_never_checked() {
+    let src = "function f(i) { return i * 2; } function main() { const xs = []; xs.push(1); xs.push(2); \
+               const s = \"ab\"; console.log(xs[f(0)], xs[s.charCodeAt(0) - 97], xs[xs.length - 1]); } main();";
+    assert!(!refused(src, FRACTIONAL), "{:?}", conflicts(src));
+}
+
+#[test]
+fn a_math_rounding_of_a_float_is_f64_and_of_a_literal_is_not() {
+    let t = table(
+        "function main() { const x = 9 / 2; const a = Math.floor(x); const b = Math.floor(4.5); \
+         const c = Math.max(2, x); const d = Math.max(2, 3); console.log(a, b, c, d); } main();",
+    );
+    assert_eq!(t.scalar("main", "a"), kali_common::Repr::F64);
+    assert_eq!(t.scalar("main", "b"), kali_common::Repr::I64);
+    assert_eq!(t.scalar("main", "c"), kali_common::Repr::F64);
+    assert_eq!(t.scalar("main", "d"), kali_common::Repr::I64);
+}

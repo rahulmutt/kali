@@ -1828,6 +1828,12 @@ struct ReprInfer {
     /// publishes it and turns its refusals into shape conflicts.
     growable_facts: crate::growable::flow::GrowFacts,
     growable: crate::growable::flow::GrowSolution,
+    /// Growable-runtime-arrays spec A-39, A-40 (residual R1, R2): binding
+    /// writes, `includes`-result occurrences and their positions.
+    growable_value_facts: crate::growable::values::ValueFacts,
+    /// Spec A-39: `(index node, whole-number proof, func, receiver)` for every
+    /// index of a growable binding.
+    growable_index_checks: Vec<(usize, crate::growable::values::Integral, String, String)>,
     /// F-AB-2 lockstep tracking (see
     /// `docs/superpowers/followups/stageAB-followups.md` §F-AB-2). Every
     /// synthetic `__kali_fn_N` id the shared Phase-A descent registers (walks
@@ -3553,6 +3559,15 @@ impl ReprInfer {
     /// resolves it (`array_return_callee`: `const` arrow aliases included,
     /// shadowed names excluded).
     fn collect_growable_facts(&self, statements: &[Statement]) -> crate::growable::flow::GrowFacts {
+        self.with_growable_walk_context(|ctx| {
+            crate::growable::facts::collect_facts(statements, ctx)
+        })
+    }
+
+    fn with_growable_walk_context<T>(
+        &self,
+        f: impl FnOnce(&crate::growable::facts::WalkContext<'_>) -> T,
+    ) -> T {
         let is_declared = |func: &str, name: &str| self.is_locally_declared(func, name);
         let resolve_callee = |site: &str, name: &str| {
             self.array_return_callee(site, name)
@@ -3563,7 +3578,7 @@ impl ReprInfer {
             resolve_callee: &resolve_callee,
             params: &self.functions,
         };
-        crate::growable::facts::collect_facts(statements, &ctx)
+        f(&ctx)
     }
 
     /// Phase A3 (growable-runtime-arrays spec §3.1).
@@ -3571,6 +3586,40 @@ impl ReprInfer {
         let facts = self.collect_growable_facts(statements);
         self.growable = crate::growable::flow::solve(&facts);
         self.growable_facts = facts;
+        self.growable_value_facts = self.with_growable_walk_context(|ctx| {
+            crate::growable::values::collect_value_facts(statements, ctx)
+        });
+    }
+
+    /// Spec A-39 (residual R2): record a growable binding's index for the
+    /// whole-number check `emit_table` runs once float-ness is solved.
+    fn record_growable_index(
+        &mut self,
+        func: &str,
+        receiver: &Expression,
+        index: &Expression,
+        node: usize,
+    ) {
+        let Expression::Identifier(name) = crate::array_return::unparen(receiver) else {
+            return;
+        };
+        if !self.growable.is_growable_binding(func, name) {
+            return;
+        }
+        let binding = |n: &str| Some((self.binding_scope(func, n), n.to_string()));
+        let callee = |n: &str| {
+            self.array_return_callee(func, n)
+                .filter(|key| self.functions.contains_key(key))
+        };
+        let proof = crate::growable::values::integral_proof(
+            index,
+            &crate::growable::values::Resolver {
+                binding: &binding,
+                callee: &callee,
+            },
+        );
+        self.growable_index_checks
+            .push((node, proof, func.to_string(), name.clone()));
     }
 
     /// Union the element node of every binding and return in each growable
@@ -5630,7 +5679,8 @@ impl ReprInfer {
         // Array element store: `a[i] = v`.
         if let Expression::MemberExpression(member) = &assign.left {
             if let Some(index) = &member.computed_index {
-                self.visit_expr(func, index); // index stays i64 (untouched).
+                let index_node = self.visit_expr(func, index); // index stays i64 (untouched).
+                self.record_growable_index(func, &member.object, index, index_node);
                 let rn = self.visit_expr(func, &assign.right);
                 if let Expression::Identifier(name) = &member.object {
                     let elem = self.array_elem_node_for(func, name);
@@ -5863,14 +5913,15 @@ impl ReprInfer {
     fn visit_member(&mut self, func: &str, member: &kali_ast::MemberExpression) -> usize {
         // Computed access `a[i]` → array element read.
         if let Some(index) = &member.computed_index {
-            self.visit_expr(func, index); // index untouched (i64).
-                                          // `process.argv[<int>]` (Spec 5 Task 5): a runtime string handle
-                                          // (`args_get`), NOT an array element read. Its base is the
-                                          // `process.argv` member (never a bare array binding), so this must
-                                          // precede the Identifier-base element arm below. Register the read
-                                          // result as a runtime-string node so a consuming binding
-                                          // (`const s = process.argv[i]`) solves `Repr::String`, mirroring
-                                          // the substring/join result registration.
+            let index_node = self.visit_expr(func, index); // index untouched (i64).
+            self.record_growable_index(func, &member.object, index, index_node);
+            // `process.argv[<int>]` (Spec 5 Task 5): a runtime string handle
+            // (`args_get`), NOT an array element read. Its base is the
+            // `process.argv` member (never a bare array binding), so this must
+            // precede the Identifier-base element arm below. Register the read
+            // result as a runtime-string node so a consuming binding
+            // (`const s = process.argv[i]`) solves `Repr::String`, mirroring
+            // the substring/join result registration.
             if member_is_process_argv_element(member) {
                 self.visit_expr(func, &member.object);
                 let result = self.new_node();
@@ -6016,6 +6067,33 @@ impl ReprInfer {
             Expression::MemberExpression(member) if member.computed_index.is_none() => {
                 let method = member.dot_name().unwrap_or_default();
                 match method {
+                    // Growable-runtime-arrays residual R2 (spec A-39): these
+                    // are f64 exactly when an operand is. The first argument
+                    // of `floor`/`ceil`/`trunc`/`round`/`abs` floats the
+                    // result unless it is a signed numeric literal (the
+                    // constant-fold lane); any argument of `min`/`max` does.
+                    // Mirrors codegen's `math_float_lane`.
+                    method @ ("floor" | "ceil" | "trunc" | "round" | "abs" | "min" | "max")
+                        if is_math_object(&member.object) =>
+                    {
+                        let nodes: Vec<usize> = call
+                            .args
+                            .iter()
+                            .map(|arg| self.visit_expr(func, arg))
+                            .collect();
+                        let result = self.new_node();
+                        if matches!(method, "min" | "max") {
+                            for &node in &nodes {
+                                self.add_edge_float_only(node, result);
+                            }
+                        } else if let (Some(&node), Some(arg)) = (nodes.first(), call.args.first())
+                        {
+                            if !is_signed_numeric_literal(arg) {
+                                self.add_edge_float_only(node, result);
+                            }
+                        }
+                        result
+                    }
                     "sqrt" | "cbrt" if is_math_object(&member.object) => {
                         for arg in &call.args {
                             self.visit_expr(func, arg);
@@ -7826,6 +7904,54 @@ impl ReprInfer {
             table.add_shape_conflict(message);
         }
 
+        // Residual R2 (spec A-39): a floating-point index must be proven a
+        // whole number; codegen truncates it.
+        {
+            use crate::growable::values::Integral;
+            let float_of: Vec<bool> = (0..self.node_count)
+                .map(|n| float.get(self.uf.find(n)).copied().unwrap_or(false))
+                .collect();
+            let node_float = |node: Option<&usize>| {
+                node.is_some_and(|&n| float_of.get(n).copied().unwrap_or(false))
+            };
+            let is_float = |leaf: &Integral| match leaf {
+                Integral::Binding(scope, name) => {
+                    node_float(self.scalar_node.get(&(scope.clone(), name.clone())))
+                }
+                Integral::Elements(scope, name) => {
+                    node_float(self.array_elem_node.get(&(scope.clone(), name.clone())))
+                }
+                Integral::Return(func) => node_float(self.return_node.get(func)),
+                _ => false,
+            };
+            for (node, proof, func, name) in &self.growable_index_checks {
+                if node_float(Some(node))
+                    && !crate::growable::values::integral_holds(
+                        proof,
+                        &self.growable_value_facts.integral,
+                        &is_float,
+                    )
+                {
+                    table.add_shape_conflict(kali_common::growable_fractional_index_message(
+                        &kali_common::growable_binding_subject(name, func),
+                    ));
+                }
+            }
+        }
+
+        // Residual R1 (spec A-40): growable `includes` results.
+        let search = crate::growable::values::solve_search_booleans(
+            &self.growable_value_facts,
+            &self.growable,
+        );
+        for site in &search.refused_sites {
+            table.add_shape_conflict(kali_common::growable_search_result_use_message(site));
+        }
+        table.set_search_booleans(
+            search.bindings.into_iter().collect(),
+            search.returns.into_iter().collect(),
+        );
+
         // Array-return lane (spec 2026-10-02 §3.1): an admitted function's
         // returned elements must solve `I64`. A float or string element taints
         // it here, after solving, so the check sees computed elements too.
@@ -8625,6 +8751,17 @@ fn returning_string_array_message(func: &str, name: &str) -> String {
 /// is not an exact finite integer (has a fractional part, or is non-finite).
 fn is_float_literal(n: f64) -> bool {
     !(n.is_finite() && n.fract() == 0.0)
+}
+
+/// A numeric literal, possibly under unary `-`/`+` and parentheses (spec A-39).
+fn is_signed_numeric_literal(expr: &Expression) -> bool {
+    match strip_parenthesized(expr) {
+        Expression::Literal(LiteralValue::Number(_)) => true,
+        Expression::UnaryExpression(u) if matches!(u.operator.as_str(), "-" | "+") => {
+            is_signed_numeric_literal(&u.argument)
+        }
+        _ => false,
+    }
 }
 
 /// True when `expr` is the `Math` object (`Math` identifier).

@@ -5,6 +5,7 @@
 [constants]
 POP_ARG = "`.pop()` with an argument on the growable array `a`"
 SLICE_ARGS = "`.slice()` with more than two arguments on the growable array `a`"
+dollar = "$"
 
 [source]
 "pop_module.js" = """
@@ -206,6 +207,127 @@ let c = 0; function bump() { c = c + 1; return c; }
 function main() { const a = []; a.push(1); a.push(2); a.push(3); const t = a.slice(0, 1, bump()); console.log(c, t.length); }
 main();
 """
+"rounded_slice_bounds_module.js" = """
+const xs = [];
+for (let i = 0; i < 6; i++) xs.push(i * 10);
+const x = 7;
+console.log(xs.slice(Math.floor(x / 2)).join(","), xs.slice(0, Math.ceil(x / 3)).join(","), xs.slice(Math.trunc(-x / 3)).join(","));
+const h = Math.floor(xs.length / 2);
+console.log(h, xs.slice(h).join(","), xs.slice(Math.round(x / 4), Math.min(h + 1, Math.max(x / 2, 2))).join(","));
+"""
+"rounded_slice_bounds.js" = """
+function main() {
+  const xs = [];
+  for (let i = 0; i < 6; i++) xs.push(i * 10);
+  const x = 7;
+  console.log(xs.slice(Math.floor(x / 2)).join(","), xs.slice(0, Math.ceil(x / 3)).join(","), xs.slice(Math.trunc(-x / 3)).join(","));
+  const h = Math.floor(xs.length / 2);
+  console.log(h, xs.slice(h).join(","), xs.slice(Math.round(x / 4), Math.min(h + 1, Math.max(x / 2, 2))).join(","));
+}
+main();
+"""
+"search_result_values_module.js" = """
+const xs = [];
+xs.push(3); xs.push(5);
+const r = xs.includes(3);
+const q = xs.includes(4);
+console.log(r, q, typeof r, typeof q, "x" + r, `${dollar}{q}!`);
+if (r) console.log("has 3");
+if (!q) console.log("no 4");
+console.log(r ? "yes" : "no", !r, r === true, q === false, r === 1, r == 1, r + 1);
+function has(a, v) { return a.includes(v); }
+const b = has(xs, 5);
+console.log(b, has(xs, 6), typeof has(xs, 5), "has=" + has(xs, 5), b === true, b === 1);
+let found = false;
+for (const v of xs) { if (v > 4) found = xs.includes(v); }
+console.log(found, typeof found);
+const fs = [];
+fs.push(0.5); fs.push(2.5);
+const fr = fs.includes(2.5);
+console.log(fr, typeof fr, fs.includes(1), "f" + fs.includes(0.5));
+const ss = [];
+ss.push("a"); ss.push("b");
+const sr = ss.includes("b");
+console.log(sr, "s:" + sr, ss.includes("z") ? 1 : 2, typeof ss.includes("a"));
+const sl = xs.slice(1).includes(5);
+console.log(sl, xs.slice(1).includes(3), typeof sl);
+console.log(xs.indexOf(5), typeof xs.indexOf(5));
+"""
+"search_result_values.js" = """
+function main() {
+  const xs = [];
+  xs.push(3); xs.push(5);
+  const r = xs.includes(3);
+  const q = xs.includes(4);
+  console.log(r, q, typeof r, typeof q, "x" + r, `${dollar}{q}!`);
+  if (r) console.log("has 3");
+  if (!q) console.log("no 4");
+  console.log(r ? "yes" : "no", !r, r === true, q === false, r === 1, r == 1, r + 1);
+  function has(a, v) { return a.includes(v); }
+  const b = has(xs, 5);
+  console.log(b, has(xs, 6), typeof has(xs, 5), "has=" + has(xs, 5), b === true, b === 1);
+  let found = false;
+  for (const v of xs) { if (v > 4) found = xs.includes(v); }
+  console.log(found, typeof found);
+  const fs = [];
+  fs.push(0.5); fs.push(2.5);
+  const fr = fs.includes(2.5);
+  console.log(fr, typeof fr, fs.includes(1), "f" + fs.includes(0.5));
+  const ss = [];
+  ss.push("a"); ss.push("b");
+  const sr = ss.includes("b");
+  console.log(sr, "s:" + sr, ss.includes("z") ? 1 : 2, typeof ss.includes("a"));
+  const sl = xs.slice(1).includes(5);
+  console.log(sl, xs.slice(1).includes(3), typeof sl);
+  console.log(xs.indexOf(5), typeof xs.indexOf(5));
+}
+main();
+"""
+"search_result_argument_module.js" = """
+const xs = [];
+xs.push(3);
+function show(v) { console.log(v); }
+show(xs.includes(3));
+"""
+"search_result_argument.js" = """
+function main() {
+  const xs = [];
+  xs.push(3);
+  function show(v) { console.log(v); }
+  show(xs.includes(3));
+}
+main();
+"""
+"search_result_or_module.js" = """
+const xs = [];
+xs.push(3);
+console.log(xs.includes(4) || 0);
+"""
+"search_result_or.js" = """
+function main() {
+  const xs = [];
+  xs.push(3);
+  console.log(xs.includes(4) || 0);
+}
+main();
+"""
+"search_result_mixed_binding_module.js" = """
+const xs = [];
+xs.push(3);
+let r = 0;
+r = xs.includes(3);
+console.log(r);
+"""
+"search_result_mixed_binding.js" = """
+function main() {
+  const xs = [];
+  xs.push(3);
+  let r = 0;
+  r = xs.includes(3);
+  console.log(r);
+}
+main();
+"""
 
 [[case]]
 name = "pop_until_one_element_remains_module_scope"
@@ -348,3 +470,77 @@ name = "an_extra_slice_argument_is_refused_under_check"
 args = ["check", "extra_args_slice_function.js"]
 exit = "failure"
 stderr_contains = ["E5506", "${SLICE_ARGS} in `main`"]
+
+[[case]]
+name = "rounded_slice_bounds_match_node_module_scope"
+rationale = "Residual R2 (spec A-39): a `Math.floor`/`Math.ceil`/`Math.trunc`/`Math.round` bound, one through a `const`, and a `Math.min`/`Math.max` bound mixing an integer and a float (`3.5`, truncated as A-13 says). Before the fix `run` failed with E4201 while `check` passed. stdout is node v26.10.0's."
+args = ["run", "rounded_slice_bounds_module.js"]
+exit = "success"
+stdout = "30,40,50 0,10,20 40,50\n3 30,40,50 20\n"
+
+[[case]]
+name = "rounded_slice_bounds_match_node"
+args = ["run", "rounded_slice_bounds.js"]
+exit = "success"
+stdout = "30,40,50 0,10,20 40,50\n3 30,40,50 20\n"
+
+[[case]]
+name = "an_includes_result_keeps_its_boolean_value_module_scope"
+rationale = "Residual R1 (spec A-40): a growable `includes` result stored in a `const` or a `let`, returned from a function, used with `typeof`, concatenation, a template, `if`, `!`, `?:`, `===` and `==`, on i64, f64 and string arrays and on a `slice` result, prints what node prints (before: `1`, `0` and `typeof` `0`). `indexOf` stays a number. stdout is node v26.10.0's."
+args = ["run", "search_result_values_module.js"]
+exit = "success"
+stdout = "true false boolean boolean xtrue false!\nhas 3\nno 4\nyes false true true false true 2\ntrue false boolean has=true true false\ntrue boolean\ntrue boolean false ftrue\ntrue s:true 2 boolean\ntrue false boolean\n1 number\n"
+
+[[case]]
+name = "an_includes_result_keeps_its_boolean_value"
+args = ["run", "search_result_values.js"]
+exit = "success"
+stdout = "true false boolean boolean xtrue false!\nhas 3\nno 4\nyes false true true false true 2\ntrue false boolean has=true true false\ntrue boolean\ntrue boolean false ftrue\ntrue s:true 2 boolean\ntrue false boolean\n1 number\n"
+
+[[case]]
+name = "check_accepts_the_includes_result_programs"
+args = ["check", "search_result_values_module.js", "search_result_values.js"]
+exit = "success"
+
+[[case]]
+name = "an_includes_result_passed_as_an_argument_is_refused_under_check"
+rationale = "Residual R1 (spec A-40): a growable `includes` result in a position kali cannot keep as a boolean -- a call argument (node prints `true`), a `||` value (node `0` for `false || 0`), a binding that also holds a number (node `true`) -- printed `1` or `0`. Inference now refuses it, so `check` and `run` agree."
+args = ["check", "search_result_argument_module.js", "search_result_argument.js", "search_result_or_module.js", "search_result_or.js", "search_result_mixed_binding_module.js", "search_result_mixed_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array"]
+
+[[case]]
+name = "an_includes_result_passed_as_an_argument_is_refused_under_run_module_scope"
+args = ["run", "search_result_argument_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]
+
+[[case]]
+name = "an_includes_result_passed_as_an_argument_is_refused_under_run"
+args = ["run", "search_result_argument.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "an_includes_result_in_a_logical_value_is_refused_under_run"
+args = ["run", "search_result_or.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "an_includes_result_in_a_logical_value_is_refused_under_run_module_scope"
+args = ["run", "search_result_or_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]
+
+[[case]]
+name = "an_includes_result_in_a_mixed_binding_is_refused_under_run"
+args = ["run", "search_result_mixed_binding.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array in `main`"]
+
+[[case]]
+name = "an_includes_result_in_a_mixed_binding_is_refused_under_run_module_scope"
+args = ["run", "search_result_mixed_binding_module.js"]
+exit = "failure"
+stderr_contains = ["E5506", "result of a growable array at module scope"]

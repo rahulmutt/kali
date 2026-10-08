@@ -249,6 +249,13 @@ impl FunctionEmitter<'_> {
         if self.is_env_get_string_call(id) {
             return Some(EqClass::EnvGetResult);
         }
+        // Spec A-40: a growable `includes` result is a boolean, so
+        // `r === 1` is `false` as in node.
+        match self.growable_search_value_type(id) {
+            Some("boolean") => return Some(EqClass::Boolean),
+            Some("number") => return Some(EqClass::Number),
+            _ => {}
+        }
 
         // Syntactic proofs. Resolve through the const-fold binding chain the
         // same way `typeof_static_text` does, so `const zero = 0; zero === null`

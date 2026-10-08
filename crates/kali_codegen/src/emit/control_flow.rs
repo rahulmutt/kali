@@ -2593,6 +2593,12 @@ impl<'a> FunctionEmitter<'a> {
                                 produced: true,
                                 shape: if repr == kali_common::Repr::F64 {
                                     ValueShape::Float
+                                } else if self
+                                    .repr_table
+                                    .binding_is_search_boolean("_start", text)
+                                {
+                                    // Spec A-40: a growable `includes` result.
+                                    ValueShape::Boolean
                                 } else {
                                     ValueShape::Scalar
                                 },
@@ -2602,7 +2608,15 @@ impl<'a> FunctionEmitter<'a> {
                             function.instruction(&Instruction::LocalGet(index));
                             EmittedValue {
                                 produced: true,
-                                shape: ValueShape::Unknown,
+                                // Spec A-40: a growable `includes` result.
+                                shape: if self
+                                    .repr_table
+                                    .binding_is_search_boolean(&self.function_name, text)
+                                {
+                                    ValueShape::Boolean
+                                } else {
+                                    ValueShape::Unknown
+                                },
                             }
                         }
                         IdentifierResolution::Binding(bound) => {

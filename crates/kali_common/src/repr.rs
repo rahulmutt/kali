@@ -362,6 +362,14 @@ pub struct ReprTable {
     /// evidence only: `scalar(..)` is `I64` for a boolean, so the repr cannot
     /// say this.
     boolean_consts: HashSet<(String, String)>,
+    /// Growable-runtime-arrays spec A-40 (residual R1): `(scope, binding)`
+    /// pairs every write of which is a boolean and at least one of which is a
+    /// growable `includes` result. Positive evidence for codegen: a read
+    /// carries `ValueShape::Boolean`, so it prints `true`/`false`.
+    search_boolean_bindings: HashSet<(String, String)>,
+    /// The function twin of `search_boolean_bindings`: every `return` of the
+    /// function is such a boolean, so a call result carries the shape.
+    search_boolean_returns: HashSet<String>,
     /// `(scope, binding)` pairs that provably carry a `String()` intrinsic
     /// coercion RESULT (Stage P5 T-new-E). Unlike the numeric_* allowlists
     /// above, this is a DENY taint: `repr_infer` seeds no `Repr::String` for a
@@ -991,6 +999,28 @@ impl ReprTable {
 
     pub fn set_boolean_consts(&mut self, consts: HashSet<(String, String)>) {
         self.boolean_consts = consts;
+    }
+
+    /// Growable-runtime-arrays spec A-40: record the boolean bindings and
+    /// functions the `includes`-result analysis proved.
+    pub fn set_search_booleans(
+        &mut self,
+        bindings: HashSet<(String, String)>,
+        returns: HashSet<String>,
+    ) {
+        self.search_boolean_bindings = bindings;
+        self.search_boolean_returns = returns;
+    }
+
+    /// Whether `scope`.`binding` always holds a boolean (spec A-40).
+    pub fn binding_is_search_boolean(&self, scope: &str, binding: &str) -> bool {
+        self.search_boolean_bindings
+            .contains(&(scope.to_string(), binding.to_string()))
+    }
+
+    /// Whether every `return` of `func` is a boolean (spec A-40).
+    pub fn return_is_search_boolean(&self, func: &str) -> bool {
+        self.search_boolean_returns.contains(func)
     }
 
     pub fn binding_is_boolean_const(&self, scope: &str, binding: &str) -> bool {

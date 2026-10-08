@@ -9,6 +9,7 @@ pub(crate) mod elem_proof;
 pub(crate) mod facts;
 pub(crate) mod flow;
 pub(crate) mod positions;
+pub(crate) mod values;
 
 /// `expr` with its parentheses, `as` assertions and `satisfies` clauses
 /// removed: the forms the growable walk and the element proof see through.

@@ -75,24 +75,69 @@ fn an_f64_growable_join_lowers_through_the_float_join_body() {
 }
 
 #[test]
-fn a_float_index_on_a_growable_write_is_refused_not_lowered_to_invalid_wasm() {
-    // Task 9 fix round 1, I1: the float-index refusal covers writes as well
-    // as reads (it lived only on the read lane; a write emitted an f64 under
-    // the index slot, and the module failed to load).
+fn a_float_index_on_a_growable_binding_lowers_through_a_checked_truncation() {
+    // Residual R2 (spec A-39) replaces Task 9's codegen refusal: inference
+    // refuses a float index on a growable binding unless it proves it whole
+    // (`Math.floor(…)`), so codegen truncates it with `i64.trunc_f64_s`
+    // (NaN and infinities trap) on reads and writes. Before, a `Math.floor`
+    // index left an f64 under the i64 index operand: E4201.
     let mut ctx = ctx_with_growable("main", "a", kali_common::Repr::I64);
     // Inference would make `f` an f64 scalar; set by hand (no inference here).
     ctx.repr_table
         .set_scalar("main", "f", kali_common::Repr::F64);
     let program = parse_and_lower_lir(
-        "function main() { const a = []; a.push(1); let f = 0.5; a[f] = 9; console.log(a.length); } main();",
+        "function main() { const a = []; a.push(1); a.push(2); const x = 3; const f = Math.floor(x / 2); a[f] = 9; a[Math.floor(x / 2)] = a[f] + a[Math.floor(x / 3)]; console.log(a.length); } main();",
     );
     let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn math_rounding_and_extrema_of_a_float_lower_to_valid_wasm() {
+    // Residual R2 (spec A-39): the f64 lane of `Math.floor`/`ceil`/`trunc`/
+    // `round`/`abs`/`min`/`max`. Before, each left an f64 where its integer
+    // lane promised an i64 (E4201).
+    let mut ctx = ctx_with_growable("main", "unused", kali_common::Repr::I64);
+    for name in ["x", "a", "b", "c", "d", "e", "g", "h"] {
+        ctx.repr_table
+            .set_scalar("main", name, kali_common::Repr::F64);
+    }
+    let program = parse_and_lower_lir(
+        "function main() { const x = 9 / 2; const a = Math.floor(x); const b = Math.ceil(x); const c = Math.trunc(-x); const d = Math.round(Math.round(x) / 3); const e = Math.abs(-x); const g = Math.min(x, 2, a); const h = Math.max(1, x); console.log(a, b, c, d, e, g, h, Math.round(x) + 1); } main();",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
+}
+
+#[test]
+fn a_search_boolean_binding_and_return_carry_the_boolean_shape() {
+    // Residual R1 (spec A-40): a binding or function inference proved holds
+    // a growable `includes` result reads as a boolean, so `typeof` interns
+    // "boolean" (before: the unproven `typeof` placeholder `0`).
+    let mut ctx = ctx_with_growable("main", "xs", kali_common::Repr::I64);
+    ctx.repr_table.set_search_booleans(
+        [("main".to_string(), "r".to_string())]
+            .into_iter()
+            .collect(),
+        ["has".to_string()].into_iter().collect(),
+    );
+    let program = parse_and_lower_lir(
+        "function has(a, v) { return v > 1; } function main() { const xs = []; xs.push(3); const r = xs.includes(3); console.log(r, typeof r, typeof has(xs, 2)); } main();",
+    );
+    let result = lower_lir_to_wasm(&mut ctx, &program);
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    wasmparser::Validator::new()
+        .validate_all(&result.wasm_bytes)
+        .expect("generated wasm should validate");
     assert!(
-        result.diagnostics.iter().any(|d| d.code == Some(5506)
-            && d.message
-                .contains("indexing a growable array with a floating-point value")),
-        "{:?}",
-        result.diagnostics
+        result.wasm_bytes.windows(7).any(|w| w == b"boolean"),
+        "typeof of a search boolean must intern \"boolean\""
     );
 }
 

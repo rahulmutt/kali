@@ -578,7 +578,15 @@ impl<'a> FunctionEmitter<'a> {
         handle: LirNodeId,
         index: LirNodeId,
     ) -> bool {
-        if self.is_float_valued(index) {
+        // Spec A-39 (residual R2): inference refuses a float index on a
+        // growable BINDING unless it proves the index a whole number, so
+        // such an index is truncated here; `i64.trunc_f64_s` traps on NaN and
+        // on an infinity. Any other receiver (a growable field) keeps the
+        // codegen refusal.
+        let float_index = self.is_float_valued(index);
+        let receiver = self.node(self.unwrap_transparent(handle));
+        let named = receiver.kind == LirNodeKind::Value && receiver.children.is_empty();
+        if float_index && !named {
             let _ = self.deny_e5506(
                 function,
                 "indexing a growable array with a floating-point value is unavailable in the current phase",
@@ -588,6 +596,11 @@ impl<'a> FunctionEmitter<'a> {
         let base = self.emit_growable_receiver_handle(function, handle);
         if !base.produced {
             function.instruction(&Instruction::I64Const(0));
+        }
+        if float_index {
+            let _ = self.emit_node(function, index, true);
+            function.instruction(&Instruction::I64TruncF64S);
+            return true;
         }
         // Stage P5 T-new-E: a `String()`-result index on a growable array is a
         // numeric-consumption sink; route through the numeric-materialization
@@ -1064,6 +1077,55 @@ impl<'a> FunctionEmitter<'a> {
         let receiver = callee_node.children[0];
         self.growable_value_elem(receiver)?;
         Some((method, receiver, node.children[1..].to_vec()))
+    }
+
+    /// Spec A-40 (residual R1): `typeof` of a growable search value —
+    /// `"boolean"` for an `includes` result (a direct call, a read of a
+    /// binding or a call of a function inference proved boolean,
+    /// `ReprTable::binding_is_search_boolean`/`return_is_search_boolean`) and
+    /// `"number"` for an `indexOf` call.
+    pub(crate) fn growable_search_value_type(&self, id: LirNodeId) -> Option<&'static str> {
+        let id = self.unwrap_transparent(id);
+        let node = self.node(id);
+        match node.kind {
+            LirNodeKind::Call => {
+                if let Some((method, _, _)) = self.growable_method_call_parts(node) {
+                    return match method {
+                        GrowableMethod::Includes => Some("boolean"),
+                        GrowableMethod::IndexOf => Some("number"),
+                        _ => None,
+                    };
+                }
+                let callee = self.node(self.unwrap_transparent(*node.children.first()?));
+                if callee.kind == LirNodeKind::Value && callee.children.is_empty() {
+                    let name = callee.text.as_deref()?;
+                    if self.repr_table.return_is_search_boolean(name) {
+                        return Some("boolean");
+                    }
+                }
+                None
+            }
+            LirNodeKind::Value if node.children.is_empty() => {
+                let name = node.text.as_deref()?;
+                self.identifier_is_search_boolean(name).then_some("boolean")
+            }
+            _ => None,
+        }
+    }
+
+    /// Spec A-40: a read of `name` here reads a binding inference proved
+    /// always holds a boolean (a local of this function, or a module-scope
+    /// global).
+    pub(crate) fn identifier_is_search_boolean(&self, name: &str) -> bool {
+        match self.resolve_identifier_kind(name) {
+            IdentifierResolution::Local(_) => self
+                .repr_table
+                .binding_is_search_boolean(&self.function_name, name),
+            IdentifierResolution::ModuleGlobal(..) => {
+                self.repr_table.binding_is_search_boolean("_start", name)
+            }
+            _ => false,
+        }
     }
 
     /// `a.pop()`: the last element, removed; an empty array traps with the

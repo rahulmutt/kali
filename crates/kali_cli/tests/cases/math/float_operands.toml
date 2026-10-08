@@ -1,0 +1,43 @@
+# Residual R2 of the growable-runtime-arrays lane (spec A-39): `Math.floor`,
+# `Math.ceil`, `Math.trunc`, `Math.round`, `Math.abs`, `Math.min` and `Math.max`
+# with a floating-point operand. Before the fix each failed to load
+# (`error[E4201]: failed to load WASM module`) while `check` passed. Expected
+# stdout is node v26.10.0's (`env -u FORCE_COLOR node FILE.js`), 2026-10-08.
+
+[source]
+"float_operands_module.js" = """
+let x = 9;
+x = x / 2;
+const neg = -x;
+console.log(Math.floor(x), Math.ceil(x), Math.trunc(neg), Math.round(x), Math.round(neg), Math.round(x / 9 - 1.25));
+console.log(Math.abs(neg), Math.min(x, 2), Math.max(x, 1), Math.max(neg, -10, x / 3), Math.min(3, x, 1.25 * 4));
+const r = Math.floor(x) + 1;
+console.log(r, typeof r, "r=" + r, 1 / Math.round(-0.25 * x / 4.5), 1 / Math.ceil(-x / 9));
+console.log(Math.floor(0 / (x - 4.5)), Math.ceil(x / 0), Math.max(x, 0 / (x - 4.5)));
+"""
+"float_operands.js" = """
+function main() {
+  let x = 9;
+  x = x / 2;
+  const neg = -x;
+  console.log(Math.floor(x), Math.ceil(x), Math.trunc(neg), Math.round(x), Math.round(neg), Math.round(x / 9 - 1.25));
+  console.log(Math.abs(neg), Math.min(x, 2), Math.max(x, 1), Math.max(neg, -10, x / 3), Math.min(3, x, 1.25 * 4));
+  const r = Math.floor(x) + 1;
+  console.log(r, typeof r, "r=" + r, 1 / Math.round(-0.25 * x / 4.5), 1 / Math.ceil(-x / 9));
+  console.log(Math.floor(0 / (x - 4.5)), Math.ceil(x / 0), Math.max(x, 0 / (x - 4.5)));
+}
+main();
+"""
+
+[[case]]
+name = "rounding_and_extrema_of_a_float_match_node_module_scope"
+rationale = "The result of each is an f64, so NaN, Infinity and -0 (shown through `1 / x`) survive: `Math.round` rounds half up (`-4.5` to `-4`, `-0.25` to `-0`), `Math.min`/`Math.max` mix integer and float operands and propagate NaN."
+args = ["run", "float_operands_module.js"]
+exit = "success"
+stdout = "4 5 -4 5 -4 -1\n4.5 2 4.5 1.5 3\n5 number r=5 -Infinity -Infinity\nNaN Infinity NaN\n"
+
+[[case]]
+name = "rounding_and_extrema_of_a_float_match_node"
+args = ["run", "float_operands.js"]
+exit = "success"
+stdout = "4 5 -4 5 -4 -1\n4.5 2 4.5 1.5 3\n5 number r=5 -Infinity -Infinity\nNaN Infinity NaN\n"

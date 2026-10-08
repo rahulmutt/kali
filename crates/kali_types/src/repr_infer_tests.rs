@@ -2695,8 +2695,10 @@ fn proven_index_bound_and_search_operands_stay_admitted() {
     for body in [
         "for (let i = 0; i < a.length; i++) console.log(a[i]);",
         "console.log(a[a.length - 1]);",
-        // A float index is proven a number; codegen refuses it (A-24).
-        "const h = 1.5; console.log(a[0], a[h]);",
+        // RE-PINNED 2026-10-08 (residual R2, A-39): a fractional float index
+        // (`const h = 1.5; a[h]`) is now refused here (`values_tests.rs`); a
+        // whole one is admitted.
+        "const h = 1.5; console.log(a[0], a[Math.floor(h)]);",
         "a[0] = 5; let k = 1; a[k] = a[k] + 1; console.log(a.join());",
         "console.log(a.slice(1, 3).join(), a.slice(-2).join(), a.slice(0.5).join());",
         "const x = 2; console.log(a.includes(x), a.indexOf(x), a.includes(2.5));",

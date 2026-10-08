@@ -3863,6 +3863,15 @@ pub(crate) fn collect_function_locals(
         }
     }
 
+    // Growable-runtime-arrays residual R2 (spec A-39): the f64 `Math.round`
+    // lane holds its operand's bits in a dedicated i64 local (the generic
+    // trailing scratch may be live across an enclosing emitter's children).
+    // Reserved on the coarse `.round` member superset; every other function
+    // stays byte-identical.
+    if body_contains_member_named(nodes, body_id, "round") {
+        locals.push(math_round_scratch_local_name());
+    }
+
     // Array-return lane: reserve the materialization scratch only in a function
     // the inference admitted as array-returning, so every other function stays
     // byte-identical.
@@ -3880,6 +3889,12 @@ pub(crate) fn collect_function_locals(
 /// `ReprTable` entry), which is exactly what the helpers store in it.
 pub(crate) fn growable_scratch_local_name() -> String {
     "__growable_scratch".to_string()
+}
+
+/// Name of the dedicated i64 scratch local the f64 `Math.round` lane holds
+/// its operand's bits in (spec A-39). Default-typed i64.
+pub(crate) fn math_round_scratch_local_name() -> String {
+    "__math_round_scratch".to_string()
 }
 
 /// Name of the dedicated i64 scratch local `emit_return` materializes a
@@ -4166,6 +4181,26 @@ fn body_contains_push_member(nodes: &[LirNode], body_id: LirNodeId) -> bool {
             .any(|child| !is_function_like(nodes, *child) && walk(nodes, *child))
     }
     walk(nodes, body_id)
+}
+
+/// True when the body (nested functions excluded) reads a member `.name`
+/// (a one-child `Value` node with that text).
+fn body_contains_member_named(nodes: &[LirNode], body_id: LirNodeId, name: &str) -> bool {
+    fn walk(nodes: &[LirNode], id: LirNodeId, name: &str) -> bool {
+        let Some(node) = nodes.get(id.0 as usize) else {
+            return false;
+        };
+        if node.kind == LirNodeKind::Value
+            && node.text.as_deref() == Some(name)
+            && node.children.len() == 1
+        {
+            return true;
+        }
+        node.children
+            .iter()
+            .any(|child| !is_function_like(nodes, *child) && walk(nodes, *child, name))
+    }
+    walk(nodes, body_id, name)
 }
 
 fn body_contains_unary_plus(nodes: &[LirNode], body_id: LirNodeId) -> bool {

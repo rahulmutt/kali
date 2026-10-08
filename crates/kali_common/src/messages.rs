@@ -677,6 +677,23 @@ pub fn growable_unproven_operand_message(position: &str, subject: &str, search: 
     )
 }
 
+/// Growable-runtime-arrays spec A-39 (residual R2): a floating-point index
+/// inference cannot prove is a whole number.
+pub fn growable_fractional_index_message(subject: &str) -> String {
+    format!(
+        "indexing a growable array with a floating-point value that is not proven to be a whole number is unavailable in the current phase (the growable array {subject}); a floating-point index must come from `Math.floor`, `Math.ceil`, `Math.trunc` or `Math.round`, directly or through a binding every write of which does"
+    )
+}
+
+/// Growable-runtime-arrays spec A-40 (residual R1): a growable `includes`
+/// result in a position kali cannot keep as a boolean.
+pub fn growable_search_result_use_message(func: &str) -> String {
+    format!(
+        "the `includes` result of a growable array {} is used where kali cannot keep it as a boolean (a call argument, an element or field, a `&&`, `||`, `??` or `?:` value, a capture, or a binding or `return` that also holds something other than a boolean); kali would print it as `1` or `0`, so this is unavailable in the current phase",
+        growable_scope_phrase(func)
+    )
+}
+
 /// Growable-runtime-arrays spec A-6 (M12).
 pub fn growable_temporary_use_message(source: &str) -> String {
     format!(

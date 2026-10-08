@@ -1058,6 +1058,9 @@ impl<'a> FunctionEmitter<'a> {
         if self.is_float_valued(arg) {
             return Some("number");
         }
+        if let Some(kind) = self.growable_search_value_type(arg) {
+            return Some(kind);
+        }
         let resolved = self.resolve_literal_aggregate(arg).unwrap_or(arg);
         let resolved = self.unwrap_transparent(resolved);
         let node = self.node(resolved);
@@ -1776,6 +1779,10 @@ impl<'a> FunctionEmitter<'a> {
                         .get(1)
                         .copied()
                         .is_some_and(|arg| self.math_sqrt_constant_root(arg).is_none());
+                }
+                // Spec A-39: `Math.floor(x / 2)` and friends on a float.
+                if self.math_float_lane(node).is_some() {
+                    return true;
                 }
                 if let Some((crate::emit::growable::GrowableMethod::Pop, receiver, _)) =
                     self.growable_method_call_parts(node)

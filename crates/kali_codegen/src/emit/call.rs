@@ -2073,6 +2073,13 @@ impl<'a> FunctionEmitter<'a> {
             };
         }
 
+        // Growable-runtime-arrays residual R2 (spec A-39): a floating-point
+        // operand takes the f64 lane (the integer lanes below would leave an
+        // f64 where they promise an i64: E4201).
+        if let Some(method) = self.math_float_lane(node) {
+            return self.emit_math_float_lane(function, node, method);
+        }
+
         if let Some(import_index) = self.math_max_import_index(&callee_node) {
             let args: Vec<_> = node.children.iter().skip(1).copied().collect();
             let Some(first_arg) = args.first() else {
@@ -3807,6 +3814,10 @@ impl<'a> FunctionEmitter<'a> {
         if let Some(index) = resolved {
             let shape = if self.repr_table.return_repr(callee_name) == kali_common::Repr::F64 {
                 ValueShape::Float
+            } else if self.repr_table.return_is_search_boolean(callee_name) {
+                // Spec A-40: every `return` is a growable `includes` result
+                // or another boolean.
+                ValueShape::Boolean
             } else {
                 ValueShape::Unknown
             };
@@ -4522,7 +4533,7 @@ impl<'a> FunctionEmitter<'a> {
     /// produces a plain integer (a folded `I64Const` or the integer-math
     /// import's result), never a tagged handle.
     pub(crate) fn is_integer_rounding_math_call(&self, node: &LirNode) -> bool {
-        if node.kind != LirNodeKind::Call {
+        if node.kind != LirNodeKind::Call || self.math_float_lane(node).is_some() {
             return false;
         }
         let Some(&callee) = node.children.first() else {
