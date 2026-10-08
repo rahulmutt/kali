@@ -1,0 +1,208 @@
+# Growable runtime arrays, end to end (spec §2.1, §5.2): the corpus's dominant
+# shape — an array built with `push` in one function, returned, and measured,
+# indexed, iterated, joined and sliced by the caller — at module scope and
+# inside `main()`. Every expected stdout is node v26.10.0's for the same file,
+# measured 2026-10-07 with `env -u FORCE_COLOR node FILE.js`.
+#
+# p1's loop body is written `line = line + (x + " ")`, not the spec's
+# `line = line + x + " "`: a resolver gate that predates this work
+# (`reject_unsupported_string_variable_addition`, E3200) refuses a `+` chain
+# whose left operand is a variable-plus-variable sum. node prints the same for
+# both forms; the gate is recorded as a followup, not fixed here.
+
+[source]
+"p1_module.js" = """
+function build(n) { const out = []; for (let i = 0; i < n; i++) out.push(i * i); return out; }
+const xs = build(5);
+console.log(xs.length, xs[2]);
+let line = "";
+for (const x of xs) line = line + (x + " ");
+console.log(line);
+console.log(xs.join(","), xs.slice(1, 3).join("-"));
+"""
+"p1_function.js" = """
+function build(n) { const out = []; for (let i = 0; i < n; i++) out.push(i * i); return out; }
+function main() {
+  const xs = build(5);
+  console.log(xs.length, xs[2]);
+  let line = "";
+  for (const x of xs) line = line + (x + " ");
+  console.log(line);
+  console.log(xs.join(","), xs.slice(1, 3).join("-"));
+}
+main();
+"""
+"three_module.js" = """
+function make() { const xs = []; xs.push(1); return xs; }
+function addTwo(a) { a.push(2); a.push(3); }
+function total(a) { let s = 0; for (const x of a) s += x; return s; }
+const xs = make();
+addTwo(xs);
+console.log(xs.length, total(xs));
+"""
+"three_function.js" = """
+function make() { const xs = []; xs.push(1); return xs; }
+function addTwo(a) { a.push(2); a.push(3); }
+function total(a) { let s = 0; for (const x of a) s += x; return s; }
+function main() { const xs = make(); addTwo(xs); console.log(xs.length, total(xs)); }
+main();
+"""
+"floats_module.js" = """
+function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }
+function floats() { const out = []; let big = 0.5; for (let i = 0; i < 71; i++) big = big * 2; out.push(0.5); out.push(big); out.push(-1 / big * 0); out.push(1 / 3); return out; }
+const data = [];
+for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+const avg = averages(data, 2);
+console.log(avg.length, avg[0], avg.join(" "));
+console.log(floats().join(","));
+let t = 0;
+for (const v of data) t += v;
+console.log(t);
+"""
+"floats_function.js" = """
+function averages(xs, k) { const out = []; for (let i = 0; i + k <= xs.length; i++) { let s = 0; for (let j = 0; j < k; j++) s += xs[i + j]; out.push(s / k); } return out; }
+function floats() { const out = []; let big = 0.5; for (let i = 0; i < 71; i++) big = big * 2; out.push(0.5); out.push(big); out.push(-1 / big * 0); out.push(1 / 3); return out; }
+function main() {
+  const data = [];
+  for (let i = 1; i <= 5; i++) data.push(i * 1.5);
+  const avg = averages(data, 2);
+  console.log(avg.length, avg[0], avg.join(" "));
+  console.log(floats().join(","));
+  let t = 0;
+  for (const v of data) t += v;
+  console.log(t);
+}
+main();
+"""
+"wrap_module.js" = """
+function wrap(words, width, indent) {
+  const lines = [];
+  let line = indent;
+  let used = 0;
+  let started = false;
+  for (const word of words) {
+    const n = word.length;
+    if (started && used + 1 + n > width) { lines.push(line); line = indent + word; used = n; }
+    else if (started) { line = line + " " + word; used = used + 1 + n; }
+    else { line = line + word; used = n; }
+    started = true;
+  }
+  if (started) lines.push(line);
+  return lines;
+}
+const words = [];
+for (const w of ["the", "quick", "brown", "fox", "jumps", "over", "the", "lazy", "dog"]) words.push(w);
+for (const line of wrap(words, 16, "> ")) { console.log(line); }
+"""
+"wrap_function.js" = """
+function wrap(words, width, indent) {
+  const lines = [];
+  let line = indent;
+  let used = 0;
+  let started = false;
+  for (const word of words) {
+    const n = word.length;
+    if (started && used + 1 + n > width) { lines.push(line); line = indent + word; used = n; }
+    else if (started) { line = line + " " + word; used = used + 1 + n; }
+    else { line = line + word; used = n; }
+    started = true;
+  }
+  if (started) lines.push(line);
+  return lines;
+}
+function main() {
+  const words = [];
+  for (const w of ["the", "quick", "brown", "fox", "jumps", "over", "the", "lazy", "dog"]) words.push(w);
+  for (const line of wrap(words, 16, "> ")) { console.log(line); }
+}
+main();
+"""
+
+"arrow_module.js" = """
+const mk = () => { const o = []; o.push(1); o.push(2); return o; };
+for (const x of mk()) console.log(x);
+console.log(mk().join("-"));
+"""
+"arrow_function.js" = """
+function main() {
+  const mk = () => { const o = []; o.push(1); o.push(2); return o; };
+  for (const x of mk()) console.log(x);
+  console.log(mk().join("-"));
+}
+main();
+"""
+
+[[case]]
+name = "p1_build_return_measure_index_iterate_join_slice_module_scope"
+rationale = "Spec §2.1 p1. At the baseline: E5506 at `push` (literal array), `for-of`, `join`, `slice`."
+args = ["run", "p1_module.js"]
+exit = "success"
+stdout = "5 4\n0 1 4 9 16 \n0,1,4,9,16 1-4\n"
+
+[[case]]
+name = "p1_build_return_measure_index_iterate_join_slice"
+args = ["run", "p1_function.js"]
+exit = "success"
+stdout = "5 4\n0 1 4 9 16 \n0,1,4,9,16 1-4\n"
+
+[[case]]
+name = "check_accepts_p1"
+args = ["check", "p1_module.js", "p1_function.js"]
+exit = "success"
+
+[[case]]
+name = "check_accepts_every_end_to_end_program"
+rationale = "`check` and `run` agree: every program `run` executes below also passes `check`."
+args = ["check", "three_module.js", "three_function.js", "floats_module.js", "floats_function.js", "wrap_module.js", "wrap_function.js", "arrow_module.js", "arrow_function.js"]
+exit = "success"
+
+[[case]]
+name = "built_in_one_function_grown_in_a_second_iterated_in_a_third_module_scope"
+args = ["run", "three_module.js"]
+exit = "success"
+stdout = "3 6\n"
+
+[[case]]
+name = "built_in_one_function_grown_in_a_second_iterated_in_a_third"
+args = ["run", "three_function.js"]
+exit = "success"
+stdout = "3 6\n"
+
+[[case]]
+name = "f64_arrays_average_join_and_iterate_module_scope"
+rationale = "Spec §5.2: a moving-average sum over an f64 parameter, `join` of 0.5, 2^70, -0 and 1/3 (A-11, A-12), and a `for-of` sum."
+args = ["run", "floats_module.js"]
+exit = "success"
+stdout = "4 2.25 2.25 3.75 5.25 6.75\n0.5,1.1805916207174113e+21,0,0.3333333333333333\n22.5\n"
+
+[[case]]
+name = "f64_arrays_average_join_and_iterate"
+args = ["run", "floats_function.js"]
+exit = "success"
+stdout = "4 2.25 2.25 3.75 5.25 6.75\n0.5,1.1805916207174113e+21,0,0.3333333333333333\n22.5\n"
+
+[[case]]
+name = "reduced_wrap_paragraph_module_scope"
+rationale = "Spec §1, §5.2: `wrap_paragraph.js`'s `wrap()` with the words pushed from a literal (no string methods) and the width kept in a number (A-17). `for (const line of wrap(…))` iterates a call result."
+args = ["run", "wrap_module.js"]
+exit = "success"
+stdout = "> the quick brown\n> fox jumps over\n> the lazy dog\n"
+
+[[case]]
+name = "reduced_wrap_paragraph"
+args = ["run", "wrap_function.js"]
+exit = "success"
+stdout = "> the quick brown\n> fox jumps over\n> the lazy dog\n"
+
+[[case]]
+name = "for_of_and_join_over_an_arrow_bound_to_a_const_module_scope"
+rationale = "A growable array returned by an arrow function bound to a `const` (an aliased callee), iterated with `for-of` and joined straight off the call."
+args = ["run", "arrow_module.js"]
+exit = "success"
+stdout = "1\n2\n1-2\n"
+
+[[case]]
+name = "for_of_and_join_over_an_arrow_bound_to_a_const"
+args = ["run", "arrow_function.js"]
+exit = "success"
+stdout = "1\n2\n1-2\n"
