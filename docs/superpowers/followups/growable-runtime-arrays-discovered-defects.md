@@ -396,6 +396,41 @@ to 31 `const` hops (one shared depth, 1024); `!(xs.includes(1), 5)` printing `tr
   `2`, `!(0, 5)` prints `true`, `let a = 0; const r = (a = 3, a + 1)` gives `0` (node
   `5`, `false`, `4`). Silent outside the growable lane; A-44 refuses only commas
   holding a growable `includes` result.
-- **A `const` chain longer than 1024 hops** is not a compile-time number on either
+- ~~**A `const` chain longer than 1024 hops** is not a compile-time number on either
   side, so `Math.floor` of a fractional one is refused by `run` only ("non-integer
-  numeric literals"); `main` folds it.
+  numeric literals"); `main` folds it.~~ **RESOLVED in round 4 (A-45):** the bound is now the number of bindings.
+
+## Residual round 4 (2026-10-08)
+
+**Resolved (A-45):** a rounding call over a float `const` or loop item that inference
+did not publish no longer gets the run-only "non-integer numeric literals" refusal. A
+`const` in a class method, a class-expression method or an anonymous `export default
+function`; a `const` through `as`/`satisfies`; and a `for-of` variable over a `let`
+declaration, a `const` array alias, `Object.freeze([...])`, `new Set([...])`,
+`Object.values({...})` or `.map(v => v)` fold as on `main` (rr/p19-p22: r05, r28, r31,
+r39, s01, s04, s05, s09-s11, s16, s17, s21, t03, t04, t07, t16, t19, u02, u07, u10). A
+`const` chain longer than 1024 hops folds again (round 3's entry below is resolved).
+`for (const x of [3, "a"])` and sibling loops reusing `x` over numbers then strings
+(t01, s07, r23) print node's output in a program without a growable array. **Attribution:**
+this branch caused that refusal (Task 7 round 2, `5f95f028a`, `flow_plain_for_of_items`:
+a mixed literal array seeds the loop variable with both a string and a number); `main`
+printed node's output. The flow now runs in full only in a program with a growable array.
+
+**Left:**
+
+- **A `let` `for-of` variable read through `emit_node` reads a stale local** (pre-existing,
+  silent, on `main` too): `for (let x of [1, 2]) { console.log(x, Math.abs(x)); }` prints
+  `0 1 0 2` (node `1 1 2 2`). The unroll lane binds the item, but a read that resolves to
+  the declared local wins. A-45's f64 lane emits the item's value, so a rounding call is
+  right; the bare `x` in the same `console.log` still prints `0`.
+- **A float loop item copied into a local fails at load** when the loop variable is not a
+  compile-time number (`for (const x of new Set([1.5])) { const y = x; console.log(y); }`,
+  E4201, as on `main`). A compile-time loop variable (a `const` over a literal array) keeps
+  round 3's behaviour.
+- **In a program with a growable array, a float `let` loop item under `%`** (`for (let x of
+  [1.5, 2.5]) { console.log(Math.floor(x) % 2); }`) fails at load (E4201; `check` exits 0).
+  The item is not a published compile-time number (`let`), so the rounding call is f64 and
+  float `%` has no lowering (the round 1 gap). It was a run-only refusal in round 3. A
+  mixed literal loop there (`for (const x of [3, "a"])`) is still the both-axes refusal.
+- **`function f() { const t = t; … }` hangs the compiler** (pre-existing, `main` too; node
+  prints the program's output when `f` is never called).
