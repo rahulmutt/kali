@@ -293,7 +293,18 @@
     "node v26.10.0 says. It is NOT retired: its strict-mode face (`\"use strict\"; {042: 1}`, a",
     "SyntaxError in node, exit 0 in kali) is still ACCEPTS_INVALID and unpinned. R-57's",
     "`alternate` text still names R-58 as the cluster it declines; that is history, not a live",
-    "assignment."
+    "assignment.",
+    "",
+    "REMOVED 2026-10-08 by the growable-runtime-arrays project, residual round 5",
+    "(docs/superpowers/specs/2026-10-07-growable-runtime-arrays-design.md, A-45 (5)): R-53 leaves.",
+    "Its `var` and `let` lanes (`r53v_*`, `r53l_*`, both scopes) now assert FIXED -- kali prints",
+    "`iter=1..3`/`t=6` and `iter=1..4`/`s=10`, matching node v26.10.0 -- and its `const` control",
+    "already did, so it has no SILENT lane left and left the SILENT filter. The static for-of",
+    "unroll lane never wrote a `var`/`let` loop variable's slot; a read of the variable now",
+    "resolves to the bound item while the body is emitted. A body that assigns the loop",
+    "variable keeps the slot lane and is still silent, but no oracle case pins that shape. G4's",
+    "cluster DEFINITION stays: two other members are still SILENT, so this is the R-13",
+    "precedent (a member leaves a cluster that survives)."
   ],
   "clusters": [
     {
@@ -524,13 +535,6 @@
       "registerSource": "unclustered (an isolated lowering/emit contract mismatch), but it is a textbook instance of the pattern §3's G-clusters keep circling.",
       "alternate": null,
       "alternateCluster": null
-    },
-    {
-      "id": "R-53",
-      "cluster": "G4 — there is no value distinct from the scalar `0`",
-      "registerSource": "G4 (there is no value distinct from the scalar `0`) by symptom; plausibly G7 (binding storage) by mechanism, which is not traced. Recorded as G4.",
-      "alternate": "G7, named and declined by the register.",
-      "alternateCluster": "G7 — binding storage: `const` has no cell, non-`const` composite initializers are lost"
     },
     {
       "id": "R-57",

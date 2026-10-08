@@ -414,23 +414,49 @@ r39, s01, s04, s05, s09-s11, s16, s17, s21, t03, t04, t07, t16, t19, u02, u07, u
 (t01, s07, r23) print node's output in a program without a growable array. **Attribution:**
 this branch caused that refusal (Task 7 round 2, `5f95f028a`, `flow_plain_for_of_items`:
 a mixed literal array seeds the loop variable with both a string and a number); `main`
-printed node's output. The flow now runs in full only in a program with a growable array.
+printed node's output. The flow now runs in full only in a program with a growable array
+(round 5: only for a loop that feeds a growable element; see below).
 
 **Left:**
 
-- **A `let` `for-of` variable read through `emit_node` reads a stale local** (pre-existing,
-  silent, on `main` too): `for (let x of [1, 2]) { console.log(x, Math.abs(x)); }` prints
-  `0 1 0 2` (node `1 1 2 2`). The unroll lane binds the item, but a read that resolves to
-  the declared local wins. A-45's f64 lane emits the item's value, so a rounding call is
-  right; the bare `x` in the same `console.log` still prints `0`.
+- ~~**A `let` `for-of` variable read through `emit_node` reads a stale local** … prints
+  `0 1 0 2`.~~ **RESOLVED in round 5** except when the body assigns the variable (below).
 - **A float loop item copied into a local fails at load** when the loop variable is not a
   compile-time number (`for (const x of new Set([1.5])) { const y = x; console.log(y); }`,
   E4201, as on `main`). A compile-time loop variable (a `const` over a literal array) keeps
   round 3's behaviour.
-- **In a program with a growable array, a float `let` loop item under `%`** (`for (let x of
-  [1.5, 2.5]) { console.log(Math.floor(x) % 2); }`) fails at load (E4201; `check` exits 0).
+- **A float `let` loop item pushed onto a growable array, under `%`** (`for (let x of
+  [1.5, 2.5]) { out.push(x); console.log(Math.floor(x) % 2); }`) fails at load (E4201; `check`
+  exits 0; round 5 narrowed this from every such loop in a program with a growable array).
   The item is not a published compile-time number (`let`), so the rounding call is f64 and
   float `%` has no lowering (the round 1 gap). It was a run-only refusal in round 3. A
   mixed literal loop there (`for (const x of [3, "a"])`) is still the both-axes refusal.
 - **`function f() { const t = t; … }` hangs the compiler** (pre-existing, `main` too; node
   prints the program's output when `f` is never called).
+
+## Residual round 5 (2026-10-08)
+
+**Resolved (A-45 (4), (5)):** round 4's program-wide gate turned Task 7's plain `for-of`
+item flow on for every loop of a program with any growable array, including a
+function-local one or one in a helper, which `main` runs. Mixed literal loops were refused
+at `check` and float `let` items under `% 2` / `| 0` failed at load (rr/p28 d02, d03, d08;
+p29 e01, e02, e06, e08, e09, e13, e14, e15). The flow now runs per loop: only when the loop
+variable, or a value derived from it through bindings, parameters or returns, reaches a
+growable element, index, `slice` bound or search value (or is a compile-time number). A
+mixed literal loop that feeds a growable push stays refused. Also resolved: a `let` loop
+variable of a static (unrolled) `for-of` read as its never-written slot (`0`), which made
+`for (let x of [1, 2]) out.push(x)` store `0, 0` silently in the growable lane (and
+`console.log(z + 1)` print `1` on `main`).
+
+**Left:**
+
+- **A `let` loop variable the body assigns** still reads its never-written slot (pre-existing,
+  silent, on `main` too): `for (let x of [1, 2]) { x = x + 10; console.log(x); }` prints `1 2`
+  (node `11 12`). The slot lane is kept when the body assigns the variable.
+- **`Math.min`/`Math.max` over a float literal-valued binding inference gives no float repr**
+  (a `let` loop item that feeds no growable element, a float `const`): refused by `run` only
+  ("non-integer numeric literals"), as on `main` (`const t = 1.5; Math.min(t, 2)`; rr/p29
+  e03). Round 4 printed node's output for the loop shape when the program had a growable
+  array, because the item then floated.
+- **The feeding set comes from a probe walk**: a program with a growable array runs inference's
+  Phase B twice (once to collect the M2 write, return and argument proofs, once for real).
