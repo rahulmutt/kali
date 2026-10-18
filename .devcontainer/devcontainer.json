@@ -1,11 +1,8 @@
 {
   "name": "kali",
-  "image": "ghcr.io/rahulmutt/dev:sha-d68288d",
+  "image": "ghcr.io/rahulmutt/dev:sha-f881552",
   "workspaceFolder": "/workspace",
   "remoteUser": "dev",
-  "containerEnv": {
-    "INSTALL_DEVENV": "true",
-  },
   "postCreateCommand": "post-create.sh",
   "customizations": {
     "devpod": {
